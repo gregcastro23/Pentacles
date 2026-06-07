@@ -1,0 +1,12 @@
+# Exclude non-web subprojects from deployment
+server/
+unity/
+feeder/
+
+# Exclude local environment files and logs
+.git/
+.gitignore
+.vercel/
+node_modules/
+.DS_Store
+*.log
