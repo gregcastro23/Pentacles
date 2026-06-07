@@ -48,15 +48,42 @@ public static class ChartCalculator
         double asc = 0, mc = 0;
         if (timeKnown) AscMc(jd, latDeg, lonDeg, out asc, out mc);
 
+        ushort ascMin = (ushort)DegToMin(asc); // absolute zodiac arc-minutes
+        ushort mcMin = (ushort)DegToMin(mc);
+
+        // House ring (preview only — the server re-derives it authoritatively in
+        // create_player). Placidus when the time is known and the latitude is
+        // sub-polar; Whole Sign otherwise, with no interception claims.
+        ushort[] cusps;
+        HouseSystem system;
+        List<byte> intercepted;
+        if (!timeKnown)
+        {
+            int sunSign = 0;
+            foreach (var p in placements) if (p.Body == Planet.Sun) { sunSign = p.Sign; break; }
+            cusps = WholeSignCusps(sunSign * 1800);
+            system = HouseSystem.WholeSign;
+            intercepted = new List<byte>();
+        }
+        else
+        {
+            double lat = (latDeg == 0.0 && lonDeg == 0.0) ? DefaultLatDeg : latDeg; // NYC fallback
+            cusps = ComputeHouseCusps(ascMin, mcMin, lat, SkyMath.Obliquity, out system);
+            intercepted = system == HouseSystem.Placidus ? Interceptions(cusps) : new List<byte>();
+        }
+
         return new NatalChart
         {
             BirthUnix = ((DateTimeOffset)DateTime.SpecifyKind(birthUtc, DateTimeKind.Utc)).ToUnixTimeSeconds(),
             BirthLat = latDeg,
             BirthLon = lonDeg,
             TimeKnown = timeKnown,
-            Ascendant = (ushort)Math.Round(SkyMath.Norm360(asc) * 60.0), // absolute zodiac arc-minutes
-            Midheaven = (ushort)Math.Round(SkyMath.Norm360(mc) * 60.0),
+            Ascendant = ascMin,
+            Midheaven = mcMin,
             Placements = placements,
+            HouseCusps = new List<ushort>(cusps),
+            HouseSystem = system,
+            InterceptedSigns = intercepted,
         };
     }
 
@@ -259,6 +286,137 @@ public static class ChartCalculator
             Math.Cos(ramc),
             -(Math.Sin(e) * Math.Tan(lat) + Math.Cos(e) * Math.Sin(ramc)));
         ascDeg = SkyMath.Norm360(SkyMath.Rad2Deg(asc));
+    }
+
+    // ── Houses (Placidus) ─────────────────────────────────────────────────
+    //
+    // Numerical mirror of server/src/chart.rs — these must stay identical to the
+    // authoritative server math. Verified against the shared Brooklyn vector:
+    //   1991-06-23 10:24 EDT (40.678, -73.944), Asc ≈ 0° Virgo →
+    //   cusps {9060,10450,12148,14139,16234,18171,19860,21250,1348,3339,5434,7371}
+    //   intercepting Gemini + Sagittarius, doubling Virgo + Pisces.
+    // cusp[0] = Asc, cusp[9] = MC; all values are absolute zodiac arc-minutes.
+
+    public const double PolarCircleDeg = 66.5;  // beyond this, Placidus is undefined
+    public const double DefaultLatDeg = 40.7128; // New York, NY (-74.0060)
+    const int PlacidusIters = 30;                // deep past convergence, deterministic
+    const int FullWheel = 21600;                 // 360° × 60'
+
+    static int DegToMin(double deg)
+    {
+        double d = SkyMath.Norm360(deg);
+        long m = (long)Math.Round(d * 60.0) % FullWheel;
+        if (m < 0) m += FullWheel;
+        return (int)m;
+    }
+    static double MinToDeg(int m) => m / 60.0;
+
+    // Ecliptic longitude (deg) of the ecliptic point sharing right ascension raDeg.
+    static double EclipticLonFromRa(double raDeg, double eps)
+    {
+        double ra = SkyMath.Deg2Rad(raDeg);
+        return SkyMath.Norm360(SkyMath.Rad2Deg(Math.Atan2(Math.Sin(ra), Math.Cos(ra) * Math.Cos(eps))));
+    }
+
+    // Semidiurnal arc (deg, 0..180) at geographic latitude phi (rad). Circumpolar
+    // points clamp rather than going NaN.
+    static double SemidiurnalArc(double lonDeg, double phi, double eps)
+    {
+        double lon = SkyMath.Deg2Rad(lonDeg);
+        double decl = Math.Asin(Math.Sin(eps) * Math.Sin(lon));
+        double x = -Math.Tan(phi) * Math.Tan(decl);
+        if (x < -1.0) x = -1.0; else if (x > 1.0) x = 1.0;
+        return SkyMath.Rad2Deg(Math.Acos(x));
+    }
+
+    // One Placidus intermediate cusp by fixed-point iteration.
+    static double PlacidusCusp(double ramc, double phi, double eps, double baseOff, double frac)
+    {
+        double ra = SkyMath.Norm360(ramc + baseOff);
+        for (int i = 0; i < PlacidusIters; i++)
+        {
+            double lon = EclipticLonFromRa(ra, eps);
+            double sd = SemidiurnalArc(lon, phi, eps);
+            ra = SkyMath.Norm360(ramc + baseOff + frac * sd);
+        }
+        return EclipticLonFromRa(ra, eps);
+    }
+
+    // Whole-Sign cusps: each house a whole sign from 0°, the 1st being the sign
+    // ascMin falls in. Polar / time-unknown fallback (no interceptions).
+    static ushort[] WholeSignCusps(int ascMin)
+    {
+        int rising = (ascMin / 1800) % 12;
+        var c = new ushort[12];
+        for (int h = 0; h < 12; h++) c[h] = (ushort)(((rising + h) % 12) * 1800);
+        return c;
+    }
+
+    /// Placidus house cusps from the chart angles. Returns the twelve cusps in
+    /// absolute arc-minutes (cusp[0]=Asc, cusp[9]=MC) and the system used —
+    /// Placidus, or Whole Sign above the polar circle where Placidus is undefined.
+    public static ushort[] ComputeHouseCusps(int ascMin, int mcMin, double latDeg, double obliquityDeg, out HouseSystem system)
+    {
+        if (Math.Abs(latDeg) > PolarCircleDeg)
+        {
+            system = HouseSystem.WholeSign;
+            return WholeSignCusps(ascMin);
+        }
+        double mc = MinToDeg(mcMin);
+        double eps = SkyMath.Deg2Rad(obliquityDeg);
+        double phi = SkyMath.Deg2Rad(latDeg);
+        // Recover RAMC from MC: tan(RAMC) = tan(MC)·cos ε.
+        double mcr = SkyMath.Deg2Rad(mc);
+        double ramc = SkyMath.Norm360(SkyMath.Rad2Deg(Math.Atan2(Math.Sin(mcr) * Math.Cos(eps), Math.Cos(mcr))));
+
+        double c11 = PlacidusCusp(ramc, phi, eps, 0.0, 1.0 / 3.0);
+        double c12 = PlacidusCusp(ramc, phi, eps, 0.0, 2.0 / 3.0);
+        double c2 = PlacidusCusp(ramc, phi, eps, 60.0, 2.0 / 3.0);
+        double c3 = PlacidusCusp(ramc, phi, eps, 120.0, 1.0 / 3.0);
+
+        int half = FullWheel / 2;
+        var c = new ushort[12];
+        c[0] = (ushort)ascMin;                         // 1  Ascendant
+        c[1] = (ushort)DegToMin(c2);                   // 2
+        c[2] = (ushort)DegToMin(c3);                   // 3
+        c[3] = (ushort)((mcMin + half) % FullWheel);   // 4  IC
+        c[4] = (ushort)DegToMin(c11 + 180.0);          // 5
+        c[5] = (ushort)DegToMin(c12 + 180.0);          // 6
+        c[6] = (ushort)((ascMin + half) % FullWheel);  // 7  Descendant
+        c[7] = (ushort)DegToMin(c2 + 180.0);           // 8
+        c[8] = (ushort)DegToMin(c3 + 180.0);           // 9
+        c[9] = (ushort)mcMin;                          // 10 Midheaven
+        c[10] = (ushort)DegToMin(c11);                 // 11
+        c[11] = (ushort)DegToMin(c12);                 // 12
+        system = HouseSystem.Placidus;
+        return c;
+    }
+
+    /// Signs holding no cusp (interceptions). Sorted ascending by sign index.
+    public static List<byte> Interceptions(ushort[] cusps)
+    {
+        var counts = new int[12];
+        foreach (var cc in cusps) counts[(cc / 1800) % 12]++;
+        var intercepted = new List<byte>();
+        for (byte s = 0; s < 12; s++) if (counts[s] == 0) intercepted.Add(s);
+        return intercepted;
+    }
+
+    /// Which house (1..12) an absolute-arc-minute longitude falls in, honouring
+    /// unequal, wrapping cusp bounds. A longitude on a cusp belongs to the house
+    /// that cusp opens.
+    public static int HouseOf(ushort[] cusps, int absMinutes)
+    {
+        int lon = ((absMinutes % FullWheel) + FullWheel) % FullWheel;
+        for (int h = 0; h < 12; h++)
+        {
+            int a = cusps[h];
+            int b = cusps[(h + 1) % 12];
+            int span = ((b - a) % FullWheel + FullWheel) % FullWheel;
+            int off = ((lon - a) % FullWheel + FullWheel) % FullWheel;
+            if (span > 0 && off < span) return h + 1;
+        }
+        return 12;
     }
 
     // ── Dignities ─────────────────────────────────────────────────────────

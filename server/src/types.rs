@@ -25,6 +25,12 @@ pub enum Loadout { Active, Defense, Bench }
 #[derive(SpacetimeType, Clone, Copy, PartialEq, Eq, Debug)]
 pub enum CombatModel { LaneSkirmish, SpreadDuel, AutoSiege }
 
+/// House-division system a chart's cusps were derived under. Placidus is the
+/// default; Whole Sign is the graceful fallback above the polar circle and for
+/// time-unknown (solar) charts, where an unequal system can't be trusted.
+#[derive(SpacetimeType, Clone, Copy, PartialEq, Eq, Debug)]
+pub enum HouseSystem { Placidus, WholeSign }
+
 /// Lifecycle of a live 3-lane duel.
 #[derive(SpacetimeType, Clone, Copy, PartialEq, Eq, Debug)]
 pub enum DuelState { Active, Resolved }
