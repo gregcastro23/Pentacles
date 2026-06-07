@@ -6,6 +6,7 @@ use crate::types::*;
 use spacetimedb::{Identity, ReducerContext, Table};
 
 const FULL_WHEEL: u16 = 21600; // 360° * 60'
+const SIGN_MINUTES: u16 = 1800; // 30° * 60' — one sign
 
 /// Sign (0=Aries) → suit of its triplicity.
 pub fn sign_element(sign: u8) -> Suit {
@@ -717,65 +718,170 @@ pub fn synastry(a: &NatalChart, b: &NatalChart) -> SynastryScore {
     }
 }
 
-/// Mint one card from the live sky at this instant — a card with its own natal
-/// moment, granted to the victor of a capture. Its source body is the planet now
-/// most dignified in the sky; stats and rank follow the starter-deck rules, with
-/// the arc-minute taken from the very second of minting so no two moments mint
-/// alike. Lands on the Bench. Returns the new card_id, or None if the sky has not
-/// been seeded yet (no ephemeris).
-pub fn mint_from_sky(ctx: &ReducerContext, owner: Identity) -> Option<u64> {
-    let cfg = ctx.db.game_config().id().find(&0u8)?;
-    let rising = ((cfg.season_degree / 30) % 12) as u8;
-    let degree_in_sign = (cfg.season_degree % 30) as u8; // 0..29
+// ── The successful-round draft (the repointed Sky-Drop) ─────────────────────
+//
+// Cards are gained exactly two ways: the onboarding deck (`mint_deck`) and one
+// auto-drafted card at the end of a *successful* round. This is that draft — the
+// old per-capture Sky-Drop, repointed and built on the Blend above. It is a pure
+// value so the whole draft is deterministic and unit-testable;
+// `reducers::draft_one` writes the row.
 
-    // The card's source: the transiting planet now strongest in its zone-sign.
-    let mut best: Option<(Planet, u8, i8)> = None;
-    for e in ctx.db.ephemeris().iter() {
-        let sign = (rising + e.transiting_zone) % 12;
-        let dig = sky_dignity(e.body, sign);
-        let better = match best {
-            Some((_, _, bd)) => dig > bd,
-            None => true,
-        };
-        if better {
-            best = Some((e.body, sign, dig));
-        }
+/// The shape of a drafted card before it's written.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct DraftSpec {
+    pub suit: Suit,
+    pub rank: u8, // always a pip (2..10) — never an Ace, a court (natal-reserved), or a trump (hero)
+    pub health: u16,
+    pub attack: u16,
+    pub armour: u16,
+    pub cooldown_ms: u16,
+    pub source_body: Planet,
+    pub inverted: bool,
+}
+
+/// Deterministic per-round draft seed: identity × round index × source body. The
+/// same chart, sky snapshot, and round index always reproduce the same card.
+pub fn drop_seed(owner: Identity, round_index: u64, body: Planet) -> u64 {
+    let mut h: u64 = 0xcbf29ce484222325;
+    for b in owner.to_byte_array() {
+        h ^= b as u64;
+        h = h.wrapping_mul(0x100000001b3);
     }
-    let (body, sign, dignity) = best?;
+    for b in round_index.to_le_bytes() {
+        h ^= b as u64;
+        h = h.wrapping_mul(0x100000001b3);
+    }
+    h ^= body.idx() as u64;
+    h.wrapping_mul(0x100000001b3)
+}
 
-    // The minute-of-arc is the literal second of birth.
-    let second = (ctx.timestamp.to_micros_since_unix_epoch() / 1_000_000).rem_euclid(60) as u16;
-    let p = Placement {
+/// Stat multiplier for a draft: `transit_strength × natal dignity`, mapped to a
+/// gentle band. Strong when a body that's well-dignified *in your chart* is also
+/// prominent in today's sky; weak when neither holds. Monotonic in both, and
+/// always in [0.75, 1.35] so a draft never balloons.
+pub fn draft_power_mult(transit_strength: f32, natal_dignity: i8) -> f32 {
+    let dignity_factor = (1.0 + 0.15 * natal_dignity as f32).max(0.25); // -5→0.25 … +5→1.75
+    let raw = transit_strength.max(0.0) * dignity_factor;
+    (0.75 + 0.02 * raw).clamp(0.75, 1.35)
+}
+
+/// Reverse a card's stats for a retrograde source: offense and defense swap and
+/// vitality is dampened — a card that fights against its own grain.
+fn invert_stats(health: u16, attack: u16, armour: u16, cooldown_ms: u16) -> (u16, u16, u16, u16) {
+    (
+        (health as f32 * 0.85) as u16,                 // dampened vitality
+        armour,                                        // attack ← armour
+        attack,                                        // armour ← attack
+        (cooldown_ms as u32 * 6 / 5).min(3000) as u16, // +20% slower, capped
+    )
+}
+
+/// Effective strength of a spec, matching combat's `card_strength` weighting — used
+/// to decide cap replacement (a stronger draft displaces the weakest bench card).
+pub fn spec_strength(s: &DraftSpec) -> f32 {
+    s.attack as f32 + s.health as f32 * 0.5 + s.armour as f32 * 0.4
+}
+
+/// A body's essential dignity in the player's natal chart (its placement's dignity),
+/// or peregrine (0) if the chart has no placement for it.
+fn natal_dignity_of(chart: &NatalChart, body: Planet) -> i8 {
+    chart
+        .placements
+        .iter()
+        .find(|p| p.body == body)
+        .map(|p| p.dignity)
+        .unwrap_or(0)
+}
+
+/// Draft one card from the blended sky for a successful round. Pure and
+/// deterministic: same (chart, sky, retrograde, round_index, owner) → same `DraftSpec`.
+///
+/// - Source: the body the Blend leads with this tick — `blended_faction_vector`'s
+///   top body that's actually up in the sky (transits can open/close it).
+/// - Suit: the element of that body's transit sign.
+/// - Rank: the decan pip (2..10) — never an Ace's reserved 1, a court, or a trump.
+/// - Power: transit_strength (the body's blended sky prominence × the salience of
+///   the house it transits) × its natal dignity, shaping the reused Sky-Drop stat
+///   block, then clamped strictly below the owner's hero trump.
+/// - Inversion: a retrograde source yields `inverted: true` with reversed stats.
+///
+/// Returns `None` only when there is no live sky to draft from.
+pub fn draft_card(
+    chart: &NatalChart,
+    sky: &[TransitPos],
+    retrograde: &[bool; 10],
+    round_index: u64,
+    owner: Identity,
+    hero_ceiling: Option<(u16, u16, u16)>, // (attack, health, armour) of the hero trump
+) -> Option<DraftSpec> {
+    let v = blended_faction_vector(chart, sky);
+    // Leading source: the transit the blend favours most (restricted to bodies up in
+    // the sky, since we need the live position to suit & rank the card).
+    let lead = sky.iter().max_by(|a, b| {
+        v[a.body.idx()]
+            .partial_cmp(&v[b.body.idx()])
+            .unwrap_or(std::cmp::Ordering::Equal)
+    })?;
+    let body = lead.body;
+    let lon = equatorial_to_ecliptic_min(lead.ra, lead.dec);
+    let sign = ((lon / SIGN_MINUTES) % 12) as u8;
+    let degree = ((lon % SIGN_MINUTES) / 60) as u8; // 0..29
+    let suit = sign_element(sign);
+    let rank = pip_rank(sign, degree); // 2..10 — already a pip, never court/trump
+
+    // Power: this body's blended prominence × the salience of the house it transits ×
+    // its natal dignity. The blended vector is sum-normalised (≈0..1), so its share is
+    // scaled back up into the power band. The arc-minute is drawn from the drop seed,
+    // NOT the wall clock (that would break reproducibility).
+    let seed = drop_seed(owner, round_index, body);
+    let salience = if chart.time_known {
+        house_salience(house_of(chart, lon))
+    } else {
+        1.0 // no trustworthy houses → no house weighting (Part D degradation)
+    };
+    let transit_strength = v[body.idx()].max(0.0) * salience * 30.0;
+    let power = draft_power_mult(transit_strength, natal_dignity_of(chart, body));
+
+    let placement = Placement {
         body,
         sign,
-        arc_minutes: degree_in_sign as u16 * 60 + second,
-        retrograde: false,
-        dignity,
+        arc_minutes: degree as u16 * 60 + (seed % 60) as u16,
+        retrograde: retrograde[body.idx()],
+        dignity: sky_dignity(body, sign),
     };
-    let (health, attack, armour, cooldown_ms) = card_stats(&p, 0.0);
+    let (h, a, ar, cd) = card_stats(&placement, 0.0); // reuse the Sky-Drop stat shaping
+    let mut health = (h as f32 * power) as u16;
+    let mut attack = (a as f32 * power) as u16;
+    let mut armour = (ar as f32 * power) as u16;
+    let mut cooldown_ms = cd;
 
-    let card = ctx.db.card().insert(Card {
-        card_id: 0,
-        owner,
-        suit: sign_element(sign),
-        rank: pip_rank(sign, p.degree()),
+    // Retrograde source → inverted card with reversed stats.
+    let inverted = retrograde[body.idx()];
+    if inverted {
+        let (ih, ia, iar, icd) = invert_stats(health, attack, armour, cooldown_ms);
+        health = ih;
+        attack = ia;
+        armour = iar;
+        cooldown_ms = icd;
+    }
+
+    // Clamp strictly below the hero trump — the draft never rivals the keystone.
+    if let Some((ca, ch, car)) = hero_ceiling {
+        attack = attack.min(ca.saturating_sub(1));
+        health = health.min(ch.saturating_sub(1));
+        armour = armour.min(car.saturating_sub(1));
+    }
+
+    Some(DraftSpec {
+        suit,
+        rank,
         health,
         attack,
         armour,
         cooldown_ms,
         source_body: body,
-        inverted: false,
-        is_trump: false,
-        level: 1,
-        minted_at: ctx.timestamp,
-    });
-    ctx.db.deck_slot().insert(DeckSlot {
-        slot_id: 0,
-        owner,
-        card_id: card.card_id,
-        loadout: Loadout::Bench,
-    });
-    Some(card.card_id)
+        inverted,
+    })
 }
 
 #[cfg(test)]
@@ -999,5 +1105,121 @@ mod tests {
         assert!(s.element > 0.0, "same-sign Suns resonate");
         assert!(s.aspect > 0.0, "conjunct Suns aspect");
         assert_eq!(synastry(&a, &b), synastry(&b, &a));
+    }
+
+    // ── The successful-round draft ──────────────────────────────────────────
+
+    const NO_RETRO: [bool; 10] = [false; 10];
+
+    /// A transit at an exact ecliptic longitude (β = 0), via the forward transform.
+    fn pos(body: Planet, lon_deg: f64) -> TransitPos {
+        let lon = lon_deg.to_radians();
+        let eps = OBLIQUITY_DEG.to_radians();
+        let ra = (lon.sin() * eps.cos()).atan2(lon.cos()).to_degrees().rem_euclid(360.0);
+        let dec = (eps.sin() * lon.sin()).asin().to_degrees();
+        TransitPos { body, ra, dec }
+    }
+
+    #[test]
+    fn same_inputs_draft_the_same_card() {
+        let c = brooklyn();
+        let sky = [pos(Planet::Mars, 200.0)];
+        let a = draft_card(&c, &sky, &NO_RETRO, 7, Identity::ZERO, None).unwrap();
+        let b = draft_card(&c, &sky, &NO_RETRO, 7, Identity::ZERO, None).unwrap();
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn drop_seed_is_deterministic_and_separates_round_and_body() {
+        assert_eq!(
+            drop_seed(Identity::ZERO, 5, Planet::Mars),
+            drop_seed(Identity::ZERO, 5, Planet::Mars),
+        );
+        assert_ne!(
+            drop_seed(Identity::ZERO, 5, Planet::Mars),
+            drop_seed(Identity::ZERO, 6, Planet::Mars),
+        );
+        assert_ne!(
+            drop_seed(Identity::ZERO, 5, Planet::Mars),
+            drop_seed(Identity::ZERO, 5, Planet::Venus),
+        );
+    }
+
+    #[test]
+    fn a_retrograde_source_inverts_and_reverses_the_stats() {
+        let c = brooklyn();
+        let sky = [pos(Planet::Mars, 200.0)]; // single body → Mars leads
+        let upright = draft_card(&c, &sky, &NO_RETRO, 3, Identity::ZERO, None).unwrap();
+        let mut retro = NO_RETRO;
+        retro[Planet::Mars.idx()] = true;
+        let inverted = draft_card(&c, &sky, &retro, 3, Identity::ZERO, None).unwrap();
+
+        assert!(!upright.inverted);
+        assert!(inverted.inverted);
+        assert_eq!(inverted.source_body, upright.source_body); // same source, reversed effect
+        assert_eq!(inverted.attack, upright.armour); // offense ↔ defense swapped
+        assert_eq!(inverted.armour, upright.attack);
+        assert!(inverted.health <= upright.health); // vitality dampened
+        assert!(inverted.cooldown_ms >= upright.cooldown_ms); // and slower
+    }
+
+    #[test]
+    fn drafted_rank_is_always_a_pip() {
+        // pip_rank itself, across the whole zodiac:
+        for sign in 0..12u8 {
+            for deg in 0..30u8 {
+                assert!((1..=10).contains(&pip_rank(sign, deg)), "{sign}/{deg} escaped 1..=10");
+            }
+        }
+        // and as it surfaces through the draft, wherever the source transits:
+        let c = brooklyn();
+        for d in (0..360).step_by(10) {
+            let sky = [pos(Planet::Mars, d as f64)];
+            let spec = draft_card(&c, &sky, &NO_RETRO, 1, Identity::ZERO, None).unwrap();
+            assert!((1..=10).contains(&spec.rank), "λ {d}° drafted rank {}", spec.rank);
+        }
+    }
+
+    #[test]
+    fn draft_is_clamped_strictly_below_the_hero_trump() {
+        let c = brooklyn();
+        let sky = [pos(Planet::Mars, 200.0)];
+        let natural = draft_card(&c, &sky, &NO_RETRO, 1, Identity::ZERO, None).unwrap();
+        // Ceiling = the draft's own natural stats → every stat must come out strictly under.
+        let ceiling = Some((natural.attack, natural.health, natural.armour));
+        let clamped = draft_card(&c, &sky, &NO_RETRO, 1, Identity::ZERO, ceiling).unwrap();
+        assert!(clamped.attack < natural.attack);
+        assert!(clamped.health < natural.health);
+        assert!(clamped.armour < natural.armour);
+    }
+
+    #[test]
+    fn draft_power_rewards_dignity_and_prominence_within_a_band() {
+        assert!(draft_power_mult(10.0, 5) > draft_power_mult(10.0, -5));
+        assert!(draft_power_mult(20.0, 0) >= draft_power_mult(5.0, 0));
+        for ts in [0.0f32, 5.0, 50.0, 1000.0] {
+            for d in [-5i8, 0, 5] {
+                let m = draft_power_mult(ts, d);
+                assert!((0.75..=1.35).contains(&m), "power {m} escaped [0.75, 1.35]");
+            }
+        }
+    }
+
+    #[test]
+    fn transit_crossing_into_a_new_house_changes_the_leading_source_body() {
+        // A polar chart falls back to clean Whole-Sign houses (no interceptions), so a
+        // transit's house is just its sign's offset from the Ascendant. Asc 0° Virgo:
+        // 165° (Virgo) = house 1 (angular), 195° (Libra) = house 2 (succedent), 225°
+        // (Scorpio) = house 3 (cadent). Jupiter & Saturn are natally peregrine here, so
+        // the house a transit lights up decides which of them the blend leads with.
+        let c = chart(9060, 3339, 80.0, 10.0, true, vec![]);
+        assert_eq!(c.house_system, HouseSystem::WholeSign);
+        let saturn = pos(Planet::Saturn, 195.0); // fixed, succedent
+        let on_angle = [pos(Planet::Jupiter, 165.0), saturn]; // Jupiter angular → leads
+        let in_cadent = [pos(Planet::Jupiter, 225.0), saturn]; // Jupiter cadent → Saturn leads
+        let lead =
+            |sky: &[TransitPos]| draft_card(&c, sky, &NO_RETRO, 0, Identity::ZERO, None).unwrap().source_body;
+        assert_eq!(lead(&on_angle), Planet::Jupiter);
+        assert_eq!(lead(&in_cadent), Planet::Saturn);
     }
 }

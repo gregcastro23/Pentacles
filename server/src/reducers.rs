@@ -31,6 +31,21 @@ const REF_LAT_DEG: f64 = 40.7128;
 const REF_LON_DEG: f64 = -74.0060; // east-longitude negative
 const OBLIQUITY_DEG: f64 = 23.439291; // mean obliquity, matches SkyMath.Obliquity
 
+// ── The Ascendant clock (per-round re-draft) ────────────────────────────────
+/// A player's whole card collection is capped here. A draft past the cap replaces
+/// only the weakest *bench* card, and only if it's stronger (Active/Sentinel/trump
+/// are never culled). Also the ceiling on a single offline catch-up's mints.
+const COLLECTION_CAP: usize = 100;
+/// Round clock: a base round is ~15 arc-min of Ascendant ≈ 1 min real. It lengthens
+/// in 25-card bands as the deck grows past 25 — the Ascendant "slows" the more you
+/// carry (26–50 → +30s, 51–75 → +60s, …).
+const ROUND_BASE_SECS: i64 = 60;
+const ROUND_BAND_SECS: i64 = 30;
+const ROUND_BAND_SIZE: usize = 25;
+/// A single resolution pass never settles (and so never mints) more than one
+/// collection's worth of rounds — offline catch-up tops the deck up, never floods it.
+const MAX_CATCHUP_ROUNDS: u64 = COLLECTION_CAP as u64;
+
 // ── Lifecycle ─────────────────────────────────────────────────────────────
 
 /// Runs once on first publish (and after a clear). `ctx.sender` is the owner.
@@ -157,12 +172,25 @@ pub fn create_player(
         ctx.db.player().insert(player);
     }
 
-    // The live sky, read through this player's freshly-stamped houses, is the
-    // seed the per-round re-draft will consume (separate task). Exercised here at
-    // registration so the blend path stays live; logged, never fed to combat —
-    // dignity-weighting stays out of combat (GDD §02).
-    let blended = chart::blended_faction_vector(&chart, &live_transits(ctx));
-    log::debug!("blended faction vector for {:?}: {:?}", ctx.sender, blended);
+    // Start (or restart, on re-registration) the player's Ascendant clock: reset the
+    // round tally and arm exactly one round timer at the deck's current interval. The
+    // re-draft reads the live sky through these freshly-stamped houses each round
+    // (`chart::blended_faction_vector` over `live_transits`) — dignity-weighting stays
+    // in scoring/minting, never combat (GDD §02).
+    clear_round_timers(ctx, ctx.sender);
+    let rstate = RoundState {
+        identity: ctx.sender,
+        round_index: 0,
+        wins: 0,
+        fights: 0,
+        last_resolved_at: ctx.timestamp,
+    };
+    if ctx.db.round_state().identity().find(&ctx.sender).is_some() {
+        ctx.db.round_state().identity().update(rstate);
+    } else {
+        ctx.db.round_state().insert(rstate);
+    }
+    schedule_next_round(ctx, ctx.sender);
     Ok(())
 }
 
@@ -622,10 +650,12 @@ pub fn resolve_star_battle(
         };
 
         apply_control(ctx, star.region_hint, player.faction, delta);
-        // The sky grants the victor a card of this very moment.
-        let _ = chart::mint_from_sky(ctx, ctx.sender);
         let _ = prev;
     }
+
+    // Cards are no longer minted on capture; a won fight feeds this round's success
+    // tally, and the Ascendant clock drafts the reward at round end.
+    tally_fight(ctx, ctx.sender, won);
 
     // Log the battle outcome for the client UI
     ctx.db.battle().insert(Battle {
@@ -868,7 +898,10 @@ fn resolve_duel(ctx: &ReducerContext, duel: &mut Duel) {
     };
     duel.winner = Some(winner);
     apply_control(ctx, duel.zone_id, faction, 150 + a.max(b) as i32 * 60);
-    let _ = chart::mint_from_sky(ctx, winner);
+    // Both contestants fought this round; only the winner banks a win toward a draft.
+    let loser = if winner == duel.player_a { duel.player_b } else { duel.player_a };
+    tally_fight(ctx, winner, true);
+    tally_fight(ctx, loser, false);
 }
 /// Claim a stalled duel: if your opponent never committed within the grace
 /// window, the committed side takes the zone by walkover. Either participant may
@@ -949,7 +982,8 @@ fn award_walkover(ctx: &ReducerContext, duel: &mut Duel, a_wins: bool) -> bool {
     duel.state = DuelState::Resolved;
     duel.updated_at = ctx.timestamp;
     apply_control(ctx, duel.zone_id, faction, DUEL_WALKOVER);
-    let _ = chart::mint_from_sky(ctx, winner);
+    // A walkover is a clean win toward the committed side's round draft.
+    tally_fight(ctx, winner, true);
     true
 }
 
@@ -1085,6 +1119,7 @@ pub fn push_ephemeris(
     ra: f64,
     dec: f64,
     transiting_zone: u8,
+    retrograde: bool,
 ) -> Result<(), String> {
     let cfg = ctx
         .db
@@ -1101,6 +1136,7 @@ pub fn push_ephemeris(
         ra,
         dec,
         transiting_zone,
+        retrograde,
         tick: ctx.timestamp,
     };
     if ctx.db.ephemeris().body().find(&body).is_some() {
@@ -1109,6 +1145,300 @@ pub fn push_ephemeris(
         ctx.db.ephemeris().insert(row);
     }
     Ok(())
+}
+
+// ── The Ascendant clock: per-round re-draft ─────────────────────────────────
+
+/// The round interval (seconds) for a deck of `n` cards: the ~1-min base up to 25
+/// cards, then +30s per additional 25-card band (26–50 → 90s, 51–75 → 120s, …).
+fn round_interval_secs(n: usize) -> i64 {
+    let bands_past = n.saturating_sub(1) / ROUND_BAND_SIZE;
+    ROUND_BASE_SECS + ROUND_BAND_SECS * bands_past as i64
+}
+
+/// How many rounds one resolution pass should settle: at least one, at most a full
+/// collection's worth (the offline catch-up cap), from elapsed/interval.
+fn catchup_rounds(elapsed_secs: i64, interval_secs: i64, cap: u64) -> u64 {
+    let i = interval_secs.max(1);
+    ((elapsed_secs.max(0) / i) as u64).max(1).min(cap)
+}
+
+/// Auto-battle verdict for a round with no live result (offline/idle): the blended
+/// active deck simply has to out-muscle the round's challenge.
+fn auto_battle_win(deck_power: f32, challenge: f32) -> bool {
+    deck_power >= challenge
+}
+
+/// At the cap, a draft only earns a slot by beating the weakest cullable bench card.
+fn should_replace(new_strength: f32, weakest: Option<f32>) -> bool {
+    match weakest {
+        Some(w) => new_strength > w,
+        None => false, // nothing cullable (all Active/Sentinel/trump) → discard the draft
+    }
+}
+
+/// The weakest of a set of (card_id, strength) bench candidates.
+fn pick_weakest(candidates: &[(u64, f32)]) -> Option<(u64, f32)> {
+    candidates.iter().copied().reduce(|a, b| if b.1 < a.1 { b } else { a })
+}
+
+/// The round's challenge to beat in an auto-battle — scales with how much you're
+/// already carrying, so a hoarded collection must earn each new card.
+fn sky_challenge(deck_size: usize) -> f32 {
+    40.0 + 6.0 * deck_size as f32
+}
+
+/// Number of cards a player owns (their whole collection, across all loadouts).
+fn deck_size(ctx: &ReducerContext, owner: Identity) -> usize {
+    ctx.db.card().iter().filter(|c| c.owner == owner).count()
+}
+
+/// Tally a fought battle into the player's current round (a win drives success).
+/// Upserts the round_state so it also covers players registered before this clock.
+fn tally_fight(ctx: &ReducerContext, who: Identity, won: bool) {
+    if let Some(mut rs) = ctx.db.round_state().identity().find(&who) {
+        rs.fights += 1;
+        if won {
+            rs.wins += 1;
+        }
+        ctx.db.round_state().identity().update(rs);
+    } else {
+        ctx.db.round_state().insert(RoundState {
+            identity: who,
+            round_index: 0,
+            wins: if won { 1 } else { 0 },
+            fights: 1,
+            last_resolved_at: ctx.timestamp,
+        });
+    }
+}
+
+/// Which bodies are retrograde in the live sky right now, indexed by `Planet::idx`
+/// — the inversion signal for a drafted card (the blend's `TransitPos` drops it).
+fn retrograde_flags(ctx: &ReducerContext) -> [bool; 10] {
+    let mut retro = [false; 10];
+    for e in ctx.db.ephemeris().iter() {
+        retro[e.body.idx()] = e.retrograde;
+    }
+    retro
+}
+
+/// The owner's hero ceiling: the strongest stats among their trump cards, so a draft
+/// can be clamped strictly below the keystone. None if they hold no trump.
+fn hero_ceiling(ctx: &ReducerContext, owner: Identity) -> Option<(u16, u16, u16)> {
+    let mut best: Option<(u16, u16, u16)> = None;
+    for c in ctx.db.card().iter().filter(|c| c.owner == owner && c.is_trump) {
+        best = Some(match best {
+            Some((a, h, ar)) => (a.max(c.attack), h.max(c.health), ar.max(c.armour)),
+            None => (c.attack, c.health, c.armour),
+        });
+    }
+    best
+}
+
+/// Blended strength of the owner's Active loadout under the live ascendant weather —
+/// the deck power an offline/idle round auto-battles with.
+fn active_deck_power(ctx: &ReducerContext, owner: Identity) -> f32 {
+    let asc_sign = ctx
+        .db
+        .game_config()
+        .id()
+        .find(&0)
+        .map(|c| (c.ascendant_degree / 30 % 12) as u8)
+        .unwrap_or(0);
+    let favored = chart::sign_element(asc_sign);
+    let mut power = 0.0f32;
+    for slot in ctx
+        .db
+        .deck_slot()
+        .iter()
+        .filter(|s| s.owner == owner && s.loadout == Loadout::Active)
+    {
+        if let Some(c) = ctx.db.card().card_id().find(&slot.card_id) {
+            let s = stat_of(&c);
+            let strength = s.attack as f32 + s.health as f32 * 0.5 + s.armour as f32 * 0.4;
+            power += strength * combat::element_weather(s.suit, favored);
+        }
+    }
+    power
+}
+
+/// Mint one drafted card for a successful round, honoring the collection cap. Below
+/// cap the card lands on the bench; at cap it replaces the weakest bench card, and
+/// only if stronger — Active/Sentinel/trump cards are never culled.
+fn draft_one(ctx: &ReducerContext, owner: Identity, chart_row: &NatalChart, round_index: u64) {
+    let sky = live_transits(ctx);
+    if sky.is_empty() {
+        return; // the sky hasn't been seeded yet — nothing to draft from
+    }
+    let retro = retrograde_flags(ctx);
+    let Some(spec) =
+        chart::draft_card(chart_row, &sky, &retro, round_index, owner, hero_ceiling(ctx, owner))
+    else {
+        return;
+    };
+
+    if deck_size(ctx, owner) >= COLLECTION_CAP {
+        // Only bench, non-trump cards are cullable.
+        let candidates: Vec<(u64, f32)> = ctx
+            .db
+            .deck_slot()
+            .iter()
+            .filter(|s| s.owner == owner && s.loadout == Loadout::Bench)
+            .filter_map(|s| ctx.db.card().card_id().find(&s.card_id))
+            .filter(|c| !c.is_trump)
+            .map(|c| {
+                let st = stat_of(&c);
+                (c.card_id, st.attack as f32 + st.health as f32 * 0.5 + st.armour as f32 * 0.4)
+            })
+            .collect();
+        let weakest = pick_weakest(&candidates);
+        if !should_replace(chart::spec_strength(&spec), weakest.map(|(_, s)| s)) {
+            return; // not worth a slot (or nothing cullable) → discard the draft
+        }
+        delete_card_and_slots(ctx, weakest.unwrap().0);
+    }
+
+    write_draft(ctx, owner, &spec);
+}
+
+/// Delete a card and free every deck slot pointing at it.
+fn delete_card_and_slots(ctx: &ReducerContext, card_id: u64) {
+    ctx.db.card().card_id().delete(&card_id);
+    let dead: Vec<u64> = ctx
+        .db
+        .deck_slot()
+        .iter()
+        .filter(|s| s.card_id == card_id)
+        .map(|s| s.slot_id)
+        .collect();
+    for sid in dead {
+        ctx.db.deck_slot().slot_id().delete(&sid);
+    }
+}
+
+/// Write a drafted card to the bench.
+fn write_draft(ctx: &ReducerContext, owner: Identity, spec: &chart::DraftSpec) {
+    let card = ctx.db.card().insert(Card {
+        card_id: 0,
+        owner,
+        suit: spec.suit,
+        rank: spec.rank,
+        health: spec.health,
+        attack: spec.attack,
+        armour: spec.armour,
+        cooldown_ms: spec.cooldown_ms,
+        source_body: spec.source_body,
+        inverted: spec.inverted,
+        is_trump: false,
+        level: 1,
+        minted_at: ctx.timestamp,
+    });
+    ctx.db.deck_slot().insert(DeckSlot {
+        slot_id: 0,
+        owner,
+        card_id: card.card_id,
+        loadout: Loadout::Bench,
+    });
+}
+
+/// Remove every round timer for a player (used on re-register so clocks never stack).
+fn clear_round_timers(ctx: &ReducerContext, player: Identity) {
+    let ids: Vec<u64> = ctx
+        .db
+        .round_timer()
+        .iter()
+        .filter(|t| t.player == player)
+        .map(|t| t.scheduled_id)
+        .collect();
+    for id in ids {
+        ctx.db.round_timer().scheduled_id().delete(&id);
+    }
+}
+
+/// (Re)arm the player's round timer at the next interval for their *current* deck
+/// size. One-shot `Time` schedules re-arm themselves, so the interval tracks the deck
+/// as it grows — this is how the clock "slows" past 25 cards.
+fn schedule_next_round(ctx: &ReducerContext, player: Identity) {
+    let secs = round_interval_secs(deck_size(ctx, player));
+    let next = Timestamp::from_micros_since_unix_epoch(
+        ctx.timestamp.to_micros_since_unix_epoch() + secs * 1_000_000,
+    );
+    ctx.db.round_timer().insert(RoundTimer {
+        scheduled_id: 0,
+        player,
+        scheduled_at: ScheduleAt::Time(next),
+    });
+}
+
+/// The Ascendant clock, scheduled per player. Resolve the elapsed round(s) — one in
+/// normal pacing, a catch-up batch (capped at one collection) after any gap — draft
+/// a card for each success, then re-arm at the next deck-scaled interval. Keeps
+/// pacing server-side whether or not the player is connected.
+///
+/// Success: the most recent round honors any live result (won ≥1 battle); a round
+/// with no live play (offline/idle, and every catch-up round) falls to the auto-battle.
+#[reducer]
+pub fn resolve_round(ctx: &ReducerContext, timer: RoundTimer) {
+    // Scheduled reducers must be driven only by the scheduler, never a client.
+    if ctx.sender != ctx.identity() {
+        return;
+    }
+    let player_id = timer.player;
+    // Drop the fired one-shot row defensively (Time schedules are one-shot anyway).
+    ctx.db.round_timer().scheduled_id().delete(&timer.scheduled_id);
+
+    // Player gone (never registered / cleared) → let the clock stop.
+    if ctx.db.player().identity().find(&player_id).is_none() {
+        clear_round_timers(ctx, player_id);
+        return;
+    }
+
+    let mut rs = ctx.db.round_state().identity().find(&player_id).unwrap_or_else(|| {
+        let fresh = RoundState {
+            identity: player_id,
+            round_index: 0,
+            wins: 0,
+            fights: 0,
+            last_resolved_at: ctx.timestamp,
+        };
+        ctx.db.round_state().insert(fresh.clone());
+        fresh
+    });
+
+    let interval = round_interval_secs(deck_size(ctx, player_id));
+    let due = catchup_rounds(
+        elapsed_secs(ctx.timestamp, rs.last_resolved_at),
+        interval,
+        MAX_CATCHUP_ROUNDS,
+    );
+    let chart_row = ctx.db.natal_chart().identity().find(&player_id);
+
+    for i in 0..due {
+        // The most recent round (i == 0) honors any live result; catch-up rounds had
+        // no live play, so they fall to the auto-battle.
+        let (fights, wins) = if i == 0 { (rs.fights, rs.wins) } else { (0, 0) };
+        let success = if fights > 0 {
+            wins > 0
+        } else {
+            auto_battle_win(active_deck_power(ctx, player_id), sky_challenge(deck_size(ctx, player_id)))
+        };
+        rs.round_index += 1;
+        if success {
+            if let Some(ref chart_row) = chart_row {
+                draft_one(ctx, player_id, chart_row, rs.round_index);
+            }
+        }
+    }
+
+    rs.wins = 0;
+    rs.fights = 0;
+    rs.last_resolved_at = ctx.timestamp;
+    ctx.db.round_state().identity().update(rs);
+
+    // Exactly one timer survives, re-armed at the (possibly new) interval.
+    clear_round_timers(ctx, player_id);
+    schedule_next_round(ctx, player_id);
 }
 
 // ── Oracle (Claude companion) ───────────────────────────────────────────────
@@ -1623,7 +1953,63 @@ fn seed_bright_stars(ctx: &ReducerContext) {
 
 #[cfg(test)]
 mod tests {
-    use super::{has_duplicates, question_hash};
+    use super::{
+        auto_battle_win, catchup_rounds, has_duplicates, pick_weakest, question_hash,
+        round_interval_secs, should_replace, COLLECTION_CAP, MAX_CATCHUP_ROUNDS, ROUND_BASE_SECS,
+    };
+
+    // ── The Ascendant clock ──────────────────────────────────────────────────
+
+    #[test]
+    fn round_interval_lengthens_in_bands_past_25_cards() {
+        assert_eq!(round_interval_secs(1), ROUND_BASE_SECS); // 60
+        assert_eq!(round_interval_secs(20), 60); // a fresh deck is still the base round
+        assert_eq!(round_interval_secs(25), 60); // exactly 25 → still the base
+        assert_eq!(round_interval_secs(26), 90); // the first band past 25
+        assert_eq!(round_interval_secs(50), 90);
+        assert_eq!(round_interval_secs(51), 120);
+        assert_eq!(round_interval_secs(75), 120);
+        assert_eq!(round_interval_secs(100), 150);
+        // Monotonic non-decreasing in deck size.
+        let mut prev = round_interval_secs(0);
+        for n in 1..=300usize {
+            let cur = round_interval_secs(n);
+            assert!(cur >= prev, "interval dipped at {n}: {cur} < {prev}");
+            prev = cur;
+        }
+    }
+
+    #[test]
+    fn catchup_resolves_at_least_one_round_and_at_most_one_cap() {
+        assert_eq!(catchup_rounds(0, 60, MAX_CATCHUP_ROUNDS), 1); // never zero
+        assert_eq!(catchup_rounds(59, 60, MAX_CATCHUP_ROUNDS), 1);
+        assert_eq!(catchup_rounds(60, 60, MAX_CATCHUP_ROUNDS), 1);
+        assert_eq!(catchup_rounds(600, 60, MAX_CATCHUP_ROUNDS), 10);
+        assert_eq!(catchup_rounds(-5, 60, MAX_CATCHUP_ROUNDS), 1); // clock skew floors at one
+        // A long absence tops up at most a full collection's worth — never floods.
+        assert_eq!(catchup_rounds(1_000_000_000, 60, MAX_CATCHUP_ROUNDS), COLLECTION_CAP as u64);
+        assert!(catchup_rounds(i64::MAX, 1, MAX_CATCHUP_ROUNDS) <= COLLECTION_CAP as u64);
+    }
+
+    #[test]
+    fn auto_battle_needs_to_meet_the_challenge() {
+        assert!(auto_battle_win(100.0, 80.0));
+        assert!(auto_battle_win(80.0, 80.0)); // a tie holds the line
+        assert!(!auto_battle_win(79.9, 80.0));
+    }
+
+    #[test]
+    fn cap_replacement_prefers_the_stronger_card_over_the_weakest_bench() {
+        // A stronger draft displaces the weakest bench card; a weaker one is discarded.
+        let bench = [(10u64, 12.0f32), (11, 5.0), (12, 30.0)];
+        let weakest = pick_weakest(&bench);
+        assert_eq!(weakest, Some((11, 5.0)));
+        assert!(should_replace(6.0, weakest.map(|(_, s)| s))); // 6 > 5 → replace
+        assert!(!should_replace(4.0, weakest.map(|(_, s)| s))); // 4 < 5 → discard
+        // Nothing cullable (all Active/Sentinel/trump) → never replace.
+        assert_eq!(pick_weakest(&[]), None);
+        assert!(!should_replace(9999.0, None));
+    }
 
     #[test]
     fn hash_ignores_case_and_collapses_whitespace() {
