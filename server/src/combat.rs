@@ -36,6 +36,42 @@ pub fn faction_def_mult(f: Planet) -> f32 {
     }
 }
 
+/// Fixed astrological relation between two factions (GDD §03). Symmetric:
+/// allies share & defend, rivals clash at a bonus, everyone else is neutral.
+#[derive(PartialEq, Eq, Clone, Copy, Debug)]
+pub enum Relation {
+    Ally,
+    Rival,
+    Neutral,
+}
+
+/// The standing harmony/opposition graph. Authored once, drives Venus's
+/// alliance doctrine, hard non-aggression, and the rivalry combat bonus.
+pub fn relation(a: Planet, b: Planet) -> Relation {
+    use Planet::*;
+    if a == b {
+        return Relation::Neutral;
+    }
+    // Normalise to a single unordered pair (ascending declaration order).
+    let (x, y) = if a.idx() <= b.idx() { (a, b) } else { (b, a) };
+    match (x, y) {
+        // Harmonies — luminaries, benefics, and higher-octave kinships.
+        (Sun, Moon) | (Sun, Mercury) | (Sun, Mars) | (Sun, Jupiter)
+        | (Moon, Venus) | (Moon, Neptune)
+        | (Mercury, Saturn) | (Mercury, Uranus)
+        | (Venus, Jupiter) | (Venus, Neptune)
+        | (Mars, Jupiter) | (Mars, Pluto)
+        | (Saturn, Pluto) => Relation::Ally,
+        // Oppositions — light vs. limit, love vs. war, order vs. revolt.
+        (Sun, Saturn)
+        | (Moon, Saturn)
+        | (Mercury, Neptune)
+        | (Venus, Mars) | (Venus, Pluto)
+        | (Saturn, Uranus) => Relation::Rival,
+        _ => Relation::Neutral,
+    }
+}
+
 /// Directed advantage multiplier of an attacking suit into a defending suit.
 pub fn suit_multiplier(att: Suit, def: Suit) -> f32 {
     use Suit::*;

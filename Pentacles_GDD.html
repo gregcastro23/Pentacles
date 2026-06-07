@@ -17,7 +17,7 @@
 
   <!-- ===================== HERO ===================== -->
   <header class="hero">
-    <div class="hero-meta">Game Design Document &nbsp;·&nbsp; v1.5 &nbsp;·&nbsp; June 2026 &nbsp;·&nbsp; Confidential</div>
+    <div class="hero-meta">Game Design Document &nbsp;·&nbsp; v1.6 &nbsp;·&nbsp; June 2026 &nbsp;·&nbsp; Confidential</div>
     <h1>Pentacles</h1>
     <p class="tag">Claim the night sky.</p>
     <p class="desc">A location-based AR MMO where your birth chart decides your allegiance, the Tarot is your arsenal, and the visible heavens are the contested map.</p>
@@ -76,7 +76,7 @@
         </div>
         <div class="reveal" style="margin-top:44px">
           <h4 style="color:var(--gold-bright); margin-bottom:8px">Reading this document</h4>
-          <p class="note" style="max-width:var(--measure); margin-bottom:18px">This is a living spec (v1.5). Vision leads each section; where the shipped crate (<span class="mono">/server</span>, <span class="mono">/unity</span>, <span class="mono">/feeder</span>) differs, an <span style="color:var(--cups)">⚙ as-built</span> note records the reality. Feature badges key each system to a roadmap phase (§11):</p>
+          <p class="note" style="max-width:var(--measure); margin-bottom:18px">This is a living spec (v1.6). Vision leads each section; where the shipped crate (<span class="mono">/server</span>, <span class="mono">/unity</span>, <span class="mono">/feeder</span>) differs, an <span style="color:var(--cups)">⚙ as-built</span> note records the reality. Feature badges key each system to a roadmap phase (§11):</p>
           <div class="statuskey">
             <div class="sk"><span class="badge shipped">Shipped</span><p>In the live codebase today and exercised end to end.</p></div>
             <div class="sk"><span class="badge progress">In&nbsp;progress</span><p>Partially built — a working core with design still landing.</p></div>
@@ -147,15 +147,15 @@
         <div class="block-head reveal">
           <p class="eyebrow">03 — The Ten Factions</p>
           <h2>Each planet is a faction with a <em>doctrine</em>.</h2>
-          <div class="badges"><span class="badge shipped">Suit bias · all 10<span class="ph">P1</span></span><span class="badge shipped">6 doctrines live<span class="ph">P3</span></span><span class="badge planned">4 doctrines<span class="ph">P3+</span></span></div>
+          <div class="badges"><span class="badge shipped">Suit bias · all 10<span class="ph">P1</span></span><span class="badge shipped">7 doctrines live<span class="ph">P3</span></span><span class="badge planned">3 doctrines<span class="ph">P3+</span></span></div>
         </div>
         <p class="lead reveal">Faction identity is more than a banner — each planet biases deck generation toward a suit and grants a passive that shapes how its players fight and hold ground.</p>
-        <p class="note reveal" style="margin-top:18px">Tile badge = that <em>doctrine passive's</em> build status. Every faction's <strong>suit bias</strong> already ships, and <strong>six passives</strong> (Saturn, Moon, Mars, Sun, Jupiter, Pluto) are now wired into the resolver — the remaining four are detailed in §12.</p>
+        <p class="note reveal" style="margin-top:18px">Tile badge = that <em>doctrine passive's</em> build status. Every faction's <strong>suit bias</strong> already ships, and <strong>seven passives</strong> (Saturn, Moon, Mars, Sun, Jupiter, Pluto, Venus) are now wired into the resolver — the remaining three are detailed in §12.</p>
         <div class="grid-3 reveal" style="margin-top:24px">
           <div class="faction"><div class="bar" style="background:var(--sun)"></div><span class="sigil" style="color:var(--sun)">☉</span><div class="pname">Sun</div><div class="prole">Sovereignty · Wands</div><p class="pdesc">Vanguard aggressors. A standing bonus to attack &amp; capture strength wherever they strike.</p><span class="badge mini shipped">Passive · live</span></div>
           <div class="faction"><div class="bar" style="background:var(--moon)"></div><span class="sigil" style="color:var(--moon)">☽</span><div class="pname">Moon</div><div class="prole">Tides · Cups</div><p class="pdesc">Sustain &amp; reinforcement. Moon-held zones bleed slower — the tides hold ground.</p><span class="badge mini shipped">Passive · live</span></div>
           <div class="faction"><div class="bar" style="background:var(--mercury)"></div><span class="sigil" style="color:var(--mercury)">☿</span><div class="pname">Mercury</div><div class="prole">Cunning · Swords</div><p class="pdesc">Tempo &amp; card draw. Reduced cooldowns; first to act in synchronous duels.</p><span class="badge mini planned">Passive · planned</span></div>
-          <div class="faction"><div class="bar" style="background:var(--venus)"></div><span class="sigil" style="color:var(--venus)">♀</span><div class="pname">Venus</div><div class="prole">Harmony · Cups</div><p class="pdesc">Alliance play. Shares partial control points with allied factions in adjacent zones.</p><span class="badge mini planned">Passive · planned</span></div>
+          <div class="faction"><div class="bar" style="background:var(--venus)"></div><span class="sigil" style="color:var(--venus)">♀</span><div class="pname">Venus</div><div class="prole">Harmony · Cups</div><p class="pdesc">Alliance play. A capture spills partial control into adjacent allied zones, and Venus shields the zones it flanks.</p><span class="badge mini shipped">Passive · live</span></div>
           <div class="faction"><div class="bar" style="background:var(--mars)"></div><span class="sigil" style="color:var(--mars)">♂</span><div class="pname">Mars</div><div class="prole">War · Wands</div><p class="pdesc">Raw damage. Highest base attack; penalised on defense — built to siege, not sit.</p><span class="badge mini shipped">Passive · live</span></div>
           <div class="faction"><div class="bar" style="background:var(--jupiter)"></div><span class="sigil" style="color:var(--jupiter)">♃</span><div class="pname">Jupiter</div><div class="prole">Expansion · Wands</div><p class="pdesc">Snowball. Each held zone buffs adjacent contests — momentum is its whole game.</p><span class="badge mini shipped">Passive · live</span></div>
           <div class="faction"><div class="bar" style="background:var(--saturn)"></div><span class="sigil" style="color:var(--saturn)">♄</span><div class="pname">Saturn</div><div class="prole">Dominion · Pentacles</div><p class="pdesc">The wall. Strongest defensive decks; captured Saturn zones are the hardest to retake.</p><span class="badge mini shipped">Passive · live</span></div>
@@ -165,7 +165,7 @@
         </div>
         <div class="asbuilt reveal">
           <div class="lbl">Implementation — as built</div>
-          <p>What ships today: every faction's <strong>suit bias</strong> (<span class="mono">Planet::biased_suit</span>) plus <strong>five doctrine passives</strong> in the resolver — <strong>Saturn</strong> (slower decay + tougher Sentinels), <strong>Moon</strong> (slower decay), <strong>Mars</strong> (×1.2 attack, ×0.85 defense), <strong>Sun</strong> (×1.1 attack), and <strong>Jupiter</strong> (snowball: +15% capture per adjacent held zone), plus <strong>Pluto</strong> (a per-zone attrition charge from battle deaths lifts its captures). Sun's “above the horizon” and Moon's “lunar night” are observer-dependent, so they ship as standing bonuses rather than time-gated ones. Still planned: <strong>Mercury</strong> tempo, <strong>Venus</strong> alliance-share, <strong>Uranus</strong> zone-swap and <strong>Neptune</strong> stealth — these need deeper combat/economy hooks.</p>
+          <p>What ships today: every faction's <strong>suit bias</strong> (<span class="mono">Planet::biased_suit</span>) plus <strong>seven doctrine passives</strong> in the resolver — <strong>Saturn</strong> (slower decay + tougher Sentinels), <strong>Moon</strong> (slower decay), <strong>Mars</strong> (×1.2 attack, ×0.85 defense), <strong>Sun</strong> (×1.1 attack), <strong>Jupiter</strong> (snowball: +15% capture per adjacent held zone), <strong>Pluto</strong> (a per-zone attrition charge from battle deaths lifts its captures), and <strong>Venus</strong> (a capture spills partial control into adjacent allied zones, with a defensive aura over zones it flanks). A fixed astrological <strong>relation graph</strong> (<span class="mono">combat::relation</span>) underpins Venus and is general machinery any faction uses: allied factions can't besiege each other (hard non-aggression), and rivals clash at +15% attack — the always-on-war bots are exempt, keeping the board hot. Sun's “above the horizon” and Moon's “lunar night” are observer-dependent, so they ship as standing bonuses rather than time-gated ones. Still planned: <strong>Mercury</strong> tempo, <strong>Uranus</strong> zone-swap and <strong>Neptune</strong> stealth — these need deeper combat/economy hooks.</p>
         </div>
       </section>
 
@@ -435,7 +435,7 @@
         <div class="block-head reveal">
           <p class="eyebrow">07 — Zone Control &amp; Win Conditions</p>
           <h2>Tug-of-war over zones, fought at the <em>stars</em>.</h2>
-          <div class="badges"><span class="badge shipped">Star→zone control<span class="ph">P2</span></span><span class="badge shipped">Decay<span class="ph">P3</span></span><span class="badge shipped">Always-on war<span class="ph">P3</span></span><span class="badge shipped">Transit buff<span class="ph">P3</span></span><span class="badge shipped">Seasons &amp; Crown<span class="ph">P3</span></span><span class="badge shipped">Pluto attrition<span class="ph">P3</span></span></div>
+          <div class="badges"><span class="badge shipped">Star→zone control<span class="ph">P2</span></span><span class="badge shipped">Decay<span class="ph">P3</span></span><span class="badge shipped">Always-on war<span class="ph">P3</span></span><span class="badge shipped">Transit buff<span class="ph">P3</span></span><span class="badge shipped">Seasons &amp; Crown<span class="ph">P3</span></span><span class="badge shipped">Pluto attrition<span class="ph">P3</span></span><span class="badge shipped">Alliances<span class="ph">P3</span></span></div>
         </div>
         <p class="lead reveal">A zone is too large to “win” outright. Instead each zone holds a <strong>control meter</strong> (−1000 … +1000) and a scatter of star-nodes. You don't capture the zone directly — you capture its stars, and the stars move the meter.</p>
 
@@ -457,7 +457,7 @@
         <div class="asbuilt reveal">
           <div class="lbl">Implementation — as built</div>
           <p><strong>Meter:</strong> <span class="mono">Zone.control</span> ships as a single-sided 0..1000 meter for whoever currently owns the zone. An attacker's wins subtract from the owner; at the zero-crossing the zone flips and the attacker takes it with the overflow (capped at <span class="mono">FLIP_THRESHOLD</span> = 600). The symmetric −1000…+1000 above is the design framing. <strong>Star weighting</strong> (<span class="mono">node_weight</span>, brighter = worth more) and the win-margin bonus (<span class="mono">control_delta</span>) ship as described.</p>
-          <p><strong>Decay:</strong> <span class="mono">tick_sky</span> bleeds every held zone toward 0 each 10&nbsp;s — Saturn 4, Moon 5, all others 8 — releasing it at 0. <strong>Transit buff:</strong> a capture under your own transiting planet is amplified ×1.5 (<span class="mono">capture_multiplier</span>); the <strong>Crown</strong> buffs its adjacent contests ×1.25 for its owner and <strong>Jupiter</strong> snowballs +15% per adjacent zone it holds, over a static <span class="mono">zone_neighbors</span> graph. <strong>The Great Wheel</strong> now turns: <span class="mono">tick_sky</span> advances <span class="mono">season_degree</span> one degree per tick, logs each 30° sign ingress, and at 360° resolves the season with a soft-reset (holds halved, owners kept). <strong>Pluto attrition:</strong> every card destroyed in a zone's battles drops a stack (<span class="mono">attrition</span> table) that lifts Pluto's captures there (+3% per kill, capped +60%) and expires after ~30 ticks. All multipliers are tunable consts.</p>
+          <p><strong>Decay:</strong> <span class="mono">tick_sky</span> bleeds every held zone toward 0 each 10&nbsp;s — Saturn 4, Moon 5, all others 8 — releasing it at 0. <strong>Transit buff:</strong> a capture under your own transiting planet is amplified ×1.5 (<span class="mono">capture_multiplier</span>); the <strong>Crown</strong> buffs its adjacent contests ×1.25 for its owner and <strong>Jupiter</strong> snowballs +15% per adjacent zone it holds, over a static <span class="mono">zone_neighbors</span> graph. <strong>The Great Wheel</strong> now turns: <span class="mono">tick_sky</span> advances <span class="mono">season_degree</span> one degree per tick, logs each 30° sign ingress, and at 360° resolves the season with a soft-reset (holds halved, owners kept). <strong>Pluto attrition:</strong> every card destroyed in a zone's battles drops a stack (<span class="mono">attrition</span> table) that lifts Pluto's captures there (+3% per kill, capped +60%) and expires after ~30 ticks. <strong>Venus alliance:</strong> a Venus capture spills 25% of the control it banks into each adjacent allied-held zone (<span class="mono">venus_spillover</span>), and a zone flanking Venus territory defends at ×1.25 — over the fixed <span class="mono">combat::relation</span> graph that also blocks allies from besieging each other and grants rivals +15% attack. All multipliers are tunable consts.</p>
         </div>
       </section>
 
@@ -774,7 +774,7 @@
         </table>
         <div class="asbuilt reveal">
           <div class="lbl">Implementation — as built</div>
-          <p><strong>P1 is done</strong> (chart calc with stellium weighting, faction scoring, deterministic deck minting, named cards). <strong>P2 &amp; P3 are filling in fast:</strong> round-based attrition combat with card XP/veterancy, transit buffs, the Crown &amp; Jupiter capture amplifiers, six faction doctrines (incl. Pluto attrition), the retrograde defensive variant, Sky Drops, the bot “always-on war”, and the Great Wheel all ship. <strong>Still ahead:</strong> the full Hipparcos catalogue (P0), richer per-card abilities &amp; aspect synergies (P2), Spread Duel and the four complex passives (Mercury/Venus/Uranus/Neptune, P3+), and the indoor fallback (P4).</p>
+          <p><strong>P1 is done</strong> (chart calc with stellium weighting, faction scoring, deterministic deck minting, named cards). <strong>P2 &amp; P3 are filling in fast:</strong> round-based attrition combat with card XP/veterancy, transit buffs, the Crown &amp; Jupiter capture amplifiers, seven faction doctrines (incl. Pluto attrition &amp; Venus alliances over a fixed relation graph), the retrograde defensive variant, Sky Drops, the bot “always-on war”, and the Great Wheel all ship. <strong>Still ahead:</strong> the full Hipparcos catalogue (P0), richer per-card abilities &amp; aspect synergies (P2), Spread Duel and the three complex passives (Mercury/Uranus/Neptune, P3+), and the indoor fallback (P4).</p>
         </div>
         <div class="callout reveal" style="margin-top:40px">
           <div class="label">Biggest risk to de-risk first</div>
@@ -792,13 +792,12 @@
         </div>
         <p class="lead reveal">These are designed here so they're ready to build; none are in the crate yet. Each names the <strong>hook</strong> it needs — the piece of architecture that has to land first.</p>
 
-        <h3 class="reveal" style="margin-top:44px">The four remaining faction doctrines</h3>
-        <p class="reveal">Saturn, Moon, Mars, Sun, Jupiter and Pluto ship today (§03). The rest each need richer combat or economy machinery than a flat multiplier.</p>
+        <h3 class="reveal" style="margin-top:44px">The three remaining faction doctrines</h3>
+        <p class="reveal">Saturn, Moon, Mars, Sun, Jupiter, Pluto and Venus ship today (§03). The rest each need richer combat or economy machinery than a flat multiplier.</p>
         <table class="data reveal" style="margin-top:18px">
           <thead><tr><th>Faction</th><th>Doctrine</th><th>Proposed mechanic</th><th>Hook needed</th></tr></thead>
           <tbody>
             <tr><td style="color:var(--mercury)"><strong>☿ Mercury</strong></td><td>Tempo</td><td>Acts first in a duel; a flat cooldown cut on its cards</td><td>Per-faction lane order + a tick-based duel (cooldown is unused while lanes resolve instantly)</td></tr>
-            <tr><td style="color:var(--venus)"><strong>♀ Venus</strong></td><td>Alliance-share</td><td>A capture spills partial control into adjacent zones held by allied factions</td><td>An alliance-relation model + cross-zone control writes</td></tr>
             <tr><td style="color:var(--uranus)"><strong>♅ Uranus</strong></td><td>Chaos</td><td>A reducer that swaps two zones' contested states; random-effect cards</td><td>A card-ability/effect system + a seeded-RNG <span class="mono">uranus_swap</span> reducer</td></tr>
             <tr><td style="color:var(--neptune)"><strong>♆ Neptune</strong></td><td>Stealth</td><td>Fortify a zone invisibly — attackers learn its true strength only mid-battle</td><td>A visibility model (the map is fully public today), e.g. a hidden Sentinel field</td></tr>
           </tbody>
@@ -855,6 +854,9 @@
             <tr><td><strong>Round battle</strong></td><td>up to 8 rounds, then the stronger remnant wins</td><td><span class="mono">combat::simulate_battle</span></td></tr>
             <tr><td><strong>Card veterancy</strong></td><td>+10 XP / survival · next = level × 100 · +1 ATK/+2 HP/+1 ARM per level · cap 10</td><td><span class="mono">grant_xp</span></td></tr>
             <tr><td><strong>Pluto attrition</strong></td><td>+3% capture / kill in-zone · cap +60% · 30-tick stacks</td><td><span class="mono">capture_multiplier</span> · <span class="mono">attrition</span></td></tr>
+            <tr><td><strong>Alliance relations</strong></td><td>fixed astrological graph · allies can't war · rivals +15% attack</td><td><span class="mono">combat::relation</span></td></tr>
+            <tr><td><strong>Venus spillover</strong></td><td>25% of capture control → each adjacent allied zone</td><td><span class="mono">venus_spillover</span></td></tr>
+            <tr><td><strong>Venus coalition</strong></td><td>×1.25 defense for zones flanking Venus territory</td><td><span class="mono">resolve_star_battle</span></td></tr>
             <tr><td><strong>Great Wheel</strong></td><td>+1°/tick · ingress every 30° · 360° halves holds</td><td><span class="mono">advance_season</span></td></tr>
             <tr><td><strong>Dignity multiplier</strong></td><td>1 + dignity × 0.08 (0.6 … 1.4)</td><td><span class="mono">chart::card_stats</span></td></tr>
             <tr><td><strong>Faction scoring</strong></td><td>ruler ×3 · luminaries ×2 · angular / stellium +1.5</td><td><span class="mono">chart::faction_scores</span></td></tr>
@@ -864,6 +866,13 @@
 
         <h3 class="reveal" style="margin-top:56px">Changelog</h3>
         <div class="log reveal">
+          <div class="e">
+            <div class="ver">v1.6<small>Jun 2026</small></div>
+            <div><ul>
+              <li>Shipped <strong>Venus alliances</strong> (the 7th live doctrine) on a general, fixed astrological <strong>relation graph</strong> (<span class="mono">combat::relation</span> — symmetric allies + rivals). A Venus capture spills 25% of banked control into adjacent allied zones (<span class="mono">venus_spillover</span>); zones flanking Venus defend at ×1.25.</li>
+              <li>General machinery from the same graph: <strong>hard non-aggression</strong> (allied factions can't besiege or duel each other) and a <strong>rivalry bonus</strong> (+15% attack both sides). The always-on-war bots are exempt, keeping the board hot. Updated §03/§07/§11–§13, synced README; crate builds clean.</li>
+            </ul></div>
+          </div>
           <div class="e">
             <div class="ver">v1.5<small>Jun 2026</small></div>
             <div><ul>
@@ -914,7 +923,7 @@
           </div>
         </div>
 
-        <p class="note reveal" style="margin-top:40px; text-align:center; letter-spacing:0.1em">✦ &nbsp; END OF DOCUMENT &nbsp; ✦<br><span style="color:var(--ghost)">Pentacles GDD v1.5 — for internal review</span></p>
+        <p class="note reveal" style="margin-top:40px; text-align:center; letter-spacing:0.1em">✦ &nbsp; END OF DOCUMENT &nbsp; ✦<br><span style="color:var(--ghost)">Pentacles GDD v1.6 — for internal review</span></p>
       </section>
 
     </main>

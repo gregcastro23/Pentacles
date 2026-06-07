@@ -34,6 +34,11 @@ const ATTRITION_TTL: u64 = 30; // ~5 min at the 10s tick
 const ATTRITION_SCALE: f32 = 0.03;
 const ATTRITION_MAX: f32 = 0.6;
 
+// Venus alliance doctrine + general relations (GDD §03/§07).
+const VENUS_SPILL: f32 = 0.25;     // capture control spilled to each adjacent ally
+const VENUS_COALITION: f32 = 1.25; // defensive lift for zones flanking Venus
+const RIVAL_ATK: f32 = 1.15;       // both sides hit harder in a rival clash
+
 // ── Lifecycle ─────────────────────────────────────────────────────────────
 
 /// Runs once on first publish (and after a clear). `ctx.sender` is the owner.
@@ -155,6 +160,13 @@ pub fn resolve_star_battle(
         .find(&hip_id)
         .ok_or_else(|| "no such star".to_string())?;
 
+    // Hard non-aggression: you cannot besiege an allied faction (GDD §03).
+    if let Some(h) = star.held_by {
+        if combat::relation(player.faction, h) == combat::Relation::Ally {
+            return Err("cannot besiege an allied faction's star".into());
+        }
+    }
+
     // Gather the attacker's played cards (validate ownership), keeping a
     // parallel id list for XP. Retrograde cards resolve as their defensive
     // variant via card_stat().
@@ -181,6 +193,22 @@ pub fn resolve_star_battle(
     // The holder's defensive doctrine (Saturn wall, Mars soft) shapes the wall.
     if let Some(h) = holder {
         scale_defense(&mut defender, combat::faction_def_mult(h));
+        // Rivalry: opposed factions fight harder, on both sides (GDD §03).
+        if combat::relation(player.faction, h) == combat::Relation::Rival {
+            scale_attack(&mut attacker, RIVAL_ATK);
+            scale_attack(&mut defender, RIVAL_ATK);
+        }
+        // Venus coalition: a zone flanking Venus territory, held by Venus or one
+        // of its allies, defends behind a stiffer wall (GDD §03).
+        let venus_adjacent = zone_neighbors(star.region_hint).iter().any(|n| {
+            ctx.db.zone().zone_id().find(n).and_then(|z| z.owner) == Some(Planet::Venus)
+        });
+        if venus_adjacent
+            && (h == Planet::Venus
+                || combat::relation(Planet::Venus, h) == combat::Relation::Ally)
+        {
+            scale_defense(&mut defender, VENUS_COALITION);
+        }
     }
 
     // Round-based attrition (GDD §06).
@@ -198,6 +226,8 @@ pub fn resolve_star_battle(
         let base = combat::control_delta(star.magnitude, outcome.margin) as f32;
         let delta = (base * capture_multiplier(ctx, player.faction, star.region_hint)) as i32;
         apply_control(ctx, star.region_hint, player.faction, delta);
+        // Venus alliance: spill partial control into adjacent allied zones.
+        venus_spillover(ctx, star.region_hint, player.faction, delta);
         // Spoils of the capture: mint one Sky-Drop card (GDD §04).
         mint_sky_drop(
             ctx,
@@ -240,6 +270,10 @@ pub fn enqueue_duel(ctx: &ReducerContext, zone_id: u8) -> Result<(), String> {
                 .identity()
                 .find(&t.seeker)
                 .ok_or_else(|| "opponent vanished".to_string())?;
+            // Hard non-aggression — allied factions cannot duel (GDD §03).
+            if combat::relation(me.faction, opp.faction) == combat::Relation::Ally {
+                return Err("cannot duel an allied faction".into());
+            }
             ctx.db.duel_queue().ticket_id().delete(&t.ticket_id);
             ctx.db.duel().insert(Duel {
                 duel_id: 0,
@@ -332,6 +366,12 @@ pub fn commit_duel(
 fn resolve_duel(ctx: &ReducerContext, duel: &mut Duel) {
     let am = combat::faction_atk_mult(duel.faction_a);
     let bm = combat::faction_atk_mult(duel.faction_b);
+    // Rivalry fervour lifts both sides (allied duels are blocked at enqueue).
+    let (am, bm) = if combat::relation(duel.faction_a, duel.faction_b) == combat::Relation::Rival {
+        (am * RIVAL_ATK, bm * RIVAL_ATK)
+    } else {
+        (am, bm)
+    };
     let mut a = 0u8;
     let mut b = 0u8;
     let mut winners: Vec<u64> = Vec::new(); // surviving lane victors → XP
@@ -366,6 +406,7 @@ fn resolve_duel(ctx: &ReducerContext, duel: &mut Duel) {
     let base = (150 + a.max(b) as i32 * 60) as f32;
     let delta = (base * capture_multiplier(ctx, faction, duel.zone_id)) as i32;
     apply_control(ctx, duel.zone_id, faction, delta);
+    venus_spillover(ctx, duel.zone_id, faction, delta);
 
     // Sky-Drop for the duel winner, seeded by the contested zone's brightest star.
     if let Some(wp) = ctx.db.player().identity().find(&winner) {
@@ -617,6 +658,27 @@ fn grant_xp(ctx: &ReducerContext, card_id: u64, amount: u32) {
             c.armour = c.armour.saturating_add(1);
         }
         ctx.db.card().card_id().update(c);
+    }
+}
+
+/// Venus alliance spillover (GDD §03/§07): a fraction of the control banked on
+/// a capture flows into each adjacent zone held by a Venus ally, reinforcing it.
+fn venus_spillover(ctx: &ReducerContext, zone: u8, faction: Planet, delta: i32) {
+    if faction != Planet::Venus {
+        return;
+    }
+    let spill = (delta as f32 * VENUS_SPILL) as i32;
+    if spill <= 0 {
+        return;
+    }
+    for n in zone_neighbors(zone) {
+        if let Some(z) = ctx.db.zone().zone_id().find(n) {
+            if let Some(owner) = z.owner {
+                if combat::relation(Planet::Venus, owner) == combat::Relation::Ally {
+                    apply_control(ctx, *n, owner, spill);
+                }
+            }
+        }
     }
 }
 
