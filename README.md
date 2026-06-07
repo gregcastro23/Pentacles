@@ -113,12 +113,12 @@ token plumbing.
 | GDD section | Where it lives |
 | --- | --- |
 | §02 Natal chart → faction | `unity/ChartCalculator.cs` + server `chart::faction_scores` (ruler ×3, luminaries ×2, angular/stellium +1.5; top-3 check in `create_player`) |
-| §03 Faction doctrines | `Planet::biased_suit` (all 10) · `combat::faction_atk_mult`/`faction_def_mult` (Sun/Mars/Saturn) · `decay_rate` (Saturn/Moon) · Jupiter snowball & Pluto attrition in `capture_multiplier` · Venus alliances + non-aggression + rivalry over `combat::relation` |
+| §03 Faction doctrines | `Planet::biased_suit` (all 10) · `combat::faction_atk_mult`/`faction_def_mult` (Sun/Mars/Saturn) · `decay_rate` (Saturn/Moon) · Jupiter snowball & Pluto attrition in `capture_multiplier` |
 | §04 Deck generation | `chart::mint_deck` — degree→rank, minute→health, dignity×, court cards, `Planet::hero_trump` + card names |
 | §04 Sky Drops | `mint_sky_drop` — a capture mints a card (magnitude→tier, transiting planet→suit), power-capped, `GameConfig.collection_cap` overflow |
 | §05 Eleven zones | `unity/PentacleGrid.cs` (geometry) + server `init` (5 houses / 5 spires / 1 crown) + `zone_neighbors` adjacency graph |
 | §06 Tarot combat | `combat::simulate_battle` (round-based attrition: cards die, survivors heal & earn XP via `grant_xp`) · `resolve_star_battle` (Auto-Siege) · `enqueue_duel`/`commit_duel` (Lane Skirmish) · `combat::suit_multiplier` · `card_stat` retrograde variant |
-| §07 Star → zone control | `resolve_star_battle` + `apply_control` (single-sided 0..1000 meter, flip at the zero-crossing) · `capture_multiplier` (transit ×1.5, Crown ×1.25, Jupiter snowball, Pluto attrition via the `attrition` table) · `venus_spillover` (Venus capture reinforces adjacent allied zones) |
+| §07 Star → zone control | `resolve_star_battle` + `apply_control` (single-sided 0..1000 meter, flip at the zero-crossing) · `capture_multiplier` (transit ×1.5, Crown ×1.25, Jupiter snowball, Pluto attrition via the `attrition` table) |
 | §07 Great Wheel | `tick_sky` → `advance_season` (1°/tick, 30° sign ingress, 360° soft-reset) |
 | §08 AR & ephemeris | `unity/SkyMath.cs` + `SkyRenderer.cs` (P0) · `feeder/` + `push_ephemeris` |
 | Bots (always-on war) | `tick_sky` → `bot_raid` for unmanned factions |
@@ -145,11 +145,6 @@ token plumbing.
   (×1.5), Crown dominion (×1.25) and Jupiter's snowball; faction attack/defense
   modifiers and the retrograde defensive variant also feed the resolver. Every
   knob and its default is catalogued in **GDD §13 · Balance & Tuning**.
-- **Alliances & rivalries** — a fixed astrological relation graph (`combat::relation`,
-  symmetric allies + rivals) drives Venus's doctrine and general rules: allied
-  factions can't besiege or duel each other (hard non-aggression) and rivals fight
-  at +15% attack. Venus captures spill control into adjacent allied zones and shield
-  the zones they flank. The always-on-war bots ignore alliances, so the board stays hot.
 - **Round combat & veterancy** — battles resolve over rounds (`simulate_battle`):
   cards are destroyed when out-damaged, survivors heal each round, and cards that
   live earn XP and level up (permanent stat bumps, `level`/`xp` on `card`). The
