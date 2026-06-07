@@ -12,7 +12,7 @@
 
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { bodyEquatorial, julianDay } from "./ephemeris.ts";
+import { bodyEquatorial, geocentricEclipticLon, julianDay } from "./ephemeris.ts";
 
 const run = promisify(execFile);
 
@@ -28,17 +28,29 @@ function zoneForEclipticLon(lonDeg: number): number {
   return Math.min(10, Math.floor((lonDeg / 360) * 11));
 }
 
+// Apparent retrograde: ecliptic longitude moving backwards vs a day earlier. The
+// signed shortest delta is negative when the body is retrograding. The Sun and Moon
+// never reverse, so this naturally reports them direct. Drives a drafted card's
+// inversion server-side (a retrograde source mints inverted, with reversed stats).
+function isRetrograde(idx: number, jd: number): boolean {
+  const lonNow = geocentricEclipticLon(idx, jd);
+  const lonPrev = geocentricEclipticLon(idx, jd - 1);
+  const delta = ((lonNow - lonPrev + 540) % 360) - 180; // (-180, 180]
+  return delta < 0;
+}
+
 async function pushOnce(): Promise<void> {
   const jd = julianDay(new Date());
   for (let idx = 0; idx < 10; idx++) {
     const { ra, dec, eclLon } = bodyEquatorial(idx, jd);
     const zone = zoneForEclipticLon(eclLon);
+    const retro = isRetrograde(idx, jd);
     try {
       await run("spacetime", [
         "call", DB, "push_ephemeris", "--",
-        String(idx), ra.toFixed(5), dec.toFixed(5), String(zone),
+        String(idx), ra.toFixed(5), dec.toFixed(5), String(zone), String(retro),
       ]);
-      console.log(`✦ ${BODIES[idx].padEnd(8)} RA ${ra.toFixed(2)}°  Dec ${dec.toFixed(2)}°  → zone ${zone}`);
+      console.log(`✦ ${BODIES[idx].padEnd(8)} RA ${ra.toFixed(2)}°  Dec ${dec.toFixed(2)}°  → zone ${zone}${retro ? "  ℞" : ""}`);
     } catch (e) {
       console.error(`✗ ${BODIES[idx]}: ${(e as Error).message.split("\n")[0]}`);
     }

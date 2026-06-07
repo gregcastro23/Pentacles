@@ -3,7 +3,7 @@
 
 use crate::types::*;
 use spacetimedb::{Identity, ScheduleAt, Timestamp};
-use crate::reducers::tick_sky;
+use crate::reducers::{tick_sky, resolve_round};
 
 // ── Identity & natal chart ────────────────────────────────────────────────
 
@@ -130,6 +130,7 @@ pub struct Ephemeris {
     pub ra: f64,
     pub dec: f64,
     pub transiting_zone: u8,  // drives the transit capture buff
+    pub retrograde: bool,     // moving retrograde in the live sky → inverts a drafted card
     pub tick: Timestamp,
 }
 
@@ -250,6 +251,35 @@ pub struct OracleRate {
     pub identity: Identity,
     pub last_at: Timestamp,
     pub count: u32,
+}
+
+// ── The Ascendant clock (per-round re-draft) ────────────────────────────────
+
+/// Per-player round bookkeeping for the Ascendant clock: which round we're on, plus
+/// the live battle tally that decides this round's success (won ≥1 battle → a draft).
+/// Public so a client can show the round counter and react to a fresh draft.
+#[spacetimedb::table(name = round_state, public)]
+#[derive(Clone)]
+pub struct RoundState {
+    #[primary_key]
+    pub identity: Identity,
+    pub round_index: u64,        // monotonically increasing; seeds the deterministic draft
+    pub wins: u32,               // battles won since the last resolution
+    pub fights: u32,             // battles fought since the last resolution
+    pub last_resolved_at: Timestamp,
+}
+
+/// Per-player Ascendant clock: one self-re-arming row per player, fired by
+/// `resolve_round` at an interval that lengthens as the deck grows past 25 cards.
+/// One-shot `Time` schedules let each fire recompute the next interval from deck size.
+#[spacetimedb::table(name = round_timer, scheduled(resolve_round))]
+#[derive(Clone)]
+pub struct RoundTimer {
+    #[primary_key]
+    #[auto_inc]
+    pub scheduled_id: u64,
+    pub player: Identity,
+    pub scheduled_at: ScheduleAt,
 }
 
 // ── Scheduled tick ────────────────────────────────────────────────────────
