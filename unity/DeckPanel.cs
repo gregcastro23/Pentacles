@@ -116,7 +116,7 @@ public class DeckPanel : MonoBehaviour
         };
         if (next == Loadout.Active && ActiveCount(conn) >= 8)
         {
-            Debug.LogWarning("[Deck] Active is full (8) — bench a card before promoting another.");
+            Toast.Show("Active is full (8) — bench a card before fielding another.");
             return;
         }
         conn.SetLoadout(id, next);

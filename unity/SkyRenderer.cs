@@ -13,6 +13,7 @@ using System;
 using System.Collections.Generic;
 using SpacetimeDB.Types;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class SkyRenderer : MonoBehaviour
 {
@@ -46,12 +47,28 @@ public class SkyRenderer : MonoBehaviour
     readonly Dictionary<byte, LineRenderer> _zones = new();
     bool _gridBuilt;
 
+    /// How many stars are currently risen past the engage altitude (strikeable now).
+    public int InReachCount { get; private set; }
+    Text _hud;
+
     void Awake() { Instance = this; if (origin == null) origin = transform; }
 
     void Start()
     {
         // GpsService is the GPS authority when present; only self-manage as a fallback.
         if (GpsService.Instance == null && Input.location.isEnabledByUser) Input.location.Start();
+        BuildHud();
+    }
+
+    void BuildHud()
+    {
+        var canvas = UIKit.Canvas("SkyHudCanvas", 40);
+        _hud = UIKit.Label(canvas.transform, "✦ scanning the sky…", 24, FontStyle.Bold,
+            new Color(0.95f, 0.90f, 0.80f), TextAnchor.UpperLeft);
+        var rt = (RectTransform)_hud.transform;
+        rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0f, 1f);
+        rt.anchoredPosition = new Vector2(28, -28);
+        rt.sizeDelta = new Vector2(620, 36);
     }
 
     void Update()
@@ -81,6 +98,7 @@ public class SkyRenderer : MonoBehaviour
 
     void RefreshStars(CelestialPentacleConn conn, double lst)
     {
+        int inReach = 0;
         foreach (var s in conn.Conn.Db.StarNode.Iter())
         {
             if (!_stars.TryGetValue(s.HipId, out var tr))
@@ -92,10 +110,18 @@ public class SkyRenderer : MonoBehaviour
             bool up = alt > 0;
             tr.gameObject.SetActive(up);
             if (up) tr.position = origin.position + SkyMath.HorizontalToWorld(alt, az) * skyRadius;
-            // Risen past the engage altitude → full colour; merely above the horizon
-            // → dimmed (visible, but the server won't let you strike it yet).
-            Tint(tr, s.HeldBy, up && alt >= GpsService.MinEngageAltDeg);
+            // Risen past the engage altitude → full colour and strikeable; merely above
+            // the horizon → dimmed (visible, but the server won't let you strike it yet).
+            bool engageable = up && alt >= GpsService.MinEngageAltDeg;
+            if (engageable) inReach++;
+            Tint(tr, s.HeldBy, engageable);
         }
+
+        InReachCount = inReach;
+        if (_hud != null)
+            _hud.text = inReach > 0
+                ? $"✦ {inReach} star{(inReach == 1 ? "" : "s")} overhead — tap to strike"
+                : "✦ no stars high enough yet — wait for one to rise";
     }
 
     Transform CreateStar(StarNode s)

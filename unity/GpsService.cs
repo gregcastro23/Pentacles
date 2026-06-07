@@ -68,13 +68,15 @@ public class GpsService : MonoBehaviour
                 yield return new WaitForSeconds(1f);
             _usingDevice = Input.location.status == LocationServiceStatus.Running;
             if (!_usingDevice)
-                Debug.LogWarning($"[GpsService] Device location unavailable " +
-                                 $"({Input.location.status}); using fallback coordinates.");
+            {
+                Debug.LogWarning($"[GpsService] Device location unavailable ({Input.location.status}); using fallback.");
+                Toast.Show("No GPS fix — using a default location. Enable location to play your real sky.", 5f);
+            }
         }
         else
         {
-            Debug.LogWarning("[GpsService] Location services disabled by the user — " +
-                             "using fallback coordinates.");
+            Debug.LogWarning("[GpsService] Location services disabled by the user — using fallback coordinates.");
+            Toast.Show("Location is off — using a default location. Enable it to play your real sky.", 5f);
         }
 
         Ready = true;
