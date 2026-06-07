@@ -42,7 +42,7 @@ public static class UIKit
     }
 
     public static Text Label(Transform p, string s, int size, FontStyle style,
-        Color? col = null, TextAnchor anchor = TextAnchor.MiddleCenter)
+        Color? col = null, TextAnchor anchor = TextAnchor.MiddleCenter, bool shadow = false)
     {
         var go = new GameObject("Label", typeof(RectTransform));
         go.transform.SetParent(p, false);
@@ -52,6 +52,13 @@ public static class UIKit
         t.alignment = anchor;
         t.horizontalOverflow = HorizontalWrapMode.Wrap;
         t.verticalOverflow = VerticalWrapMode.Truncate;
+        t.raycastTarget = false;
+        if (shadow)
+        {
+            var sh = go.AddComponent<Shadow>();
+            sh.effectColor = new Color(0f, 0f, 0f, 0.75f);
+            sh.effectDistance = new Vector2(1.5f, -1.5f);
+        }
         return t;
     }
 
@@ -73,6 +80,14 @@ public static class UIKit
         go.transform.SetParent(p, false);
         go.GetComponent<Image>().color = col;
         return go.GetComponent<Image>();
+    }
+
+    public static Image Divider(Transform p, Color col, int height = 1)
+    {
+        var img = Box(p, col);
+        var le = img.gameObject.AddComponent<LayoutElement>();
+        le.minHeight = le.preferredHeight = height;
+        return img;
     }
 
     public static void Stretch(GameObject go, float pad)

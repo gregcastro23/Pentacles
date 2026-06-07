@@ -134,6 +134,12 @@ public class DuelPanel : MonoBehaviour
         var me = CelestialPentacleConn.Instance.LocalIdentity;
         int my = _amA ? d.LanesA : d.LanesB;
         int op = _amA ? d.LanesB : d.LanesA;
+        if (!d.Winner.HasValue)
+        {
+            _status.text = "Duel expired — no lanes were committed.";
+            _status.color = new Color(0.72f, 0.74f, 0.80f);
+            return;
+        }
         bool won = d.Winner.HasValue && d.Winner.Value.Equals(me);
         _status.text = won
             ? $"★ VICTORY  ·  {my}–{op} lanes — the zone shifts to you!"

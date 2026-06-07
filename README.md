@@ -19,7 +19,7 @@ Pentacles/
 │   ├── ChartCalculator.cs          # birth input → NatalChart (placements/asc/MC)
 │   ├── SkyMath.cs                  # ecliptic ↔ equatorial ↔ horizontal ↔ world
 │   ├── PentacleGrid.cs             # the eleven-zone geometry (horizon-anchored)
-│   ├── SkyRenderer.cs              # P0 AR renderer: stars + Pentacle + tap-to-attack
+│   ├── SkyRenderer.cs              # AR renderer: stars + Pentacle + tap-to-attack
 │   ├── FactionData.cs              # faction glyphs/colours/doctrines (GDD §03)
 │   ├── OnboardingController.cs     # birth → TopFactions → CreatePlayer (flow logic)
 │   ├── OnboardingUI.cs             # drop-in birth-form + faction-select screen
@@ -34,6 +34,39 @@ Pentacles/
     ├── push-ephemeris.ts           # pushes positions via the push_ephemeris reducer
     └── package.json
 ```
+
+## Playable Web App Client
+
+A standalone, lightweight 2D/AR-toggleable Web Client is now available in the project root to support playing the game directly in any standard desktop or mobile web browser.
+
+### Key Features:
+*   **Onboarding & Placements**: Enter date/time/location data to calculate chart placements, evaluate recommended factions by dignity score, and deterministically mint your starting deck of 40 cards.
+*   **Interactive SVG Pentacle Map**: A high-performance SVG rendering of the Celestial Pentacle (the 11-zone grid) featuring clean, intersecting star lines and dynamic star nodes.
+*   **Multi-Faction Auto-Siege Combat**: Star battles support up to all 10 factions contesting a single star simultaneously. Turn order is driven by card speeds, and bot cards automatically focus-fire on the strongest remaining faction.
+*   **Astral Sign In & Profiles**: Switch between different Seeker profiles, discard characters, or export/import base64-encoded Astral Keys to transfer saves across browsers and devices.
+*   **Web Audio Synth Engine**: Creates sound effects and music entirely inside the browser's native audio engine (no heavy audio files to load):
+    *   Detuned low oscillators synthesize a deep space ambient drone.
+    *   Sine-wave frequencies make clean chimes when selecting and fusing cards.
+    *   Low pass filters and noise generators simulate combat strikes.
+*   **Persistence & Bot Activity**: Saves all state (profile, deck, levels, map captures) in `localStorage`. Runs a background loop that decays controlled zones and triggers periodic bot attacks to simulate an active sky.
+
+### Run Locally (Bun)
+
+Start the lightweight static file server from the root directory:
+```bash
+# Serves the client at http://localhost:8080/client.html
+bun --bun run serve.ts  # Or serve via your preferred static file server
+```
+
+### Deploy to Vercel
+
+The web client can be deployed directly as a static project:
+```bash
+# Deploy to Vercel production
+vercel --prod
+```
+
+---
 
 ## SpacetimeDB — Maincloud
 
@@ -56,9 +89,9 @@ spacetime publish cookingwithcastrollc   # runs `init` (seeds 11 zones + 8 stars
 spacetime logs cookingwithcastrollc -f
 ```
 
-> The crate is a faithful scaffold against the modern SpacetimeDB Rust API; if
-> `spacetime build` flags a `find/update/delete` by-value vs `&ref`, adjust and
-> rebuild — schema and logic are the substance.
+The Rust module is compile-tested against the generated bindings in this repo;
+if you add new schema or reducers, publish and regenerate the C# bindings before
+opening the Unity project.
 
 > After adding tables/reducers (e.g. the live-duel set: `duel` table +
 > `commit_duel` and the rewritten `enqueue_duel`), re-run `spacetime build &&
@@ -155,7 +188,7 @@ and tutorial all work without it; this powers only the free-text chat.
 | §06 Suits (environmental) | `combat::element_weather` — a zone's element favors its suit (×1.35 / opposite ×0.75); no card-vs-card counters |
 | Round weather (the Great Wheel) | `tick_sky` → `advance_round_clock` advances the world Ascendant (NYC) in `game_config.season_degree`; `zone_favored_suit` rotates the 12 signs through the 11 zones so each carries its own live element |
 | §07 Star → zone tug-of-war | `resolve_star_battle` + `apply_control` (signed meter, flip at ±600) |
-| §08 AR & ephemeris | `unity/SkyMath.cs` + `SkyRenderer.cs` (P0) · `feeder/` + `push_ephemeris` |
+| §08 AR & ephemeris | `unity/SkyMath.cs` + `SkyRenderer.cs` · `feeder/` + `push_ephemeris` |
 | GPS engagement | `unity/GpsService.cs` (single GPS authority, with editor fallback) → `set_location` (private `player_location`); `resolve_star_battle` gates on `altitude_deg ≥ 10°`. `SkyRenderer` dims the 0–10° band and `BattlePanel` disables Strike with the reason, so the AR view matches the gate |
 | Deck curation | `set_loadout` (Active capped at 8) via a per-card loadout chip in `DeckPanel`/`CardView` (Active → Defense → Bench); `create_player` is idempotent — re-registering clears the old deck before re-minting |
 | Zodiac seals (territory) | `sealed_suits` — a faction masters the elements of the signs sitting in the zones it holds; its cards of those suits fight at `combat::SEAL_BONUS` (×1.15) in sieges & duels. Derived from zone ownership + the rotating sky, so it shifts as the wheel turns |
@@ -163,6 +196,25 @@ and tutorial all work without it; this powers only the free-text chat.
 | Bots (always-on war) | `tick_sky` → `bot_raid` for unmanned factions |
 | Oracle (advisor) | client-side heuristic `OracleAdvisor` + `Oracle` — proactive nudges (Toast, cadence-capped + mutable) on transits / favorable weather / a slipping zone / a fresh target, and an on-demand tip. In-world oracle voice; reads only public tables + your local chart |
 | Oracle (chat agent) | `ask_oracle` (per-player cooldown; instant answer from `oracle_cache` on a repeat rules question, else queued) → a `feeder/`-style companion service reads `oracle_request`, asks Claude (tiered Haiku/Sonnet), and returns it via owner-gated `answer_oracle` → `oracle_reply` (caching generic answers for everyone). Only a derived chart/state summary is sent — never birth data. Built end-to-end: `feeder/oracle-service.ts` is the companion service (tiered Haiku/Sonnet, prompt-cached) |
+
+## Playable Web Client (Non-AR & AR Gyroscope)
+
+A lightweight web client (`client.html`) is provided in the project root to play and test the game's core loops in any standard desktop or mobile web browser.
+
+### How to Run:
+1. Start a static server from the project root:
+   ```bash
+   python3 -m http.server 8080
+   ```
+2. Navigate to **[http://localhost:8080/client.html](http://localhost:8080/client.html)**.
+3. Complete the onboarding screen with your birth details to generate deterministic local chart placements, recommended factions, and the 20-card starter deck shape used by the server.
+
+### Key Features:
+- **Interactive 2D Pentacle Map**: A clickable vector representation of the 11 houses, spires, and zenith crown containing magnitude-weighted stars.
+- **Auto-Siege Resolver**: JS client-side mirror of the shipped auto-resolve loop using environmental suit weather, zodiac seal bonuses, cups healing, and the same gentle card-level curve.
+- **AR View Mode**: Integrates `navigator.mediaDevices.getUserMedia` for a camera backdrop and `deviceorientation` to rotate the celestial grid in real-time.
+- **Synthesized Audio**: Leverages the browser Web Audio API to play ambient cosmic drones, card flip chimes, and combat explosion sfx.
+- **Local Persistence & Bots**: Syncs state directly to browser `localStorage`. Runs a background simulation that decays controlled zones and triggers periodic bot attacks to keep the map contested.
 
 ## Notes & accuracy
 
@@ -172,8 +224,8 @@ and tutorial all work without it; this powers only the free-text chat.
   series) — sub-degree for the Sun/planets, ~a degree for the Moon. Plenty for
   sign/zone placement; swap in SwissEphNet / Swiss Ephemeris for production.
 - The Pentacle is **fixed to the local horizon**; stars and planets drift through
-  it (their alt/az is recomputed every frame). The feeder's per-planet
-  `transiting_zone` is the *global* canonical transit (ecliptic-longitude→zone);
-  each player's AR overlay is observer-local.
+  it (their alt/az is recomputed every frame). The feeder seeds each planet's
+  latest RA/Dec, and `tick_sky` maps those bodies into the shared rotating zone
+  frame for transit buffs and bot raids; each player's AR overlay is observer-local.
 - **Clients never write state** — they call reducers, which validate and mutate
   transactionally. `natal_chart` is the one private table.

@@ -22,16 +22,16 @@ public static class FactionData
 
     public static readonly string[] Doctrines =
     {
-        "Vanguard aggressors. Bonus capture while their planet is above the horizon.",
-        "Sustain & reinforcement. Held-zone decay slows through the lunar night.",
-        "Tempo & card draw. Reduced cooldowns; first to act in live duels.",
-        "Alliance play. Shares partial control with allied factions nearby.",
+        "Solar pressure. Wands-biased cards thrive when fire weather opens.",
+        "Lunar tide. Cups-biased cards reward patient weather and seal timing.",
+        "Quicksilver timing. Swords-biased cards excel when air signs rise.",
+        "Harmonic growth. Cups-biased cards turn water weather into staying power.",
         "Raw damage. Highest base attack, weak on defense — built to siege.",
         "Snowball. Each held zone buffs adjacent contests.",
         "The wall. Strongest defense; captured Saturn zones are hardest to retake.",
-        "Chaos. Random-effect cards and the power to swap contested states.",
-        "Stealth. Fortifies a zone invisibly — attackers learn its strength mid-battle.",
-        "Attrition. Converts destroyed enemy cards into temporary power.",
+        "Disruptive angle. Swords-biased cards punish openings in air weather.",
+        "Veiled patience. Cups-biased cards hold value through shifting seals.",
+        "Deep pressure. Swords-biased cards scale through levels, seals, and transit.",
     };
 
     public static readonly Color[] Colors =
