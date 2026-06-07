@@ -106,7 +106,7 @@ fn court_for_dignity(dignity: i8) -> u8 {
 fn planet_major(p: Planet) -> u8 {
     match p {
         Planet::Sun => 19,     // The Sun
-        Planet::Moon => 18,    // The Moon
+        Planet::Moon => 2,     // The High Priestess (the Moon's trump; XVIII/The Moon is Pisces')
         Planet::Mercury => 1,  // The Magician
         Planet::Venus => 3,    // The Empress
         Planet::Mars => 16,    // The Tower

@@ -45,17 +45,18 @@ The sky is divided into 11 contested zones:
 - 5 Spires (Zones 5-9): Star tips. High strategic value. Locked until adjacent Arc-Houses are owned. Spire S requires Arc-House S-5 or (S-5+4) mod 5.
 - 1 Crown (Zone 10): The central pentagon at the zenith. The keystone. Requires owning at least 2 Spires. Owning it buffs all adjacent contests.
 
-2. TEN PLANETARY FACTIONS & DOCTRINES
-- Sun (☉): Sovereignty. Wands bias. Bonus capture rate when Sun is above horizon. Hero: The Sun (XIX).
-- Moon (☽): Tides. Cups bias. Slowed zone decay during lunar night. Hero: The High Priestess (II).
-- Mercury (☿): Cunning. Swords bias. Reduced cooldowns; acts first in duels. Hero: The Magician (I).
-- Venus (♀): Harmony. Cups bias. Shares partial control points with allies in adjacent zones. Hero: The Empress (III).
-- Mars (♂): War. Wands bias. Highest base attack, poor defense. Hero: The Tower (XVI).
-- Jupiter (♃): Expansion. Wands bias. Contests buff adjacent zones. Hero: Wheel of Fortune (X).
-- Saturn (♄): Dominion. Pentacles bias. Strongest defense; hardest zones to retake. Hero: The World (XXI).
-- Uranus (♅): Chaos. Swords bias. Random-effect cards; can swap zone contest states. Hero: The Fool (0).
-- Neptune (♆): Illusion. Cups bias. Invisible zone fortification. Hero: The Hanged Man (XII).
-- Pluto (♇): Transformation. Swords bias. Attrition; converts destroyed cards into temporary power. Hero: Judgement (XX).
+2. THE TEN PLANETARY FACTIONS
+Each faction biases toward a suit and carries a signature Major-Arcana hero. Only Mars, Jupiter, and Saturn have distinct combat passives today; the rest fight through the SHARED systems — weather, zodiac seals, the planetary-transit buff, and card leveling — so advise their players from those, not from faction-unique powers.
+- Sun (☉): Sovereignty. Wands bias. Hero: The Sun (XIX).
+- Moon (☽): Tides. Cups bias. Hero: The High Priestess (II).
+- Mercury (☿): Cunning. Swords bias. Hero: The Magician (I).
+- Venus (♀): Harmony. Cups bias. Hero: The Empress (III).
+- Mars (♂): War. Wands bias. PASSIVE: attacking, its cards deal ×1.25 attack; defending, their armour drops to ×0.75 — a glass-cannon aggressor. Hero: The Tower (XVI).
+- Jupiter (♃): Expansion. Wands bias. PASSIVE: +15% attack & health for each adjacent zone Jupiter already holds. Hero: Wheel of Fortune (X).
+- Saturn (♄): Dominion. Pentacles bias. PASSIVE: defending, its cards gain +30% health & armour, and its held zones decay half as fast — the wall. Hero: The World (XXI).
+- Uranus (♅): Chaos. Swords bias. Hero: The Fool (0).
+- Neptune (♆): Illusion. Cups bias. Hero: The Hanged Man (XII).
+- Pluto (♇): Transformation. Swords bias. Hero: Judgement (XX).
 
 3. TAROT COMBAT — THE FOUR SUITS (NO COUNTERS)
 Combat uses cards of the four suits plus the planetary trumps (Major Arcana). The suits do NOT counter one another — there is NO rock-paper-scissors. Each suit is an element whose strength is environmental, set by the sky:
