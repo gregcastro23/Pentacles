@@ -63,6 +63,12 @@ public class CelestialPentacleConn : MonoBehaviour
             .OnApplied(_ => Debug.Log("[STDB] Sky state applied"))
             .SubscribeToAllTables();
 
+        conn.Reducers.OnUnhandledReducerError += (_, e) =>
+        {
+            Debug.LogWarning($"[STDB] Reducer rejected: {e.Message}");
+            Toast.Show(e.Message, 3.5f);
+        };
+
         // React to the live war.
         conn.Db.StarNode.OnUpdate += (_, oldS, newS) =>
         {
@@ -100,32 +106,29 @@ public class CelestialPentacleConn : MonoBehaviour
     public void CommitDuel(ulong duelId, ulong lane0, ulong lane1, ulong lane2) =>
         Conn.Reducers.CommitDuel(duelId, lane0, lane1, lane2);
 
-    // Claim a stalled duel whose opponent never committed. The binding appears
-    // after you re-run `spacetime generate` for the new claim_duel_timeout reducer.
+    // Claim a stalled duel whose opponent never committed.
     public void ClaimDuelTimeout(ulong duelId) => Conn.Reducers.ClaimDuelTimeout(duelId);
 
     // Report your real-world location (private); gates which stars are engageable.
-    // Binding appears after `spacetime generate` for the new set_location reducer.
     public void SetLocation(double lat, double lon) => Conn.Reducers.SetLocation(lat, lon);
 
-    // Move a card between loadouts (Active capped at 10, Defense capped at 8).
+    // Move a card between loadouts (Active capped at 8, Defense capped at 8).
     public void SetLoadout(ulong cardId, Loadout loadout) => Conn.Reducers.SetLoadout(cardId, loadout);
 
     // Fuse two copies of the same card; the kept one levels up (diminishing
-    // returns). Binding appears after `spacetime generate` for combine_cards.
+    // returns).
     public void CombineCards(ulong keepId, ulong consumeId) =>
         Conn.Reducers.CombineCards(keepId, consumeId);
 
     // Confirmed two-way trades: propose (stake your offer + name what you want
-    // from partner), then both confirm. Bindings appear after `spacetime generate`.
+    // from partner), then both confirm.
     public void ProposeTrade(Identity partner, List<ulong> offer, List<ulong> request) =>
         Conn.Reducers.ProposeTrade(partner, offer, request);
     public void ConfirmTrade(ulong tradeId) => Conn.Reducers.ConfirmTrade(tradeId);
     public void CancelTrade(ulong tradeId) => Conn.Reducers.CancelTrade(tradeId);
 
     // Ask the Oracle a free-text question; the companion service answers via the
-    // oracle_reply table. `context` is a derived summary (no birth data). Binding
-    // appears after `spacetime generate` for ask_oracle.
+    // oracle_reply table. `context` is a derived summary (no birth data).
     public void AskOracle(string question, string context, bool cacheable) =>
         Conn.Reducers.AskOracle(question, context, cacheable);
 }

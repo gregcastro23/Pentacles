@@ -698,3 +698,316 @@ section.block:first-of-type::before { display: none; }
   section.block::before { left: 0; transform: none; text-align: left; width: 24px; }
 }
 
+/* ============================================================
+   TAROT CARD FORGE & GALLERY STYLES
+   ============================================================ */
+.forge-container {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  gap: 36px;
+  background: linear-gradient(180deg, var(--bg-2), var(--panel));
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 32px;
+  margin: 32px 0;
+  position: relative;
+}
+.forge-container::before, .forge-container::after {
+  content: "";
+  position: absolute;
+  width: 20px; height: 20px;
+  border: 1px solid var(--gold);
+  opacity: 0.45;
+  pointer-events: none;
+}
+.forge-container::before { top: 11px; left: 11px; border-right: none; border-bottom: none; }
+.forge-container::after  { bottom: 11px; right: 11px; border-left: none; border-top: none; }
+
+.forge-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.forge-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.forge-group label {
+  font-family: var(--ui);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.forge-input, .forge-select {
+  background: var(--bg);
+  border: 1px solid var(--line-hard);
+  color: var(--text);
+  padding: 8px 12px;
+  border-radius: 3px;
+  font-family: var(--ui);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.forge-input:focus, .forge-select:focus {
+  border-color: var(--gold-bright);
+  box-shadow: 0 0 6px rgba(241, 219, 161, 0.2);
+}
+.forge-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.forge-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--ui);
+  font-size: 12px;
+  color: var(--dim);
+  cursor: pointer;
+  user-select: none;
+}
+.forge-checkbox input {
+  accent-color: var(--gold);
+}
+
+.forge-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  min-height: 400px;
+  border-left: 1px solid var(--line-soft);
+  padding-left: 36px;
+}
+
+/* Web Tarot Card Visual Styles */
+.tarot-card {
+  width: 220px;
+  height: 330px;
+  border-radius: 6px;
+  position: relative;
+  background: rgba(10, 13, 26, 0.82);
+  backdrop-filter: blur(12px);
+  border: 2px solid rgba(216, 180, 106, 0.25);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  transition: transform 0.4s cubic-bezier(0.165, 0.84, 0.44, 1), box-shadow 0.4s, border-color 0.4s;
+  cursor: pointer;
+  user-select: none;
+  transform-style: preserve-3d;
+}
+.tarot-card:hover {
+  transform: translateY(-10px) rotateY(5deg) rotateX(3deg);
+}
+
+/* Suit Specific Styles */
+.tarot-card.cups {
+  border-color: rgba(95, 147, 216, 0.4);
+  box-shadow: 0 8px 24px rgba(95, 147, 216, 0.15);
+}
+.tarot-card.cups:hover {
+  border-color: rgba(95, 147, 216, 0.8);
+  box-shadow: 0 16px 36px rgba(95, 147, 216, 0.35);
+}
+.tarot-card.swords {
+  border-color: rgba(174, 187, 214, 0.4);
+  box-shadow: 0 8px 24px rgba(174, 187, 214, 0.15);
+}
+.tarot-card.swords:hover {
+  border-color: rgba(174, 187, 214, 0.8);
+  box-shadow: 0 16px 36px rgba(174, 187, 214, 0.35);
+}
+.tarot-card.pentacles {
+  border-color: rgba(116, 171, 108, 0.4);
+  box-shadow: 0 8px 24px rgba(116, 171, 108, 0.15);
+}
+.tarot-card.pentacles:hover {
+  border-color: rgba(116, 171, 108, 0.8);
+  box-shadow: 0 16px 36px rgba(116, 171, 108, 0.35);
+}
+.tarot-card.wands {
+  border-color: rgba(219, 122, 71, 0.4);
+  box-shadow: 0 8px 24px rgba(219, 122, 71, 0.15);
+}
+.tarot-card.wands:hover {
+  border-color: rgba(219, 122, 71, 0.8);
+  box-shadow: 0 16px 36px rgba(219, 122, 71, 0.35);
+}
+
+/* Major Arcana / Trump Card styling */
+.tarot-card.trump {
+  border-color: var(--gold-bright);
+  background: linear-gradient(135deg, rgba(20, 16, 8, 0.92) 0%, rgba(8, 10, 18, 0.95) 100%);
+  box-shadow: 0 8px 28px rgba(241, 219, 161, 0.18);
+}
+.tarot-card.trump::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: 6px;
+  padding: 1.5px;
+  background: linear-gradient(135deg, var(--gold-bright), var(--gold-deep));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+.tarot-card.trump:hover {
+  border-color: #fff;
+  box-shadow: 0 16px 40px rgba(241, 219, 161, 0.45);
+}
+
+/* Card inner border */
+.card-frame {
+  position: absolute;
+  inset: 6px;
+  border: 1px solid rgba(216, 180, 106, 0.14);
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 10px;
+  pointer-events: none;
+}
+.tarot-card.trump .card-frame {
+  border-color: rgba(241, 219, 161, 0.25);
+  box-shadow: inset 0 0 12px rgba(241, 219, 161, 0.05);
+}
+
+/* Glyph and elements styling */
+.card-glyph {
+  font-size: 32px;
+  line-height: 1;
+  margin-bottom: 4px;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+  transition: transform 0.3s;
+}
+.tarot-card.inverted .card-glyph {
+  transform: rotate(180deg);
+}
+
+.card-title {
+  font-family: var(--display);
+  font-size: 17px;
+  font-weight: 600;
+  text-align: center;
+  color: #fff;
+  margin: 2px 0;
+  letter-spacing: 0.02em;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.6);
+  line-height: 1.2;
+}
+.tarot-card.trump .card-title {
+  color: var(--gold-bright);
+}
+
+.card-subtitle {
+  font-family: var(--ui);
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.10em;
+  margin-bottom: 8px;
+}
+
+.card-sep {
+  width: 100%;
+  height: 1px;
+  background: rgba(216, 180, 106, 0.15);
+  margin: 6px 0;
+}
+.tarot-card.trump .card-sep {
+  background: rgba(241, 219, 161, 0.25);
+}
+
+.card-stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  width: 100%;
+  gap: 8px 4px;
+  margin: 8px 0;
+  text-align: center;
+}
+.card-stat-val {
+  font-family: var(--ui);
+  font-size: 11px;
+  color: var(--text);
+  font-weight: 600;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.card-stat-val span {
+  font-size: 9px;
+  color: var(--dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 400;
+  margin-bottom: 1px;
+}
+
+.card-footnote {
+  margin-top: auto;
+  font-family: var(--ui);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Dynamic Gallery grid */
+.cards-gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 24px;
+  margin-top: 32px;
+}
+
+.forge-btn {
+  font-family: var(--ui);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--gold-bright);
+  background: rgba(216, 180, 106, 0.15);
+  border: 1px solid var(--gold);
+  border-radius: 3px;
+  padding: 10px 16px;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, transform 0.1s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.forge-btn:hover {
+  background: rgba(216, 180, 106, 0.3);
+  border-color: #fff;
+}
+.forge-btn:active {
+  transform: scale(0.97);
+}
+
+@media (max-width: 940px) {
+  .forge-container {
+    grid-template-columns: 1fr;
+    padding: 20px;
+  }
+  .forge-preview {
+    border-left: none;
+    border-top: 1px solid var(--line-soft);
+    padding-left: 0;
+    padding-top: 24px;
+  }
+}
+

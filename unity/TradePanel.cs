@@ -48,6 +48,7 @@ public class TradePanel : MonoBehaviour
             conn.Conn.Db.Trade.OnInsert += (_, __) => _dirty = true;
             conn.Conn.Db.Trade.OnUpdate += (_, __, ___) => _dirty = true;
             conn.Conn.Db.Trade.OnDelete += (_, __) => _dirty = true;
+            conn.Conn.Db.Card.OnInsert += (_, __) => _dirty = true;
             conn.Conn.Db.Card.OnUpdate += (_, __, ___) => _dirty = true;
             conn.Conn.Db.Card.OnDelete += (_, __) => _dirty = true;
             _subscribed = true;

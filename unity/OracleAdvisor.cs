@@ -2,8 +2,8 @@
 //
 // Pure reads over the live public tables + your local chart produce tactical
 // advice in the in-world astrologer voice: which zone to turn to, what's slipping,
-// what's ripe. The Claude companion service (Phase C) handles only open chat and
-// teaching — everything here is instant, offline, and free.
+// what's ripe. Open chat and teaching are handled by the Oracle companion service;
+// everything here is instant, offline, and free.
 
 using System.Collections.Generic;
 using SpacetimeDB.Types;

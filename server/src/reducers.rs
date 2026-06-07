@@ -1,13 +1,17 @@
 //! Reducers — the only writers. Clients call these; they validate and mutate
 //! transactionally, so the map is cheat-resistant by construction.
 
+use crate::tables::*;
 use crate::types::*;
 use crate::{chart, combat};
-use crate::tables::*;
 use spacetimedb::{reducer, Identity, ReducerContext, ScheduleAt, Table, Timestamp};
 use std::time::Duration;
 
 const FLIP_THRESHOLD: i32 = 600;
+/// Cards a player may field in direct attacks and live-duel lanes.
+const ACTIVE_LIMIT: usize = 8;
+/// Cards a faction may contribute to held-star sentinels.
+const DEFENSE_LIMIT: usize = 8;
 /// A card stops gaining from combines past this level — the bonus is already near
 /// its +50% ceiling, so further copies would barely move it.
 const MAX_CARD_LEVEL: u8 = 6;
@@ -62,7 +66,7 @@ pub fn init(ctx: &ReducerContext) {
         }
     }
 
-    seed_demo_stars(ctx);
+    seed_bright_stars(ctx);
 
     // Drive the persistent sky: tick every 10 seconds.
     ctx.db.sky_tick_timer().insert(SkyTickTimer {
@@ -97,7 +101,10 @@ pub fn create_player(
     }
 
     // Server owns identity — never trust a client-supplied one.
-    let chart = NatalChart { identity: ctx.sender, ..chart };
+    let chart = NatalChart {
+        identity: ctx.sender,
+        ..chart
+    };
     if ctx.db.natal_chart().identity().find(&ctx.sender).is_some() {
         ctx.db.natal_chart().identity().update(chart.clone());
     } else {
@@ -160,7 +167,13 @@ pub fn set_location(ctx: &ReducerContext, lat: f64, lon: f64) -> Result<(), Stri
         lon,
         updated_at: ctx.timestamp,
     };
-    if ctx.db.player_location().identity().find(&ctx.sender).is_some() {
+    if ctx
+        .db
+        .player_location()
+        .identity()
+        .find(&ctx.sender)
+        .is_some()
+    {
         ctx.db.player_location().identity().update(row);
     } else {
         ctx.db.player_location().insert(row);
@@ -170,11 +183,7 @@ pub fn set_location(ctx: &ReducerContext, lat: f64, lon: f64) -> Result<(), Stri
 
 /// Change a card's loadout (Active, Defense, Bench) with limit validation.
 #[reducer]
-pub fn set_loadout(
-    ctx: &ReducerContext,
-    card_id: u64,
-    loadout: Loadout,
-) -> Result<(), String> {
+pub fn set_loadout(ctx: &ReducerContext, card_id: u64, loadout: Loadout) -> Result<(), String> {
     let mut slot = ctx
         .db
         .deck_slot()
@@ -194,8 +203,8 @@ pub fn set_loadout(
                 .iter()
                 .filter(|s| s.owner == ctx.sender && s.loadout == Loadout::Active)
                 .count();
-            if active_count >= 10 {
-                return Err("cannot have more than 10 active cards".to_string());
+            if active_count >= ACTIVE_LIMIT {
+                return Err(format!("cannot have more than {ACTIVE_LIMIT} active cards"));
             }
         }
         Loadout::Defense => {
@@ -205,8 +214,10 @@ pub fn set_loadout(
                 .iter()
                 .filter(|s| s.owner == ctx.sender && s.loadout == Loadout::Defense)
                 .count();
-            if defense_count >= 8 {
-                return Err("cannot have more than 8 defense sentinel cards".to_string());
+            if defense_count >= DEFENSE_LIMIT {
+                return Err(format!(
+                    "cannot have more than {DEFENSE_LIMIT} defense sentinel cards"
+                ));
             }
         }
         Loadout::Bench => {}
@@ -238,8 +249,18 @@ pub fn combine_cards(ctx: &ReducerContext, keep_id: u64, consume_id: u64) -> Res
     if keep_id == consume_id {
         return Err("pick two different cards".into());
     }
-    let mut keep = ctx.db.card().card_id().find(&keep_id).ok_or("no such card")?;
-    let consume = ctx.db.card().card_id().find(&consume_id).ok_or("no such card")?;
+    let mut keep = ctx
+        .db
+        .card()
+        .card_id()
+        .find(&keep_id)
+        .ok_or("no such card")?;
+    let consume = ctx
+        .db
+        .card()
+        .card_id()
+        .find(&consume_id)
+        .ok_or("no such card")?;
     if keep.owner != ctx.sender || consume.owner != ctx.sender {
         return Err("you can only combine your own cards".into());
     }
@@ -281,14 +302,27 @@ pub fn propose_trade(
     if offer.is_empty() && request.is_empty() {
         return Err("a trade needs at least one card".into());
     }
+    if has_duplicates(&offer) || has_duplicates(&request) {
+        return Err("a trade can't stake the same card twice".into());
+    }
     for cid in &offer {
-        let c = ctx.db.card().card_id().find(cid).ok_or("you offered a card that doesn't exist")?;
+        let c = ctx
+            .db
+            .card()
+            .card_id()
+            .find(cid)
+            .ok_or("you offered a card that doesn't exist")?;
         if c.owner != ctx.sender {
             return Err("you can only offer your own cards".into());
         }
     }
     for cid in &request {
-        let c = ctx.db.card().card_id().find(cid).ok_or("you asked for a card that doesn't exist")?;
+        let c = ctx
+            .db
+            .card()
+            .card_id()
+            .find(cid)
+            .ok_or("you asked for a card that doesn't exist")?;
         if c.owner != partner {
             return Err("the partner doesn't own a card you asked for".into());
         }
@@ -312,7 +346,12 @@ pub fn propose_trade(
 /// partner confirms, ownership swaps (re-validated first) and the trade commits.
 #[reducer]
 pub fn confirm_trade(ctx: &ReducerContext, trade_id: u64) -> Result<(), String> {
-    let mut t = ctx.db.trade().trade_id().find(&trade_id).ok_or("no such trade")?;
+    let mut t = ctx
+        .db
+        .trade()
+        .trade_id()
+        .find(&trade_id)
+        .ok_or("no such trade")?;
     if t.state != TradeState::Open {
         return Err("this trade is already closed".into());
     }
@@ -328,13 +367,23 @@ pub fn confirm_trade(ctx: &ReducerContext, trade_id: u64) -> Result<(), String> 
     if t.proposer_ok && t.partner_ok {
         // Re-check ownership at the moment of commit — a staked card may have moved.
         for cid in &t.offer {
-            let c = ctx.db.card().card_id().find(cid).ok_or("an offered card has gone")?;
+            let c = ctx
+                .db
+                .card()
+                .card_id()
+                .find(cid)
+                .ok_or("an offered card has gone")?;
             if c.owner != t.proposer {
                 return Err("the proposer no longer holds a staked card".into());
             }
         }
         for cid in &t.request {
-            let c = ctx.db.card().card_id().find(cid).ok_or("a requested card has gone")?;
+            let c = ctx
+                .db
+                .card()
+                .card_id()
+                .find(cid)
+                .ok_or("a requested card has gone")?;
             if c.owner != t.partner {
                 return Err("the partner no longer holds a staked card".into());
             }
@@ -350,7 +399,12 @@ pub fn confirm_trade(ctx: &ReducerContext, trade_id: u64) -> Result<(), String> 
 /// Either party may call off an open trade.
 #[reducer]
 pub fn cancel_trade(ctx: &ReducerContext, trade_id: u64) -> Result<(), String> {
-    let mut t = ctx.db.trade().trade_id().find(&trade_id).ok_or("no such trade")?;
+    let mut t = ctx
+        .db
+        .trade()
+        .trade_id()
+        .find(&trade_id)
+        .ok_or("no such trade")?;
     if ctx.sender != t.proposer && ctx.sender != t.partner {
         return Err("this trade isn't yours".into());
     }
@@ -432,14 +486,29 @@ pub fn resolve_star_battle(
         return Err("Zone is locked. Faction must control adjacent zones first!".into());
     }
 
+    if log.model != CombatModel::AutoSiege {
+        return Err("star strikes use Auto-Siege; use the Duel button for live Lane Skirmish".into());
+    }
+
     // Gather the attacker's played cards (validate ownership).
     let mut attacker: Vec<combat::CardStat> = Vec::new();
+    if has_duplicates(&log.plays) {
+        return Err("a card can only be played once in a strike".into());
+    }
     for cid in &log.plays {
-        if let Some(c) = ctx.db.card().card_id().find(cid) {
-            if c.owner == ctx.sender {
-                attacker.push(stat_of(&c));
-            }
+        let c = ctx
+            .db
+            .card()
+            .card_id()
+            .find(cid)
+            .ok_or_else(|| "card not found".to_string())?;
+        if c.owner != ctx.sender {
+            return Err("you can only strike with your own cards".into());
         }
+        if !has_loadout(ctx, ctx.sender, *cid, Loadout::Active) {
+            return Err("only Active cards can strike; move the card into Active first".into());
+        }
+        attacker.push(stat_of(&c));
     }
     if attacker.is_empty() {
         return Err("no valid cards played".into());
@@ -457,7 +526,11 @@ pub fn resolve_star_battle(
     }
 
     // Apply planet transit buffs (+30% stats)
-    let transit_atk = ctx.db.ephemeris().body().find(&player.faction)
+    let transit_atk = ctx
+        .db
+        .ephemeris()
+        .body()
+        .find(&player.faction)
         .map(|e| e.transiting_zone == star.region_hint)
         .unwrap_or(false);
     if transit_atk {
@@ -467,7 +540,11 @@ pub fn resolve_star_battle(
         }
     }
     if let Some(holder) = star.held_by {
-        let transit_def = ctx.db.ephemeris().body().find(&holder)
+        let transit_def = ctx
+            .db
+            .ephemeris()
+            .body()
+            .find(&holder)
             .map(|e| e.transiting_zone == star.region_hint)
             .unwrap_or(false);
         if transit_def {
@@ -480,9 +557,17 @@ pub fn resolve_star_battle(
 
     let favored = zone_favored_suit(ctx, star.region_hint);
     let attacker_seals = sealed_suits(ctx, player.faction);
-    let defender_seals = star.held_by.map(|f| sealed_suits(ctx, f)).unwrap_or_default();
-    let (won, margin) =
-        combat::resolve_star(&attacker, &defender, favored, &attacker_seals, &defender_seals);
+    let defender_seals = star
+        .held_by
+        .map(|f| sealed_suits(ctx, f))
+        .unwrap_or_default();
+    let (won, margin) = combat::resolve_star(
+        &attacker,
+        &defender,
+        favored,
+        &attacker_seals,
+        &defender_seals,
+    );
 
     // Calculate final scores for logging
     let ap = attacker
@@ -490,7 +575,11 @@ pub fn resolve_star_battle(
         .map(|c| {
             let base = c.attack as f32 + c.health as f32 * 0.5 + c.armour as f32 * 0.4;
             let mult = combat::element_weather(c.suit, favored);
-            let seal = if attacker_seals.contains(&c.suit) { combat::SEAL_BONUS } else { 1.0 };
+            let seal = if attacker_seals.contains(&c.suit) {
+                combat::SEAL_BONUS
+            } else {
+                1.0
+            };
             base * mult * seal
         })
         .sum::<f32>();
@@ -499,7 +588,11 @@ pub fn resolve_star_battle(
         .map(|c| {
             let base = c.attack as f32 + c.health as f32 * 0.5 + c.armour as f32 * 0.4;
             let mult = combat::element_weather(c.suit, favored);
-            let seal = if defender_seals.contains(&c.suit) { combat::SEAL_BONUS } else { 1.0 };
+            let seal = if defender_seals.contains(&c.suit) {
+                combat::SEAL_BONUS
+            } else {
+                1.0
+            };
             base * mult * seal
         })
         .sum::<f32>();
@@ -630,7 +723,11 @@ pub fn commit_duel(
     if !is_a && !is_b {
         return Err("not your duel".into());
     }
-    for cid in [lane0, lane1, lane2] {
+    let lane_cards = [lane0, lane1, lane2];
+    if lane0 == lane1 || lane0 == lane2 || lane1 == lane2 {
+        return Err("each duel lane needs a different card".into());
+    }
+    for cid in lane_cards {
         let c = ctx
             .db
             .card()
@@ -640,12 +737,15 @@ pub fn commit_duel(
         if c.owner != ctx.sender {
             return Err("not your card".into());
         }
+        if !has_loadout(ctx, ctx.sender, cid, Loadout::Active) {
+            return Err("duel lanes can only use Active cards".into());
+        }
     }
     if is_a {
         duel.a_cards = vec![lane0, lane1, lane2];
         duel.a_committed = true;
     } else {
-    duel.b_cards = vec![lane0, lane1, lane2];
+        duel.b_cards = vec![lane0, lane1, lane2];
         duel.b_committed = true;
     }
     duel.updated_at = ctx.timestamp;
@@ -656,7 +756,7 @@ pub fn commit_duel(
     Ok(())
 }
 
-/// Lane-by-lane (suit-triangle scaled); best-of-3 wins and shifts the zone.
+/// Lane-by-lane under environmental suit weather; best-of-3 wins and shifts the zone.
 fn resolve_duel(ctx: &ReducerContext, duel: &mut Duel) {
     let favored = zone_favored_suit(ctx, duel.zone_id);
     let a_seals = sealed_suits(ctx, duel.faction_a);
@@ -679,7 +779,11 @@ fn resolve_duel(ctx: &ReducerContext, duel: &mut Duel) {
     apply_passives(ctx, &mut cards_a, duel.faction_a, true, duel.zone_id);
     apply_passives(ctx, &mut cards_b, duel.faction_b, false, duel.zone_id);
 
-    let transit_a = ctx.db.ephemeris().body().find(&duel.faction_a)
+    let transit_a = ctx
+        .db
+        .ephemeris()
+        .body()
+        .find(&duel.faction_a)
         .map(|e| e.transiting_zone == duel.zone_id)
         .unwrap_or(false);
     if transit_a {
@@ -688,7 +792,11 @@ fn resolve_duel(ctx: &ReducerContext, duel: &mut Duel) {
             c.health = (c.health as f32 * 1.30) as u16;
         }
     }
-    let transit_b = ctx.db.ephemeris().body().find(&duel.faction_b)
+    let transit_b = ctx
+        .db
+        .ephemeris()
+        .body()
+        .find(&duel.faction_b)
         .map(|e| e.transiting_zone == duel.zone_id)
         .unwrap_or(false);
     if transit_b {
@@ -702,11 +810,27 @@ fn resolve_duel(ctx: &ReducerContext, duel: &mut Duel) {
         if lane < cards_a.len() && lane < cards_b.len() {
             let c_a = &cards_a[lane];
             let c_b = &cards_b[lane];
-            let seal_a = if a_seals.contains(&c_a.suit) { combat::SEAL_BONUS } else { 1.0 };
-            let seal_b = if b_seals.contains(&c_b.suit) { combat::SEAL_BONUS } else { 1.0 };
-            let pa = (c_a.attack as f32 + c_a.health as f32 * 0.5 + c_a.armour as f32 * 0.4) * combat::element_weather(c_a.suit, favored) * seal_a;
-            let pb = (c_b.attack as f32 + c_b.health as f32 * 0.5 + c_b.armour as f32 * 0.4) * combat::element_weather(c_b.suit, favored) * seal_b;
-            if pa >= pb { a += 1; } else { b += 1; }
+            let seal_a = if a_seals.contains(&c_a.suit) {
+                combat::SEAL_BONUS
+            } else {
+                1.0
+            };
+            let seal_b = if b_seals.contains(&c_b.suit) {
+                combat::SEAL_BONUS
+            } else {
+                1.0
+            };
+            let pa = (c_a.attack as f32 + c_a.health as f32 * 0.5 + c_a.armour as f32 * 0.4)
+                * combat::element_weather(c_a.suit, favored)
+                * seal_a;
+            let pb = (c_b.attack as f32 + c_b.health as f32 * 0.5 + c_b.armour as f32 * 0.4)
+                * combat::element_weather(c_b.suit, favored)
+                * seal_b;
+            if pa >= pb {
+                a += 1;
+            } else {
+                b += 1;
+            }
         }
     }
 
@@ -811,6 +935,24 @@ fn elapsed_secs(later: Timestamp, earlier: Timestamp) -> i64 {
     (micros / 1_000_000).max(0)
 }
 
+fn has_duplicates(ids: &[u64]) -> bool {
+    for i in 0..ids.len() {
+        for j in (i + 1)..ids.len() {
+            if ids[i] == ids[j] {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+fn has_loadout(ctx: &ReducerContext, owner: Identity, card_id: u64, loadout: Loadout) -> bool {
+    ctx.db
+        .deck_slot()
+        .iter()
+        .any(|s| s.owner == owner && s.card_id == card_id && s.loadout == loadout)
+}
+
 // ── Scheduled & owner feeds ───────────────────────────────────────────────
 
 /// Fires on the schedule: decays held zones, wheels the living sky, sweeps
@@ -883,15 +1025,19 @@ pub fn tick_sky(ctx: &ReducerContext, _timer: SkyTickTimer) {
             // Sign Ingress Event
             let sign = (cfg.season_degree / 30) % 12;
             let active_zone = sign % 11;
-            log::info!("Zodiac Ingress: Great Wheel entered degree {}, active Ingress Buff zone is {}", cfg.season_degree, active_zone);
+            log::info!(
+                "Zodiac Ingress: Great Wheel entered degree {}, active Ingress Buff zone is {}",
+                cfg.season_degree,
+                active_zone
+            );
         }
 
         ctx.db.game_config().id().update(cfg);
     }
 
-    advance_round_clock(ctx);  // round weather: which sign is rising at the world horizon
+    advance_round_clock(ctx); // round weather: which sign is rising at the world horizon
     recompute_star_zones(ctx); // A — de-freeze the sky before bots read hints
-    
+
     // Update planetary transit zones dynamically as the sky rotates
     let gmst = gmst_deg(ctx.timestamp);
     for mut eph in ctx.db.ephemeris().iter() {
@@ -902,7 +1048,7 @@ pub fn tick_sky(ctx: &ReducerContext, _timer: SkyTickTimer) {
         }
     }
 
-    sweep_stale_duels(ctx);    // B — auto-resolve abandoned duels
+    sweep_stale_duels(ctx); // B — auto-resolve abandoned duels
     bot_raid(ctx);
 }
 
@@ -926,7 +1072,13 @@ pub fn push_ephemeris(
         return Err("owner-only reducer".into());
     }
     let body = Planet::from_idx(body_idx);
-    let row = Ephemeris { body, ra, dec, transiting_zone, tick: ctx.timestamp };
+    let row = Ephemeris {
+        body,
+        ra,
+        dec,
+        transiting_zone,
+        tick: ctx.timestamp,
+    };
     if ctx.db.ephemeris().body().find(&body).is_some() {
         ctx.db.ephemeris().body().update(row);
     } else {
@@ -941,7 +1093,11 @@ pub fn push_ephemeris(
 /// lowercased) for the answer cache, so trivially-different phrasings of the same
 /// rules question hit the same entry.
 fn question_hash(q: &str) -> u64 {
-    let norm = q.split_whitespace().collect::<Vec<_>>().join(" ").to_lowercase();
+    let norm = q
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .to_lowercase();
     let mut h: u64 = 0xcbf29ce484222325;
     for b in norm.as_bytes() {
         h ^= *b as u64;
@@ -1090,7 +1246,10 @@ pub fn answer_oracle(
 // ── Helpers ───────────────────────────────────────────────────────────────
 
 fn faction_owns_zone(ctx: &ReducerContext, faction: Planet, zone_id: u8) -> bool {
-    ctx.db.zone().zone_id().find(&zone_id)
+    ctx.db
+        .zone()
+        .zone_id()
+        .find(&zone_id)
         .map(|z| z.owner == Some(faction))
         .unwrap_or(false)
 }
@@ -1275,19 +1434,10 @@ const MIN_ALT_DEG: f64 = 10.0;
 /// holding a zone while its sign is up grants that element's mastery, and the
 /// faction's cards of that suit fight at `combat::SEAL_BONUS` wherever they contest.
 fn sealed_suits(ctx: &ReducerContext, faction: Planet) -> Vec<Suit> {
-    let deg = ctx
-        .db
-        .game_config()
-        .id()
-        .find(&0)
-        .map(|c| c.season_degree)
-        .unwrap_or(0);
-    let rising = deg / 30;
     let mut suits = Vec::new();
     for z in ctx.db.zone().iter() {
         if z.owner == Some(faction) {
-            let sign = ((rising + z.zone_id as u16) % 12) as u8;
-            let suit = chart::sign_element(sign);
+            let suit = zone_favored_suit(ctx, z.zone_id);
             if !suits.contains(&suit) {
                 suits.push(suit);
             }
@@ -1338,7 +1488,7 @@ fn sentinel_for(ctx: &ReducerContext, holder: Planet) -> Vec<combat::CardStat> {
             }
             if let Some(c) = ctx.db.card().card_id().find(&slot.card_id) {
                 out.push(stat_of(&c));
-                if out.len() >= 8 {
+                if out.len() >= DEFENSE_LIMIT {
                     break;
                 }
             }
@@ -1346,7 +1496,12 @@ fn sentinel_for(ctx: &ReducerContext, holder: Planet) -> Vec<combat::CardStat> {
     }
     if out.is_empty() {
         // No human sentinel — fall back to a token guardian scaled to the planet.
-        out.push(combat::CardStat { suit: holder.biased_suit(), attack: 18, health: 30, armour: 10 });
+        out.push(combat::CardStat {
+            suit: holder.biased_suit(),
+            attack: 18,
+            health: 30,
+            armour: 10,
+        });
     }
     out
 }
@@ -1356,8 +1511,18 @@ fn neutral_garrison(star: &StarNode) -> Vec<combat::CardStat> {
     let w = combat::node_weight(star.magnitude);
     let base = (10.0 + w * 6.0) as u16;
     vec![
-        combat::CardStat { suit: Suit::Pentacles, attack: base / 2, health: base * 2, armour: base },
-        combat::CardStat { suit: Suit::Cups, attack: base / 2, health: base * 2, armour: base / 2 },
+        combat::CardStat {
+            suit: Suit::Pentacles,
+            attack: base / 2,
+            health: base * 2,
+            armour: base,
+        },
+        combat::CardStat {
+            suit: Suit::Cups,
+            attack: base / 2,
+            health: base * 2,
+            armour: base / 2,
+        },
     ]
 }
 
@@ -1393,9 +1558,9 @@ fn bot_raid(ctx: &ReducerContext) {
     }
 }
 
-/// A few bright naked-eye stars as starting objectives (real catalogue loads
-/// via `push`/CLI later). region_hint spreads them across the eleven zones.
-fn seed_demo_stars(ctx: &ReducerContext) {
+/// Bright naked-eye stars as starting objectives. `region_hint` spreads them
+/// across the eleven zones until the first scheduled sky tick recomputes it.
+fn seed_bright_stars(ctx: &ReducerContext) {
     let stars: [(u32, &str, f64, f64, f32, u8); 8] = [
         (32349, "Sirius", 101.287, -16.716, -1.46, 0),
         (30438, "Canopus", 95.988, -52.696, -0.74, 1),
@@ -1423,7 +1588,7 @@ fn seed_demo_stars(ctx: &ReducerContext) {
 
 #[cfg(test)]
 mod tests {
-    use super::question_hash;
+    use super::{has_duplicates, question_hash};
 
     #[test]
     fn hash_ignores_case_and_collapses_whitespace() {
@@ -1456,5 +1621,13 @@ mod tests {
             question_hash("what is a seal"),
             question_hash("what is a seal?"),
         );
+    }
+
+    #[test]
+    fn duplicate_card_ids_are_detected_for_authoritative_validation() {
+        assert!(!has_duplicates(&[]));
+        assert!(!has_duplicates(&[1, 2, 3]));
+        assert!(has_duplicates(&[1, 2, 1]));
+        assert!(has_duplicates(&[7, 7]));
     }
 }

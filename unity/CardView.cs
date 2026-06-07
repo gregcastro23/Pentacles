@@ -10,7 +10,10 @@ public class CardView : MonoBehaviour
     public ulong CardId;
     public bool Selected { get; private set; }
 
-    Image _bg;
+    Image _bg;             // The inner background image
+    Image _border;         // The outer container image serving as the border
+    bool _isTrump;
+    Color _suitColor;
     Action<ulong> _onClick;
     float _suppressClickUntil;
 
@@ -31,62 +34,102 @@ public class CardView : MonoBehaviour
     public static CardView Build(Transform parent, Card c, Loadout loadout,
         Action<ulong> onClick, Action<ulong> onLoadout)
     {
+        // Outer container serves as the card border
         var go = new GameObject($"card:{c.CardId}",
             typeof(RectTransform), typeof(Image), typeof(Button), typeof(LayoutElement),
-            typeof(VerticalLayoutGroup), typeof(CanvasGroup));
+            typeof(CanvasGroup));
         go.transform.SetParent(parent, false);
 
         var view = go.AddComponent<CardView>();
         view.CardId = c.CardId;
         view._onClick = onClick;
-        view._bg = go.GetComponent<Image>();
+        view._border = go.GetComponent<Image>();
+        view._isTrump = c.IsTrump;
+
+        int suit = (int)c.Suit;
+        view._suitColor = SuitColor[suit];
 
         var le = go.GetComponent<LayoutElement>();
         le.minWidth = le.preferredWidth = 120;
-        le.minHeight = le.preferredHeight = 172;
+        le.minHeight = le.preferredHeight = 184; // Slightly taller for better spacing
 
-        var vlg = go.GetComponent<VerticalLayoutGroup>();
-        vlg.padding = new RectOffset(8, 8, 8, 8); vlg.spacing = 1;
+        // Inner container for the actual card content
+        var innerGo = new GameObject("Inner", typeof(RectTransform), typeof(Image), typeof(VerticalLayoutGroup));
+        innerGo.transform.SetParent(go.transform, false);
+        UIKit.Stretch(innerGo, 2f); // 2px border width
+
+        view._bg = innerGo.GetComponent<Image>();
+        view._bg.raycastTarget = false; // Clicks go to parent Button
+
+        var vlg = innerGo.GetComponent<VerticalLayoutGroup>();
+        vlg.padding = new RectOffset(6, 6, 8, 8);
+        vlg.spacing = 2;
         vlg.childAlignment = TextAnchor.UpperCenter;
         vlg.childControlWidth = vlg.childForceExpandWidth = true;
 
-        int suit = (int)c.Suit;
         var sc = SuitColor[suit];
-        UIKit.Label(go.transform, SuitGlyph[suit], 30, FontStyle.Bold, sc);
-        // Trumps show their Major-Arcana name (rank holds the arcana index); pips/courts
-        // show their rank name.
-        string rankLabel = c.IsTrump ? CombatPreview.MajorName(c.Rank) : RankName(c.Rank);
-        UIKit.Label(go.transform, rankLabel + (c.IsTrump ? "  ✦" : ""), c.IsTrump ? 12 : 14, FontStyle.Bold,
-            c.IsTrump ? new Color(0.95f, 0.86f, 0.63f) : Color.white);
-        UIKit.Label(go.transform, SuitName[suit] + (c.Inverted ? " (rev)" : ""), 10, FontStyle.Italic, sc);
-        UIKit.Label(go.transform, $"ATK {c.Attack}   HP {c.Health}\nARM {c.Armour}", 11, FontStyle.Normal);
-        // A leveled card (fused from copies) shows its tier; the level scales its
-        // power in every siege & duel. Binding `c.Level` appears after generate.
-        if (c.Level > 1)
-            UIKit.Label(go.transform, $"✦ Lv {c.Level}", 11, FontStyle.Bold, new Color(0.95f, 0.86f, 0.63f));
 
-        if (onLoadout != null)
+        // 1. Suit Glyph
+        UIKit.Label(innerGo.transform, SuitGlyph[suit], 22, FontStyle.Bold, sc, shadow: true);
+
+        // 2. Rank Title
+        string rankLabel = c.IsTrump ? CombatPreview.MajorName(c.Rank) : RankName(c.Rank);
+        UIKit.Label(innerGo.transform, rankLabel + (c.IsTrump ? "  ✦" : ""), c.IsTrump ? 11 : 13, FontStyle.Bold,
+            c.IsTrump ? new Color(0.95f, 0.86f, 0.63f) : Color.white, shadow: true);
+
+        // 3. Suit Name + rev
+        UIKit.Label(innerGo.transform, SuitName[suit] + (c.Inverted ? " (rev)" : ""), 9, FontStyle.Italic, sc * 1.1f, shadow: true);
+
+        // 4. Clean Divider
+        UIKit.Divider(innerGo.transform, new Color(sc.r, sc.g, sc.b, 0.25f), 1);
+
+        // 5. Stats Block
+        UIKit.Label(innerGo.transform, $"ATK {c.Attack}   HP {c.Health}\nARM {c.Armour}", 10, FontStyle.Normal, shadow: true);
+
+        // 6. Secondary Divider
+        UIKit.Divider(innerGo.transform, new Color(sc.r, sc.g, sc.b, 0.15f), 1);
+
+        // 7. Level or Planet Placement
+        if (c.Level > 1)
         {
-            var lb = UIKit.Button(go.transform, LoadoutLabel(loadout),
-                () => onLoadout.Invoke(c.CardId), 10, LoadoutTint(loadout));
-            var lle = lb.GetComponent<LayoutElement>();
-            lle.minHeight = lle.preferredHeight = 26;
+            UIKit.Label(innerGo.transform, $"✦ Lv {c.Level}", 10, FontStyle.Bold, new Color(0.95f, 0.86f, 0.63f), shadow: true);
+        }
+        else
+        {
+            int pIdx = (int)c.SourceBody;
+            if (pIdx >= 0 && pIdx < FactionData.Glyphs.Length)
+            {
+                string bodyGlyph = FactionData.Glyphs[pIdx];
+                string bodyName = FactionData.Names[pIdx];
+                Color planetColor = FactionData.Colors[pIdx];
+                UIKit.Label(innerGo.transform, $"{bodyGlyph} {bodyName}", 9, FontStyle.Bold, planetColor, shadow: true);
+            }
         }
 
-        // Bench cards read as dimmed; Active/Defense at full strength.
+        // 8. Loadout Button (if applicable)
+        if (onLoadout != null)
+        {
+            var lb = UIKit.Button(innerGo.transform, LoadoutLabel(loadout),
+                () => onLoadout.Invoke(c.CardId), 9, LoadoutTint(loadout));
+            var lle = lb.GetComponent<LayoutElement>();
+            lle.minHeight = lle.preferredHeight = 24;
+        }
+
+        // Bench cards are dimmed
         go.GetComponent<CanvasGroup>().alpha = loadout == Loadout.Bench ? 0.55f : 1f;
 
         go.GetComponent<Button>().onClick.AddListener(() =>
         {
-            if (Time.unscaledTime < view._suppressClickUntil) return; // swallow the click after a long-press
+            if (Time.unscaledTime < view._suppressClickUntil) return;
             view._onClick?.Invoke(view.CardId);
         });
-        // Long-press a card to read what it is, with an Oracle escalation.
+
         LongPress.Attach(go, () =>
         {
             view._suppressClickUntil = Time.unscaledTime + 0.5f;
             Tooltip.ShowForCard(c);
         });
+
         view.SetSelected(false);
         return view;
     }
@@ -107,7 +150,14 @@ public class CardView : MonoBehaviour
     {
         Selected = s;
         if (_bg != null)
-            _bg.color = s ? new Color(0.18f, 0.15f, 0.07f, 0.98f) : new Color(0.06f, 0.07f, 0.11f, 0.95f);
+            _bg.color = s ? new Color(0.14f, 0.12f, 0.08f, 0.98f) : new Color(0.04f, 0.05f, 0.09f, 0.96f);
+        if (_border != null)
+        {
+            if (s)
+                _border.color = new Color(1.0f, 0.92f, 0.7f, 1.0f); // Bright active border
+            else
+                _border.color = _isTrump ? new Color(0.95f, 0.86f, 0.63f, 0.85f) : new Color(_suitColor.r, _suitColor.g, _suitColor.b, 0.5f);
+        }
         transform.localScale = s ? Vector3.one * 1.06f : Vector3.one;
     }
 

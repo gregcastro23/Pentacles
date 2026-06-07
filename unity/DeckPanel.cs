@@ -79,19 +79,29 @@ public class DeckPanel : MonoBehaviour
 
         foreach (Transform t in _content) Destroy(t.gameObject);
         _views.Clear();
+        var selectable = new HashSet<ulong>();
 
         foreach (var s in slots)
         {
             var c = conn.Conn.Db.Card.CardId.Find(s.CardId);
             if (c == null) continue;
+            if (s.Loadout == Loadout.Active) selectable.Add(c.CardId);
             var v = CardView.Build(_content, c, s.Loadout, Toggle, CycleLoadout);
             v.SetSelected(_selected.Contains(c.CardId));
             _views[c.CardId] = v;
         }
+        _selected.RemoveWhere(id => !selectable.Contains(id));
+        HighlightSelection();
     }
 
     void Toggle(ulong id)
     {
+        var conn = CelestialPentacleConn.Instance;
+        if (conn != null && !IsActive(conn, id))
+        {
+            Toast.Show("Only Active cards can be selected for a strike.");
+            return;
+        }
         if (!_selected.Remove(id)) _selected.Add(id);
         if (_views.TryGetValue(id, out var v)) v.SetSelected(_selected.Contains(id));
     }
@@ -135,6 +145,7 @@ public class DeckPanel : MonoBehaviour
     /// Cards to play in a strike: the current selection, or all Active if none picked.
     public List<ulong> StrikeCards(CelestialPentacleConn conn)
     {
+        _selected.RemoveWhere(id => !IsActive(conn, id));
         if (_selected.Count > 0) return new List<ulong>(_selected);
         var ids = new List<ulong>();
         var me = conn.LocalIdentity;
@@ -146,13 +157,38 @@ public class DeckPanel : MonoBehaviour
     public void ClearSelection()
     {
         _selected.Clear();
-        foreach (var v in _views.Values) v.SetSelected(false);
+        HighlightSelection();
     }
 
-    /// Card-granted feedback, folded in from the retired DeckUI stub. The strip
-    /// itself re-renders via the Card.OnInsert handler wired in Build(); this is
-    /// just the toast announcing the new card.
-    public void OnCardGranted(Card card) =>
+    void HighlightSelection()
+    {
+        foreach (var kv in _views) kv.Value.SetSelected(_selected.Contains(kv.Key));
+    }
+
+    static bool IsActive(CelestialPentacleConn conn, ulong cardId)
+    {
+        var me = conn.LocalIdentity;
+        foreach (var s in conn.Conn.Db.DeckSlot.Iter())
+            if (s.Owner.Equals(me) && s.CardId == cardId) return s.Loadout == Loadout.Active;
+        return false;
+    }
+
+    /// Announce a freshly minted or received card. The strip itself re-renders via
+    /// the Card.OnInsert handler wired in Build().
+    public void OnCardGranted(Card card)
+    {
+        var conn = CelestialPentacleConn.Instance;
+        if (conn == null || !card.Owner.Equals(conn.LocalIdentity)) return;
+        Toast.Show($"+ {CardName(card)} joined your collection.", 3.5f);
         Debug.Log($"[Deck] +{(card.IsTrump ? "TRUMP " : "")}{card.Suit} rank {card.Rank} " +
                   $"(atk {card.Attack} / hp {card.Health})");
+    }
+
+    static string CardName(Card c) =>
+        c.IsTrump ? CombatPreview.MajorName(c.Rank) : $"{RankName(c.Rank)} of {c.Suit}";
+
+    static string RankName(byte r) => r switch
+    {
+        1 => "Ace", 11 => "Page", 12 => "Knight", 13 => "Queen", 14 => "King", _ => r.ToString(),
+    };
 }

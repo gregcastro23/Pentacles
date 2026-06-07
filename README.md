@@ -19,7 +19,7 @@ Pentacles/
 │   ├── ChartCalculator.cs          # birth input → NatalChart (placements/asc/MC)
 │   ├── SkyMath.cs                  # ecliptic ↔ equatorial ↔ horizontal ↔ world
 │   ├── PentacleGrid.cs             # the eleven-zone geometry (horizon-anchored)
-│   ├── SkyRenderer.cs              # P0 AR renderer: stars + Pentacle + tap-to-attack
+│   ├── SkyRenderer.cs              # AR renderer: stars + Pentacle + tap-to-attack
 │   ├── FactionData.cs              # faction glyphs/colours/doctrines (GDD §03)
 │   ├── OnboardingController.cs     # birth → TopFactions → CreatePlayer (flow logic)
 │   ├── OnboardingUI.cs             # drop-in birth-form + faction-select screen
@@ -56,9 +56,9 @@ spacetime publish cookingwithcastrollc   # runs `init` (seeds 11 zones + 8 stars
 spacetime logs cookingwithcastrollc -f
 ```
 
-> The crate is a faithful scaffold against the modern SpacetimeDB Rust API; if
-> `spacetime build` flags a `find/update/delete` by-value vs `&ref`, adjust and
-> rebuild — schema and logic are the substance.
+The Rust module is compile-tested against the generated bindings in this repo;
+if you add new schema or reducers, publish and regenerate the C# bindings before
+opening the Unity project.
 
 > After adding tables/reducers (e.g. the live-duel set: `duel` table +
 > `commit_duel` and the rewritten `enqueue_duel`), re-run `spacetime build &&
@@ -155,7 +155,7 @@ and tutorial all work without it; this powers only the free-text chat.
 | §06 Suits (environmental) | `combat::element_weather` — a zone's element favors its suit (×1.35 / opposite ×0.75); no card-vs-card counters |
 | Round weather (the Great Wheel) | `tick_sky` → `advance_round_clock` advances the world Ascendant (NYC) in `game_config.season_degree`; `zone_favored_suit` rotates the 12 signs through the 11 zones so each carries its own live element |
 | §07 Star → zone tug-of-war | `resolve_star_battle` + `apply_control` (signed meter, flip at ±600) |
-| §08 AR & ephemeris | `unity/SkyMath.cs` + `SkyRenderer.cs` (P0) · `feeder/` + `push_ephemeris` |
+| §08 AR & ephemeris | `unity/SkyMath.cs` + `SkyRenderer.cs` · `feeder/` + `push_ephemeris` |
 | GPS engagement | `unity/GpsService.cs` (single GPS authority, with editor fallback) → `set_location` (private `player_location`); `resolve_star_battle` gates on `altitude_deg ≥ 10°`. `SkyRenderer` dims the 0–10° band and `BattlePanel` disables Strike with the reason, so the AR view matches the gate |
 | Deck curation | `set_loadout` (Active capped at 8) via a per-card loadout chip in `DeckPanel`/`CardView` (Active → Defense → Bench); `create_player` is idempotent — re-registering clears the old deck before re-minting |
 | Zodiac seals (territory) | `sealed_suits` — a faction masters the elements of the signs sitting in the zones it holds; its cards of those suits fight at `combat::SEAL_BONUS` (×1.15) in sieges & duels. Derived from zone ownership + the rotating sky, so it shifts as the wheel turns |
@@ -172,8 +172,8 @@ and tutorial all work without it; this powers only the free-text chat.
   series) — sub-degree for the Sun/planets, ~a degree for the Moon. Plenty for
   sign/zone placement; swap in SwissEphNet / Swiss Ephemeris for production.
 - The Pentacle is **fixed to the local horizon**; stars and planets drift through
-  it (their alt/az is recomputed every frame). The feeder's per-planet
-  `transiting_zone` is the *global* canonical transit (ecliptic-longitude→zone);
-  each player's AR overlay is observer-local.
+  it (their alt/az is recomputed every frame). The feeder seeds each planet's
+  latest RA/Dec, and `tick_sky` maps those bodies into the shared rotating zone
+  frame for transit buffs and bot raids; each player's AR overlay is observer-local.
 - **Clients never write state** — they call reducers, which validate and mutate
   transactionally. `natal_chart` is the one private table.

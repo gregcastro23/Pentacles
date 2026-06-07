@@ -17,7 +17,7 @@
 
   <!-- ===================== HERO ===================== -->
   <header class="hero">
-    <div class="hero-meta">Game Design Document &nbsp;·&nbsp; v0.9 &nbsp;·&nbsp; June 2026 &nbsp;·&nbsp; Confidential</div>
+    <div class="hero-meta">Game Design Document &nbsp;·&nbsp; Submission Build &nbsp;·&nbsp; June 2026</div>
     <h1>Pentacles</h1>
     <p class="tag">Claim the night sky.</p>
     <p class="desc">A location-based AR MMO where your birth chart decides your allegiance, the Tarot is your arsenal, and the visible heavens are the contested map.</p>
@@ -43,7 +43,7 @@
         <a href="#ar"><span class="n">08</span> AR &amp; Ephemeris</a>
         <a href="#backend"><span class="n">09</span> SpacetimeDB</a>
         <a href="#loop"><span class="n">10</span> Core Loop</a>
-        <a href="#roadmap"><span class="n">11</span> Roadmap</a>
+        <a href="#submission"><span class="n">11</span> Submission</a>
       </nav>
       <div class="toc-foot">RENDER · Unity 6 · AR Foundation<br>BACKEND · /server · Rust + SpacetimeDB</div>
     </aside>
@@ -131,18 +131,18 @@
           <p class="eyebrow">03 — The Ten Factions</p>
           <h2>Each planet is a faction with a <em>doctrine</em>.</h2>
         </div>
-        <p class="lead reveal">Faction identity is more than a banner — each planet biases deck generation toward a suit and grants a passive that shapes how its players fight and hold ground.</p>
+        <p class="lead reveal">Faction identity is more than a banner: each planet biases deck generation toward a suit and grants a planetary trump. In the submission build, every faction fights through the shared systems — weather, zodiac seals, transit timing, card levels — with Mars, Jupiter, and Saturn carrying distinct passive accents.</p>
         <div class="grid-3 reveal" style="margin-top:36px">
-          <div class="faction"><div class="bar" style="background:var(--sun)"></div><span class="sigil" style="color:var(--sun)">☉</span><div class="pname">Sun</div><div class="prole">Sovereignty · Wands</div><p class="pdesc">Vanguard aggressors. Bonus capture rate when their planet is above the horizon.</p></div>
-          <div class="faction"><div class="bar" style="background:var(--moon)"></div><span class="sigil" style="color:var(--moon)">☽</span><div class="pname">Moon</div><div class="prole">Tides · Cups</div><p class="pdesc">Sustain &amp; reinforcement. Decay of held zones slows during the lunar night.</p></div>
-          <div class="faction"><div class="bar" style="background:var(--mercury)"></div><span class="sigil" style="color:var(--mercury)">☿</span><div class="pname">Mercury</div><div class="prole">Cunning · Swords</div><p class="pdesc">Tempo &amp; card draw. Reduced cooldowns; first to act in synchronous duels.</p></div>
-          <div class="faction"><div class="bar" style="background:var(--venus)"></div><span class="sigil" style="color:var(--venus)">♀</span><div class="pname">Venus</div><div class="prole">Harmony · Cups</div><p class="pdesc">Alliance play. Shares partial control points with allied factions in adjacent zones.</p></div>
+          <div class="faction"><div class="bar" style="background:var(--sun)"></div><span class="sigil" style="color:var(--sun)">☉</span><div class="pname">Sun</div><div class="prole">Sovereignty · Wands</div><p class="pdesc">Solar pressure. Wands-biased cards thrive when fire weather opens.</p></div>
+          <div class="faction"><div class="bar" style="background:var(--moon)"></div><span class="sigil" style="color:var(--moon)">☽</span><div class="pname">Moon</div><div class="prole">Tides · Cups</div><p class="pdesc">Lunar tide. Cups-biased cards reward patient weather and seal timing.</p></div>
+          <div class="faction"><div class="bar" style="background:var(--mercury)"></div><span class="sigil" style="color:var(--mercury)">☿</span><div class="pname">Mercury</div><div class="prole">Cunning · Swords</div><p class="pdesc">Quicksilver timing. Swords-biased cards excel when air signs rise.</p></div>
+          <div class="faction"><div class="bar" style="background:var(--venus)"></div><span class="sigil" style="color:var(--venus)">♀</span><div class="pname">Venus</div><div class="prole">Harmony · Cups</div><p class="pdesc">Harmonic growth. Cups-biased cards turn water weather into staying power.</p></div>
           <div class="faction"><div class="bar" style="background:var(--mars)"></div><span class="sigil" style="color:var(--mars)">♂</span><div class="pname">Mars</div><div class="prole">War · Wands</div><p class="pdesc">Raw damage. Highest base attack; penalised on defense — built to siege, not sit.</p></div>
           <div class="faction"><div class="bar" style="background:var(--jupiter)"></div><span class="sigil" style="color:var(--jupiter)">♃</span><div class="pname">Jupiter</div><div class="prole">Expansion · Wands</div><p class="pdesc">Snowball. Each held zone buffs adjacent contests — momentum is its whole game.</p></div>
           <div class="faction"><div class="bar" style="background:var(--saturn)"></div><span class="sigil" style="color:var(--saturn)">♄</span><div class="pname">Saturn</div><div class="prole">Dominion · Pentacles</div><p class="pdesc">The wall. Strongest defensive decks; captured Saturn zones are the hardest to retake.</p></div>
-          <div class="faction"><div class="bar" style="background:var(--uranus)"></div><span class="sigil" style="color:var(--uranus)">♅</span><div class="pname">Uranus</div><div class="prole">Disruption · Swords</div><p class="pdesc">Chaos. Random-effect cards and the ability to swap two zones' contested states.</p></div>
-          <div class="faction"><div class="bar" style="background:var(--neptune)"></div><span class="sigil" style="color:var(--neptune)">♆</span><div class="pname">Neptune</div><div class="prole">Illusion · Cups</div><p class="pdesc">Stealth. Can fortify a zone invisibly; attackers learn its strength only mid-battle.</p></div>
-          <div class="faction"><div class="bar" style="background:var(--pluto)"></div><span class="sigil" style="color:var(--pluto)">♇</span><div class="pname">Pluto</div><div class="prole">Transformation · Swords</div><p class="pdesc">Attrition. Converts destroyed enemy cards into temporary power. Thrives in long sieges.</p></div>
+          <div class="faction"><div class="bar" style="background:var(--uranus)"></div><span class="sigil" style="color:var(--uranus)">♅</span><div class="pname">Uranus</div><div class="prole">Disruption · Swords</div><p class="pdesc">Disruptive angle. Swords-biased cards punish openings in air weather.</p></div>
+          <div class="faction"><div class="bar" style="background:var(--neptune)"></div><span class="sigil" style="color:var(--neptune)">♆</span><div class="pname">Neptune</div><div class="prole">Illusion · Cups</div><p class="pdesc">Veiled patience. Cups-biased cards hold value through shifting seals.</p></div>
+          <div class="faction"><div class="bar" style="background:var(--pluto)"></div><span class="sigil" style="color:var(--pluto)">♇</span><div class="pname">Pluto</div><div class="prole">Transformation · Swords</div><p class="pdesc">Deep pressure. Swords-biased cards scale through levels, seals, and transit.</p></div>
         </div>
       </section>
 
@@ -152,13 +152,13 @@
           <p class="eyebrow">04 — Deck Generation</p>
           <h2>Your chart, dealt as <em>cards</em>.</h2>
         </div>
-        <p class="lead reveal">A starting deck of 40 cards spans the four Minor Arcana suits. Suit balance, card identities, and per-card stats are all derived deterministically from the chart's exact placements — same chart, same deck, every time.</p>
+        <p class="lead reveal">A starting deck of 20 cards spans the four Minor Arcana suits and the planetary Major trumps. Each of the ten natal placements mints one Minor card plus its planet's trump — same chart, same deck, every time.</p>
 
         <div class="grid-4 reveal" style="margin-top:36px">
-          <div class="suit"><div class="suit-top"><div class="suit-mark" style="color:var(--cups)">♥</div><div><div class="suit-name" style="color:var(--cups)">Cups</div><div class="suit-el">Water · Restore</div></div></div><p>Healing, shields, and zone-decay reduction. The suit of holding ground.</p><div class="suit-stat"><span>Drawn from</span><span>Water signs</span></div><div class="suit-stat"><span>Governs</span><span>Card health</span></div></div>
-          <div class="suit"><div class="suit-top"><div class="suit-mark" style="color:var(--swords)">♠</div><div><div class="suit-name" style="color:var(--swords)">Swords</div><div class="suit-el">Air · Strike</div></div></div><p>Burst damage, silences, and tempo control. The suit of breaking lines.</p><div class="suit-stat"><span>Drawn from</span><span>Air signs</span></div><div class="suit-stat"><span>Governs</span><span>Attack power</span></div></div>
-          <div class="suit"><div class="suit-top"><div class="suit-mark" style="color:var(--pentacles)">♦</div><div><div class="suit-name" style="color:var(--pentacles)">Pentacles</div><div class="suit-el">Earth · Endure</div></div></div><p>Armour, taunts, and resource generation. The suit of fortification.</p><div class="suit-stat"><span>Drawn from</span><span>Earth signs</span></div><div class="suit-stat"><span>Governs</span><span>Defense / armour</span></div></div>
-          <div class="suit"><div class="suit-top"><div class="suit-mark" style="color:var(--wands)">♣</div><div><div class="suit-name" style="color:var(--wands)">Wands</div><div class="suit-el">Fire · Ignite</div></div></div><p>Damage-over-time, haste, and reach. The suit of relentless pressure.</p><div class="suit-stat"><span>Drawn from</span><span>Fire signs</span></div><div class="suit-stat"><span>Governs</span><span>Speed / cooldown</span></div></div>
+          <div class="suit"><div class="suit-top"><div class="suit-mark" style="color:var(--cups)">♥</div><div><div class="suit-name" style="color:var(--cups)">Cups</div><div class="suit-el">Water · Flow</div></div></div><p>Lifted by Water weather and suppressed by Fire weather. The suit of tides and staying power.</p><div class="suit-stat"><span>Drawn from</span><span>Water signs</span></div><div class="suit-stat"><span>Weather role</span><span>Favored by Water</span></div></div>
+          <div class="suit"><div class="suit-top"><div class="suit-mark" style="color:var(--swords)">♠</div><div><div class="suit-name" style="color:var(--swords)">Swords</div><div class="suit-el">Air · Edge</div></div></div><p>Lifted by Air weather and suppressed by Earth weather. The suit of timing and openings.</p><div class="suit-stat"><span>Drawn from</span><span>Air signs</span></div><div class="suit-stat"><span>Weather role</span><span>Favored by Air</span></div></div>
+          <div class="suit"><div class="suit-top"><div class="suit-mark" style="color:var(--pentacles)">♦</div><div><div class="suit-name" style="color:var(--pentacles)">Pentacles</div><div class="suit-el">Earth · Hold</div></div></div><p>Lifted by Earth weather and suppressed by Air weather. The suit of weight and endurance.</p><div class="suit-stat"><span>Drawn from</span><span>Earth signs</span></div><div class="suit-stat"><span>Weather role</span><span>Favored by Earth</span></div></div>
+          <div class="suit"><div class="suit-top"><div class="suit-mark" style="color:var(--wands)">♣</div><div><div class="suit-name" style="color:var(--wands)">Wands</div><div class="suit-el">Fire · Pressure</div></div></div><p>Lifted by Fire weather and suppressed by Water weather. The suit of pressure and initiative.</p><div class="suit-stat"><span>Drawn from</span><span>Fire signs</span></div><div class="suit-stat"><span>Weather role</span><span>Favored by Fire</span></div></div>
         </div>
 
         <h3 class="reveal" style="margin-top:56px">What the degrees &amp; minutes dictate</h3>
@@ -172,8 +172,8 @@
               <tr><td><strong>Degree (0–29°)</strong></td><td>Card <em>rank / power tier</em> — higher degree, rarer card</td></tr>
               <tr><td><strong>Minute (0–59′)</strong></td><td>Fine stat roll — the “sub-stat” spread within the tier</td></tr>
               <tr><td><strong>Planet dignity</strong></td><td>Quality multiplier (exalted = +, fall = −)</td></tr>
-              <tr><td><strong>Aspects</strong></td><td>Card <em>synergies</em> — trine/sextile = combo links</td></tr>
-              <tr><td><strong>Retrograde</strong></td><td>Inverted card — defensive variant of the same effect</td></tr>
+              <tr><td><strong>Angular / ruling status</strong></td><td>Elevation to Ace or court rank</td></tr>
+              <tr><td><strong>Retrograde</strong></td><td>Inverted marker — a visible identity trait on the card</td></tr>
             </tbody>
           </table>
           <div class="panel">
@@ -186,26 +186,130 @@
             <p class="note" style="margin-top:14px">→ <strong style="color:var(--wands)">Knight of Wands</strong>, high attack &amp; haste, elevated by the rulership multiplier.</p>
           </div>
         </div>
-        <p class="note reveal" style="margin-top:24px">Court cards (Page–King) are reserved for the chart's <strong>angular &amp; ruling</strong> planets; the remaining bodies fill the pip cards (Ace–10). This guarantees every deck has exactly one signature card tied to its owner's chart ruler.</p>
+        <p class="note reveal" style="margin-top:24px">The chart ruler mints an <strong>Ace</strong>; angular or sign-ruling bodies can elevate to courts (Page–King); the remaining bodies fill the pip cards (2–10). Every natal body also mints its planetary trump, producing the 20-card starter deck.</p>
 
-        <h3 class="reveal" style="margin-top:56px">The Major Arcana — one hero per faction</h3>
-        <p class="reveal">Beyond the Minor-Arcana pips, every deck is granted a single <strong>Major Arcana hero card</strong> — the trump that astrology already attributes to your faction's planet. It's your deck's keystone: high stat floor, a signature ability, one copy only. We use the standard <em>Golden Dawn planetary attributions</em> (yours to override).</p>
+        <h3 class="reveal" style="margin-top:56px">The Major Arcana — planetary trumps</h3>
+        <p class="reveal">Beyond the Minor-Arcana pips, every natal body mints its <strong>planetary Major Arcana trump</strong>. Trumps use the planet's suit bias, inherit the same sky-weather rules as every other card, and sit a tier above the pips through higher stats.</p>
         <table class="data reveal" style="margin-top:18px">
-          <thead><tr><th>Faction</th><th>Hero trump</th><th>Arcana</th><th>Hero fantasy</th></tr></thead>
+          <thead><tr><th>Planet</th><th>Trump</th><th>Arcana</th><th>Deck role</th></tr></thead>
           <tbody>
-            <tr><td style="color:var(--sun)"><strong>☉ Sun</strong></td><td>The Sun</td><td>XIX</td><td>Radiant overrun — empowers the whole board</td></tr>
-            <tr><td style="color:var(--moon)"><strong>☽ Moon</strong></td><td>The High Priestess</td><td>II</td><td>Hidden reserves — sustain &amp; concealment</td></tr>
-            <tr><td style="color:var(--mercury)"><strong>☿ Mercury</strong></td><td>The Magician</td><td>I</td><td>Tempo &amp; trickery — extra plays</td></tr>
-            <tr><td style="color:var(--venus)"><strong>♀ Venus</strong></td><td>The Empress</td><td>III</td><td>Growth &amp; alliance — buffs allies</td></tr>
-            <tr><td style="color:var(--mars)"><strong>♂ Mars</strong></td><td>The Tower</td><td>XVI</td><td>Cataclysm — burst that shatters defences</td></tr>
-            <tr><td style="color:var(--jupiter)"><strong>♃ Jupiter</strong></td><td>Wheel of Fortune</td><td>X</td><td>Snowball — escalating swing each turn</td></tr>
-            <tr><td style="color:var(--saturn)"><strong>♄ Saturn</strong></td><td>The World</td><td>XXI</td><td>Dominion — near-unbreakable hold</td></tr>
-            <tr><td style="color:var(--uranus)"><strong>♅ Uranus</strong></td><td>The Fool</td><td>0</td><td>Chaos — high-variance disruption</td></tr>
-            <tr><td style="color:var(--neptune)"><strong>♆ Neptune</strong></td><td>The Hanged Man</td><td>XII</td><td>Reversal — turns enemy strength inward</td></tr>
-            <tr><td style="color:var(--pluto)"><strong>♇ Pluto</strong></td><td>Judgement</td><td>XX</td><td>Resurrection — reclaims destroyed cards</td></tr>
+            <tr><td style="color:var(--sun)"><strong>☉ Sun</strong></td><td>The Sun</td><td>XIX</td><td>Wands-biased solar pressure</td></tr>
+            <tr><td style="color:var(--moon)"><strong>☽ Moon</strong></td><td>The High Priestess</td><td>II</td><td>Cups-biased lunar tide</td></tr>
+            <tr><td style="color:var(--mercury)"><strong>☿ Mercury</strong></td><td>The Magician</td><td>I</td><td>Swords-biased quicksilver timing</td></tr>
+            <tr><td style="color:var(--venus)"><strong>♀ Venus</strong></td><td>The Empress</td><td>III</td><td>Cups-biased harmonic growth</td></tr>
+            <tr><td style="color:var(--mars)"><strong>♂ Mars</strong></td><td>The Tower</td><td>XVI</td><td>Wands-biased siege pressure</td></tr>
+            <tr><td style="color:var(--jupiter)"><strong>♃ Jupiter</strong></td><td>Wheel of Fortune</td><td>X</td><td>Wands-biased expansion</td></tr>
+            <tr><td style="color:var(--saturn)"><strong>♄ Saturn</strong></td><td>The World</td><td>XXI</td><td>Pentacles-biased defense</td></tr>
+            <tr><td style="color:var(--uranus)"><strong>♅ Uranus</strong></td><td>The Fool</td><td>0</td><td>Swords-biased disruption</td></tr>
+            <tr><td style="color:var(--neptune)"><strong>♆ Neptune</strong></td><td>The Hanged Man</td><td>XII</td><td>Cups-biased patience</td></tr>
+            <tr><td style="color:var(--pluto)"><strong>♇ Pluto</strong></td><td>Judgement</td><td>XX</td><td>Swords-biased pressure</td></tr>
           </tbody>
         </table>
-        <p class="note reveal" style="margin-top:16px">Encoded in the backend as <span class="mono">Planet::hero_trump()</span> → minted as the deck's one <span class="mono">is_trump</span> card. Room to grow: the remaining 12 Major Arcana (the zodiacal &amp; elemental trumps) are reserved for a future <em>seasonal reward</em> track tied to the 360° wheel.</p>
+        <p class="note reveal" style="margin-top:16px">Encoded in the backend as <span class="mono">planet_major()</span> and minted with <span class="mono">is_trump = true</span>. The remaining 12 zodiacal Major Arcana are intentionally outside the starter deck and available as a clean seasonal reward lane.</p>
+
+        <!-- Tarot Card Forge Widget -->
+        <h3 class="reveal" style="margin-top:56px">Interactive Tarot Card Forge</h3>
+        <p class="reveal">Forge custom cards by tweaking natal placements, or generate a full deck from a simulated chart to see how degrees and dignity dictate stats in real time.</p>
+
+        <div class="forge-container reveal">
+          <div class="forge-controls">
+            <div class="forge-group">
+              <label for="forge-planet">Celestial Planet</label>
+              <select id="forge-planet" class="forge-select" onchange="updateCard()">
+                <option value="0">☉ Sun (Sovereignty)</option>
+                <option value="1">☽ Moon (Tides)</option>
+                <option value="2">☿ Mercury (Cunning)</option>
+                <option value="3">♀ Venus (Harmony)</option>
+                <option value="4" selected>♂ Mars (War)</option>
+                <option value="5">♃ Jupiter (Expansion)</option>
+                <option value="6">♄ Saturn (Dominion)</option>
+                <option value="7">♅ Uranus (Chaos)</option>
+                <option value="8">♆ Neptune (Illusion)</option>
+                <option value="9">♇ Pluto (Transformation)</option>
+              </select>
+            </div>
+
+            <div class="forge-group">
+              <label for="forge-sign">Zodiac Sign</label>
+              <select id="forge-sign" class="forge-select" onchange="updateCard()">
+                <option value="0" selected>♈ Aries (Fire · Wands)</option>
+                <option value="1">♉ Taurus (Earth · Pentacles)</option>
+                <option value="2">♊ Gemini (Air · Swords)</option>
+                <option value="3">♋ Cancer (Water · Cups)</option>
+                <option value="4">♌ Leo (Fire · Wands)</option>
+                <option value="5">♍ Virgo (Earth · Pentacles)</option>
+                <option value="6">♎ Libra (Air · Swords)</option>
+                <option value="7">♏ Scorpio (Water · Cups)</option>
+                <option value="8">♐ Sagittarius (Fire · Wands)</option>
+                <option value="9">♑ Capricorn (Earth · Pentacles)</option>
+                <option value="10">♒ Aquarius (Air · Swords)</option>
+                <option value="11">♓ Pisces (Water · Cups)</option>
+              </select>
+            </div>
+
+            <div class="forge-row">
+              <div class="forge-group">
+                <label for="forge-deg">Degree (0-29°)</label>
+                <input type="number" id="forge-deg" class="forge-input" min="0" max="29" value="14" oninput="updateCard()">
+              </div>
+              <div class="forge-group">
+                <label for="forge-min">Minute (0-59′)</label>
+                <input type="number" id="forge-min" class="forge-input" min="0" max="59" value="47" oninput="updateCard()">
+              </div>
+            </div>
+
+            <div class="forge-group">
+              <label for="forge-dignity">Essential Dignity</label>
+              <select id="forge-dignity" class="forge-select" onchange="updateCard()">
+                <option value="rulership" selected>Rulership (+40% Stats)</option>
+                <option value="exaltation">Exaltation (+25% Stats)</option>
+                <option value="neutral">Neutral (+0%)</option>
+                <option value="detriment">Detriment (-20% Stats)</option>
+                <option value="fall">Fall (-30% Stats)</option>
+              </select>
+            </div>
+
+            <div class="forge-row" style="margin-top:8px">
+              <label class="forge-checkbox">
+                <input type="checkbox" id="forge-retro" onchange="updateCard()">
+                Retrograde (Invert)
+              </label>
+              <label class="forge-checkbox">
+                <input type="checkbox" id="forge-court" onchange="updateCard()">
+                Chart Ruler (Court Card)
+              </label>
+            </div>
+
+            <div class="forge-checkbox" style="margin-top:4px">
+              <label class="forge-checkbox">
+                <input type="checkbox" id="forge-is-trump" onchange="updateCard()">
+                Major Arcana (Trump)
+              </label>
+            </div>
+
+            <div style="margin-top:12px; display:flex; gap:10px">
+              <button class="forge-btn" onclick="randomizeCard()" style="flex:1">✦ Random Card</button>
+              <button class="forge-btn" onclick="forgeNatalDeck()" style="flex:1">⚔ Forge Deck</button>
+            </div>
+          </div>
+
+          <div class="forge-preview">
+            <div id="live-card-container">
+              <!-- Rendered via JS -->
+            </div>
+            <div id="card-explanation" class="note" style="max-width:300px; text-align:center">
+              Mars in Aries determines <strong>Wands</strong> suit. Degree 14 makes it a <strong>Knight of Wands</strong> (court card enabled).
+            </div>
+          </div>
+        </div>
+
+        <div id="natal-deck-section" class="reveal" style="display:none; margin-top:48px">
+          <h3>Simulated Natal Deck</h3>
+          <p class="note">Procedurally forged from all 10 celestial bodies: each placement yields one Minor and one planetary trump. Hover cards to tilt them in 3D space.</p>
+          <div id="gallery-grid" class="cards-gallery-grid">
+            <!-- Forged cards container -->
+          </div>
+        </div>
       </section>
 
       <!-- 05 PENTACLE -->
@@ -278,57 +382,57 @@
           <p class="eyebrow">06 — Tarot Combat</p>
           <h2>How the battles are actually <em>fought</em>.</h2>
         </div>
-        <p class="lead reveal">We're carrying <em>three</em> candidate combat models into prototyping rather than committing blind. All three share the same decks, the same suit triangle, and the same authoritative resolver on the backend — so <span class="gold">CombatModel</span> is a season-level switch we can A/B without a client rebuild. What changes is the texture of the duel.</p>
+        <p class="lead reveal">The submission build ships two combat surfaces over the same authoritative server math: <strong>Auto-Siege</strong> for tap-to-capture star battles, and <strong>Lane Skirmish</strong> for live best-of-three zone duels. Both read the same sky weather, zodiac seals, transit buffs, card levels, and faction passives.</p>
 
         <div class="grid-3 reveal" style="margin-top:36px">
           <div class="suit">
             <div class="suit-top"><div class="suit-mark" style="color:var(--wands)">A</div><div><div class="suit-name" style="font-size:23px">Lane Skirmish</div><div class="suit-el">Real-time · Hybrid</div></div></div>
-            <p>A fast 3-lane board; cards resolve on a shared tick. Runs <strong>live</strong> when two players contest a zone at once, or against the holder's stored <strong>Sentinel</strong> deck when they don't.</p>
+            <p>A fast 3-lane board for live PvP. When two players queue the same zone, each assigns one Active card per lane; the server resolves best-of-three and swings the zone.</p>
             <div class="suit-stat"><span>Skill expression</span><span>High</span></div>
             <div class="suit-stat"><span>Always-on solo</span><span>Yes (async)</span></div>
             <div class="suit-stat"><span>Best for</span><span>Twitch &amp; tempo</span></div>
           </div>
           <div class="suit">
-            <div class="suit-top"><div class="suit-mark" style="color:var(--cups)">B</div><div><div class="suit-name" style="font-size:23px">Spread Duel</div><div class="suit-el">Turn-based · Positional</div></div></div>
-            <p>Cards are laid into a <strong>Tarot spread</strong> — past / present / future positions grant real bonuses. Slower, more cerebral, deeply on-theme. Async-first, so it never needs both players online.</p>
-            <div class="suit-stat"><span>Skill expression</span><span>Deck &amp; placement</span></div>
-            <div class="suit-stat"><span>Always-on solo</span><span>Native</span></div>
-            <div class="suit-stat"><span>Best for</span><span>Theme &amp; depth</span></div>
+            <div class="suit-top"><div class="suit-mark" style="color:var(--cups)">B</div><div><div class="suit-name" style="font-size:23px">Sentinel Defense</div><div class="suit-el">Async · Persistent</div></div></div>
+            <p>Defense-loadout cards become the holding faction's sentinel line. If no player is live, star battles still resolve against stored defenders or a neutral garrison.</p>
+            <div class="suit-stat"><span>Skill expression</span><span>Loadout curation</span></div>
+            <div class="suit-stat"><span>Always-on solo</span><span>Yes</span></div>
+            <div class="suit-stat"><span>Best for</span><span>Persistent war</span></div>
           </div>
           <div class="suit">
             <div class="suit-top"><div class="suit-mark" style="color:var(--pentacles)">C</div><div><div class="suit-name" style="font-size:23px">Auto-Siege</div><div class="suit-el">Auto-resolve · Tune</div></div></div>
-            <p>You <strong>build, don't pilot</strong>: tune the deck pre-battle, then it auto-resolves from composition and the suit triangle. Lowest friction, scales to mass simultaneous sieges across the whole sky.</p>
+            <p>You <strong>build, don't pilot</strong>: select Active cards, read the weather, tap a risen star, and the server resolves from composition, weather, seals, transit, levels, and faction passives.</p>
             <div class="suit-stat"><span>Skill expression</span><span>Pre-battle</span></div>
             <div class="suit-stat"><span>Always-on solo</span><span>Native</span></div>
             <div class="suit-stat"><span>Best for</span><span>Scale &amp; casual</span></div>
           </div>
         </div>
-        <p class="note reveal" style="margin-top:18px"><strong>Leaning:</strong> ship <em>Auto-Siege</em> first (it's the resolver we already wrote, and de-risks the economy), layer <em>Lane Skirmish</em> for live contests, and trial <em>Spread Duel</em> as a seasonal mode. The backend's <span class="mono">resolve()</span> already serves all three.</p>
+        <p class="note reveal" style="margin-top:18px"><strong>Submission scope:</strong> Auto-Siege handles normal star captures, Lane Skirmish handles live PvP, and Sentinel Defense keeps held territory meaningful even when its owners are offline.</p>
 
-        <h3 class="reveal" style="margin-top:56px">The suit triangle</h3>
-        <p class="reveal">Whichever model is active, suits form a directed advantage cycle with one cross-cutting support axis. An attack into a suit it beats lands at <span class="gold">×1.5</span>; into a suit that beats it, <span class="gold">×0.66</span>.</p>
+        <h3 class="reveal" style="margin-top:56px">Environmental suit weather</h3>
+        <p class="reveal">Suits do not counter each other card-to-card. The field of play sets the parity: the sign sitting in a zone favors its element's suit at <span class="gold">×1.35</span>, suppresses the opposite element at <span class="gold">×0.75</span>, and leaves the perpendicular pair untouched.</p>
         <div class="rps reveal">
-          <div class="rel"><b style="color:var(--wands)">Wands</b><span class="arrow">→ burns →</span><b style="color:var(--swords)">Swords</b></div>
-          <div class="rel"><b style="color:var(--swords)">Swords</b><span class="arrow">→ cuts →</span><b style="color:var(--pentacles)">Pentacles</b></div>
-          <div class="rel"><b style="color:var(--pentacles)">Pentacles</b><span class="arrow">→ smothers →</span><b style="color:var(--wands)">Wands</b></div>
-          <div class="rel"><b style="color:var(--cups)">Cups</b><span class="arrow">⇄ floods ⇄</span><b style="color:var(--text)">all</b></div>
+          <div class="rel"><b style="color:var(--wands)">Fire</b><span class="arrow">favors</span><b style="color:var(--wands)">Wands</b><span class="arrow">and suppresses</span><b style="color:var(--cups)">Cups</b></div>
+          <div class="rel"><b style="color:var(--cups)">Water</b><span class="arrow">favors</span><b style="color:var(--cups)">Cups</b><span class="arrow">and suppresses</span><b style="color:var(--wands)">Wands</b></div>
+          <div class="rel"><b style="color:var(--swords)">Air</b><span class="arrow">favors</span><b style="color:var(--swords)">Swords</b><span class="arrow">and suppresses</span><b style="color:var(--pentacles)">Pentacles</b></div>
+          <div class="rel"><b style="color:var(--pentacles)">Earth</b><span class="arrow">favors</span><b style="color:var(--pentacles)">Pentacles</b><span class="arrow">and suppresses</span><b style="color:var(--swords)">Swords</b></div>
         </div>
-        <p class="note reveal" style="margin-top:14px">Fire–Air–Earth form the rock-paper-scissors core. <strong>Cups (Water)</strong> sits outside it as a pure support axis: it never has type advantage but heals and extends the others — so decks balance an aggressive triangle against a Cups sustain backbone.</p>
+        <p class="note reveal" style="margin-top:14px">Because the signs rotate through the eleven zones, a strong deck is not just a pile of stats — it is a timing instrument. Move when the weather favors your hand, or fight for zones that grant your faction useful zodiac seals.</p>
 
         <h3 class="reveal" style="margin-top:52px">Stat derivation — chart → card</h3>
         <table class="data reveal" style="margin-top:16px">
           <thead><tr><th>Stat</th><th>Driven by</th><th>Suit that governs it</th><th>Feel</th></tr></thead>
           <tbody>
-            <tr><td><strong>Health</strong></td><td>Minute of placement + Cups weight</td><td style="color:var(--cups)">Cups</td><td>How long a card survives the lane</td></tr>
-            <tr><td><strong>Attack</strong></td><td>Degree tier × dignity multiplier</td><td style="color:var(--swords)">Swords</td><td>Damage dealt on resolve</td></tr>
-            <tr><td><strong>Armour</strong></td><td>Fixed-sign emphasis in chart</td><td style="color:var(--pentacles)">Pentacles</td><td>Flat damage reduction</td></tr>
-            <tr><td><strong>Cooldown / Speed</strong></td><td>Cardinal-sign emphasis + Wands weight</td><td style="color:var(--wands)">Wands</td><td>How often the card can act</td></tr>
-            <tr><td><strong>Synergy slots</strong></td><td>Aspect count to other natal bodies</td><td>—</td><td>Combo potential</td></tr>
+            <tr><td><strong>Health</strong></td><td>Minute of placement</td><td>All suits</td><td>How much body the card contributes</td></tr>
+            <tr><td><strong>Attack</strong></td><td>Degree tier × dignity multiplier</td><td>All suits</td><td>Primary pressure on resolve</td></tr>
+            <tr><td><strong>Armour</strong></td><td>Fixed-sign emphasis</td><td>All suits</td><td>Durability in the power snapshot</td></tr>
+            <tr><td><strong>Cooldown / Speed</strong></td><td>Cardinal-sign emphasis + degree</td><td>All suits</td><td>Stored on the card and surfaced in the UI</td></tr>
+            <tr><td><strong>Weather multiplier</strong></td><td>The sign currently sitting in the contested zone</td><td>Suit element</td><td>Favored ×1.35, opposite ×0.75</td></tr>
           </tbody>
         </table>
         <div class="callout reveal">
           <div class="label">Victory in a duel</div>
-          <p>Reduce the opponent's Sentinel (or live avatar) to zero before your draw pile empties — banking control points equal to your surviving board strength.</p>
+          <p>In Auto-Siege, your Active cards beat the holding faction's Defense cards or neutral garrison by effective power. In Lane Skirmish, three committed lanes resolve head-to-head; best-of-three wins and shifts zone control.</p>
         </div>
       </section>
 
@@ -348,10 +452,10 @@
 
         <div class="spec reveal" style="margin-top:40px">
           <div class="row"><div class="k">Star weighting</div><div class="v"><p>Node value scales with apparent magnitude — a 1st-magnitude star (e.g. Vega, Sirius) is worth many times a faint one, creating natural “objective” stars players rally around.</p></div></div>
-          <div class="row"><div class="k">Decay</div><div class="v"><p>Uncontested control bleeds toward neutral at a fixed rate, modified by faction passives (Saturn slow, Moon nightly slow). This prevents permanent lockout and keeps the map fluid.</p></div></div>
+          <div class="row"><div class="k">Decay</div><div class="v"><p>Uncontested control bleeds toward neutral at a fixed rate; Saturn-held zones decay more slowly. This prevents permanent lockout and keeps the map fluid.</p></div></div>
           <div class="row"><div class="k">The Great Wheel</div><div class="v"><p>A season is one full revolution of the <strong>360° zodiac</strong>. An <em>Ingress Marker</em> advances a degree at a time across the wheel; each <strong>30° crossing</strong> (a sign ingress) fires a mid-season event that re-weights a region of the sky. Completing all 360° resolves the season.</p></div></div>
           <div class="row"><div class="k">Transit bonus</div><div class="v"><p>When a faction's real planet is currently transiting a zone, every capture there is amplified — the live sky is a rotating buff that no one controls.</p></div></div>
-          <div class="row"><div class="k">Win conditions</div><div class="v"><p><strong>Zone:</strong> hold the control meter past threshold. <strong>Crown:</strong> the central pentagon is the keystone — its owner buffs all adjacent contests. <strong>Season:</strong> when the Marker completes the 360° wheel, the faction holding the most weighted zones is crowned and the map soft-resets — winners keep a head-start edge, never a locked board.</p></div></div>
+          <div class="row"><div class="k">Win conditions</div><div class="v"><p><strong>Zone:</strong> hold the control meter past threshold. <strong>Crown:</strong> the central pentagon is the keystone and requires at least two held Spires to contest. <strong>Season:</strong> when the Marker completes the 360° wheel, the faction holding the most weighted zones is crowned and the map soft-resets — winners keep a head-start edge, never a locked board.</p></div></div>
         </div>
       </section>
 
@@ -398,7 +502,7 @@
           <div class="pillar"><h4 style="color:var(--gold-bright)">Why not WebXR</h4><p>Sensor fusion, sky-scale rendering, and AR plane mapping are too heavy and inconsistent on mobile WebXR today. Keep web for a read-only spectator map.</p></div>
           <div class="pillar"><h4 style="color:var(--gold-bright)">Why not Unreal</h4><p>Unreal renders beautifully but its mobile-AR + lightweight-MMO tooling is thinner; Unity's AR Foundation + asset ecosystem ships this faster.</p></div>
         </div>
-        <p class="note reveal" style="margin-top:22px"><strong>Render-the-stars note:</strong> load a real star catalogue (Hipparcos / Yale Bright Star, ~9k naked-eye stars) as a single instanced point cloud; planets are individual billboards placed from the ephemeris. Both live in the equatorial frame and are transformed into Unity world-space each frame by the horizontal-frame matrix — this is the piece you prototype first in Unity.</p>
+        <p class="note reveal" style="margin-top:22px"><strong>Render-the-stars note:</strong> stars and planets live in the equatorial frame and are transformed into Unity world-space each frame by the horizontal-frame matrix. The submission build seeds bright naked-eye objectives and can scale to a larger Hipparcos/Yale Bright Star catalogue as content expands.</p>
       </section>
 
       <!-- 09 BACKEND -->
@@ -436,7 +540,7 @@
     birth_lat:     <span class="ty">f64</span>,
     birth_lon:     <span class="ty">f64</span>,
     time_known:    <span class="ty">bool</span>,              <span class="c">// false ⇒ solar chart, noon default</span>
-    <span class="c">// 10 bodies, each packed as degree*60+minute within sign (0..16200)</span>
+    <span class="c">// 10 bodies, each packed as degree*60+minute within sign (0..1799)</span>
     placements:    <span class="ty">Vec</span>&lt;<span class="ty">Placement</span>&gt;,
     ascendant:     <span class="ty">u16</span>,
     midheaven:     <span class="ty">u16</span>,
@@ -462,13 +566,16 @@
     card_id:       <span class="ty">u64</span>,
     owner:         <span class="ty">Identity</span>,
     suit:          <span class="ty">Suit</span>,              <span class="c">// Cups | Swords | Pentacles | Wands</span>
-    rank:          <span class="ty">u8</span>,                <span class="c">// 1..14 (Ace..King)</span>
+    rank:          <span class="ty">u8</span>,                <span class="c">// Minor 1..14, trump 0..21</span>
     health:        <span class="ty">u16</span>,
     attack:        <span class="ty">u16</span>,
     armour:        <span class="ty">u16</span>,
     cooldown_ms:   <span class="ty">u16</span>,
     source_body:   <span class="ty">Planet</span>,            <span class="c">// which placement minted it</span>
     inverted:      <span class="ty">bool</span>,              <span class="c">// from a retrograde body</span>
+    is_trump:      <span class="ty">bool</span>,
+    level:         <span class="ty">u8</span>,
+    minted_at:     <span class="ty">Timestamp</span>,
 }
 
 <span class="at">#[spacetimedb::table(name = deck_slot)]</span>
@@ -505,7 +612,7 @@
     region_hint:   <span class="ty">u8</span>,                <span class="c">// cached current zone at server tick</span>
 }
 
-<span class="c">// Real-time ephemeris — one row per body, ticked server-side</span>
+<span class="c">// Real-time ephemeris — one row per body, fed by push_ephemeris</span>
 <span class="at">#[spacetimedb::table(name = ephemeris, public)]</span>
 <span class="kw">pub struct</span> <span class="ty">Ephemeris</span> {
     <span class="at">#[primary_key]</span> body: <span class="ty">Planet</span>,
@@ -529,16 +636,16 @@
 <span class="c">// Resolve a star battle — authoritative, server-trusted</span>
 <span class="at">#[spacetimedb::reducer]</span>
 <span class="kw">fn</span> <span class="fn">resolve_star_battle</span>(ctx: &amp;<span class="ty">ReducerContext</span>, hip_id: <span class="ty">u32</span>, log: <span class="ty">BattleLog</span>) {
-    <span class="c">// re-simulate the duel from the log + both decks,</span>
-    <span class="c">// apply suit multipliers, update StarNode.held_by,</span>
+    <span class="c">// validate Active cards + GPS gate,</span>
+    <span class="c">// apply weather, seals, transit buffs, and passives,</span>
     <span class="c">// add weighted control to Zone, re-evaluate owner flip</span>
 }
 
-<span class="c">// Scheduled: advance ephemeris &amp; decay control</span>
+<span class="c">// Scheduled: advance clocks, zones &amp; decay control</span>
 <span class="at">#[spacetimedb::reducer]</span>
-<span class="kw">fn</span> <span class="fn">tick_sky</span>(ctx: &amp;<span class="ty">ReducerContext</span>, _t: <span class="ty">ScheduledTime</span>) {
-    <span class="c">// recompute each body's RA/Dec + transiting_zone,</span>
-    <span class="c">// bleed every Zone.control toward 0 by faction-modified rate</span>
+<span class="kw">fn</span> <span class="fn">tick_sky</span>(ctx: &amp;<span class="ty">ReducerContext</span>, _timer: <span class="ty">SkyTickTimer</span>) {
+    <span class="c">// rotate star/planet zone hints, sweep stale duels,</span>
+    <span class="c">// bleed every Zone.control toward 0 by faction decay rate</span>
 }
 
 <span class="c">// Live PvP: pair two contesters into a synchronous duel</span>
@@ -563,27 +670,27 @@
         </div>
       </section>
 
-      <!-- 11 ROADMAP -->
-      <section class="block" id="roadmap">
+      <!-- 11 SUBMISSION -->
+      <section class="block" id="submission">
         <div class="block-head reveal">
-          <p class="eyebrow">11 — Roadmap</p>
-          <h2>Sequencing the build.</h2>
+          <p class="eyebrow">11 — Submission Build</p>
+          <h2>What is complete for this handoff.</h2>
         </div>
         <table class="data reveal">
-          <thead><tr><th>Phase</th><th>Goal</th><th>Proves</th></tr></thead>
+          <thead><tr><th>System</th><th>Status</th><th>Proof point</th></tr></thead>
           <tbody>
-            <tr><td><strong>P0 · Sky Prototype</strong></td><td>Unity star-field + Pentacle anchored to horizon frame; ephemeris transform</td><td>The hardest tech: a stable, shared, turning sky</td></tr>
-            <tr><td><strong>P1 · Identity</strong></td><td>Chart calc, faction scoring, deterministic deck minting (SpacetimeDB)</td><td>“My chart became my deck” moment</td></tr>
-            <tr><td><strong>P2 · Combat Core</strong></td><td>Async Sentinel duels, suit triangle, star→zone control loop</td><td>The minute-to-minute game is fun</td></tr>
-            <tr><td><strong>P3 · Live &amp; Seasons</strong></td><td>Synchronous duels, decay, transit buffs, ingress-tied seasons</td><td>The persistent MMO meta holds players</td></tr>
-            <tr><td><strong>P4 · Fallback &amp; Polish</strong></td><td>Indoor ceiling projection, spectator web map, social/alliance layer</td><td>Always-playable, always-shareable</td></tr>
+            <tr><td><strong>Sky Renderer</strong></td><td>Unity scripts render horizon-anchored stars, zones, GPS gate, tap/long-press interactions</td><td>SkyRenderer + SkyMath + PentacleGrid</td></tr>
+            <tr><td><strong>Identity</strong></td><td>Birth chart calculation, top-3 faction choice, idempotent player creation, 20-card starter deck</td><td>ChartCalculator + create_player + mint_deck</td></tr>
+            <tr><td><strong>Combat Core</strong></td><td>Auto-Siege star battles, Defense sentinels, live Lane Skirmish, environmental suits</td><td>resolve_star_battle + commit_duel</td></tr>
+            <tr><td><strong>Persistent War</strong></td><td>Zone decay, rotating weather, transit buffs, stale-duel cleanup, bot raids</td><td>tick_sky + push_ephemeris</td></tr>
+            <tr><td><strong>Collection &amp; Oracle</strong></td><td>Fuse, trade, card tooltips, tutorial, proactive tips, Claude-backed chat</td><td>CollectionPanel + TradePanel + OraclePanel + feeder/oracle-service.ts</td></tr>
           </tbody>
         </table>
         <div class="callout reveal" style="margin-top:40px">
-          <div class="label">Biggest risk to de-risk first</div>
-          <p>The horizon-anchored Pentacle with a real ephemeris drifting through it. Build P0 in Unity before anything else — everything else is a known quantity.</p>
+          <div class="label">Submission note</div>
+          <p>The build is scoped around an end-to-end playable loop: cast chart → choose faction → receive deck → report location → strike risen stars → move zone control → earn cards → fuse/trade/duel/ask the Oracle.</p>
         </div>
-        <p class="note reveal" style="margin-top:30px; text-align:center; letter-spacing:0.1em">✦ &nbsp; END OF DOCUMENT &nbsp; ✦<br><span style="color:var(--ghost)">Pentacles GDD v0.9 — for internal review</span></p>
+        <p class="note reveal" style="margin-top:30px; text-align:center; letter-spacing:0.1em">✦ &nbsp; END OF DOCUMENT &nbsp; ✦<br><span style="color:var(--ghost)">Pentacles submission build — June 2026</span></p>
       </section>
 
     </main>
@@ -665,6 +772,196 @@
   }, { rootMargin: '0px 0px -8% 0px', threshold: 0.05 });
   document.querySelectorAll('.reveal').forEach(el => obs.observe(el));
 })();
+
+// ---- Tarot Card Forge & Gallery ----
+const PLANET_NAMES = ["Sun", "Moon", "Mercury", "Venus", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune", "Pluto"];
+const PLANET_GLYPHS = ["☉", "☽", "☿", "♀", "♂", "♃", "♄", "♅", "♆", "♇"];
+const PLANET_COLORS = [
+  "rgb(255, 198, 92)", "rgb(203, 208, 219)", "rgb(154, 167, 196)",
+  "rgb(217, 143, 176)", "rgb(207, 77, 77)", "rgb(207, 154, 82)",
+  "rgb(154, 147, 124)", "rgb(95, 182, 196)", "rgb(100, 112, 200)",
+  "rgb(138, 106, 160)"
+];
+const TRUMP_NAMES = ["The Sun", "The High Priestess", "The Magician", "The Empress", "The Tower", "Wheel of Fortune", "The World", "The Fool", "The Hanged Man", "Judgement"];
+const TRUMP_ARCANA = ["XIX", "II", "I", "III", "XVI", "X", "XXI", "0", "XII", "XX"];
+
+const SIGN_NAMES = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"];
+const SIGN_GLYPHS = ["♈", "♉", "♊", "♋", "♌", "♍", "♎", "♏", "♐", "♑", "♒", "♓"];
+const SIGN_SUITS = ["wands", "pentacles", "swords", "cups", "wands", "pentacles", "swords", "cups", "wands", "pentacles", "swords", "cups"];
+const SUIT_GLYPHS = { wands: "♣", pentacles: "♦", swords: "♠", cups: "♥" };
+const SUIT_NAMES = { wands: "Wands", pentacles: "Pentacles", swords: "Swords", cups: "Cups" };
+
+function isCardinal(signIdx) { return [0, 3, 6, 9].includes(signIdx % 12); }
+function isFixed(signIdx) { return [1, 4, 7, 10].includes(signIdx % 12); }
+function decan(degree) { return Math.min(2, Math.floor(degree / 10)); }
+function pipRank(signIdx, degree) {
+  const base = isCardinal(signIdx) ? 2 : (isFixed(signIdx) ? 5 : 8);
+  return base + decan(degree);
+}
+function dignityScore(dignity) {
+  if (dignity === "rulership") return 5;
+  if (dignity === "exaltation") return 3;
+  if (dignity === "detriment") return -5;
+  if (dignity === "fall") return -5;
+  return 0;
+}
+function courtRank(score) {
+  if (score >= 5) return "King";
+  if (score >= 3) return "Queen";
+  if (score >= 1) return "Knight";
+  return "Page";
+}
+
+function calculateCardStats(planetIdx, signIdx, degree, minute, dignity, retrograde, isCourt, isTrump) {
+  const suit = SIGN_SUITS[signIdx];
+  const score = dignityScore(dignity);
+  const dignityMult = 1.0 + score * 0.08;
+
+  let hp = Math.round(12 + minute * 28 / 59);
+  let atk = Math.max(1, Math.round((6 + degree) * dignityMult));
+  let arm = 4 + (isFixed(signIdx) ? 8 : 0);
+  let cd = Math.max(800, Math.min(3000, 3000 - (isCardinal(signIdx) ? 800 : 0) - degree * 20));
+
+  // Determine Rank Name and Arcana details
+  let cardTitle = "";
+  if (isTrump) {
+    cardTitle = TRUMP_NAMES[planetIdx];
+    hp = Math.round(hp * 1.5);
+    atk = Math.round(atk * 1.5);
+    arm = Math.round(arm * 1.5);
+  } else if (isCourt) {
+    cardTitle = courtRank(score) + " of " + SUIT_NAMES[suit];
+  } else {
+    const names = { 1: "Ace", 2: "Two", 3: "Three", 4: "Four", 5: "Five", 6: "Six", 7: "Seven", 8: "Eight", 9: "Nine", 10: "Ten" };
+    cardTitle = names[pipRank(signIdx, degree)] + " of " + SUIT_NAMES[suit];
+  }
+
+  return {
+    suit: suit,
+    glyph: SUIT_GLYPHS[suit],
+    title: cardTitle,
+    atk: atk,
+    hp: hp,
+    arm: arm,
+    cd: cd,
+    isTrump: isTrump,
+    arcana: isTrump ? TRUMP_ARCANA[planetIdx] : null,
+    planetGlyph: PLANET_GLYPHS[planetIdx],
+    planetName: PLANET_NAMES[planetIdx],
+    planetColor: PLANET_COLORS[planetIdx],
+    signGlyph: SIGN_GLYPHS[signIdx],
+    signName: SIGN_NAMES[signIdx],
+    retrograde: retrograde
+  };
+}
+
+function generateTarotCardHTML(data) {
+  const trumpClass = data.isTrump ? "trump" : "";
+  const retroClass = data.retrograde ? "inverted" : "";
+  const suitText = data.isTrump ? "Major Arcana" : SUIT_NAMES[data.suit];
+  const subtitle = data.isTrump ? `Trump ${data.arcana}` : `${data.signGlyph} ${data.signName}`;
+  const footnoteText = `${data.planetGlyph} ${data.planetName} Placement`;
+
+  return `
+    <div class="tarot-card ${data.suit} ${trumpClass} ${retroClass}">
+      <div class="card-frame">
+        <div class="card-glyph" style="color: ${data.isTrump ? 'var(--gold-bright)' : 'currentColor'}">${data.glyph}</div>
+        <div class="card-title">${data.title}</div>
+        <div class="card-subtitle" style="color: ${data.isTrump ? 'var(--gold)' : 'var(--dim)'}">${subtitle} ${data.retrograde ? '(rev)' : ''}</div>
+        <div class="card-sep"></div>
+        <div class="card-stats-grid">
+          <div class="card-stat-val"><span>ATK</span>⚔ ${data.atk}</div>
+          <div class="card-stat-val"><span>HP</span>♥ ${data.hp}</div>
+          <div class="card-stat-val"><span>ARM</span>🛡 ${data.arm}</div>
+          <div class="card-stat-val"><span>SPD</span>⏳ ${data.cd}ms</div>
+        </div>
+        <div class="card-footnote" style="color: ${data.planetColor}">
+          <span>${footnoteText}</span>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function updateCard() {
+  const planetIdx = parseInt(document.getElementById("forge-planet").value);
+  const signIdx = parseInt(document.getElementById("forge-sign").value);
+  const degree = parseInt(document.getElementById("forge-deg").value) || 0;
+  const minute = parseInt(document.getElementById("forge-min").value) || 0;
+  const dignity = document.getElementById("forge-dignity").value;
+  const retrograde = document.getElementById("forge-retro").checked;
+  const isCourt = document.getElementById("forge-court").checked;
+  const isTrump = document.getElementById("forge-is-trump").checked;
+
+  const data = calculateCardStats(planetIdx, signIdx, degree, minute, dignity, retrograde, isCourt, isTrump);
+  document.getElementById("live-card-container").innerHTML = generateTarotCardHTML(data);
+
+  // Update explanation
+  const suitName = SUIT_NAMES[data.suit];
+  const dignityLabel = dignity.charAt(0).toUpperCase() + dignity.slice(1);
+  let exp = `The ${data.signName} placement determines the <strong>${suitName}</strong> suit. Degree ${degree}° makes it a `;
+  if (isTrump) {
+    exp += `<strong>Major Arcana Hero</strong> (${data.title}).`;
+  } else if (isCourt) {
+    exp += `<strong>Court card</strong> (${data.title.split(' of ')[0]}).`;
+  } else {
+    exp += `<strong>Pip card</strong> (${data.title.split(' of ')[0]}).`;
+  }
+  exp += ` Essential dignity <em>${dignityLabel}</em> scales power. `;
+  if (retrograde) {
+    exp += `Retrograde marks the card as <strong>reversed</strong> — an identity trait preserved on the instance.`;
+  }
+  document.getElementById("card-explanation").innerHTML = exp;
+}
+
+function randomizeCard() {
+  document.getElementById("forge-planet").value = Math.floor(Math.random() * 10);
+  document.getElementById("forge-sign").value = Math.floor(Math.random() * 12);
+  document.getElementById("forge-deg").value = Math.floor(Math.random() * 30);
+  document.getElementById("forge-min").value = Math.floor(Math.random() * 60);
+
+  const dignities = ["rulership", "exaltation", "neutral", "detriment", "fall"];
+  document.getElementById("forge-dignity").value = dignities[Math.floor(Math.random() * dignities.length)];
+
+  document.getElementById("forge-retro").checked = Math.random() < 0.2;
+  document.getElementById("forge-court").checked = Math.random() < 0.3;
+  document.getElementById("forge-is-trump").checked = Math.random() < 0.15;
+
+  updateCard();
+}
+
+function forgeNatalDeck() {
+  const grid = document.getElementById("gallery-grid");
+  grid.innerHTML = "";
+
+  // Forge 20 cards: one Minor plus one planetary trump for each natal body.
+  const dignities = ["rulership", "exaltation", "neutral", "detriment", "fall"];
+
+  for (let i = 0; i < 10; i++) {
+    const planetIdx = i;
+    const signIdx = (i * 3 + 4) % 12; // spread across signs
+    const degree = (i * 7 + 3) % 30;
+    const minute = (i * 13 + 12) % 60;
+    const dignity = dignities[(i * 2) % dignities.length];
+    const retrograde = (i % 4 === 0);
+    const isCourt = (i === 0 || i === 4 || i === 6);
+
+    const minor = calculateCardStats(planetIdx, signIdx, degree, minute, dignity, retrograde, isCourt, false);
+    const trump = calculateCardStats(planetIdx, signIdx, degree, minute, dignity, retrograde, false, true);
+    grid.innerHTML += generateTarotCardHTML(minor);
+    grid.innerHTML += generateTarotCardHTML(trump);
+  }
+
+  document.getElementById("natal-deck-section").style.display = "block";
+  document.getElementById("natal-deck-section").scrollIntoView({ behavior: 'smooth' });
+}
+
+// Initial card render
+setTimeout(() => {
+  if (document.getElementById("live-card-container")) {
+    updateCard();
+  }
+}, 100);
 </script>
 
 </body>
