@@ -4,7 +4,7 @@
 // (a planet entering a zone, the weather turning to favor you, a held zone
 // slipping, a fresh reachable target), and surfaces the top one as a Toast —
 // cadence-capped so it never nags, and mutable. Tips are phrased by OracleAdvisor;
-// open chat + teaching come later from the Claude companion service.
+// free-text chat is handled by the OraclePanel + Claude companion service.
 
 using System.Collections.Generic;
 using UnityEngine;

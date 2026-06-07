@@ -1,4 +1,4 @@
-// Pentacles — glassmorphic zodiac dashboard, standings leaderboard, and deck management.
+// Pentacles — optional IMGUI zodiac dashboard, standings leaderboard, and deck management.
 //
 // Attach to a GameObject in your main scene. Provides a floating button in the
 // top-left to toggle a gorgeous glassmorphic HUD overlay.
@@ -171,7 +171,7 @@ public class DeckUI : MonoBehaviour
         GUILayout.BeginHorizontal();
         GUILayout.Label("✦ DECK MANAGEMENT ✦", _headerStyle);
         GUILayout.FlexibleSpace();
-        GUILayout.Label($"Active Slots: {activeCount}/10  ·  Defense Slots: {defenseCount}/8", _boldTextStyle);
+        GUILayout.Label($"Active Slots: {activeCount}/8  ·  Defense Slots: {defenseCount}/8", _boldTextStyle);
         GUILayout.EndHorizontal();
         GUILayout.Space(15);
 
@@ -208,10 +208,10 @@ public class DeckUI : MonoBehaviour
             {
                 if (GUILayout.Button("Active", GUILayout.Width(70)))
                 {
-                    if (activeCount < 10)
+                    if (activeCount < 8)
                         conn.SetLoadout(c.card.CardId, Loadout.Active);
                     else
-                        Debug.LogWarning("Active slots are full (max 10)!");
+                        Debug.LogWarning("Active slots are full (max 8)!");
                 }
                 if (GUILayout.Button("Defense", GUILayout.Width(70)))
                 {

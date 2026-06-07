@@ -1,4 +1,4 @@
-// Pentacles — AR sky renderer (roadmap P0).
+// Pentacles — AR sky renderer.
 //
 // Renders the live star catalogue and the horizon-anchored Pentacle overlay,
 // colours zones/stars by their owning faction, and turns a tap into a star

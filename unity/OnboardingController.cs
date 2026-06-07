@@ -59,20 +59,23 @@ public class OnboardingController
         }
         if (!_watching)
         {
-            conn.Conn.Db.Player.OnInsert += OnPlayerRow;
-            // Surface a reducer rejection (e.g. faction not in top-3) if your
-            // generated bindings expose reducer status here. Signature may vary:
-            // conn.Conn.Reducers.OnCreatePlayer += (ctx, ...) => { if (failed) Error?.Invoke(...) };
+            conn.Conn.Db.Player.OnInsert += OnPlayerInserted;
+            conn.Conn.Db.Player.OnUpdate += OnPlayerUpdated;
             _watching = true;
         }
         conn.CreatePlayer(_handle, _chart, (Planet)factionIdx);
     }
 
-    void OnPlayerRow(EventContext ctx, Player p)
+    void OnPlayerInserted(EventContext ctx, Player p) => CompleteIfMine(p);
+
+    void OnPlayerUpdated(EventContext ctx, Player oldP, Player newP) => CompleteIfMine(newP);
+
+    void CompleteIfMine(Player p)
     {
         var conn = CelestialPentacleConn.Instance;
         if (conn == null || !p.Identity.Equals(conn.LocalIdentity)) return;
-        conn.Conn.Db.Player.OnInsert -= OnPlayerRow;
+        conn.Conn.Db.Player.OnInsert -= OnPlayerInserted;
+        conn.Conn.Db.Player.OnUpdate -= OnPlayerUpdated;
         _watching = false;
         PlayerCreated?.Invoke();
     }

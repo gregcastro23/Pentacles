@@ -6,8 +6,7 @@ use crate::types::*;
 use spacetimedb::{Identity, ReducerContext, Table};
 
 const FULL_WHEEL: u16 = 21600; // 360° * 60'
-const SIGN_MINUTES: u16 = 1800; // 30° * 60' — one sign / one equal house
-const OBLIQUITY_DEG: f64 = 23.439291; // mean obliquity (matches the feeder & SkyMath)
+const SIGN_MINUTES: u16 = 1800; // 30° * 60' — one sign
 
 /// Sign (0=Aries) → suit of its triplicity.
 pub fn sign_element(sign: u8) -> Suit {
@@ -275,108 +274,456 @@ fn sky_dignity(body: Planet, sign: u8) -> i8 {
     }
 }
 
-// ── Blend: natal houses × the live transiting sky ───────────────────────────
+// ════════════════════════════════════════════════════════════════════════════
+//  Houses · live-transit blend · synastry
 //
-// The "Blend" feeds the per-round draft below: it lays the natal faction base
-// (`faction_scores`) under the live sky and lets transiting bodies push it around
-// by *where* they fall in your houses and *how dignified* they are there. The
-// leading body of the blended vector is the round's source — and because a transit
-// crossing onto an angle weighs far more than one drifting through a cadent house,
-// the favoured faction can open or close from one round to the next.
+//  The natal base above (faction_scores / dignities) is static. This section
+//  blends it with the live sky: which natal HOUSE each transiting body lights up,
+//  and a synastry comparison for matchmaking. Everything here is pure and
+//  deterministic. Dignity NEVER touches combat (GDD §02) — these feed the
+//  per-round re-draft and matchmaking only.
+// ════════════════════════════════════════════════════════════════════════════
 
-/// A live transit, reduced to what the blend needs: which body, where on the
-/// ecliptic (absolute zodiac arc-minutes 0..21599), and whether it's retrograde now.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct TransitSnapshot {
-    pub body: Planet,
-    pub lon_arcmin: u16,
-    pub retrograde: bool,
-}
+/// Mean obliquity of the ecliptic — kept identical to feeder/ephemeris.ts and
+/// reducers.rs so the server, feeder and Unity client all bend the sky alike.
+pub const OBLIQUITY_DEG: f64 = 23.439291;
 
-/// Equatorial (RA, Dec in degrees) → ecliptic longitude in arc-minutes (0..21599).
-/// Inverts the feeder's `eclipticToEquatorial(lon, 0)`, so a body the feeder placed
-/// from its ecliptic longitude round-trips back to that longitude here (the
-/// ephemeris row stores only RA/Dec + a horizon-frame zone, not the zodiac λ).
-pub fn ecliptic_lon_arcmin(ra_deg: f64, dec_deg: f64) -> u16 {
-    let e = OBLIQUITY_DEG.to_radians();
-    let (ra, dec) = (ra_deg.to_radians(), dec_deg.to_radians());
-    let lon = (ra.sin() * e.cos() + dec.tan() * e.sin()).atan2(ra.cos());
-    let deg = lon.to_degrees().rem_euclid(360.0);
-    ((deg * 60.0).round() as i64).rem_euclid(FULL_WHEEL as i64) as u16
-}
+/// Beyond this geographic latitude (the polar circle) Placidus is undefined; we
+/// fall back to Whole Sign there rather than emit garbage cusps.
+pub const POLAR_CIRCLE_DEG: f64 = 66.5;
 
-/// The twelve house cusps as absolute zodiac arc-minutes — equal-house from the
-/// Ascendant (cusp[0] = Ascendant, then every 30°). Robust at every latitude and
-/// fully deterministic; the GDD's Placidus refinement is a future swap-in.
-pub fn house_cusps(chart: &NatalChart) -> [u16; 12] {
-    let mut cusps = [0u16; 12];
-    for (i, c) in cusps.iter_mut().enumerate() {
-        *c = (chart.ascendant + i as u16 * SIGN_MINUTES) % FULL_WHEEL;
-    }
-    cusps
-}
+/// Default birthplace latitude when none was supplied — New York, NY
+/// (40.7128, -74.0060). Only the latitude feeds Placidus; the RAMC is recovered
+/// from the chart's MC, so no longitude is needed here.
+pub const DEFAULT_LAT_DEG: f64 = 40.7128;
 
-/// Which house (1..12) an absolute ecliptic longitude falls in, given the cusps.
-pub fn house_of(cusps: &[u16; 12], lon_arcmin: u16) -> u8 {
-    let rel = (lon_arcmin + FULL_WHEEL - cusps[0]) % FULL_WHEEL;
-    (rel / SIGN_MINUTES) as u8 + 1
-}
+/// Fixed-point iterations per Placidus cusp. Placidus converges in well under
+/// ten; thirty is deep past convergence and keeps the result deterministic and
+/// numerically identical to the Unity mirror.
+const PLACIDUS_ITERS: usize = 30;
 
-/// How much a house weighs in the blend: angular houses dominate, cadent fade.
-/// (Angular 1/4/7/10, succedent 2/5/8/11, cadent 3/6/9/12.)
+/// Natal/transit blend split: the live sky *modulates* the natal base, it never
+/// overrides it. Normalised natal counts 70%, normalised transit 30%.
+pub const NATAL_BLEND: f32 = 0.70;
+pub const TRANSIT_BLEND: f32 = 0.30;
+
+/// House salience: angular houses (1/4/7/10) dominate, succedent (2/5/8/11) are
+/// middling, cadent (3/6/9/12) faint. Drives how strongly a transit through — or
+/// a synastry overlay into — a house counts.
 pub fn house_salience(house: u8) -> f32 {
     match house {
-        1 | 4 | 7 | 10 => 3.0,
-        2 | 5 | 8 | 11 => 1.5,
-        _ => 0.5,
+        1 | 4 | 7 | 10 => 1.0,  // angular
+        2 | 5 | 8 | 11 => 0.6,  // succedent
+        _ => 0.35,              // cadent (3/6/9/12) and any out-of-range guard
     }
 }
 
-/// How hard transits push the natal base around. Big enough that a transit crossing
-/// onto an angle can overtake the natal favourite — transits open & close factions.
-const TRANSIT_WEIGHT: f32 = 2.0;
+// ── arc-minute / degree helpers ─────────────────────────────────────────────
 
-/// Blend the natal faction base with the live sky. Each transiting body lifts its
-/// own faction by (house salience × its sky-dignity there), so a dignified planet
-/// sitting on an angle weighs far more than one peregrine in a cadent house. The
-/// result is the round's source vector. (Houses are suppressed on a solar chart —
-/// `time_known == false` — so salience goes flat and only dignity modulates.)
-pub fn blended_faction_vector(chart: &NatalChart, transits: &[TransitSnapshot]) -> [f32; 10] {
-    let mut v = faction_scores(chart);
-    let cusps = house_cusps(chart);
-    for t in transits {
-        let sign = ((t.lon_arcmin / SIGN_MINUTES) % 12) as u8;
-        let dig = sky_dignity(t.body, sign);
-        let salience = if chart.time_known {
-            house_salience(house_of(&cusps, t.lon_arcmin))
+/// Degrees (any sign) → absolute zodiac arc-minutes (0..21599).
+fn deg_to_min(deg: f64) -> u16 {
+    let d = deg.rem_euclid(360.0);
+    ((d * 60.0).round() as i64).rem_euclid(FULL_WHEEL as i64) as u16
+}
+/// Absolute arc-minutes → degrees (0..360).
+fn min_to_deg(m: u16) -> f64 {
+    m as f64 / 60.0
+}
+
+// ── Part A: Placidus house bounds ───────────────────────────────────────────
+
+/// Ecliptic longitude (deg) of the ecliptic point sharing right ascension
+/// `ra_deg`. Inverse of α = atan2(sinλ·cosε, cosλ).
+fn ecliptic_lon_from_ra(ra_deg: f64, eps: f64) -> f64 {
+    let ra = ra_deg.to_radians();
+    ra.sin().atan2(ra.cos() * eps.cos()).to_degrees().rem_euclid(360.0)
+}
+
+/// Semidiurnal arc (deg, 0..180) of an ecliptic point at geographic latitude
+/// `phi` (rad). Circumpolar points clamp to 0/180 rather than going NaN.
+fn semidiurnal_arc(lon_deg: f64, phi: f64, eps: f64) -> f64 {
+    let lon = lon_deg.to_radians();
+    let decl = (eps.sin() * lon.sin()).asin();
+    let x = (-(phi.tan()) * decl.tan()).clamp(-1.0, 1.0);
+    x.acos().to_degrees()
+}
+
+/// One Placidus intermediate cusp by fixed-point iteration. The cusp is the
+/// ecliptic point whose hour angle from the meridian is `frac` of its own
+/// semidiurnal arc; `base` is the constant meridian offset (0/60/120°).
+fn placidus_cusp(ramc: f64, phi: f64, eps: f64, base: f64, frac: f64) -> f64 {
+    let mut ra = (ramc + base).rem_euclid(360.0);
+    for _ in 0..PLACIDUS_ITERS {
+        let lon = ecliptic_lon_from_ra(ra, eps);
+        let sd = semidiurnal_arc(lon, phi, eps);
+        ra = (ramc + base + frac * sd).rem_euclid(360.0);
+    }
+    ecliptic_lon_from_ra(ra, eps)
+}
+
+/// Whole-Sign cusps: each house is a whole sign starting at 0°, the 1st being the
+/// sign `asc_min` falls in. The polar / time-unknown fallback (no interceptions).
+fn whole_sign_cusps(asc_min: u16) -> [u16; 12] {
+    let rising = (asc_min / 1800) % 12;
+    let mut c = [0u16; 12];
+    for h in 0..12u16 {
+        c[h as usize] = ((rising + h) % 12) * 1800;
+    }
+    c
+}
+
+/// Placidus house cusps from the chart angles (A1). Returns the twelve cusps in
+/// absolute arc-minutes (cusp[0]=Asc, cusp[9]=MC) and the system actually used —
+/// Placidus, or Whole Sign above the polar circle where Placidus is undefined.
+/// Intermediate cusps come from the RAMC, recovered from the MC longitude.
+pub fn compute_house_cusps(
+    asc_min: u16,
+    mc_min: u16,
+    lat_deg: f64,
+    obliquity_deg: f64,
+) -> ([u16; 12], HouseSystem) {
+    if lat_deg.abs() > POLAR_CIRCLE_DEG {
+        return (whole_sign_cusps(asc_min), HouseSystem::WholeSign);
+    }
+    let mc = min_to_deg(mc_min);
+    let eps = obliquity_deg.to_radians();
+    let phi = lat_deg.to_radians();
+    // Recover RAMC from MC: tan(RAMC) = tan(MC)·cos ε.
+    let mc_r = mc.to_radians();
+    let ramc = (mc_r.sin() * eps.cos()).atan2(mc_r.cos()).to_degrees().rem_euclid(360.0);
+
+    let c11 = placidus_cusp(ramc, phi, eps, 0.0, 1.0 / 3.0);
+    let c12 = placidus_cusp(ramc, phi, eps, 0.0, 2.0 / 3.0);
+    let c2 = placidus_cusp(ramc, phi, eps, 60.0, 2.0 / 3.0);
+    let c3 = placidus_cusp(ramc, phi, eps, 120.0, 1.0 / 3.0);
+
+    let half = FULL_WHEEL / 2;
+    let mut c = [0u16; 12];
+    c[0] = asc_min;                       // 1  Ascendant
+    c[1] = deg_to_min(c2);                // 2
+    c[2] = deg_to_min(c3);                // 3
+    c[3] = (mc_min + half) % FULL_WHEEL;  // 4  IC (opposite MC)
+    c[4] = deg_to_min(c11 + 180.0);       // 5  (opposite 11)
+    c[5] = deg_to_min(c12 + 180.0);       // 6  (opposite 12)
+    c[6] = (asc_min + half) % FULL_WHEEL; // 7  Descendant (opposite Asc)
+    c[7] = deg_to_min(c2 + 180.0);        // 8  (opposite 2)
+    c[8] = deg_to_min(c3 + 180.0);        // 9  (opposite 3)
+    c[9] = mc_min;                        // 10 Midheaven
+    c[10] = deg_to_min(c11);              // 11
+    c[11] = deg_to_min(c12);              // 12
+    (c, HouseSystem::Placidus)
+}
+
+/// Interception analysis of a cusp ring (A2): `(intercepted, duplicated)`.
+/// `intercepted` = signs holding no cusp; `duplicated` = signs holding two cusps.
+/// Both sorted ascending by sign index.
+pub fn interceptions(cusps: &[u16; 12]) -> (Vec<u8>, Vec<u8>) {
+    let mut counts = [0u8; 12];
+    for &c in cusps {
+        counts[((c / 1800) % 12) as usize] += 1;
+    }
+    let intercepted = (0..12u8).filter(|&s| counts[s as usize] == 0).collect();
+    let duplicated = (0..12u8).filter(|&s| counts[s as usize] >= 2).collect();
+    (intercepted, duplicated)
+}
+
+/// Derive and stamp the house ring onto a chart, authoritatively. Placidus when
+/// the birth time is known and the latitude is sub-polar; Whole Sign (anchored on
+/// the Sun's sign) otherwise. Interceptions are recorded only for a real, timed
+/// Placidus chart — never for a timeless one (Part D).
+pub fn populate_houses(chart: &mut NatalChart) {
+    if !chart.time_known {
+        // Solar chart: no reliable Ascendant. Whole-Sign houses from the Sun's
+        // sign, and never an interception claim.
+        let sun_sign = chart
+            .placements
+            .iter()
+            .find(|p| p.body == Planet::Sun)
+            .map(|p| p.sign)
+            .unwrap_or(0);
+        chart.house_cusps = whole_sign_cusps(sun_sign as u16 * 1800).to_vec();
+        chart.house_system = HouseSystem::WholeSign;
+        chart.intercepted_signs = Vec::new();
+        return;
+    }
+
+    let lat = if chart.birth_lat == 0.0 && chart.birth_lon == 0.0 {
+        DEFAULT_LAT_DEG // no birthplace supplied → New York
+    } else {
+        chart.birth_lat
+    };
+    let (cusps, system) =
+        compute_house_cusps(chart.ascendant, chart.midheaven, lat, OBLIQUITY_DEG);
+    chart.house_cusps = cusps.to_vec();
+    chart.house_system = system;
+    chart.intercepted_signs = match system {
+        HouseSystem::Placidus => interceptions(&cusps).0,
+        HouseSystem::WholeSign => Vec::new(),
+    };
+}
+
+/// A chart's twelve cusps as a fixed array, falling back to Whole-Sign from the
+/// Ascendant for charts that predate house computation or carry a malformed ring.
+fn chart_cusps(chart: &NatalChart) -> [u16; 12] {
+    if chart.house_cusps.len() == 12 {
+        let mut c = [0u16; 12];
+        c.copy_from_slice(&chart.house_cusps);
+        c
+    } else {
+        whole_sign_cusps(chart.ascendant)
+    }
+}
+
+/// Which house (1..12) an absolute-arc-minute longitude falls in (A3), honouring
+/// unequal, wrapping cusp bounds. A longitude exactly on a cusp belongs to the
+/// house that cusp opens.
+pub fn house_of(chart: &NatalChart, abs_minutes: u16) -> u8 {
+    house_of_cusps(&chart_cusps(chart), abs_minutes)
+}
+
+fn house_of_cusps(cusps: &[u16; 12], abs_minutes: u16) -> u8 {
+    let lon = (abs_minutes % FULL_WHEEL) as i32;
+    let full = FULL_WHEEL as i32;
+    for h in 0..12 {
+        let a = cusps[h] as i32;
+        let b = cusps[(h + 1) % 12] as i32;
+        let span = (b - a).rem_euclid(full);
+        let off = (lon - a).rem_euclid(full);
+        if span > 0 && off < span {
+            return (h + 1) as u8;
+        }
+    }
+    12
+}
+
+// ── Part B: live-transit modulation (the blend) ─────────────────────────────
+
+/// Absolute ecliptic longitude (arc-minutes 0..21599) of an equatorial point. The
+/// feeder publishes RA/Dec for ecliptic-latitude-zero points, so this inverse
+/// recovers the longitude exactly — letting the server read the live `Ephemeris`
+/// (which stores RA/Dec, not longitude) back onto the zodiac.
+pub fn equatorial_to_ecliptic_min(ra_deg: f64, dec_deg: f64) -> u16 {
+    let eps = OBLIQUITY_DEG.to_radians();
+    let ra = ra_deg.to_radians();
+    let dec = dec_deg.to_radians();
+    let lon = (ra.sin() * eps.cos() + dec.tan() * eps.sin()).atan2(ra.cos());
+    deg_to_min(lon.to_degrees())
+}
+
+/// A live transiting body's equatorial position — the per-body slice the blend
+/// reads off the `Ephemeris` table.
+#[derive(Clone, Copy, Debug)]
+pub struct TransitPos {
+    pub body: Planet,
+    pub ra: f64,
+    pub dec: f64,
+}
+
+const TRANSIT_SELF_WEIGHT: f32 = 1.0;
+const TRANSIT_RULER_WEIGHT: f32 = 0.6;
+
+/// The faction(s) a transit landing in `house` amplifies *besides itself*: the
+/// ruler of the sign on that house's cusp, plus the ruler of any sign wholly
+/// contained (intercepted) within the house — a latent voice a transit briefly
+/// hands a microphone (resolving the intercepted-ruler open question).
+fn house_rulers(chart: &NatalChart, cusps: &[u16; 12], house: u8) -> Vec<Planet> {
+    let cusp_sign = ((cusps[(house - 1) as usize] / 1800) % 12) as u8;
+    let mut out = vec![sign_ruler(cusp_sign)];
+    for &s in &chart.intercepted_signs {
+        if house_of_cusps(cusps, s as u16 * 1800 + 900) == house {
+            let r = sign_ruler(s);
+            if !out.contains(&r) {
+                out.push(r);
+            }
+        }
+    }
+    out
+}
+
+/// Live-transit modulation vector (B2), indexed by `Planet::idx`. Each transiting
+/// body amplifies its own faction and the ruler(s) of the natal house it lights
+/// up, scaled by that house's salience (angular strongest). With no birth time
+/// there are no trustworthy houses, so it degrades to sign level (Part D): the
+/// body amplifies its own faction and the ruler of the sign it occupies, with no
+/// house weighting and no interception claims.
+///
+/// This is the *transit* half only — bounded into the natal base by `blend`, so
+/// the sky modulates the chart and never overrides it.
+pub fn transit_modulation(chart: &NatalChart, sky: &[TransitPos]) -> [f32; 10] {
+    let mut m = [0.0f32; 10];
+    let cusps = chart_cusps(chart);
+    for t in sky {
+        let lon = equatorial_to_ecliptic_min(t.ra, t.dec);
+        if chart.time_known {
+            let house = house_of_cusps(&cusps, lon);
+            let sal = house_salience(house);
+            m[t.body.idx()] += sal * TRANSIT_SELF_WEIGHT;
+            for ruler in house_rulers(chart, &cusps, house) {
+                m[ruler.idx()] += sal * TRANSIT_RULER_WEIGHT;
+            }
         } else {
-            1.0
-        };
-        v[t.body.idx()] += TRANSIT_WEIGHT * salience * (1.0 + 0.2 * dig as f32);
+            let sign = ((lon / 1800) % 12) as u8;
+            m[t.body.idx()] += TRANSIT_SELF_WEIGHT;
+            m[sign_ruler(sign).idx()] += TRANSIT_RULER_WEIGHT;
+        }
     }
-    v
+    m
 }
 
-/// The transit the blend favours most — the round's source body and where it sits.
-/// Restricted to bodies actually present in the live sky (we need their position).
-pub fn leading_transit<'a>(
-    chart: &NatalChart,
-    transits: &'a [TransitSnapshot],
-) -> Option<&'a TransitSnapshot> {
-    let v = blended_faction_vector(chart, transits);
-    transits.iter().max_by(|a, b| {
-        v[a.body.idx()]
-            .partial_cmp(&v[b.body.idx()])
-            .unwrap_or(std::cmp::Ordering::Equal)
-    })
+/// Sum-normalise a faction vector to a probability-like shape (sums to 1). An
+/// all-zero vector is returned unchanged.
+fn normalize(v: &[f32; 10]) -> [f32; 10] {
+    let sum: f32 = v.iter().sum();
+    if sum <= 0.0 {
+        return *v;
+    }
+    let mut o = [0.0f32; 10];
+    for i in 0..10 {
+        o[i] = v[i] / sum;
+    }
+    o
 }
 
-// ── Draft: the successful-round reward card (the repointed Sky-Drop) ─────────
+/// Blend a natal base with a transit vector under the fixed split. Both are
+/// sum-normalised first, so the transit can shift at most `TRANSIT_BLEND` of the
+/// weight: it modulates, it never overrides.
+pub fn blend(natal: &[f32; 10], transit: &[f32; 10]) -> [f32; 10] {
+    let n = normalize(natal);
+    let t = normalize(transit);
+    let mut o = [0.0f32; 10];
+    for i in 0..10 {
+        o[i] = NATAL_BLEND * n[i] + TRANSIT_BLEND * t[i];
+    }
+    o
+}
+
+/// The faction weighting that feeds the per-round re-draft (B3): the natal dignity
+/// base (`faction_scores`) modulated by the live sky read through *this* player's
+/// houses. Pure and deterministic for a given chart + sky snapshot.
+pub fn blended_faction_vector(chart: &NatalChart, sky: &[TransitPos]) -> [f32; 10] {
+    let natal = faction_scores(chart);
+    let transit = transit_modulation(chart, sky);
+    blend(&natal, &transit)
+}
+
+// ── Part C: synastry / matching ─────────────────────────────────────────────
+
+/// A synastry pairing score with an explainable component breakdown. Each field
+/// is the *weighted* contribution, so `total == house + aspect + element`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct SynastryScore {
+    pub total: f32,
+    pub house: f32,   // house overlays (each chart's planets in the other's houses)
+    pub aspect: f32,  // planet-to-planet aspects across the two charts
+    pub element: f32, // same-sign / same-element resonance, body by body
+}
+
+// Synastry weights. With both birth times known, house overlays dominate; when
+// either chart is timeless the house term is suppressed entirely (Part D / C2)
+// and the differential terms carry the pairing.
+const SYN_HOUSE_W: f32 = 1.0;
+const SYN_ASPECT_W: f32 = 0.5;
+const SYN_ELEMENT_W: f32 = 0.5;
+const SYN_ASPECT_W_NOTIME: f32 = 1.0;
+const SYN_ELEMENT_W_NOTIME: f32 = 1.0;
+
+/// Aspect orb (degrees) and per-aspect weights. Harmonious aspects bind harder;
+/// the hard aspects still register a connection, just a tenser one.
+const SYN_ORB_DEG: f64 = 6.0;
+const SYN_ASPECTS: [(f64, f32); 5] = [
+    (0.0, 1.0),   // conjunction
+    (60.0, 0.5),  // sextile
+    (90.0, 0.3),  // square
+    (120.0, 0.8), // trine
+    (180.0, 0.5), // opposition
+];
+const SYN_SAME_SIGN_W: f32 = 1.0;
+const SYN_SAME_ELEMENT_W: f32 = 0.4;
+
+/// House overlay: how strongly `src`'s planets land in `dst`'s houses, by house
+/// salience. (The caller gates on birth time; this stays pure.)
+fn house_overlay(src: &NatalChart, dst: &NatalChart) -> f32 {
+    src.placements
+        .iter()
+        .map(|p| house_salience(house_of(dst, p.abs_minutes())))
+        .sum()
+}
+
+/// Cross-chart planet-to-planet aspects within orb, weighted by aspect and by how
+/// tight the orb is (exact = full weight, edge-of-orb → 0).
+fn aspect_resonance(a: &NatalChart, b: &NatalChart) -> f32 {
+    let mut s = 0.0f32;
+    for pa in &a.placements {
+        for pb in &b.placements {
+            let sep = circ_dist(pa.abs_minutes(), pb.abs_minutes()) as f64 / 60.0; // deg, 0..180
+            for (angle, w) in SYN_ASPECTS {
+                let orb = (sep - angle).abs();
+                if orb <= SYN_ORB_DEG {
+                    s += w * (1.0 - (orb / SYN_ORB_DEG) as f32);
+                }
+            }
+        }
+    }
+    s
+}
+
+/// Same-body element resonance: for each planet present in both charts, full
+/// credit when the placements share a sign, partial when they share an element.
+fn element_resonance(a: &NatalChart, b: &NatalChart) -> f32 {
+    let mut s = 0.0f32;
+    for pa in &a.placements {
+        if let Some(pb) = b.placements.iter().find(|p| p.body == pa.body) {
+            if pa.sign == pb.sign {
+                s += SYN_SAME_SIGN_W;
+            } else if sign_element(pa.sign) == sign_element(pb.sign) {
+                s += SYN_SAME_ELEMENT_W;
+            }
+        }
+    }
+    s
+}
+
+/// Synastry between two charts for matchmaking (C1). Combines house overlays (the
+/// dominant term when both birth times are known) with placement differentials
+/// (cross-chart aspects + element resonance). When either chart lacks a birth time
+/// the house term is zeroed — a noon chart's cusps are not to be trusted (C2 /
+/// Part D) — and the differentials carry the score. The returned breakdown is
+/// post-weight, so `total == house + aspect + element`.
+pub fn synastry(a: &NatalChart, b: &NatalChart) -> SynastryScore {
+    let both_timed = a.time_known && b.time_known;
+
+    let raw_house = if both_timed {
+        house_overlay(a, b) + house_overlay(b, a)
+    } else {
+        0.0
+    };
+    let raw_aspect = aspect_resonance(a, b);
+    let raw_element = element_resonance(a, b);
+
+    let (house_w, aspect_w, element_w) = if both_timed {
+        (SYN_HOUSE_W, SYN_ASPECT_W, SYN_ELEMENT_W)
+    } else {
+        (0.0, SYN_ASPECT_W_NOTIME, SYN_ELEMENT_W_NOTIME)
+    };
+
+    let house = house_w * raw_house;
+    let aspect = aspect_w * raw_aspect;
+    let element = element_w * raw_element;
+    SynastryScore {
+        total: house + aspect + element,
+        house,
+        aspect,
+        element,
+    }
+}
+
+// ── The successful-round draft (the repointed Sky-Drop) ─────────────────────
 //
-// Cards are gained exactly two ways: the onboarding deck (`mint_deck`), and one
+// Cards are gained exactly two ways: the onboarding deck (`mint_deck`) and one
 // auto-drafted card at the end of a *successful* round. This is that draft — the
-// old per-capture Sky-Drop, repointed. It is a pure value so the whole draft is
-// deterministic and unit-testable; `reducers::draft_one` writes the row.
+// old per-capture Sky-Drop, repointed and built on the Blend above. It is a pure
+// value so the whole draft is deterministic and unit-testable;
+// `reducers::draft_one` writes the row.
 
 /// The shape of a drafted card before it's written.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -446,9 +793,10 @@ fn natal_dignity_of(chart: &NatalChart, body: Planet) -> i8 {
 }
 
 /// Draft one card from the blended sky for a successful round. Pure and
-/// deterministic: same (chart, transits, round_index, owner) → same `DraftSpec`.
+/// deterministic: same (chart, sky, retrograde, round_index, owner) → same `DraftSpec`.
 ///
-/// - Source: the body the blend leads with this tick (transits can open/close it).
+/// - Source: the body the Blend leads with this tick — `blended_faction_vector`'s
+///   top body that's actually up in the sky (transits can open/close it).
 /// - Suit: the element of that body's transit sign.
 /// - Rank: the decan pip (2..10) — never an Ace's reserved 1, a court, or a trump.
 /// - Power: transit_strength (the body's blended sky prominence × the salience of
@@ -459,36 +807,45 @@ fn natal_dignity_of(chart: &NatalChart, body: Planet) -> i8 {
 /// Returns `None` only when there is no live sky to draft from.
 pub fn draft_card(
     chart: &NatalChart,
-    transits: &[TransitSnapshot],
+    sky: &[TransitPos],
+    retrograde: &[bool; 10],
     round_index: u64,
     owner: Identity,
     hero_ceiling: Option<(u16, u16, u16)>, // (attack, health, armour) of the hero trump
 ) -> Option<DraftSpec> {
-    let v = blended_faction_vector(chart, transits);
-    let lead = leading_transit(chart, transits)?;
+    let v = blended_faction_vector(chart, sky);
+    // Leading source: the transit the blend favours most (restricted to bodies up in
+    // the sky, since we need the live position to suit & rank the card).
+    let lead = sky.iter().max_by(|a, b| {
+        v[a.body.idx()]
+            .partial_cmp(&v[b.body.idx()])
+            .unwrap_or(std::cmp::Ordering::Equal)
+    })?;
     let body = lead.body;
-    let sign = ((lead.lon_arcmin / SIGN_MINUTES) % 12) as u8;
-    let degree = ((lead.lon_arcmin % SIGN_MINUTES) / 60) as u8; // 0..29
+    let lon = equatorial_to_ecliptic_min(lead.ra, lead.dec);
+    let sign = ((lon / SIGN_MINUTES) % 12) as u8;
+    let degree = ((lon % SIGN_MINUTES) / 60) as u8; // 0..29
     let suit = sign_element(sign);
     let rank = pip_rank(sign, degree); // 2..10 — already a pip, never court/trump
 
-    // Power: this body's blended prominence × the salience of the house it transits
-    // × its natal dignity. The arc-minute is drawn from the deterministic drop seed,
+    // Power: this body's blended prominence × the salience of the house it transits ×
+    // its natal dignity. The blended vector is sum-normalised (≈0..1), so its share is
+    // scaled back up into the power band. The arc-minute is drawn from the drop seed,
     // NOT the wall clock (that would break reproducibility).
     let seed = drop_seed(owner, round_index, body);
     let salience = if chart.time_known {
-        house_salience(house_of(&house_cusps(chart), lead.lon_arcmin))
+        house_salience(house_of(chart, lon))
     } else {
-        1.0
+        1.0 // no trustworthy houses → no house weighting (Part D degradation)
     };
-    let transit_strength = v[body.idx()].max(0.0) * salience;
+    let transit_strength = v[body.idx()].max(0.0) * salience * 30.0;
     let power = draft_power_mult(transit_strength, natal_dignity_of(chart, body));
 
     let placement = Placement {
         body,
         sign,
         arc_minutes: degree as u16 * 60 + (seed % 60) as u16,
-        retrograde: lead.retrograde,
+        retrograde: retrograde[body.idx()],
         dignity: sky_dignity(body, sign),
     };
     let (h, a, ar, cd) = card_stats(&placement, 0.0); // reuse the Sky-Drop stat shaping
@@ -498,7 +855,7 @@ pub fn draft_card(
     let mut cooldown_ms = cd;
 
     // Retrograde source → inverted card with reversed stats.
-    let inverted = lead.retrograde;
+    let inverted = retrograde[body.idx()];
     if inverted {
         let (ih, ia, iar, icd) = invert_stats(health, attack, armour, cooldown_ms);
         health = ih;
@@ -529,128 +886,245 @@ pub fn draft_card(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use spacetimedb::Identity;
 
-    // ── Test helpers ────────────────────────────────────────────────────────
+    fn pl(body: Planet, sign: u8, deg: u8) -> Placement {
+        Placement { body, sign, arc_minutes: deg as u16 * 60, retrograde: false, dignity: 0 }
+    }
 
-    fn chart_asc(asc_arcmin: u16, time_known: bool, placements: Vec<Placement>) -> NatalChart {
-        NatalChart {
+    /// Build a chart and run the authoritative house derivation over it.
+    fn chart(asc: u16, mc: u16, lat: f64, lon: f64, time_known: bool, placements: Vec<Placement>) -> NatalChart {
+        let mut c = NatalChart {
             identity: Identity::ZERO,
             birth_unix: 0,
-            birth_lat: 0.0,
-            birth_lon: 0.0,
+            birth_lat: lat,
+            birth_lon: lon,
             time_known,
             placements,
-            ascendant: asc_arcmin,
-            midheaven: (asc_arcmin + 5400) % FULL_WHEEL, // ~90° off — irrelevant to these tests
-        }
+            ascendant: asc,
+            midheaven: mc,
+            house_cusps: Vec::new(),
+            house_system: HouseSystem::Placidus,
+            intercepted_signs: Vec::new(),
+        };
+        populate_houses(&mut c);
+        c
     }
 
-    /// Replicates the feeder's `eclipticToEquatorial(lon, 0)` for the round-trip test.
-    fn ecl_to_eq(lon_deg: f64) -> (f64, f64) {
-        let e = OBLIQUITY_DEG.to_radians();
-        let l = lon_deg.to_radians();
-        let dec = (e.sin() * l.sin()).asin();
-        let ra = (l.sin() * e.cos()).atan2(l.cos());
-        (ra.to_degrees().rem_euclid(360.0), dec.to_degrees())
+    fn approx(a: f32, b: f32) {
+        assert!((a - b).abs() < 1e-4, "{a} is not ~ {b}");
     }
 
-    fn circ_deg(a: f64, b: f64) -> f64 {
-        let d = (a - b).rem_euclid(360.0);
-        d.min(360.0 - d)
-    }
+    // ── Part A: Placidus / interception ────────────────────────────────────
 
-    // ── Houses ────────────────────────────────────────────────────────────────
+    // Sign indices: 0 Ari … 2 Gem … 5 Vir … 8 Sag … 11 Pis.
+    const GEMINI: u8 = 2;
+    const VIRGO: u8 = 5;
+    const SAGITTARIUS: u8 = 8;
+    const PISCES: u8 = 11;
 
-    #[test]
-    fn equal_house_cusps_anchor_on_the_ascendant() {
-        let chart = chart_asc(900, true, vec![]); // Asc 15° Aries
-        let cusps = house_cusps(&chart);
-        assert_eq!(cusps[0], 900);
-        assert_eq!(cusps[3], (900 + 3 * SIGN_MINUTES) % FULL_WHEEL);
-        assert_eq!(house_of(&cusps, 900), 1); // the Ascendant itself opens house 1
-        assert_eq!(house_of(&cusps, 900 + 3 * SIGN_MINUTES), 4); // a quarter on is the IC/4th
-        assert_eq!(house_of(&cusps, (900 + 11 * SIGN_MINUTES) % FULL_WHEEL), 12);
+    /// The Brooklyn acceptance chart: 1991-06-23, 10:24 EDT, (40.678, -73.944),
+    /// Asc ≈ 0° Virgo. Derived from the birth instant (GMST → RAMC → Asc/MC):
+    /// Asc = 9060 arc-min (1°00' Vir), MC = 3339 arc-min (25°39' Tau).
+    fn brooklyn() -> NatalChart {
+        chart(9060, 3339, 40.678, -73.944, true, vec![])
     }
 
     #[test]
-    fn salience_ranks_angular_over_succedent_over_cadent() {
-        for h in [1u8, 4, 7, 10] {
-            assert_eq!(house_salience(h), 3.0);
-        }
-        for h in [2u8, 5, 8, 11] {
-            assert_eq!(house_salience(h), 1.5);
-        }
-        for h in [3u8, 6, 9, 12] {
-            assert_eq!(house_salience(h), 0.5);
+    fn brooklyn_intercepts_sagittarius_and_gemini_and_duplicates_virgo_and_pisces() {
+        let c = brooklyn();
+        assert_eq!(c.house_system, HouseSystem::Placidus);
+        let cusps = chart_cusps(&c);
+        let (intercepted, duplicated) = interceptions(&cusps);
+        assert_eq!(intercepted, vec![GEMINI, SAGITTARIUS], "intercepted signs");
+        assert_eq!(duplicated, vec![VIRGO, PISCES], "duplicated signs");
+        // The persisted column matches, and time-known so it is non-empty.
+        assert_eq!(c.intercepted_signs, vec![GEMINI, SAGITTARIUS]);
+    }
+
+    #[test]
+    fn cusp_zero_is_asc_and_cusp_nine_is_mc() {
+        let cusps = chart_cusps(&brooklyn());
+        assert_eq!(cusps[0], 9060); // Asc
+        assert_eq!(cusps[9], 3339); // MC
+    }
+
+    /// Shared cross-language test vector — these exact arc-minute cusps must also
+    /// be reproduced by `unity/ChartCalculator.cs` (see its `BrooklynCusps`).
+    #[test]
+    fn brooklyn_matches_shared_cusp_vector() {
+        let cusps = chart_cusps(&brooklyn());
+        let expected: [u16; 12] =
+            [9060, 10450, 12148, 14139, 16234, 18171, 19860, 21250, 1348, 3339, 5434, 7371];
+        for h in 0..12 {
+            let d = (cusps[h] as i32 - expected[h] as i32).rem_euclid(FULL_WHEEL as i32);
+            let d = d.min(FULL_WHEEL as i32 - d);
+            assert!(d <= 2, "cusp {} = {} arc-min, expected {} (Δ {})", h + 1, cusps[h], expected[h], d);
         }
     }
 
     #[test]
-    fn ecliptic_longitude_round_trips_from_equatorial() {
-        for lon in [0.0, 30.0, 45.0, 90.0, 137.0, 180.0, 270.0, 359.0] {
-            let (ra, dec) = ecl_to_eq(lon);
-            let back = ecliptic_lon_arcmin(ra, dec) as f64 / 60.0;
-            assert!(circ_deg(back, lon) < 0.05, "λ {lon}° round-tripped to {back}°");
+    fn house_of_round_trips_every_cusp() {
+        let c = brooklyn();
+        let cusps = chart_cusps(&c);
+        for h in 0..12 {
+            assert_eq!(house_of(&c, cusps[h]), (h + 1) as u8, "cusp {} did not round-trip", h + 1);
         }
     }
 
-    // ── Blend ─────────────────────────────────────────────────────────────────
-
     #[test]
-    fn blend_is_deterministic() {
-        let chart = chart_asc(900, true, vec![]);
-        let snap = vec![
-            TransitSnapshot { body: Planet::Mars, lon_arcmin: 1800, retrograde: false },
-            TransitSnapshot { body: Planet::Venus, lon_arcmin: 7200, retrograde: false },
-        ];
-        assert_eq!(blended_faction_vector(&chart, &snap), blended_faction_vector(&chart, &snap));
+    fn house_of_honours_unequal_wrapping_spans() {
+        let c = brooklyn();
+        let cusps = chart_cusps(&c);
+        // A point one arc-minute past each cusp sits in that same house.
+        for h in 0..12 {
+            let nudged = (cusps[h] + 1) % FULL_WHEEL;
+            // unless the next cusp is only one minute away (not the case here)
+            assert_eq!(house_of(&c, nudged), (h + 1) as u8);
+        }
+        // Cusp 9 wraps past 360° (Pisces→Aries): 1348 arc-min is in Aries, house 9.
+        assert_eq!(cusps[8], 1348);
+        assert_eq!(house_of(&c, 1348), 9);
     }
 
     #[test]
-    fn transit_crossing_into_a_new_house_changes_the_leading_body() {
-        // Asc 15° Aries. One Sun placement keeps the natal base off Jupiter/Saturn,
-        // so the house a transit sits in decides which of them leads.
-        let chart = chart_asc(
-            900,
-            true,
-            vec![Placement { body: Planet::Sun, sign: 4, arc_minutes: 900, retrograde: false, dignity: 5 }],
-        );
-        // Saturn fixed in the succedent 2nd (60° = Gemini, peregrine).
-        let saturn = TransitSnapshot { body: Planet::Saturn, lon_arcmin: 3600, retrograde: false };
-        // Jupiter angular in the 1st (30° = Taurus, peregrine): it leads.
-        let on_angle = vec![
-            TransitSnapshot { body: Planet::Jupiter, lon_arcmin: 1800, retrograde: false },
-            saturn,
-        ];
-        // Jupiter drifted to the cadent 3rd (90° = Cancer, peregrine): Saturn leads now.
-        let cadent = vec![
-            TransitSnapshot { body: Planet::Jupiter, lon_arcmin: 5400, retrograde: false },
-            saturn,
-        ];
-        assert_eq!(leading_transit(&chart, &on_angle).unwrap().body, Planet::Jupiter);
-        assert_eq!(leading_transit(&chart, &cadent).unwrap().body, Planet::Saturn);
+    fn polar_latitude_falls_back_to_whole_sign_without_panic() {
+        let c = chart(9060, 3339, 80.0, 10.0, true, vec![]);
+        assert_eq!(c.house_system, HouseSystem::WholeSign);
+        assert!(c.intercepted_signs.is_empty());
+        let cusps = chart_cusps(&c);
+        assert_eq!(cusps[0], VIRGO as u16 * 1800); // Whole-Sign 1st = 0° of Asc's sign
+        // And transit modulation over the fallback ring must not panic.
+        let _ = transit_modulation(&c, &[TransitPos { body: Planet::Mars, ra: 200.0, dec: -10.0 }]);
     }
 
-    // ── Draft ───────────────────────────────────────────────────────────────
+    #[test]
+    fn time_unknown_chart_is_whole_sign_from_the_sun_with_no_interceptions() {
+        // Sun in Cancer (sign 3). No birth time → Whole-Sign houses from the Sun.
+        let c = chart(0, 0, 40.7, -74.0, false, vec![pl(Planet::Sun, 3, 10)]);
+        assert_eq!(c.house_system, HouseSystem::WholeSign);
+        assert!(c.intercepted_signs.is_empty());
+        assert_eq!(chart_cusps(&c)[0], 3 * 1800); // Cancer 0°
+    }
 
-    fn draft_fixture() -> (NatalChart, Vec<TransitSnapshot>) {
-        let chart = chart_asc(
-            900,
-            true,
-            vec![Placement { body: Planet::Sun, sign: 4, arc_minutes: 900, retrograde: false, dignity: 5 }],
-        );
-        let snap = vec![
-            TransitSnapshot { body: Planet::Jupiter, lon_arcmin: 1800, retrograde: false }, // leads (angular)
-            TransitSnapshot { body: Planet::Saturn, lon_arcmin: 3600, retrograde: false },
-        ];
-        (chart, snap)
+    // ── Part B: transit modulation / blend ─────────────────────────────────
+
+    #[test]
+    fn equatorial_to_ecliptic_recovers_longitude() {
+        // Ecliptic points (β=0) round-trip back through the inverse transform.
+        assert_eq!(equatorial_to_ecliptic_min(0.0, 0.0), 0);
+        assert_eq!(equatorial_to_ecliptic_min(90.0, OBLIQUITY_DEG), 5400); // Cancer 0°
+        assert_eq!(equatorial_to_ecliptic_min(180.0, 0.0), 10800); // Libra 0°
+        assert_eq!(equatorial_to_ecliptic_min(270.0, -OBLIQUITY_DEG), 16200); // Capricorn 0°
+    }
+
+    #[test]
+    fn house_salience_ranks_angular_over_succedent_over_cadent() {
+        for &h in &[1u8, 4, 7, 10] { approx(house_salience(h), 1.0); }
+        for &h in &[2u8, 5, 8, 11] { approx(house_salience(h), 0.6); }
+        for &h in &[3u8, 6, 9, 12] { approx(house_salience(h), 0.35); }
+    }
+
+    #[test]
+    fn transit_modulation_amplifies_the_body_and_its_house_ruler() {
+        let c = brooklyn();
+        // 10° Virgo (abs 9600') sits inside house 1 (the Ascendant's house —
+        // angular, full salience), whose cusp is in Virgo → ruled by Mercury.
+        // Build RA/Dec from the forward transform of λ=160° (β=0).
+        let lon = 160.0_f64.to_radians();
+        let eps = OBLIQUITY_DEG.to_radians();
+        let ra = (lon.sin() * eps.cos()).atan2(lon.cos()).to_degrees().rem_euclid(360.0);
+        let dec = (eps.sin() * lon.sin()).asin().to_degrees();
+        let m = transit_modulation(&c, &[TransitPos { body: Planet::Mars, ra, dec }]);
+        // The transiting body (Mars) and the house ruler (Mercury) are both lifted.
+        assert!(m[Planet::Mars.idx()] > 0.0, "transiting body amplified");
+        assert!(m[Planet::Mercury.idx()] > 0.0, "house ruler amplified");
+        // Angular house → full salience on both terms.
+        approx(m[Planet::Mars.idx()], TRANSIT_SELF_WEIGHT); // 1.0
+        approx(m[Planet::Mercury.idx()], TRANSIT_RULER_WEIGHT); // 0.6
+    }
+
+    #[test]
+    fn blend_bounds_transit_to_its_share() {
+        let mut natal = [0.0f32; 10];
+        natal[Planet::Sun.idx()] = 10.0; // natal all on the Sun
+        let mut transit = [0.0f32; 10];
+        transit[Planet::Pluto.idx()] = 5.0; // transit all on Pluto
+        let b = blend(&natal, &transit);
+        approx(b[Planet::Sun.idx()], NATAL_BLEND); // 0.70
+        approx(b[Planet::Pluto.idx()], TRANSIT_BLEND); // 0.30 — capped
+        approx(b.iter().sum::<f32>(), 1.0);
+    }
+
+    #[test]
+    fn blended_vector_is_deterministic_and_does_not_panic_on_empty_sky() {
+        let c = brooklyn();
+        let a = blended_faction_vector(&c, &[]);
+        let b = blended_faction_vector(&c, &[]);
+        assert_eq!(a, b);
+        // Empty sky → transit contributes nothing; only the natal share remains.
+        approx(a.iter().sum::<f32>(), NATAL_BLEND);
+    }
+
+    // ── Part C/D: synastry & degradation ───────────────────────────────────
+
+    #[test]
+    fn synastry_zeroes_house_weight_when_a_chart_lacks_a_birth_time() {
+        let a = chart(9060, 3339, 40.678, -73.944, true,
+            vec![pl(Planet::Sun, 2, 5), pl(Planet::Moon, 6, 12)]);
+        let timeless = chart(0, 0, 40.7, -74.0, false,
+            vec![pl(Planet::Sun, 2, 7), pl(Planet::Moon, 9, 1)]);
+        let s = synastry(&a, &timeless);
+        assert_eq!(s.house, 0.0, "house term must be suppressed");
+        approx(s.total, s.aspect + s.element);
+        // The timeless chart's transit modulation must also stay panic-free.
+        let _ = transit_modulation(&timeless, &[TransitPos { body: Planet::Venus, ra: 120.0, dec: 5.0 }]);
+    }
+
+    #[test]
+    fn synastry_house_overlay_dominates_when_both_are_timed() {
+        let a = chart(9060, 3339, 40.678, -73.944, true,
+            vec![pl(Planet::Sun, 5, 10), pl(Planet::Moon, 1, 3), pl(Planet::Mars, 8, 20)]);
+        let b = chart(3000, 12000, 51.5, -0.12, true,
+            vec![pl(Planet::Sun, 9, 2), pl(Planet::Moon, 4, 25), pl(Planet::Mars, 0, 14)]);
+        let s = synastry(&a, &b);
+        assert!(s.house > 0.0);
+        assert!(s.house >= s.aspect, "house ({}) should dominate aspect ({})", s.house, s.aspect);
+        assert!(s.house >= s.element, "house ({}) should dominate element ({})", s.house, s.element);
+        approx(s.total, s.house + s.aspect + s.element);
+    }
+
+    #[test]
+    fn synastry_rewards_shared_signs_and_aspects() {
+        // Two charts with the Sun in the same sign & degree → conjunction + same
+        // sign both fire. Symmetric, so the score is order-independent here.
+        let a = chart(0, 16200, 40.0, -74.0, true, vec![pl(Planet::Sun, 4, 15)]);
+        let b = chart(0, 16200, 40.0, -74.0, true, vec![pl(Planet::Sun, 4, 15)]);
+        let s = synastry(&a, &b);
+        assert!(s.element > 0.0, "same-sign Suns resonate");
+        assert!(s.aspect > 0.0, "conjunct Suns aspect");
+        assert_eq!(synastry(&a, &b), synastry(&b, &a));
+    }
+
+    // ── The successful-round draft ──────────────────────────────────────────
+
+    const NO_RETRO: [bool; 10] = [false; 10];
+
+    /// A transit at an exact ecliptic longitude (β = 0), via the forward transform.
+    fn pos(body: Planet, lon_deg: f64) -> TransitPos {
+        let lon = lon_deg.to_radians();
+        let eps = OBLIQUITY_DEG.to_radians();
+        let ra = (lon.sin() * eps.cos()).atan2(lon.cos()).to_degrees().rem_euclid(360.0);
+        let dec = (eps.sin() * lon.sin()).asin().to_degrees();
+        TransitPos { body, ra, dec }
     }
 
     #[test]
     fn same_inputs_draft_the_same_card() {
-        let (chart, snap) = draft_fixture();
-        let a = draft_card(&chart, &snap, 7, Identity::ZERO, None).unwrap();
-        let b = draft_card(&chart, &snap, 7, Identity::ZERO, None).unwrap();
+        let c = brooklyn();
+        let sky = [pos(Planet::Mars, 200.0)];
+        let a = draft_card(&c, &sky, &NO_RETRO, 7, Identity::ZERO, None).unwrap();
+        let b = draft_card(&c, &sky, &NO_RETRO, 7, Identity::ZERO, None).unwrap();
         assert_eq!(a, b);
     }
 
@@ -672,12 +1146,12 @@ mod tests {
 
     #[test]
     fn a_retrograde_source_inverts_and_reverses_the_stats() {
-        let (chart, snap) = draft_fixture();
-        let upright = draft_card(&chart, &snap, 3, Identity::ZERO, None).unwrap();
-        // Same sky, but the leading body (Jupiter) is now retrograde.
-        let mut retro_snap = snap.clone();
-        retro_snap[0].retrograde = true;
-        let inverted = draft_card(&chart, &retro_snap, 3, Identity::ZERO, None).unwrap();
+        let c = brooklyn();
+        let sky = [pos(Planet::Mars, 200.0)]; // single body → Mars leads
+        let upright = draft_card(&c, &sky, &NO_RETRO, 3, Identity::ZERO, None).unwrap();
+        let mut retro = NO_RETRO;
+        retro[Planet::Mars.idx()] = true;
+        let inverted = draft_card(&c, &sky, &retro, 3, Identity::ZERO, None).unwrap();
 
         assert!(!upright.inverted);
         assert!(inverted.inverted);
@@ -696,21 +1170,23 @@ mod tests {
                 assert!((1..=10).contains(&pip_rank(sign, deg)), "{sign}/{deg} escaped 1..=10");
             }
         }
-        // and as it surfaces through the draft:
-        let (chart, snap) = draft_fixture();
-        for round in 0..50u64 {
-            let spec = draft_card(&chart, &snap, round, Identity::ZERO, None).unwrap();
-            assert!((1..=10).contains(&spec.rank), "round {round} drafted rank {}", spec.rank);
+        // and as it surfaces through the draft, wherever the source transits:
+        let c = brooklyn();
+        for d in (0..360).step_by(10) {
+            let sky = [pos(Planet::Mars, d as f64)];
+            let spec = draft_card(&c, &sky, &NO_RETRO, 1, Identity::ZERO, None).unwrap();
+            assert!((1..=10).contains(&spec.rank), "λ {d}° drafted rank {}", spec.rank);
         }
     }
 
     #[test]
     fn draft_is_clamped_strictly_below_the_hero_trump() {
-        let (chart, snap) = draft_fixture();
-        let natural = draft_card(&chart, &snap, 1, Identity::ZERO, None).unwrap();
+        let c = brooklyn();
+        let sky = [pos(Planet::Mars, 200.0)];
+        let natural = draft_card(&c, &sky, &NO_RETRO, 1, Identity::ZERO, None).unwrap();
         // Ceiling = the draft's own natural stats → every stat must come out strictly under.
         let ceiling = Some((natural.attack, natural.health, natural.armour));
-        let clamped = draft_card(&chart, &snap, 1, Identity::ZERO, ceiling).unwrap();
+        let clamped = draft_card(&c, &sky, &NO_RETRO, 1, Identity::ZERO, ceiling).unwrap();
         assert!(clamped.attack < natural.attack);
         assert!(clamped.health < natural.health);
         assert!(clamped.armour < natural.armour);
@@ -718,15 +1194,31 @@ mod tests {
 
     #[test]
     fn draft_power_rewards_dignity_and_prominence_within_a_band() {
-        // Monotonic in natal dignity and in transit strength.
         assert!(draft_power_mult(10.0, 5) > draft_power_mult(10.0, -5));
         assert!(draft_power_mult(20.0, 0) >= draft_power_mult(5.0, 0));
-        // Always inside the documented band.
         for ts in [0.0f32, 5.0, 50.0, 1000.0] {
             for d in [-5i8, 0, 5] {
                 let m = draft_power_mult(ts, d);
                 assert!((0.75..=1.35).contains(&m), "power {m} escaped [0.75, 1.35]");
             }
         }
+    }
+
+    #[test]
+    fn transit_crossing_into_a_new_house_changes_the_leading_source_body() {
+        // A polar chart falls back to clean Whole-Sign houses (no interceptions), so a
+        // transit's house is just its sign's offset from the Ascendant. Asc 0° Virgo:
+        // 165° (Virgo) = house 1 (angular), 195° (Libra) = house 2 (succedent), 225°
+        // (Scorpio) = house 3 (cadent). Jupiter & Saturn are natally peregrine here, so
+        // the house a transit lights up decides which of them the blend leads with.
+        let c = chart(9060, 3339, 80.0, 10.0, true, vec![]);
+        assert_eq!(c.house_system, HouseSystem::WholeSign);
+        let saturn = pos(Planet::Saturn, 195.0); // fixed, succedent
+        let on_angle = [pos(Planet::Jupiter, 165.0), saturn]; // Jupiter angular → leads
+        let in_cadent = [pos(Planet::Jupiter, 225.0), saturn]; // Jupiter cadent → Saturn leads
+        let lead =
+            |sky: &[TransitPos]| draft_card(&c, sky, &NO_RETRO, 0, Identity::ZERO, None).unwrap().source_body;
+        assert_eq!(lead(&on_angle), Planet::Jupiter);
+        assert_eq!(lead(&in_cadent), Planet::Saturn);
     }
 }

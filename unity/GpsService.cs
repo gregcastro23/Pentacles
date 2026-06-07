@@ -12,7 +12,7 @@ using UnityEngine;
 /// "Location Usage Description" and the Android location permissions in Player
 /// Settings). When device GPS is unavailable (editor, denied permission) it falls
 /// back to the serialized coordinates and still reports them, so the game stays
-/// playable and testable. The SetLocation binding appears after `spacetime generate`.
+/// playable and testable.
 public class GpsService : MonoBehaviour
 {
     public static GpsService Instance { get; private set; }

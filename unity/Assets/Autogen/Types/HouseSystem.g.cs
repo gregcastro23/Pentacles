@@ -8,9 +8,9 @@ using System;
 namespace SpacetimeDB.Types
 {
     [SpacetimeDB.Type]
-    public enum CombatModel
+    public enum HouseSystem
     {
-        LaneSkirmish,
-        AutoSiege,
+        Placidus,
+        WholeSign,
     }
 }

@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using SpacetimeDB;
+using SpacetimeDB.ClientApi;
 using SpacetimeDB.Types;
 
 public class BattlePanel : MonoBehaviour
@@ -170,15 +171,49 @@ public class BattlePanel : MonoBehaviour
     void OnAttack()
     {
         var conn = CelestialPentacleConn.Instance;
-        if (conn == null) return;
+        if (conn == null || _awaiting) return;
         var ids = new List<ulong>();
         foreach (var c in GatherCards(conn)) ids.Add(c.CardId);
         if (ids.Count == 0) return;
 
         _awaiting = true;
         _result.text = "Resolving…"; _result.color = Color.white;
+        _attack.interactable = false;
+        conn.Conn.Db.Battle.OnInsert -= OnBattle;
         conn.Conn.Db.Battle.OnInsert += OnBattle;
+        conn.Conn.Reducers.OnResolveStarBattle -= OnResolveStarBattle;
+        conn.Conn.Reducers.OnResolveStarBattle += OnResolveStarBattle;
         conn.AttackStar(_targetHip, ids);
+    }
+
+    void OnResolveStarBattle(ReducerEventContext ctx, uint hipId, BattleLog log)
+    {
+        if (!_awaiting || hipId != _targetHip) return;
+        var conn = CelestialPentacleConn.Instance;
+        if (conn == null) return;
+
+        switch (ctx.Event.Status)
+        {
+            case Status.Failed(var reason):
+                conn.Conn.Db.Battle.OnInsert -= OnBattle;
+                conn.Conn.Reducers.OnResolveStarBattle -= OnResolveStarBattle;
+                _awaiting = false;
+                _attack.interactable = true;
+                _result.text = reason;
+                _result.color = new Color(0.95f, 0.62f, 0.45f);
+                break;
+            case Status.OutOfEnergy(var _):
+                conn.Conn.Db.Battle.OnInsert -= OnBattle;
+                conn.Conn.Reducers.OnResolveStarBattle -= OnResolveStarBattle;
+                _awaiting = false;
+                _attack.interactable = true;
+                _result.text = "The strike ran out of energy before resolving.";
+                _result.color = new Color(0.95f, 0.62f, 0.45f);
+                break;
+            default:
+                conn.Conn.Reducers.OnResolveStarBattle -= OnResolveStarBattle;
+                break;
+        }
     }
 
     void OnQueueDuel()
@@ -195,7 +230,9 @@ public class BattlePanel : MonoBehaviour
         var conn = CelestialPentacleConn.Instance;
         if (!_awaiting || b.StarId != _targetHip || !b.Attacker.Equals(conn.LocalIdentity)) return;
         conn.Conn.Db.Battle.OnInsert -= OnBattle;
+        conn.Conn.Reducers.OnResolveStarBattle -= OnResolveStarBattle;
         _awaiting = false;
+        _attack.interactable = true;
 
         if (b.Won)
         {
@@ -213,7 +250,11 @@ public class BattlePanel : MonoBehaviour
     public void Hide()
     {
         var conn = CelestialPentacleConn.Instance;
-        if (conn != null) conn.Conn.Db.Battle.OnInsert -= OnBattle;
+        if (conn != null)
+        {
+            conn.Conn.Db.Battle.OnInsert -= OnBattle;
+            conn.Conn.Reducers.OnResolveStarBattle -= OnResolveStarBattle;
+        }
         _awaiting = false;
         if (_canvas != null) _canvas.SetActive(false);
     }
