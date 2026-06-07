@@ -35,6 +35,39 @@ Pentacles/
     └── package.json
 ```
 
+## Playable Web App Client
+
+A standalone, lightweight 2D/AR-toggleable Web Client is now available in the project root to support playing the game directly in any standard desktop or mobile web browser.
+
+### Key Features:
+*   **Onboarding & Placements**: Enter date/time/location data to calculate chart placements, evaluate recommended factions by dignity score, and deterministically mint your starting deck of 40 cards.
+*   **Interactive SVG Pentacle Map**: A high-performance SVG rendering of the Celestial Pentacle (the 11-zone grid) featuring clean, intersecting star lines and dynamic star nodes.
+*   **Multi-Faction Auto-Siege Combat**: Star battles support up to all 10 factions contesting a single star simultaneously. Turn order is driven by card speeds, and bot cards automatically focus-fire on the strongest remaining faction.
+*   **Astral Sign In & Profiles**: Switch between different Seeker profiles, discard characters, or export/import base64-encoded Astral Keys to transfer saves across browsers and devices.
+*   **Web Audio Synth Engine**: Creates sound effects and music entirely inside the browser's native audio engine (no heavy audio files to load):
+    *   Detuned low oscillators synthesize a deep space ambient drone.
+    *   Sine-wave frequencies make clean chimes when selecting and fusing cards.
+    *   Low pass filters and noise generators simulate combat strikes.
+*   **Persistence & Bot Activity**: Saves all state (profile, deck, levels, map captures) in `localStorage`. Runs a background loop that decays controlled zones and triggers periodic bot attacks to simulate an active sky.
+
+### Run Locally (Bun)
+
+Start the lightweight static file server from the root directory:
+```bash
+# Serves the client at http://localhost:8080/client.html
+bun --bun run serve.ts  # Or serve via your preferred static file server
+```
+
+### Deploy to Vercel
+
+The web client can be deployed directly as a static project:
+```bash
+# Deploy to Vercel production
+vercel --prod
+```
+
+---
+
 ## SpacetimeDB — Maincloud
 
 | Key | Value |
