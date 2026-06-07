@@ -71,7 +71,9 @@ fn card_stats(p: &Placement, suit: Suit) -> (u16, u16, u16, u16, u8) {
     let minute = p.minute() as u16; // 0..59
     let dignity_mult = 1.0 + p.dignity as f32 * 0.08; // 0.6 .. 1.4
 
-    let health = 12 + minute * 28 / 59 + if suit == Suit::Cups { 10 } else { 0 };
+    // Cups no longer gets a static health pad — its edge now comes from the sky
+    // (Water rounds favor it), so it's a full combat suit like the other three.
+    let health = 12 + minute * 28 / 59;
     let attack = ((6 + degree) as f32 * dignity_mult) as u16
         + if suit == Suit::Swords { 6 } else { 0 };
     let armour = 4

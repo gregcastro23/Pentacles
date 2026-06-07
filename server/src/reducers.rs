@@ -15,6 +15,12 @@ const DUEL_GRACE_SECS: i64 = 120;
 /// Zone swing granted to a player who wins a duel by their opponent's forfeit
 /// (a flat walkover — less than a fought best-of-3, which adds a lane bonus).
 const DUEL_WALKOVER: i32 = 150;
+/// The world's canonical horizon — the shared "field of play". The sign rising
+/// here sets the elemental weather for every battle, sweeping the zodiac in real
+/// time so round length varies by how fast a sign rises here. (New York City.)
+const REF_LAT_DEG: f64 = 40.7128;
+const REF_LON_DEG: f64 = -74.0060; // east-longitude negative
+const OBLIQUITY_DEG: f64 = 23.439291; // mean obliquity, matches SkyMath.Obliquity
 
 // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -158,7 +164,8 @@ pub fn resolve_star_battle(
         None => neutral_garrison(&star),
     };
 
-    let (won, margin) = combat::resolve_star(&attacker, &defender);
+    let favored = current_favored_suit(ctx);
+    let (won, margin) = combat::resolve_star(&attacker, &defender, favored);
     if won {
         let prev = star.held_by;
         star.held_by = Some(player.faction);
@@ -293,13 +300,14 @@ pub fn commit_duel(
 
 /// Lane-by-lane (suit-triangle scaled); best-of-3 wins and shifts the zone.
 fn resolve_duel(ctx: &ReducerContext, duel: &mut Duel) {
+    let favored = current_favored_suit(ctx);
     let mut a = 0u8;
     let mut b = 0u8;
     for lane in 0..3usize {
         let ca = ctx.db.card().card_id().find(&duel.a_cards[lane]);
         let cb = ctx.db.card().card_id().find(&duel.b_cards[lane]);
         if let (Some(x), Some(y)) = (ca, cb) {
-            if lane_power(&x, &y) >= lane_power(&y, &x) { a += 1; } else { b += 1; }
+            if lane_power(&x, favored) >= lane_power(&y, favored) { a += 1; } else { b += 1; }
         }
     }
     duel.lanes_a = a;
@@ -314,9 +322,9 @@ fn resolve_duel(ctx: &ReducerContext, duel: &mut Duel) {
     apply_control(ctx, duel.zone_id, faction, 150 + a.max(b) as i32 * 60);
 }
 
-fn lane_power(att: &Card, def: &Card) -> f32 {
+fn lane_power(att: &Card, favored: Suit) -> f32 {
     let s = att.attack as f32 + att.health as f32 * 0.5 + att.armour as f32 * 0.4;
-    s * combat::suit_multiplier(att.suit, def.suit)
+    s * combat::element_weather(att.suit, favored)
 }
 
 /// Claim a stalled duel: if your opponent never committed within the grace
@@ -423,6 +431,7 @@ pub fn tick_sky(ctx: &ReducerContext, _timer: SkyTickTimer) {
             ctx.db.zone().zone_id().update(z);
         }
     }
+    advance_round_clock(ctx);  // round weather: which sign is rising at the world horizon
     recompute_star_zones(ctx); // A — de-freeze the sky before bots read hints
     sweep_stale_duels(ctx);    // B — auto-resolve abandoned duels
     bot_raid(ctx);
@@ -498,13 +507,56 @@ fn zone_for_lon(lon_deg: f64) -> u8 {
     ((l / 360.0) * 11.0).floor().clamp(0.0, 10.0) as u8
 }
 
-/// Greenwich Mean Sidereal Time in degrees, 0..360 (game-grade IAU 1982 series).
-/// This is the sky's rotation angle — what makes the catalogue *live*.
+/// Greenwich Mean Sidereal Time in degrees, 0..360. Matches the client's
+/// `SkyMath.GmstDeg` so the server's sky and a player's chart share one clock.
 fn gmst_deg(ts: Timestamp) -> f64 {
     let unix_secs = ts.to_micros_since_unix_epoch() as f64 / 1_000_000.0;
     let jd = unix_secs / 86_400.0 + 2_440_587.5; // Unix epoch → Julian Day
     let d = jd - 2_451_545.0; // days since J2000.0
-    (280.460_618_37 + 360.985_647_366_29 * d).rem_euclid(360.0)
+    let t = d / 36_525.0; // Julian centuries
+    (280.460_618_37 + 360.985_647_366_29 * d + 0.000_387_933 * t * t - t * t * t / 38_710_000.0)
+        .rem_euclid(360.0)
+}
+
+/// Ecliptic longitude (deg, 0..360) rising on the eastern horizon at the world's
+/// reference location *now* — the Ascendant that drives the round clock. Same
+/// formula as the client's `ChartCalculator.AscMc`, evaluated at New York: the
+/// shared "field of play" everyone fights under, sweeping the zodiac in real time
+/// (fast through Aries ≈ 1h10m, slow through Virgo ≈ 2h45m at this latitude).
+fn ascendant_deg(ts: Timestamp) -> f64 {
+    let ramc = (gmst_deg(ts) + REF_LON_DEG).rem_euclid(360.0).to_radians();
+    let e = OBLIQUITY_DEG.to_radians();
+    let lat = REF_LAT_DEG.to_radians();
+    let asc = ramc
+        .cos()
+        .atan2(-(e.sin() * lat.tan() + e.cos() * ramc.sin()));
+    asc.to_degrees().rem_euclid(360.0)
+}
+
+/// The suit favored by the currently-rising sign's element — the round's
+/// "weather", read from the live ascendant degree stored in season_degree.
+fn current_favored_suit(ctx: &ReducerContext) -> Suit {
+    let deg = ctx
+        .db
+        .game_config()
+        .id()
+        .find(&0)
+        .map(|c| c.season_degree)
+        .unwrap_or(0);
+    chart::sign_element(((deg / 30) % 12) as u8)
+}
+
+/// Advance the round clock: store the world Ascendant's whole degree. Each 30°
+/// crossing is a new sign — a new favored element, a new round, of a length set
+/// by how fast that sign rises at the reference horizon.
+fn advance_round_clock(ctx: &ReducerContext) {
+    if let Some(mut cfg) = ctx.db.game_config().id().find(&0) {
+        let deg = (ascendant_deg(ctx.timestamp).floor() as i64).rem_euclid(360) as u16;
+        if deg != cfg.season_degree {
+            cfg.season_degree = deg;
+            ctx.db.game_config().id().update(cfg);
+        }
+    }
 }
 
 /// Living sky (A): recompute each star's `region_hint` from its RA and the

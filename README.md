@@ -114,7 +114,8 @@ token plumbing.
 | §02 Natal chart → faction | `unity/ChartCalculator.cs` + server `chart::faction_scores` (top-3 dignity check) |
 | §04 Deck generation | `chart::mint_deck` — degree→rank, minute→health, dignity×, court/trump |
 | §05 Eleven zones | `unity/PentacleGrid.cs` (geometry) + server `init` (5 houses / 5 spires / 1 crown) |
-| §06 Suit triangle | `combat::suit_multiplier` (Wands→Swords→Pentacles, Cups support) |
+| §06 Suits (environmental) | `combat::element_weather` — the rising sign's element favors its suit (×1.35 / opposite ×0.75); no card-vs-card counters |
+| Round weather (the Great Wheel) | `tick_sky` → `advance_round_clock` advances the world Ascendant (NYC) through `game_config.season_degree`; each 30° sign-crossing flips the favored element |
 | §07 Star → zone tug-of-war | `resolve_star_battle` + `apply_control` (signed meter, flip at ±600) |
 | §08 AR & ephemeris | `unity/SkyMath.cs` + `SkyRenderer.cs` (P0) · `feeder/` + `push_ephemeris` |
 | Bots (always-on war) | `tick_sky` → `bot_raid` for unmanned factions |
