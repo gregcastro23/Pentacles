@@ -17,7 +17,7 @@
 
   <!-- ===================== HERO ===================== -->
   <header class="hero">
-    <div class="hero-meta">Game Design Document &nbsp;·&nbsp; v1.2 &nbsp;·&nbsp; June 2026 &nbsp;·&nbsp; Confidential</div>
+    <div class="hero-meta">Game Design Document &nbsp;·&nbsp; v1.3 &nbsp;·&nbsp; June 2026 &nbsp;·&nbsp; Confidential</div>
     <h1>Pentacles</h1>
     <p class="tag">Claim the night sky.</p>
     <p class="desc">A location-based AR MMO where your birth chart decides your allegiance, the Tarot is your arsenal, and the visible heavens are the contested map.</p>
@@ -74,7 +74,7 @@
         </div>
         <div class="reveal" style="margin-top:44px">
           <h4 style="color:var(--gold-bright); margin-bottom:8px">Reading this document</h4>
-          <p class="note" style="max-width:var(--measure); margin-bottom:18px">This is a living spec (v1.2). Vision leads each section; where the shipped crate (<span class="mono">/server</span>, <span class="mono">/unity</span>, <span class="mono">/feeder</span>) differs, an <span style="color:var(--cups)">⚙ as-built</span> note records the reality. Feature badges key each system to a roadmap phase (§11):</p>
+          <p class="note" style="max-width:var(--measure); margin-bottom:18px">This is a living spec (v1.3). Vision leads each section; where the shipped crate (<span class="mono">/server</span>, <span class="mono">/unity</span>, <span class="mono">/feeder</span>) differs, an <span style="color:var(--cups)">⚙ as-built</span> note records the reality. Feature badges key each system to a roadmap phase (§11):</p>
           <div class="statuskey">
             <div class="sk"><span class="badge shipped">Shipped</span><p>In the live codebase today and exercised end to end.</p></div>
             <div class="sk"><span class="badge progress">In&nbsp;progress</span><p>Partially built — a working core with design still landing.</p></div>
@@ -135,7 +135,7 @@
         <div class="asbuilt reveal">
           <div class="lbl">Implementation — as built</div>
           <p>The shipped chart math is <strong>game-grade</strong>, not yet Swiss-Ephemeris: <span class="mono">unity/ChartCalculator.cs</span> and <span class="mono">feeder/ephemeris.ts</span> use JPL low-precision Keplerian elements with a truncated Sun/Moon series — sub-degree for the Sun and planets, ~1° for the Moon. Ample for sign &amp; zone placement; a Swiss-Ephemeris swap is the production target.</p>
-          <p>The live scorer (<span class="mono">chart::faction_scores</span>) weights chart-ruler ×3, Sun &amp; Moon sign-rulers ×2, angular bodies +1.5, and a per-body dignity term. The designed <strong>stellium</strong> weighting is not yet in the vector. The three-way choice and its server-side re-validation (<span class="mono">create_player</span> rejects any faction outside the chart's top-3) ship as described.</p>
+          <p>The live scorer (<span class="mono">chart::faction_scores</span>) weights chart-ruler ×3, Sun &amp; Moon sign-rulers ×2, angular bodies +1.5, a per-body dignity term, and a <strong>stellium</strong> bonus (+1.5 for any body in a sign holding 3+ placements). The three-way choice and its server-side re-validation (<span class="mono">create_player</span> rejects any faction outside the chart's top-3) ship as described.</p>
         </div>
         <p class="note reveal" style="margin-top:24px">Design intent: the three-way choice converts a deterministic algorithm into a <em>meaningful identity moment</em>, and sidesteps the “I don't want to be a Saturn” churn risk of pure assignment — while keeping every option astrologically true to the player.</p>
       </section>
@@ -145,17 +145,17 @@
         <div class="block-head reveal">
           <p class="eyebrow">03 — The Ten Factions</p>
           <h2>Each planet is a faction with a <em>doctrine</em>.</h2>
-          <div class="badges"><span class="badge shipped">Suit bias · all 10<span class="ph">P1</span></span><span class="badge shipped">Saturn decay<span class="ph">P3</span></span><span class="badge planned">9 doctrines<span class="ph">P3+</span></span></div>
+          <div class="badges"><span class="badge shipped">Suit bias · all 10<span class="ph">P1</span></span><span class="badge shipped">5 doctrines live<span class="ph">P3</span></span><span class="badge planned">5 doctrines<span class="ph">P3+</span></span></div>
         </div>
         <p class="lead reveal">Faction identity is more than a banner — each planet biases deck generation toward a suit and grants a passive that shapes how its players fight and hold ground.</p>
         <p class="note reveal" style="margin-top:18px">Tile badge = that <em>doctrine passive's</em> build status. Every faction's <strong>suit bias</strong> already ships; only Saturn's passive is wired into the resolver so far (see below).</p>
         <div class="grid-3 reveal" style="margin-top:24px">
-          <div class="faction"><div class="bar" style="background:var(--sun)"></div><span class="sigil" style="color:var(--sun)">☉</span><div class="pname">Sun</div><div class="prole">Sovereignty · Wands</div><p class="pdesc">Vanguard aggressors. Bonus capture rate when their planet is above the horizon.</p><span class="badge mini planned">Passive · planned</span></div>
-          <div class="faction"><div class="bar" style="background:var(--moon)"></div><span class="sigil" style="color:var(--moon)">☽</span><div class="pname">Moon</div><div class="prole">Tides · Cups</div><p class="pdesc">Sustain &amp; reinforcement. Decay of held zones slows during the lunar night.</p><span class="badge mini planned">Passive · planned</span></div>
+          <div class="faction"><div class="bar" style="background:var(--sun)"></div><span class="sigil" style="color:var(--sun)">☉</span><div class="pname">Sun</div><div class="prole">Sovereignty · Wands</div><p class="pdesc">Vanguard aggressors. A standing bonus to attack &amp; capture strength wherever they strike.</p><span class="badge mini shipped">Passive · live</span></div>
+          <div class="faction"><div class="bar" style="background:var(--moon)"></div><span class="sigil" style="color:var(--moon)">☽</span><div class="pname">Moon</div><div class="prole">Tides · Cups</div><p class="pdesc">Sustain &amp; reinforcement. Moon-held zones bleed slower — the tides hold ground.</p><span class="badge mini shipped">Passive · live</span></div>
           <div class="faction"><div class="bar" style="background:var(--mercury)"></div><span class="sigil" style="color:var(--mercury)">☿</span><div class="pname">Mercury</div><div class="prole">Cunning · Swords</div><p class="pdesc">Tempo &amp; card draw. Reduced cooldowns; first to act in synchronous duels.</p><span class="badge mini planned">Passive · planned</span></div>
           <div class="faction"><div class="bar" style="background:var(--venus)"></div><span class="sigil" style="color:var(--venus)">♀</span><div class="pname">Venus</div><div class="prole">Harmony · Cups</div><p class="pdesc">Alliance play. Shares partial control points with allied factions in adjacent zones.</p><span class="badge mini planned">Passive · planned</span></div>
-          <div class="faction"><div class="bar" style="background:var(--mars)"></div><span class="sigil" style="color:var(--mars)">♂</span><div class="pname">Mars</div><div class="prole">War · Wands</div><p class="pdesc">Raw damage. Highest base attack; penalised on defense — built to siege, not sit.</p><span class="badge mini planned">Passive · planned</span></div>
-          <div class="faction"><div class="bar" style="background:var(--jupiter)"></div><span class="sigil" style="color:var(--jupiter)">♃</span><div class="pname">Jupiter</div><div class="prole">Expansion · Wands</div><p class="pdesc">Snowball. Each held zone buffs adjacent contests — momentum is its whole game.</p><span class="badge mini planned">Passive · planned</span></div>
+          <div class="faction"><div class="bar" style="background:var(--mars)"></div><span class="sigil" style="color:var(--mars)">♂</span><div class="pname">Mars</div><div class="prole">War · Wands</div><p class="pdesc">Raw damage. Highest base attack; penalised on defense — built to siege, not sit.</p><span class="badge mini shipped">Passive · live</span></div>
+          <div class="faction"><div class="bar" style="background:var(--jupiter)"></div><span class="sigil" style="color:var(--jupiter)">♃</span><div class="pname">Jupiter</div><div class="prole">Expansion · Wands</div><p class="pdesc">Snowball. Each held zone buffs adjacent contests — momentum is its whole game.</p><span class="badge mini shipped">Passive · live</span></div>
           <div class="faction"><div class="bar" style="background:var(--saturn)"></div><span class="sigil" style="color:var(--saturn)">♄</span><div class="pname">Saturn</div><div class="prole">Dominion · Pentacles</div><p class="pdesc">The wall. Strongest defensive decks; captured Saturn zones are the hardest to retake.</p><span class="badge mini shipped">Passive · live</span></div>
           <div class="faction"><div class="bar" style="background:var(--uranus)"></div><span class="sigil" style="color:var(--uranus)">♅</span><div class="pname">Uranus</div><div class="prole">Disruption · Swords</div><p class="pdesc">Chaos. Random-effect cards and the ability to swap two zones' contested states.</p><span class="badge mini planned">Passive · planned</span></div>
           <div class="faction"><div class="bar" style="background:var(--neptune)"></div><span class="sigil" style="color:var(--neptune)">♆</span><div class="pname">Neptune</div><div class="prole">Illusion · Cups</div><p class="pdesc">Stealth. Can fortify a zone invisibly; attackers learn its strength only mid-battle.</p><span class="badge mini planned">Passive · planned</span></div>
@@ -163,7 +163,7 @@
         </div>
         <div class="asbuilt reveal">
           <div class="lbl">Implementation — as built</div>
-          <p>What ships today: every faction's <strong>suit bias</strong> (<span class="mono">Planet::biased_suit</span>) steers deck generation, and <strong>Saturn's slower zone decay</strong> (<span class="mono">decay_rate</span> = 4 vs 8). The other nine doctrines — Sun's horizon bonus, Moon's lunar-night decay, Mercury tempo, Venus alliance-share, Mars attack/defense asymmetry, Jupiter snowball, Uranus zone-swap, Neptune stealth, Pluto attrition — are designed here but not yet wired into the resolver.</p>
+          <p>What ships today: every faction's <strong>suit bias</strong> (<span class="mono">Planet::biased_suit</span>) plus <strong>five doctrine passives</strong> in the resolver — <strong>Saturn</strong> (slower decay + tougher Sentinels), <strong>Moon</strong> (slower decay), <strong>Mars</strong> (×1.2 attack, ×0.85 defense), <strong>Sun</strong> (×1.1 attack), and <strong>Jupiter</strong> (snowball: +15% capture per adjacent held zone). Sun's “above the horizon” and Moon's “lunar night” are observer-dependent, so they ship as standing bonuses rather than time-gated ones. Still planned: <strong>Mercury</strong> tempo, <strong>Venus</strong> alliance-share, <strong>Uranus</strong> zone-swap, <strong>Neptune</strong> stealth and <strong>Pluto</strong> attrition — these need deeper combat/economy hooks.</p>
         </div>
       </section>
 
@@ -215,7 +215,7 @@
         </div>
         <div class="asbuilt reveal" style="margin-top:24px">
           <div class="lbl">Implementation — as built</div>
-          <p>Suit (sign element), rank &amp; attack (degree × dignity), health (minute) and the dignity multiplier all ship in <span class="mono">chart::card_stats</span>. Two rows are still aspirational: <strong>aspects → synergy slots</strong> has no field in the <span class="mono">card</span> schema, and <strong>retrograde</strong> sets the <span class="mono">inverted</span> flag but nothing reads it in combat yet — the defensive-variant behaviour is unbuilt. Court-card promotion (a card is bumped to Page–King only when its body is angular or the chart ruler) ships as described.</p>
+          <p>Suit (sign element), rank &amp; attack (degree × dignity), health (minute) and the dignity multiplier all ship in <span class="mono">chart::card_stats</span>. <strong>Retrograde</strong> now resolves as designed — <span class="mono">card_stat</span> turns an <span class="mono">inverted</span> card into its defensive variant (half its attack poured into armour &amp; health). One row stays aspirational: <strong>aspects → synergy slots</strong> still has no field in the <span class="mono">card</span> schema. Court-card promotion (a card is bumped to Page–King only when its body is angular or the chart ruler) ships as described.</p>
         </div>
         <p class="note reveal" style="margin-top:24px">Court cards (Page–King) are reserved for the chart's <strong>angular &amp; ruling</strong> planets; the remaining bodies fill the pip cards (Ace–10). This guarantees every deck has exactly one signature card tied to its owner's chart ruler.</p>
 
@@ -238,7 +238,7 @@
         </table>
         <div class="asbuilt reveal" style="margin-top:16px">
           <div class="lbl">Implementation — as built</div>
-          <p><span class="mono">mint_deck</span> grants exactly one <span class="mono">is_trump</span> card per deck — on the faction's biased suit, with fixed keystone stats (60 HP / 40 ATK / 20 ARM). The <strong>specific Major-Arcana identity</strong> above (The Tower, The World …), a <span class="mono">Planet::hero_trump()</span> mapping and each hero's signature ability are a content task, not yet in the crate. Room to grow: the remaining 12 zodiacal &amp; elemental trumps stay reserved for a future <em>seasonal reward</em> track tied to the 360° wheel.</p>
+          <p><span class="mono">mint_deck</span> grants exactly one <span class="mono">is_trump</span> card per deck — on the faction's biased suit, with fixed keystone stats (60 HP / 40 ATK / 20 ARM). <span class="mono">Planet::hero_trump()</span> now names it (The Tower, The World …) and every card carries a <span class="mono">name</span> (e.g. “Knight of Wands”); each hero's <strong>signature ability</strong> remains the open content task. Room to grow: the remaining 12 zodiacal &amp; elemental trumps stay reserved for a future <em>seasonal reward</em> track tied to the 360° wheel.</p>
         </div>
 
         <h3 class="reveal" style="margin-top:56px">Decks that grow — <em>Sky Drops</em> <span class="badge shipped" style="vertical-align:middle; margin-left:10px">Shipped<span class="ph">P2</span></span></h3>
@@ -394,7 +394,7 @@
         <div class="asbuilt reveal">
           <div class="lbl">Implementation — as built</div>
           <p><strong>Auto-Siege</strong> (<span class="mono">combat::resolve_star</span>): each side's cards collapse to a power total, scaled by the suit triangle against the enemy's dominant suit; the higher total wins and the margin feeds the zone meter. <strong>Lane Skirmish</strong> (<span class="mono">commit_duel</span>): both players commit one card to each of three lanes, lanes resolve by suit-scaled power, and best-of-3 swings the zone (ties break to player&nbsp;A). It is commit-based, not a real-time shared tick, and the live duel has no Sentinel fallback — that async path runs through Auto-Siege.</p>
-          <p><span class="mono">CombatModel</span> exists as an enum and rides on <span class="mono">BattleLog</span>, but nothing yet selects the resolver from it — the season-level A/B switch is still to be wired. The card-battler victory loop in the callout below (deplete the Sentinel before your draw pile empties, bank surviving board strength) is the deeper P2/P3 target; today's resolvers compare aggregate power or win lanes.</p>
+          <p>Both resolvers now fold in faction combat modifiers (<span class="mono">faction_atk_mult</span> / <span class="mono">faction_def_mult</span>) and the retrograde defensive variant (<span class="mono">card_stat</span>). <span class="mono">CombatModel</span> exists as an enum and rides on <span class="mono">BattleLog</span>, but nothing yet selects the resolver from it — the season-level A/B switch is still to be wired. The card-battler victory loop in the callout below (deplete the Sentinel before your draw pile empties, bank surviving board strength) is the deeper P2/P3 target; today's resolvers compare aggregate power or win lanes.</p>
         </div>
 
         <h3 class="reveal" style="margin-top:56px">The suit triangle</h3>
@@ -430,7 +430,7 @@
         <div class="block-head reveal">
           <p class="eyebrow">07 — Zone Control &amp; Win Conditions</p>
           <h2>Tug-of-war over zones, fought at the <em>stars</em>.</h2>
-          <div class="badges"><span class="badge shipped">Star→zone control<span class="ph">P2</span></span><span class="badge shipped">Decay<span class="ph">P3</span></span><span class="badge shipped">Always-on war<span class="ph">P3</span></span><span class="badge planned">Transit buff<span class="ph">P3</span></span><span class="badge planned">Seasons &amp; Crown buff<span class="ph">P3</span></span></div>
+          <div class="badges"><span class="badge shipped">Star→zone control<span class="ph">P2</span></span><span class="badge shipped">Decay<span class="ph">P3</span></span><span class="badge shipped">Always-on war<span class="ph">P3</span></span><span class="badge shipped">Transit buff<span class="ph">P3</span></span><span class="badge shipped">Seasons &amp; Crown<span class="ph">P3</span></span></div>
         </div>
         <p class="lead reveal">A zone is too large to “win” outright. Instead each zone holds a <strong>control meter</strong> (−1000 … +1000) and a scatter of star-nodes. You don't capture the zone directly — you capture its stars, and the stars move the meter.</p>
 
@@ -452,7 +452,7 @@
         <div class="asbuilt reveal">
           <div class="lbl">Implementation — as built</div>
           <p><strong>Meter:</strong> <span class="mono">Zone.control</span> ships as a single-sided 0..1000 meter for whoever currently owns the zone. An attacker's wins subtract from the owner; at the zero-crossing the zone flips and the attacker takes it with the overflow (capped at <span class="mono">FLIP_THRESHOLD</span> = 600). The symmetric −1000…+1000 above is the design framing. <strong>Star weighting</strong> (<span class="mono">node_weight</span>, brighter = worth more) and the win-margin bonus (<span class="mono">control_delta</span>) ship as described.</p>
-          <p><strong>Decay:</strong> <span class="mono">tick_sky</span> bleeds every held zone toward 0 each 10&nbsp;s (Saturn 4, all others 8), releasing it at 0 — the Moon's lunar-night slow is not yet built. <strong>Transit buff, the Great Wheel &amp; the Crown:</strong> <span class="mono">transiting_zone</span> and <span class="mono">season_degree</span> are stored, but the capture amplification, sign-ingress events, season resolution and the Crown's adjacency buff are all still designed-only.</p>
+          <p><strong>Decay:</strong> <span class="mono">tick_sky</span> bleeds every held zone toward 0 each 10&nbsp;s — Saturn 4, Moon 5, all others 8 — releasing it at 0. <strong>Transit buff:</strong> a capture under your own transiting planet is amplified ×1.5 (<span class="mono">capture_multiplier</span>); the <strong>Crown</strong> buffs its adjacent contests ×1.25 for its owner and <strong>Jupiter</strong> snowballs +15% per adjacent zone it holds, over a static <span class="mono">zone_neighbors</span> graph. <strong>The Great Wheel</strong> now turns: <span class="mono">tick_sky</span> advances <span class="mono">season_degree</span> one degree per tick, logs each 30° sign ingress, and at 360° resolves the season with a soft-reset (holds halved, owners kept). All multipliers are tunable consts.</p>
         </div>
       </section>
 
@@ -568,6 +568,7 @@
     <span class="at">#[primary_key] #[auto_inc]</span>
     card_id:       <span class="ty">u64</span>,
     owner:         <span class="ty">Identity</span>,
+    name:          <span class="ty">String</span>,            <span class="c">// "Knight of Wands" / hero's trump</span>
     suit:          <span class="ty">Suit</span>,              <span class="c">// Cups | Swords | Pentacles | Wands</span>
     rank:          <span class="ty">u8</span>,                <span class="c">// 1..14 (Ace..King)</span>
     health:        <span class="ty">u16</span>,
@@ -702,7 +703,7 @@
 <span class="at">#[spacetimedb::reducer]</span>
 <span class="kw">fn</span> <span class="fn">tick_sky</span>(ctx: &amp;<span class="ty">ReducerContext</span>, _timer: <span class="ty">SkyTickTimer</span>) {
     <span class="c">// bleed every Zone.control toward 0 by faction-modified rate,</span>
-    <span class="c">// then bot_raid() for any faction with no human players</span>
+    <span class="c">// bot_raid() for unmanned factions, then advance the Great Wheel</span>
 }
 
 <span class="c">// Owner-gated real-ephemeris feed (pushed by the Bun feeder)</span>
@@ -715,7 +716,7 @@
         <p class="note reveal" style="margin-top:20px">Nearly every table is <span class="mono">public</span> and streams to clients as the live map — <span class="mono">player</span>, <span class="mono">card</span>, <span class="mono">deck_slot</span>, <span class="mono">zone</span>, <span class="mono">star_node</span>, <span class="mono">ephemeris</span>, <span class="mono">game_config</span>, <span class="mono">duel</span> &amp; <span class="mono">duel_queue</span>; only <span class="mono">natal_chart</span> stays private to its owner. A scheduled <span class="mono">sky_tick_timer</span> drives <span class="mono">tick_sky</span> every 10&nbsp;s. Clients <em>never</em> write state — they call reducers, which validate and mutate transactionally, so the map is cheat-resistant by construction.</p>
         <div class="asbuilt reveal">
           <div class="lbl">Implementation — as built</div>
-          <p>The crate builds against the modern SpacetimeDB Rust API and ships <span class="mono">init</span>, <span class="mono">create_player</span>, <span class="mono">resolve_star_battle</span>, <span class="mono">enqueue_duel</span>, <span class="mono">commit_duel</span>, <span class="mono">tick_sky</span> and <span class="mono">push_ephemeris</span>. One deviation from the original sketch: <span class="mono">tick_sky</span> does <strong>not</strong> compute astronomy — RA/Dec and <span class="mono">transiting_zone</span> arrive from the off-module feeder via <span class="mono">push_ephemeris</span>; the tick only decays zones and runs <span class="mono">bot_raid</span>.</p>
+          <p>The crate builds against the modern SpacetimeDB Rust API and ships <span class="mono">init</span>, <span class="mono">create_player</span>, <span class="mono">resolve_star_battle</span>, <span class="mono">enqueue_duel</span>, <span class="mono">commit_duel</span>, <span class="mono">tick_sky</span> and <span class="mono">push_ephemeris</span>. One deviation from the original sketch: <span class="mono">tick_sky</span> does <strong>not</strong> compute astronomy — RA/Dec and <span class="mono">transiting_zone</span> arrive from the off-module feeder via <span class="mono">push_ephemeris</span>; the tick decays zones, runs <span class="mono">bot_raid</span>, and advances <span class="mono">season_degree</span>.</p>
         </div>
       </section>
 
@@ -756,7 +757,7 @@
         </table>
         <div class="asbuilt reveal">
           <div class="lbl">Implementation — as built</div>
-          <p><strong>P1 is essentially done</strong> (chart calc, faction scoring, deterministic deck minting). <strong>P0, P2 and P3 are partway:</strong> the Unity sky renderer + horizon grid, the Auto-Siege resolver and suit triangle, the star→zone control loop, live best-of-3 Lane Skirmish duels, zone decay and the bot “always-on war” all ship — while the full star catalogue, the deeper card-battler loop, transit buffs, sign-ingress seasons, the Crown adjacency buff and the indoor fallback remain ahead.</p>
+          <p><strong>P1 is done</strong> (chart calc with stellium weighting, faction scoring, deterministic deck minting, named cards). <strong>P3 has filled in fast:</strong> transit buffs, the Crown &amp; Jupiter capture amplifiers, Moon/Mars/Sun/Saturn doctrines, the retrograde defensive variant, Sky Drops, the bot “always-on war”, and the Great Wheel (sign ingresses + season soft-reset) all ship. <strong>Still ahead:</strong> the full Hipparcos catalogue (P0), the deeper card-battler loop and aspect synergies (P2), Spread Duel and the five complex faction passives (Mercury/Venus/Uranus/Neptune/Pluto, P3+), and the indoor fallback (P4).</p>
         </div>
         <div class="callout reveal" style="margin-top:40px">
           <div class="label">Biggest risk to de-risk first</div>
@@ -765,6 +766,13 @@
 
         <h3 class="reveal" style="margin-top:56px">Changelog</h3>
         <div class="log reveal">
+          <div class="e">
+            <div class="ver">v1.3<small>Jun 2026</small></div>
+            <div><ul>
+              <li>Completion sprint in <span class="mono">/server</span>: <strong>transit buff</strong>, <strong>Crown dominion</strong> &amp; <strong>Jupiter snowball</strong> (over a new <span class="mono">zone_neighbors</span> graph), <strong>Mars/Sun/Saturn/Moon doctrines</strong>, the <strong>retrograde defensive variant</strong>, <strong>stellium</strong> scoring, <strong>hero-trump identities</strong> + card names, and the <strong>Great Wheel</strong> (sign ingresses + 360° season soft-reset).</li>
+              <li>Flipped the corresponding badges/notes from Planned to Shipped across §02–§07 &amp; §11. Crate builds clean against SpacetimeDB 1.12.</li>
+            </ul></div>
+          </div>
           <div class="e">
             <div class="ver">v1.2<small>Jun 2026</small></div>
             <div><ul>
@@ -794,7 +802,7 @@
           </div>
         </div>
 
-        <p class="note reveal" style="margin-top:40px; text-align:center; letter-spacing:0.1em">✦ &nbsp; END OF DOCUMENT &nbsp; ✦<br><span style="color:var(--ghost)">Pentacles GDD v1.2 — for internal review</span></p>
+        <p class="note reveal" style="margin-top:40px; text-align:center; letter-spacing:0.1em">✦ &nbsp; END OF DOCUMENT &nbsp; ✦<br><span style="color:var(--ghost)">Pentacles GDD v1.3 — for internal review</span></p>
       </section>
 
     </main>

@@ -4,7 +4,7 @@
 //! (advantage ×1.5, disadvantage ×0.66). Cups (Water) sits outside as a pure
 //! support axis — never typed-advantaged, but it pads health (see chart.rs).
 
-use crate::types::Suit;
+use crate::types::{Planet, Suit};
 
 /// Flat stat snapshot a card contributes to a side.
 #[derive(Clone, Copy)]
@@ -13,6 +13,27 @@ pub struct CardStat {
     pub attack: u16,
     pub health: u16,
     pub armour: u16,
+}
+
+/// Faction attack multiplier — the offensive half of a doctrine (GDD §03).
+/// Sun = vanguard aggressor, Mars = raw damage; the rest are neutral on attack
+/// (their doctrines act elsewhere: decay, snowball, transit …).
+pub fn faction_atk_mult(f: Planet) -> f32 {
+    match f {
+        Planet::Sun => 1.10,
+        Planet::Mars => 1.20,
+        _ => 1.0,
+    }
+}
+
+/// Faction defense multiplier — scales a Sentinel's armour & health (GDD §03).
+/// Saturn is the wall; Mars is penalised on defense (built to siege, not sit).
+pub fn faction_def_mult(f: Planet) -> f32 {
+    match f {
+        Planet::Saturn => 1.20,
+        Planet::Mars => 0.85,
+        _ => 1.0,
+    }
 }
 
 /// Directed advantage multiplier of an attacking suit into a defending suit.

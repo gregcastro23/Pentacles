@@ -42,6 +42,7 @@ pub struct Card {
     #[auto_inc]
     pub card_id: u64,
     pub owner: Identity, // add `#[index(btree)]` for scale; we iterate for now
+    pub name: String,    // e.g. "Knight of Wands", or the hero's Major Arcana
     pub suit: Suit,
     pub rank: u8,        // 1..14 (Ace..King)
     pub health: u16,

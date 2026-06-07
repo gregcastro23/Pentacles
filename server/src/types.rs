@@ -79,6 +79,23 @@ impl Planet {
         }
     }
 
+    /// The Major-Arcana hero trump attributed to this faction (Golden Dawn
+    /// planetary attributions — GDD §04). Minted as the deck's one `is_trump`.
+    pub fn hero_trump(self) -> &'static str {
+        match self {
+            Planet::Sun => "The Sun",
+            Planet::Moon => "The High Priestess",
+            Planet::Mercury => "The Magician",
+            Planet::Venus => "The Empress",
+            Planet::Mars => "The Tower",
+            Planet::Jupiter => "Wheel of Fortune",
+            Planet::Saturn => "The World",
+            Planet::Uranus => "The Fool",
+            Planet::Neptune => "The Hanged Man",
+            Planet::Pluto => "Judgement",
+        }
+    }
+
     /// Map a 0..9 index back to a planet (for machine feeds / CLI calls).
     pub fn from_idx(i: u8) -> Planet {
         ALL_PLANETS[(i as usize).min(9)]

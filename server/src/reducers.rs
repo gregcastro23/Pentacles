@@ -16,6 +16,14 @@ const SKY_DROP_ATK_CAP: u16 = 38;
 const SKY_DROP_ARM_CAP: u16 = 18;
 const DEFAULT_COLLECTION_CAP: u32 = 60;
 
+// Capture-amplifier knobs (GDD §07; all tunable). The transit buff rewards a
+// faction for fighting under its own planet; the Crown buffs its neighbours;
+// Jupiter snowballs off adjacent zones it already holds.
+const CROWN_ZONE: u8 = 10;
+const TRANSIT_BUFF: f32 = 1.5;
+const CROWN_BUFF: f32 = 1.25;
+const JUPITER_SNOWBALL: f32 = 0.15;
+
 // ── Lifecycle ─────────────────────────────────────────────────────────────
 
 /// Runs once on first publish (and after a clear). `ctx.sender` is the owner.
@@ -136,40 +144,40 @@ pub fn resolve_star_battle(
         .find(&hip_id)
         .ok_or_else(|| "no such star".to_string())?;
 
-    // Gather the attacker's played cards (validate ownership).
+    // Gather the attacker's played cards (validate ownership). Retrograde cards
+    // resolve as their defensive variant via card_stat().
     let mut attacker: Vec<combat::CardStat> = Vec::new();
     for cid in &log.plays {
         if let Some(c) = ctx.db.card().card_id().find(cid) {
             if c.owner == ctx.sender {
-                attacker.push(combat::CardStat {
-                    suit: c.suit,
-                    attack: c.attack,
-                    health: c.health,
-                    armour: c.armour,
-                });
+                attacker.push(card_stat(&c));
             }
         }
     }
     if attacker.is_empty() {
         return Err("no valid cards played".into());
     }
+    // Sun/Mars press their attack doctrine (GDD §03).
+    scale_attack(&mut attacker, combat::faction_atk_mult(player.faction));
 
-    let defender = match star.held_by {
-        Some(holder) => sentinel_for(ctx, holder),
-        None => neutral_garrison(&star),
+    let (mut defender, holder) = match star.held_by {
+        Some(h) => (sentinel_for(ctx, h), Some(h)),
+        None => (neutral_garrison(&star), None),
     };
+    // The holder's defensive doctrine (Saturn wall, Mars soft) shapes the wall.
+    if let Some(h) = holder {
+        scale_defense(&mut defender, combat::faction_def_mult(h));
+    }
 
     let (won, margin) = combat::resolve_star(&attacker, &defender);
     if won {
         let prev = star.held_by;
         star.held_by = Some(player.faction);
         ctx.db.star_node().hip_id().update(star.clone());
-        apply_control(
-            ctx,
-            star.region_hint,
-            player.faction,
-            combat::control_delta(star.magnitude, margin),
-        );
+        // Capture pressure, amplified by transit / Crown / snowball (GDD §07).
+        let base = combat::control_delta(star.magnitude, margin) as f32;
+        let delta = (base * capture_multiplier(ctx, player.faction, star.region_hint)) as i32;
+        apply_control(ctx, star.region_hint, player.faction, delta);
         // Spoils of the capture: mint one Sky-Drop card (GDD §04).
         mint_sky_drop(
             ctx,
@@ -303,13 +311,15 @@ pub fn commit_duel(
 
 /// Lane-by-lane (suit-triangle scaled); best-of-3 wins and shifts the zone.
 fn resolve_duel(ctx: &ReducerContext, duel: &mut Duel) {
+    let am = combat::faction_atk_mult(duel.faction_a);
+    let bm = combat::faction_atk_mult(duel.faction_b);
     let mut a = 0u8;
     let mut b = 0u8;
     for lane in 0..3usize {
         let ca = ctx.db.card().card_id().find(&duel.a_cards[lane]);
         let cb = ctx.db.card().card_id().find(&duel.b_cards[lane]);
         if let (Some(x), Some(y)) = (ca, cb) {
-            if lane_power(&x, &y) >= lane_power(&y, &x) { a += 1; } else { b += 1; }
+            if lane_power(&x, &y, am) >= lane_power(&y, &x, bm) { a += 1; } else { b += 1; }
         }
     }
     duel.lanes_a = a;
@@ -321,7 +331,9 @@ fn resolve_duel(ctx: &ReducerContext, duel: &mut Duel) {
         (duel.player_b, duel.faction_b)
     };
     duel.winner = Some(winner);
-    apply_control(ctx, duel.zone_id, faction, 150 + a.max(b) as i32 * 60);
+    let base = (150 + a.max(b) as i32 * 60) as f32;
+    let delta = (base * capture_multiplier(ctx, faction, duel.zone_id)) as i32;
+    apply_control(ctx, duel.zone_id, faction, delta);
 
     // Sky-Drop for the duel winner, seeded by the contested zone's brightest star.
     if let Some(wp) = ctx.db.player().identity().find(&winner) {
@@ -337,9 +349,11 @@ fn resolve_duel(ctx: &ReducerContext, duel: &mut Duel) {
     }
 }
 
-fn lane_power(att: &Card, def: &Card) -> f32 {
-    let s = att.attack as f32 + att.health as f32 * 0.5 + att.armour as f32 * 0.4;
-    s * combat::suit_multiplier(att.suit, def.suit)
+fn lane_power(att: &Card, def: &Card, att_atk_mult: f32) -> f32 {
+    let a = card_stat(att); // bakes the retrograde defensive variant
+    let d = card_stat(def);
+    let s = a.attack as f32 * att_atk_mult + a.health as f32 * 0.5 + a.armour as f32 * 0.4;
+    s * combat::suit_multiplier(a.suit, d.suit)
 }
 
 // ── Scheduled & owner feeds ───────────────────────────────────────────────
@@ -358,6 +372,7 @@ pub fn tick_sky(ctx: &ReducerContext, _timer: SkyTickTimer) {
         }
     }
     bot_raid(ctx);
+    advance_season(ctx);
 }
 
 /// Owner-gated real-ephemeris feed. A trusted off-module job computes precise
@@ -394,6 +409,7 @@ pub fn push_ephemeris(
 fn decay_rate(z: &Zone) -> i32 {
     match z.owner {
         Some(Planet::Saturn) => 4, // the wall holds longer
+        Some(Planet::Moon) => 5,   // the tides sustain — a slower bleed
         _ => 8,
     }
 }
@@ -523,6 +539,7 @@ fn mint_sky_drop(
     let card = ctx.db.card().insert(Card {
         card_id: 0,
         owner,
+        name: chart::card_name(suit, rank),
         suit,
         rank,
         health,
@@ -547,6 +564,122 @@ fn card_power(attack: u16, health: u16, armour: u16) -> f32 {
     attack as f32 + health as f32 * 0.5 + armour as f32 * 0.4
 }
 
+/// Flat combat stats for a card. A retrograde card is its **defensive variant**
+/// (GDD §04 · "inverted card"): half its attack is poured into armour & health.
+fn card_stat(c: &Card) -> combat::CardStat {
+    if c.inverted {
+        let a = c.attack;
+        combat::CardStat {
+            suit: c.suit,
+            attack: a / 2,
+            health: c.health + a / 4,
+            armour: c.armour + a / 2,
+        }
+    } else {
+        combat::CardStat { suit: c.suit, attack: c.attack, health: c.health, armour: c.armour }
+    }
+}
+
+/// Scale a side's attack in place by a faction multiplier (no-op at 1.0).
+fn scale_attack(stats: &mut [combat::CardStat], mult: f32) {
+    if (mult - 1.0).abs() < f32::EPSILON {
+        return;
+    }
+    for c in stats.iter_mut() {
+        c.attack = (c.attack as f32 * mult) as u16;
+    }
+}
+
+/// Scale a side's defense (health & armour) in place by a faction multiplier.
+fn scale_defense(stats: &mut [combat::CardStat], mult: f32) {
+    if (mult - 1.0).abs() < f32::EPSILON {
+        return;
+    }
+    for c in stats.iter_mut() {
+        c.health = (c.health as f32 * mult) as u16;
+        c.armour = (c.armour as f32 * mult) as u16;
+    }
+}
+
+/// Static shared-edge adjacency for the eleven Pentacle zones (GDD §05). Outer
+/// ring H0 S5 H1 S6 H2 S7 H3 S8 H4 S9, with the Crown (10) bordering every spire.
+fn zone_neighbors(zone_id: u8) -> &'static [u8] {
+    match zone_id {
+        0 => &[9, 5],            // House 0  ← flanking spires 9 & 5
+        1 => &[5, 6],            // House 1
+        2 => &[6, 7],            // House 2
+        3 => &[7, 8],            // House 3
+        4 => &[8, 9],            // House 4
+        5 => &[0, 1, 10],        // Spire 5  ← houses 0,1 & the Crown
+        6 => &[1, 2, 10],        // Spire 6
+        7 => &[2, 3, 10],        // Spire 7
+        8 => &[3, 4, 10],        // Spire 8
+        9 => &[4, 0, 10],        // Spire 9
+        10 => &[5, 6, 7, 8, 9],  // Crown    ← every spire
+        _ => &[],
+    }
+}
+
+/// Capture amplifier for `faction` taking `zone` (GDD §07): the transit buff,
+/// the Crown's dominion over its neighbours, and Jupiter's snowball.
+fn capture_multiplier(ctx: &ReducerContext, faction: Planet, zone: u8) -> f32 {
+    let mut m = 1.0f32;
+
+    // Transit buff — the faction's own planet is currently over this zone.
+    if let Some(eph) = ctx.db.ephemeris().body().find(&faction) {
+        if eph.transiting_zone == zone {
+            m *= TRANSIT_BUFF;
+        }
+    }
+
+    // Crown dominion — owning the Crown amplifies its adjacent contests.
+    if zone_neighbors(CROWN_ZONE).contains(&zone) {
+        if let Some(crown) = ctx.db.zone().zone_id().find(&CROWN_ZONE) {
+            if crown.owner == Some(faction) {
+                m *= CROWN_BUFF;
+            }
+        }
+    }
+
+    // Jupiter snowball — momentum from each adjacent zone it already holds.
+    if faction == Planet::Jupiter {
+        let held = zone_neighbors(zone)
+            .iter()
+            .filter(|n| {
+                ctx.db.zone().zone_id().find(*n).and_then(|z| z.owner) == Some(Planet::Jupiter)
+            })
+            .count();
+        m *= 1.0 + JUPITER_SNOWBALL * held as f32;
+    }
+
+    m
+}
+
+/// Turn the Great Wheel one degree per tick (GDD §07). Every 30° is a sign
+/// ingress; completing 360° resolves the season and soft-resets the map —
+/// holds are halved (winners keep a head-start edge), never wiped.
+fn advance_season(ctx: &ReducerContext) {
+    let Some(mut cfg) = ctx.db.game_config().id().find(&0) else { return };
+    let next = cfg.season_degree + 1;
+    if next >= 360 {
+        cfg.season_degree = 0;
+        for mut z in ctx.db.zone().iter() {
+            if z.control > 0 {
+                z.control /= 2;
+                z.updated_at = ctx.timestamp;
+                ctx.db.zone().zone_id().update(z);
+            }
+        }
+        log::info!("the Great Wheel completes — season resolved, map soft-reset");
+    } else {
+        cfg.season_degree = next;
+        if next % 30 == 0 {
+            log::info!("sign ingress at {}° — a region of the sky re-weights", next);
+        }
+    }
+    ctx.db.game_config().id().update(cfg);
+}
+
 /// FNV-1a battle seed for a Sky-Drop's deterministic sub-roll.
 fn drop_seed(player_seed: u64, zone: u8, body: Planet, magnitude: f32, count: u64) -> u64 {
     let mut h = player_seed ^ 0xcbf29ce484222325;
@@ -569,12 +702,7 @@ fn sentinel_for(ctx: &ReducerContext, holder: Planet) -> Vec<combat::CardStat> {
                 continue;
             }
             if let Some(c) = ctx.db.card().card_id().find(&slot.card_id) {
-                out.push(combat::CardStat {
-                    suit: c.suit,
-                    attack: c.attack,
-                    health: c.health,
-                    armour: c.armour,
-                });
+                out.push(card_stat(&c));
                 if out.len() >= 8 {
                     break;
                 }

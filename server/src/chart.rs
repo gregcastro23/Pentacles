@@ -94,9 +94,18 @@ pub fn faction_scores(chart: &NatalChart) -> [f32; 10] {
     // Chart ruler (Ascendant lord) ×3.
     s[sign_ruler(asc_sign).idx()] += 3.0;
 
+    // Stellium: 3+ bodies sharing a sign each lend extra weight (GDD §02).
+    let mut sign_counts = [0u8; 12];
+    for p in &chart.placements {
+        sign_counts[(p.sign % 12) as usize] += 1;
+    }
+
     for p in &chart.placements {
         s[p.body.idx()] += 1.0 + p.dignity as f32 * 0.4;
         if angular(p, chart) {
+            s[p.body.idx()] += 1.5;
+        }
+        if sign_counts[(p.sign % 12) as usize] >= 3 {
             s[p.body.idx()] += 1.5;
         }
         // Sun & Moon sign rulers ×2.
@@ -108,6 +117,20 @@ pub fn faction_scores(chart: &NatalChart) -> [f32; 10] {
         }
     }
     s
+}
+
+/// Human-readable rank label (Ace, Two … Page, Knight, Queen, King).
+pub fn rank_label(rank: u8) -> &'static str {
+    match rank {
+        1 => "Ace", 2 => "Two", 3 => "Three", 4 => "Four", 5 => "Five",
+        6 => "Six", 7 => "Seven", 8 => "Eight", 9 => "Nine", 10 => "Ten",
+        11 => "Page", 12 => "Knight", 13 => "Queen", 14 => "King", _ => "Ace",
+    }
+}
+
+/// A Minor-Arcana card's display name, e.g. "Knight of Wands".
+pub fn card_name(suit: Suit, rank: u8) -> String {
+    format!("{} of {:?}", rank_label(rank), suit)
 }
 
 /// Mint the starting deck from the chart; returns (deck_seed, card_count).
@@ -133,6 +156,7 @@ pub fn mint_deck(
         let card = ctx.db.card().insert(Card {
             card_id: 0,
             owner,
+            name: card_name(suit, rank),
             suit,
             rank,
             health,
@@ -152,6 +176,7 @@ pub fn mint_deck(
     let hero = ctx.db.card().insert(Card {
         card_id: 0,
         owner,
+        name: faction.hero_trump().to_string(),
         suit: faction.biased_suit(),
         rank: 14,
         health: 60,
