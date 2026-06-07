@@ -68,11 +68,21 @@ public class BattlePanel : MonoBehaviour
         var seals = me != null ? CombatPreview.SealedSuits(conn, me.Faction) : null;
         int power = CombatPreview.StrikePower(cards, CombatPreview.FavoredSuitForZone(conn, star.RegionHint), seals);
 
+        // Honor the server's horizon gate: you can only strike a star risen past the
+        // engage altitude. No GpsService in the scene → let the server be authoritative.
+        bool gpsActive = GpsService.Instance != null;
+        double alt = GpsService.Altitude(star.Ra, star.Dec);
+        bool engageable = !gpsActive || (!double.IsNaN(alt) && alt >= GpsService.MinEngageAltDeg);
+        string horizon = engageable ? ""
+            : double.IsNaN(alt)
+                ? "\n⚠ Waiting for a GPS fix — can't engage yet."
+                : $"\n⚠ {star.Name} is only {alt:0}° above your horizon — needs {GpsService.MinEngageAltDeg:0}° to strike.";
+
         _title.text = $"✦ {star.Name}";
         _info.text = $"Held by: {holder}\nSky: {CombatPreview.SkyWeather(conn, star.RegionHint)}\n" +
                      $"Your strike: {cards.Count} card(s) · power ≈ {power}\n" +
-                     "Tap cards in your hand to choose the strike.";
-        _attack.interactable = cards.Count > 0;
+                     "Tap cards in your hand to choose the strike." + horizon;
+        _attack.interactable = cards.Count > 0 && engageable;
         _canvas.SetActive(true);
     }
 

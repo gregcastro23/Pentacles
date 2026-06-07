@@ -118,8 +118,8 @@ token plumbing.
 | Round weather (the Great Wheel) | `tick_sky` → `advance_round_clock` advances the world Ascendant (NYC) in `game_config.season_degree`; `zone_favored_suit` rotates the 12 signs through the 11 zones so each carries its own live element |
 | §07 Star → zone tug-of-war | `resolve_star_battle` + `apply_control` (signed meter, flip at ±600) |
 | §08 AR & ephemeris | `unity/SkyMath.cs` + `SkyRenderer.cs` (P0) · `feeder/` + `push_ephemeris` |
-| GPS engagement | `unity/GpsService.cs` → `set_location` (private `player_location`); `resolve_star_battle` gates on `altitude_deg ≥ 10°` so you can only strike a risen star |
-| Deck curation | `set_loadout` (Active capped at 8); `create_player` is idempotent — re-registering clears the old deck before re-minting |
+| GPS engagement | `unity/GpsService.cs` (single GPS authority, with editor fallback) → `set_location` (private `player_location`); `resolve_star_battle` gates on `altitude_deg ≥ 10°`. `SkyRenderer` dims the 0–10° band and `BattlePanel` disables Strike with the reason, so the AR view matches the gate |
+| Deck curation | `set_loadout` (Active capped at 8) via a per-card loadout chip in `DeckPanel`/`CardView` (Active → Defense → Bench); `create_player` is idempotent — re-registering clears the old deck before re-minting |
 | Zodiac seals (territory) | `sealed_suits` — a faction masters the elements of the signs sitting in the zones it holds; its cards of those suits fight at `combat::SEAL_BONUS` (×1.15) in sieges & duels. Derived from zone ownership + the rotating sky, so it shifts as the wheel turns |
 | Bots (always-on war) | `tick_sky` → `bot_raid` for unmanned factions |
 

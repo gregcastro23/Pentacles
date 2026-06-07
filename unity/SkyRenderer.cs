@@ -50,7 +50,8 @@ public class SkyRenderer : MonoBehaviour
 
     void Start()
     {
-        if (Input.location.isEnabledByUser) Input.location.Start();
+        // GpsService is the GPS authority when present; only self-manage as a fallback.
+        if (GpsService.Instance == null && Input.location.isEnabledByUser) Input.location.Start();
     }
 
     void Update()
@@ -58,7 +59,11 @@ public class SkyRenderer : MonoBehaviour
         var conn = CelestialPentacleConn.Instance;
         if (conn == null || !conn.IsConnected) return;
 
-        if (Input.location.status == LocationServiceStatus.Running)
+        if (GpsService.TryLocation(out double glat, out double glon))
+        {
+            latitude = glat; longitude = glon;
+        }
+        else if (Input.location.status == LocationServiceStatus.Running)
         {
             latitude = Input.location.lastData.latitude;
             longitude = Input.location.lastData.longitude;
@@ -87,7 +92,9 @@ public class SkyRenderer : MonoBehaviour
             bool up = alt > 0;
             tr.gameObject.SetActive(up);
             if (up) tr.position = origin.position + SkyMath.HorizontalToWorld(alt, az) * skyRadius;
-            Tint(tr, s.HeldBy);
+            // Risen past the engage altitude → full colour; merely above the horizon
+            // → dimmed (visible, but the server won't let you strike it yet).
+            Tint(tr, s.HeldBy, up && alt >= GpsService.MinEngageAltDeg);
         }
     }
 
@@ -102,10 +109,12 @@ public class SkyRenderer : MonoBehaviour
         return go.transform;
     }
 
-    void Tint(Transform tr, Planet? heldBy)
+    void Tint(Transform tr, Planet? heldBy, bool engageable)
     {
         var rend = tr.GetComponent<Renderer>();
-        if (rend != null) rend.material.color = heldBy.HasValue ? FactionColor[(int)heldBy.Value] : Color.white;
+        if (rend == null) return;
+        Color c = heldBy.HasValue ? FactionColor[(int)heldBy.Value] : Color.white;
+        rend.material.color = engageable ? c : c * 0.3f;
     }
 
     // ── Pentacle overlay ──────────────────────────────────────────────────
@@ -139,7 +148,7 @@ public class SkyRenderer : MonoBehaviour
 
     public void OnStarCaptured(StarNode s)
     {
-        if (_stars.TryGetValue(s.HipId, out var tr)) Tint(tr, s.HeldBy);
+        if (_stars.TryGetValue(s.HipId, out var tr)) Tint(tr, s.HeldBy, GpsService.Engageable(s.Ra, s.Dec));
     }
 
     public void OnZoneChanged(Zone zone)
