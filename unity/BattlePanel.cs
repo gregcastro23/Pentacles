@@ -64,7 +64,9 @@ public class BattlePanel : MonoBehaviour
         var conn = CelestialPentacleConn.Instance;
         var cards = GatherCards(conn);
         string holder = star.HeldBy.HasValue ? FactionData.Names[(int)star.HeldBy.Value] : "uncontrolled";
-        int power = CombatPreview.StrikePower(cards, CombatPreview.FavoredSuitForZone(conn, star.RegionHint));
+        var me = conn.Conn.Db.Player.Identity.Find(conn.LocalIdentity);
+        var seals = me != null ? CombatPreview.SealedSuits(conn, me.Faction) : null;
+        int power = CombatPreview.StrikePower(cards, CombatPreview.FavoredSuitForZone(conn, star.RegionHint), seals);
 
         _title.text = $"✦ {star.Name}";
         _info.text = $"Held by: {holder}\nSky: {CombatPreview.SkyWeather(conn, star.RegionHint)}\n" +

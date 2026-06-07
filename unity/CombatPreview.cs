@@ -66,11 +66,35 @@ public static class CombatPreview
 
     static float Strength(Card c) => c.Attack + c.Health * 0.5f + c.Armour * 0.4f;
 
+    // A card whose suit's element its faction currently masters (it holds a zone
+    // sitting in that sign) fights at this bonus. Mirrors combat::SEAL_BONUS.
+    public const float SealBonus = 1.15f;
+
+    /// Suit codes a faction currently holds a zodiac seal in — the elements of the
+    /// signs sitting in the zones it owns right now. Mirrors server sealed_suits.
+    public static HashSet<int> SealedSuits(CelestialPentacleConn conn, Planet faction)
+    {
+        var suits = new HashSet<int>();
+        if (conn?.Conn == null) return suits;
+        foreach (var z in conn.Conn.Db.Zone.Iter())
+            if (z.Owner.HasValue && z.Owner.Value == faction)
+                suits.Add(FavoredSuit(ZoneSign(conn, z.ZoneId)));
+        return suits;
+    }
+
     /// Estimated strike power under the current sky weather.
-    public static int StrikePower(List<Card> cards, int favoredSuit)
+    public static int StrikePower(List<Card> cards, int favoredSuit) =>
+        StrikePower(cards, favoredSuit, null);
+
+    /// Estimated strike power under the sky weather and the attacker's element seals.
+    public static int StrikePower(List<Card> cards, int favoredSuit, HashSet<int> sealedSuits)
     {
         float p = 0;
-        foreach (var c in cards) p += Strength(c) * ElementWeather((int)c.Suit, favoredSuit);
+        foreach (var c in cards)
+        {
+            float seal = sealedSuits != null && sealedSuits.Contains((int)c.Suit) ? SealBonus : 1f;
+            p += Strength(c) * ElementWeather((int)c.Suit, favoredSuit) * seal;
+        }
         return (int)p;
     }
 

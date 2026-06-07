@@ -263,7 +263,10 @@ pub fn resolve_star_battle(
     };
 
     let favored = zone_favored_suit(ctx, star.region_hint);
-    let (won, margin) = combat::resolve_star(&attacker, &defender, favored);
+    let attacker_seals = sealed_suits(ctx, player.faction);
+    let defender_seals = star.held_by.map(|f| sealed_suits(ctx, f)).unwrap_or_default();
+    let (won, margin) =
+        combat::resolve_star(&attacker, &defender, favored, &attacker_seals, &defender_seals);
     if won {
         let prev = star.held_by;
         star.held_by = Some(player.faction);
@@ -399,13 +402,15 @@ pub fn commit_duel(
 /// Lane-by-lane (suit-triangle scaled); best-of-3 wins and shifts the zone.
 fn resolve_duel(ctx: &ReducerContext, duel: &mut Duel) {
     let favored = zone_favored_suit(ctx, duel.zone_id);
+    let a_seals = sealed_suits(ctx, duel.faction_a);
+    let b_seals = sealed_suits(ctx, duel.faction_b);
     let mut a = 0u8;
     let mut b = 0u8;
     for lane in 0..3usize {
         let ca = ctx.db.card().card_id().find(&duel.a_cards[lane]);
         let cb = ctx.db.card().card_id().find(&duel.b_cards[lane]);
         if let (Some(x), Some(y)) = (ca, cb) {
-            if lane_power(&x, favored) >= lane_power(&y, favored) { a += 1; } else { b += 1; }
+            if lane_power(&x, favored, &a_seals) >= lane_power(&y, favored, &b_seals) { a += 1; } else { b += 1; }
         }
     }
     duel.lanes_a = a;
@@ -420,9 +425,10 @@ fn resolve_duel(ctx: &ReducerContext, duel: &mut Duel) {
     apply_control(ctx, duel.zone_id, faction, 150 + a.max(b) as i32 * 60);
 }
 
-fn lane_power(att: &Card, favored: Suit) -> f32 {
+fn lane_power(att: &Card, favored: Suit, sealed: &[Suit]) -> f32 {
     let s = att.attack as f32 + att.health as f32 * 0.5 + att.armour as f32 * 0.4;
-    s * combat::element_weather(att.suit, favored)
+    let seal = if sealed.contains(&att.suit) { combat::SEAL_BONUS } else { 1.0 };
+    s * combat::element_weather(att.suit, favored) * seal
 }
 
 /// Claim a stalled duel: if your opponent never committed within the grace
@@ -660,6 +666,32 @@ fn zone_favored_suit(ctx: &ReducerContext, zone_id: u8) -> Suit {
     let rising_sign = (deg / 30) % 12;
     let zone_sign = ((rising_sign + zone_id as u16) % 12) as u8;
     chart::sign_element(zone_sign)
+}
+
+/// The suits a faction currently holds a zodiac seal in: the elements of the signs
+/// sitting in the zones it owns right now. The sky rotates, so the set shifts —
+/// holding a zone while its sign is up grants that element's mastery, and the
+/// faction's cards of that suit fight at `combat::SEAL_BONUS` wherever they contest.
+fn sealed_suits(ctx: &ReducerContext, faction: Planet) -> Vec<Suit> {
+    let deg = ctx
+        .db
+        .game_config()
+        .id()
+        .find(&0)
+        .map(|c| c.season_degree)
+        .unwrap_or(0);
+    let rising = deg / 30;
+    let mut suits = Vec::new();
+    for z in ctx.db.zone().iter() {
+        if z.owner == Some(faction) {
+            let sign = ((rising + z.zone_id as u16) % 12) as u8;
+            let suit = chart::sign_element(sign);
+            if !suits.contains(&suit) {
+                suits.push(suit);
+            }
+        }
+    }
+    suits
 }
 
 /// Advance the round clock: store the world Ascendant's whole degree. Each 30°
