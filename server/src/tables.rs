@@ -34,13 +34,16 @@ pub struct NatalChart {
     /// Twelve house cusps in absolute arc-minutes (0..21599); cusp[0]=Asc,
     /// cusp[9]=MC. Derived server-side in `create_player` (authoritative), so the
     /// client may submit it empty — it is always recomputed before persistence.
-    pub house_cusps: Vec<u16>,
+    #[default(None::<Vec<u16>>)]
+    pub house_cusps: Option<Vec<u16>>,
     /// The system `house_cusps` was built under (Placidus, or a Whole-Sign fallback).
+    #[default(HouseSystem::WholeSign)]
     pub house_system: HouseSystem,
     /// Signs containing no cusp (Placidus interceptions). Always empty for a
     /// Whole-Sign or time-unknown chart — interception is never claimed without
     /// a trustworthy birth time.
-    pub intercepted_signs: Vec<u8>,
+    #[default(None::<Vec<u8>>)]
+    pub intercepted_signs: Option<Vec<u8>>,
 }
 
 #[spacetimedb::table(name = player_location)] // private to owner (not public)

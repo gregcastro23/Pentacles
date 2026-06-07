@@ -440,9 +440,9 @@ pub fn populate_houses(chart: &mut NatalChart) {
             .find(|p| p.body == Planet::Sun)
             .map(|p| p.sign)
             .unwrap_or(0);
-        chart.house_cusps = whole_sign_cusps(sun_sign as u16 * 1800).to_vec();
+        chart.house_cusps = Some(whole_sign_cusps(sun_sign as u16 * 1800).to_vec());
         chart.house_system = HouseSystem::WholeSign;
-        chart.intercepted_signs = Vec::new();
+        chart.intercepted_signs = Some(Vec::new());
         return;
     }
 
@@ -453,24 +453,25 @@ pub fn populate_houses(chart: &mut NatalChart) {
     };
     let (cusps, system) =
         compute_house_cusps(chart.ascendant, chart.midheaven, lat, OBLIQUITY_DEG);
-    chart.house_cusps = cusps.to_vec();
+    chart.house_cusps = Some(cusps.to_vec());
     chart.house_system = system;
-    chart.intercepted_signs = match system {
+    chart.intercepted_signs = Some(match system {
         HouseSystem::Placidus => interceptions(&cusps).0,
         HouseSystem::WholeSign => Vec::new(),
-    };
+    });
 }
 
 /// A chart's twelve cusps as a fixed array, falling back to Whole-Sign from the
 /// Ascendant for charts that predate house computation or carry a malformed ring.
 fn chart_cusps(chart: &NatalChart) -> [u16; 12] {
-    if chart.house_cusps.len() == 12 {
-        let mut c = [0u16; 12];
-        c.copy_from_slice(&chart.house_cusps);
-        c
-    } else {
-        whole_sign_cusps(chart.ascendant)
+    if let Some(cusps) = &chart.house_cusps {
+        if cusps.len() == 12 {
+            let mut c = [0u16; 12];
+            c.copy_from_slice(cusps);
+            return c;
+        }
     }
+    whole_sign_cusps(chart.ascendant)
 }
 
 /// Which house (1..12) an absolute-arc-minute longitude falls in (A3), honouring
@@ -528,7 +529,7 @@ const TRANSIT_RULER_WEIGHT: f32 = 0.6;
 fn house_rulers(chart: &NatalChart, cusps: &[u16; 12], house: u8) -> Vec<Planet> {
     let cusp_sign = ((cusps[(house - 1) as usize] / 1800) % 12) as u8;
     let mut out = vec![sign_ruler(cusp_sign)];
-    for &s in &chart.intercepted_signs {
+    for &s in chart.intercepted_signs.as_deref().unwrap_or(&[]) {
         if house_of_cusps(cusps, s as u16 * 1800 + 900) == house {
             let r = sign_ruler(s);
             if !out.contains(&r) {
@@ -797,9 +798,9 @@ mod tests {
             placements,
             ascendant: asc,
             midheaven: mc,
-            house_cusps: Vec::new(),
+            house_cusps: Some(Vec::new()),
             house_system: HouseSystem::Placidus,
-            intercepted_signs: Vec::new(),
+            intercepted_signs: Some(Vec::new()),
         };
         populate_houses(&mut c);
         c
@@ -833,7 +834,7 @@ mod tests {
         assert_eq!(intercepted, vec![GEMINI, SAGITTARIUS], "intercepted signs");
         assert_eq!(duplicated, vec![VIRGO, PISCES], "duplicated signs");
         // The persisted column matches, and time-known so it is non-empty.
-        assert_eq!(c.intercepted_signs, vec![GEMINI, SAGITTARIUS]);
+        assert_eq!(c.intercepted_signs.as_deref(), Some([GEMINI, SAGITTARIUS].as_slice()));
     }
 
     #[test]
@@ -885,7 +886,7 @@ mod tests {
     fn polar_latitude_falls_back_to_whole_sign_without_panic() {
         let c = chart(9060, 3339, 80.0, 10.0, true, vec![]);
         assert_eq!(c.house_system, HouseSystem::WholeSign);
-        assert!(c.intercepted_signs.is_empty());
+        assert_eq!(c.intercepted_signs.as_deref(), Some([].as_slice()));
         let cusps = chart_cusps(&c);
         assert_eq!(cusps[0], VIRGO as u16 * 1800); // Whole-Sign 1st = 0° of Asc's sign
         // And transit modulation over the fallback ring must not panic.
@@ -897,7 +898,7 @@ mod tests {
         // Sun in Cancer (sign 3). No birth time → Whole-Sign houses from the Sun.
         let c = chart(0, 0, 40.7, -74.0, false, vec![pl(Planet::Sun, 3, 10)]);
         assert_eq!(c.house_system, HouseSystem::WholeSign);
-        assert!(c.intercepted_signs.is_empty());
+        assert_eq!(c.intercepted_signs.as_deref(), Some([].as_slice()));
         assert_eq!(chart_cusps(&c)[0], 3 * 1800); // Cancer 0°
     }
 

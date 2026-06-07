@@ -30,11 +30,11 @@ namespace SpacetimeDB.Types
         [DataMember(Name = "midheaven")]
         public ushort Midheaven;
         [DataMember(Name = "house_cusps")]
-        public System.Collections.Generic.List<ushort> HouseCusps;
+        public System.Collections.Generic.List<ushort>? HouseCusps;
         [DataMember(Name = "house_system")]
         public HouseSystem HouseSystem;
         [DataMember(Name = "intercepted_signs")]
-        public System.Collections.Generic.List<byte> InterceptedSigns;
+        public System.Collections.Generic.List<byte>? InterceptedSigns;
 
         public NatalChart(
             SpacetimeDB.Identity Identity,
@@ -45,9 +45,9 @@ namespace SpacetimeDB.Types
             System.Collections.Generic.List<Placement> Placements,
             ushort Ascendant,
             ushort Midheaven,
-            System.Collections.Generic.List<ushort> HouseCusps,
+            System.Collections.Generic.List<ushort>? HouseCusps,
             HouseSystem HouseSystem,
-            System.Collections.Generic.List<byte> InterceptedSigns
+            System.Collections.Generic.List<byte>? InterceptedSigns
         )
         {
             this.Identity = Identity;
@@ -66,8 +66,6 @@ namespace SpacetimeDB.Types
         public NatalChart()
         {
             this.Placements = new();
-            this.HouseCusps = new();
-            this.InterceptedSigns = new();
         }
     }
 }
