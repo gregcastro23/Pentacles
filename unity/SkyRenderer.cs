@@ -188,30 +188,88 @@ public class SkyRenderer : MonoBehaviour
     }
 
     // ── Interaction ───────────────────────────────────────────────────────
+    //
+    // A quick tap on a star strikes it; a long press reveals what it is (and why
+    // you can or can't engage it yet) without striking. Stars are world-space, so
+    // this is its own press/hold/release path rather than the uGUI LongPress used
+    // by cards.
+
+    uint _pressStar;          // star under the active press (0 = none)
+    float _pressStartedAt;
+    bool _pressHeld;          // the long-press tooltip already fired this press
+    const float HoldSeconds = 0.5f;
 
     void HandleTap(CelestialPentacleConn conn, double lst)
     {
-        bool tapped = Input.GetMouseButtonDown(0)
+        bool down = Input.GetMouseButtonDown(0)
             || (Input.touchCount > 0 && Input.GetTouch(0).phase == TouchPhase.Began);
-        if (!tapped) return;
+        bool holding = Input.GetMouseButton(0)
+            || (Input.touchCount > 0 && (Input.GetTouch(0).phase == TouchPhase.Stationary
+                                         || Input.GetTouch(0).phase == TouchPhase.Moved));
+        bool up = Input.GetMouseButtonUp(0)
+            || (Input.touchCount > 0 && Input.GetTouch(0).phase == TouchPhase.Ended);
 
+        if (down)
+        {
+            _pressStar = PickStar();
+            _pressStartedAt = Time.unscaledTime;
+            _pressHeld = false;
+            return;
+        }
+
+        // Held long enough over a star → reveal it; the release then strikes nothing.
+        if (holding && _pressStar != 0 && !_pressHeld && Time.unscaledTime - _pressStartedAt >= HoldSeconds)
+        {
+            _pressHeld = true;
+            ShowStarTooltip(conn, _pressStar, lst);
+            return;
+        }
+
+        if (up)
+        {
+            uint star = _pressStar;
+            bool wasHeld = _pressHeld;
+            _pressStar = 0; _pressHeld = false;
+            if (star == 0 || wasHeld) return; // empty tap, or a long-press already handled
+
+            // Short tap → open the battle overlay (or fall back to an all-active strike).
+            var node = conn.Conn.Db.StarNode.HipId.Find(star);
+            if (node != null && BattlePanel.Instance != null) BattlePanel.Instance.OpenFor(node);
+            else conn.AttackStar(star, ActiveDeckCardIds(conn));
+        }
+    }
+
+    /// The star the screen-point ray passes closest to (0 if none within tolerance).
+    uint PickStar()
+    {
+        if (Camera.main == null) return 0;
         Vector2 sp = Input.touchCount > 0 ? Input.GetTouch(0).position : (Vector2)Input.mousePosition;
         Ray ray = Camera.main.ScreenPointToRay(sp);
-
-        uint best = 0; float bestDot = 0.985f; bool found = false;
+        uint best = 0; float bestDot = 0.985f;
         foreach (var kv in _stars)
         {
             if (!kv.Value.gameObject.activeSelf) continue;
             float d = Vector3.Dot(ray.direction, (kv.Value.position - ray.origin).normalized);
-            if (d > bestDot) { bestDot = d; best = kv.Key; found = true; }
+            if (d > bestDot) { bestDot = d; best = kv.Key; }
         }
-        if (!found) return;
+        return best;
+    }
 
-        // Open the battle overlay so the player picks their strike; fall back to
-        // an immediate all-active attack if the overlay isn't in the scene.
-        var star = conn.Conn.Db.StarNode.HipId.Find(best);
-        if (star != null && BattlePanel.Instance != null) BattlePanel.Instance.OpenFor(star);
-        else conn.AttackStar(best, ActiveDeckCardIds(conn));
+    void ShowStarTooltip(CelestialPentacleConn conn, uint hipId, double lst)
+    {
+        var s = conn.Conn.Db.StarNode.HipId.Find(hipId);
+        if (s == null) return;
+        SkyMath.EquatorialToHorizontal(s.Ra, s.Dec, latitude, lst, out double alt, out _);
+        string held = s.HeldBy.HasValue ? $"Held by {FactionData.Names[(int)s.HeldBy.Value]}." : "Unclaimed.";
+        string reach = alt >= GpsService.MinEngageAltDeg
+            ? "Risen and strikeable now."
+            : alt > 0
+                ? $"Only {alt:F0}° up — it must clear {GpsService.MinEngageAltDeg:F0}° before you can strike."
+                : "Below your horizon — out of reach.";
+        string bright = s.Magnitude <= 1.5f
+            ? "A bright star: it resists hard but pulls its zone far when taken."
+            : "A fainter star: an easier capture.";
+        Tooltip.Show(s.Name, $"{held} {reach} {bright} {OracleLore.Tip("engage")}");
     }
 
     // Loadout lives on deck_slot (not card) in the Rust schema.
