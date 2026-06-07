@@ -68,10 +68,10 @@ fn deck_seed(placements: &[Placement]) -> u64 {
 /// (health, attack, armour, cooldown_ms) from one placement. Stats come from the
 /// birth degree/minute/dignity; the flat per-suit perks are gone (a suit's edge
 /// is environmental now). Rank is decided separately by the decan/tarot rules.
-fn card_stats(p: &Placement) -> (u16, u16, u16, u16) {
+fn card_stats(p: &Placement, reception_boost: f32) -> (u16, u16, u16, u16) {
     let degree = p.degree() as u16; // 0..29
     let minute = p.minute() as u16; // 0..59
-    let dignity_mult = 1.0 + p.dignity as f32 * 0.08; // 0.6 .. 1.4
+    let dignity_mult = 1.0 + (p.dignity as f32 + reception_boost * 2.0) * 0.08; // 0.6 .. 1.4+
 
     let health = 12 + minute * 28 / 59;
     let attack = ((6 + degree) as f32 * dignity_mult) as u16;
@@ -122,6 +122,33 @@ fn planet_major(p: Planet) -> u8 {
 /// placement; this is the only rank-driven scaling, reserved for Majors.
 const TRUMP_MULT: f32 = 1.5;
 
+/// Calculate reception & mutual reception boosts for each planet.
+/// A planet is received by another if it sits in a sign ruled by that planet.
+/// If received, it gets a reception boost (+0.5).
+/// If two planets are in mutual reception (sitting in each other's signs), both get a mutual reception boost (+1.5).
+pub fn calculate_reception_boosts(chart: &NatalChart) -> [f32; 10] {
+    let mut boosts = [0.0f32; 10];
+    for p in &chart.placements {
+        let ruler = sign_ruler(p.sign);
+        if ruler != p.body {
+            boosts[p.body.idx()] += 0.5;
+        }
+    }
+    for i in 0..chart.placements.len() {
+        for j in (i + 1)..chart.placements.len() {
+            let p1 = &chart.placements[i];
+            let p2 = &chart.placements[j];
+            let r1 = sign_ruler(p1.sign);
+            let r2 = sign_ruler(p2.sign);
+            if r1 == p2.body && r2 == p1.body {
+                boosts[p1.body.idx()] += 1.5;
+                boosts[p2.body.idx()] += 1.5;
+            }
+        }
+    }
+    boosts
+}
+
 /// Weighted dignity vector → a score per planet (index by `Planet::idx`).
 pub fn faction_scores(chart: &NatalChart) -> [f32; 10] {
     let mut s = [0.0f32; 10];
@@ -143,6 +170,13 @@ pub fn faction_scores(chart: &NatalChart) -> [f32; 10] {
             s[sign_ruler(p.sign).idx()] += 2.0;
         }
     }
+
+    // Add reception & mutual reception boosts
+    let reception_boosts = calculate_reception_boosts(chart);
+    for i in 0..10 {
+        s[i] += reception_boosts[i];
+    }
+
     s
 }
 
@@ -161,16 +195,19 @@ pub fn mint_deck(
     let seed = deck_seed(&chart.placements);
     let mut active = 0u32;
     let mut count = 0usize;
+    let reception_boosts = calculate_reception_boosts(chart);
 
     for p in &chart.placements {
-        let (health, attack, armour, cooldown_ms) = card_stats(p);
+        let reception_boost = reception_boosts[p.body.idx()];
+        let (health, attack, armour, cooldown_ms) = card_stats(p, reception_boost);
 
         // Minor rank: the chart ruler mints the Ace; angular or sign-ruling bodies
         // are elevated to a court by dignity; everyone else is their decan pip.
+        let effective_dignity = p.dignity + (reception_boost * 2.0) as i8;
         let rank = if p.body == chart_ruler {
             1 // Ace of the sign's element-suit
         } else if angular(p, chart) || sign_ruler(p.sign) == p.body {
-            court_for_dignity(p.dignity)
+            court_for_dignity(effective_dignity)
         } else {
             pip_rank(p.sign, p.degree())
         };
@@ -271,7 +308,7 @@ pub fn mint_from_sky(ctx: &ReducerContext, owner: Identity) -> Option<u64> {
         retrograde: false,
         dignity,
     };
-    let (health, attack, armour, cooldown_ms) = card_stats(&p);
+    let (health, attack, armour, cooldown_ms) = card_stats(&p, 0.0);
 
     let card = ctx.db.card().insert(Card {
         card_id: 0,

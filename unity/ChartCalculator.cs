@@ -60,6 +60,41 @@ public static class ChartCalculator
         };
     }
 
+    /// Calculate reception & mutual reception boosts for each planet.
+    public static double[] CalculateReceptionBoosts(NatalChart chart)
+    {
+        var boosts = new double[10];
+        
+        // 1. Standard reception
+        foreach (var p in chart.Placements)
+        {
+            int ruler = SignRuler(p.Sign);
+            if (ruler != (int)p.Body)
+            {
+                boosts[(int)p.Body] += 0.5;
+            }
+        }
+        
+        // 2. Mutual reception
+        for (int i = 0; i < chart.Placements.Count; i++)
+        {
+            for (int j = i + 1; j < chart.Placements.Count; j++)
+            {
+                var p1 = chart.Placements[i];
+                var p2 = chart.Placements[j];
+                int r1 = SignRuler(p1.Sign);
+                int r2 = SignRuler(p2.Sign);
+                if (r1 == (int)p2.Body && r2 == (int)p1.Body)
+                {
+                    boosts[(int)p1.Body] += 1.5;
+                    boosts[(int)p2.Body] += 1.5;
+                }
+            }
+        }
+        
+        return boosts;
+    }
+
     /// The three highest-scoring factions to surface as the player's choice
     /// (mirrors the server's weighted dignity vector; server re-validates).
     public static int[] TopFactions(NatalChart chart)
@@ -73,6 +108,14 @@ public static class ChartCalculator
             if (pl.Body == Planet.Sun) s[SignRuler(pl.Sign)] += 2.0;
             if (pl.Body == Planet.Moon) s[SignRuler(pl.Sign)] += 2.0;
         }
+
+        // Add reception & mutual reception boosts
+        var receptionBoosts = CalculateReceptionBoosts(chart);
+        for (int i = 0; i < 10; i++)
+        {
+            s[i] += receptionBoosts[i];
+        }
+
         var order = new List<int>();
         for (int i = 0; i < 10; i++) order.Add(i);
         order.Sort((a, b) => s[b].CompareTo(s[a]));
