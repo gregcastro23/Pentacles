@@ -98,6 +98,29 @@ pub fn create_player(
         ctx.db.natal_chart().insert(chart.clone());
     }
 
+    // Re-registering re-mints the deck from scratch — clear any prior cards and
+    // slots first so we never stack duplicates.
+    let old_cards: Vec<u64> = ctx
+        .db
+        .card()
+        .iter()
+        .filter(|c| c.owner == ctx.sender)
+        .map(|c| c.card_id)
+        .collect();
+    for cid in old_cards {
+        ctx.db.card().card_id().delete(&cid);
+    }
+    let old_slots: Vec<u64> = ctx
+        .db
+        .deck_slot()
+        .iter()
+        .filter(|s| s.owner == ctx.sender)
+        .map(|s| s.slot_id)
+        .collect();
+    for sid in old_slots {
+        ctx.db.deck_slot().slot_id().delete(&sid);
+    }
+
     let asc_sign = ((chart.ascendant / 1800) % 12) as u8;
     let chart_ruler = chart::sign_ruler(asc_sign);
     let (deck_seed, _n) = chart::mint_deck(ctx, ctx.sender, &chart, chart_ruler);
@@ -115,6 +138,65 @@ pub fn create_player(
     } else {
         ctx.db.player().insert(player);
     }
+    Ok(())
+}
+
+/// Record the caller's real-world location (private). The horizon it anchors
+/// gates which stars they can engage. East-positive longitude, like the charts.
+#[reducer]
+pub fn set_location(ctx: &ReducerContext, lat: f64, lon: f64) -> Result<(), String> {
+    if !(-90.0..=90.0).contains(&lat) || !(-180.0..=180.0).contains(&lon) {
+        return Err("lat/lon out of range".into());
+    }
+    let row = PlayerLocation {
+        identity: ctx.sender,
+        lat,
+        lon,
+        updated_at: ctx.timestamp,
+    };
+    if ctx.db.player_location().identity().find(&ctx.sender).is_some() {
+        ctx.db.player_location().identity().update(row);
+    } else {
+        ctx.db.player_location().insert(row);
+    }
+    Ok(())
+}
+
+/// Move one of your cards between loadouts. Active is capped at 8 — bench a card
+/// before promoting another. Lets players curate their fielded eight.
+#[reducer]
+pub fn set_loadout(ctx: &ReducerContext, card_id: u64, loadout: Loadout) -> Result<(), String> {
+    let card = ctx
+        .db
+        .card()
+        .card_id()
+        .find(&card_id)
+        .ok_or_else(|| "no such card".to_string())?;
+    if card.owner != ctx.sender {
+        return Err("not your card".into());
+    }
+    let mut slot = ctx
+        .db
+        .deck_slot()
+        .iter()
+        .find(|s| s.owner == ctx.sender && s.card_id == card_id)
+        .ok_or_else(|| "card not in your deck".to_string())?;
+    if slot.loadout == loadout {
+        return Ok(());
+    }
+    if loadout == Loadout::Active {
+        let active = ctx
+            .db
+            .deck_slot()
+            .iter()
+            .filter(|s| s.owner == ctx.sender && s.loadout == Loadout::Active)
+            .count();
+        if active >= 8 {
+            return Err("Active is full (8) — bench a card first".into());
+        }
+    }
+    slot.loadout = loadout;
+    ctx.db.deck_slot().slot_id().update(slot);
     Ok(())
 }
 
@@ -140,6 +222,22 @@ pub fn resolve_star_battle(
         .hip_id()
         .find(&hip_id)
         .ok_or_else(|| "no such star".to_string())?;
+
+    // Hard horizon gate (GPS engagement): you can only strike a star currently
+    // risen over where you stand. Anchored to the location you reported.
+    let loc = ctx
+        .db
+        .player_location()
+        .identity()
+        .find(&ctx.sender)
+        .ok_or_else(|| "set your location first (set_location)".to_string())?;
+    let alt = altitude_deg(star.ra, star.dec, loc.lat, loc.lon, ctx.timestamp);
+    if alt < MIN_ALT_DEG {
+        return Err(format!(
+            "{} is below your horizon ({alt:.0}°) — face a star that has risen",
+            star.name
+        ));
+    }
 
     // Gather the attacker's played cards (validate ownership).
     let mut attacker: Vec<combat::CardStat> = Vec::new();
@@ -532,6 +630,20 @@ fn ascendant_deg(ts: Timestamp) -> f64 {
         .atan2(-(e.sin() * lat.tan() + e.cos() * ramc.sin()));
     asc.to_degrees().rem_euclid(360.0)
 }
+
+/// Altitude (degrees, −90..90) of an equatorial point (`ra`,`dec` in degrees)
+/// seen from (`lat`,`lon` in degrees, east-positive) at `ts`. Shares the GMST
+/// clock with the rest of the sky, so it agrees with the client's `SkyMath`.
+fn altitude_deg(ra: f64, dec: f64, lat: f64, lon: f64, ts: Timestamp) -> f64 {
+    let lst = (gmst_deg(ts) + lon).rem_euclid(360.0); // local sidereal time, deg
+    let ha = (lst - ra).to_radians(); // hour angle
+    let (dec_r, lat_r) = (dec.to_radians(), lat.to_radians());
+    let sin_alt = dec_r.sin() * lat_r.sin() + dec_r.cos() * lat_r.cos() * ha.cos();
+    sin_alt.clamp(-1.0, 1.0).asin().to_degrees()
+}
+
+/// A star must clear this altitude over your horizon before you may engage it.
+const MIN_ALT_DEG: f64 = 10.0;
 
 /// The suit favored in a given zone right now. One world Ascendant (stored in
 /// season_degree) sets the rising sign; the 12 signs rotate through the 11 zones

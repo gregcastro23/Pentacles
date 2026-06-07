@@ -33,6 +33,16 @@ pub struct NatalChart {
     pub midheaven: u16,
 }
 
+#[spacetimedb::table(name = player_location)] // private to owner (not public)
+#[derive(Clone)]
+pub struct PlayerLocation {
+    #[primary_key]
+    pub identity: Identity,
+    pub lat: f64,           // east-positive, like the charts
+    pub lon: f64,
+    pub updated_at: Timestamp,
+}
+
 // ── Cards & inventory ─────────────────────────────────────────────────────
 
 #[spacetimedb::table(name = card, public)]
@@ -43,14 +53,14 @@ pub struct Card {
     pub card_id: u64,
     pub owner: Identity, // add `#[index(btree)]` for scale; we iterate for now
     pub suit: Suit,
-    pub rank: u8,        // 1..14 (Ace..King)
+    pub rank: u8,        // Minor: 1..14 (Ace..King); trump: the arcana index 0..21
     pub health: u16,
     pub attack: u16,
     pub armour: u16,
     pub cooldown_ms: u16,
     pub source_body: Planet, // which placement minted it
     pub inverted: bool,      // from a retrograde body
-    pub is_trump: bool,      // the single Major-Arcana hero
+    pub is_trump: bool,      // a planetary Major-Arcana trump (rank = arcana index)
 }
 
 #[spacetimedb::table(name = deck_slot, public)]

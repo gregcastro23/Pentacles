@@ -118,6 +118,8 @@ token plumbing.
 | Round weather (the Great Wheel) | `tick_sky` → `advance_round_clock` advances the world Ascendant (NYC) in `game_config.season_degree`; `zone_favored_suit` rotates the 12 signs through the 11 zones so each carries its own live element |
 | §07 Star → zone tug-of-war | `resolve_star_battle` + `apply_control` (signed meter, flip at ±600) |
 | §08 AR & ephemeris | `unity/SkyMath.cs` + `SkyRenderer.cs` (P0) · `feeder/` + `push_ephemeris` |
+| GPS engagement | `unity/GpsService.cs` → `set_location` (private `player_location`); `resolve_star_battle` gates on `altitude_deg ≥ 10°` so you can only strike a risen star |
+| Deck curation | `set_loadout` (Active capped at 8); `create_player` is idempotent — re-registering clears the old deck before re-minting |
 | Bots (always-on war) | `tick_sky` → `bot_raid` for unmanned factions |
 
 ## Notes & accuracy

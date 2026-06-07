@@ -103,4 +103,12 @@ public class CelestialPentacleConn : MonoBehaviour
     // Claim a stalled duel whose opponent never committed. The binding appears
     // after you re-run `spacetime generate` for the new claim_duel_timeout reducer.
     public void ClaimDuelTimeout(ulong duelId) => Conn.Reducers.ClaimDuelTimeout(duelId);
+
+    // Report your real-world location (private); gates which stars are engageable.
+    // Binding appears after `spacetime generate` for the new set_location reducer.
+    public void SetLocation(double lat, double lon) => Conn.Reducers.SetLocation(lat, lon);
+
+    // Move a card between loadouts (Active capped at 8). Binding appears after
+    // `spacetime generate` for the new set_loadout reducer.
+    public void SetLoadout(ulong cardId, Loadout loadout) => Conn.Reducers.SetLoadout(cardId, loadout);
 }
