@@ -95,14 +95,16 @@ pub fn create_player(
     chart: NatalChart,
     faction: Planet,
 ) -> Result<(), String> {
-    // The chosen faction must be one of the chart's top-3 dignity scores.
-    let scores = chart::faction_scores(&chart);
-    let mut ranked: Vec<(usize, f32)> = scores.iter().copied().enumerate().collect();
-    ranked.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
-    let top3: Vec<usize> = ranked.iter().take(3).map(|(i, _)| *i).collect();
-    if !top3.contains(&faction.idx()) {
-        return Err("faction not in your chart's top-3 dignities".into());
-    }
+    // The chosen faction must be one of the chart's strongest dignities — the
+    // same named, dignity-weighted options the player drafts from each round
+    // (chart ruler, luminary lords, essential dignity, reception). GDD §02.
+    let options = chart::faction_options(&chart);
+    let chosen = options
+        .iter()
+        .take(chart::DRAFT_CHOICES)
+        .find(|o| o.planet == faction)
+        .ok_or("faction not among your chart's strongest dignities")?;
+    log::info!("{handle} drafts {:?} — {} (weight {:.1})", faction, chosen.path, chosen.weight);
 
     // Server owns identity — never trust a client-supplied one.
     let chart = NatalChart { identity: ctx.sender, ..chart };

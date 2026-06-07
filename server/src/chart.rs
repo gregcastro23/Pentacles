@@ -35,6 +35,36 @@ pub fn sign_ruler(sign: u8) -> Planet {
     }
 }
 
+/// Which planet (if any) is *exalted* in this sign. Only the classical seven
+/// have an agreed exaltation; the moderns (Uranus/Neptune/Pluto) exalt nowhere
+/// here, so they lean on rulership + reception alone.
+pub fn exalt_ruler(sign: u8) -> Option<Planet> {
+    match sign % 12 {
+        0 => Some(Planet::Sun),      // Sun exalted in Aries
+        1 => Some(Planet::Moon),     // Moon exalted in Taurus
+        3 => Some(Planet::Jupiter),  // Jupiter exalted in Cancer
+        5 => Some(Planet::Mercury),  // Mercury exalted in Virgo
+        6 => Some(Planet::Saturn),   // Saturn exalted in Libra
+        9 => Some(Planet::Mars),     // Mars exalted in Capricorn
+        11 => Some(Planet::Venus),   // Venus exalted in Pisces
+        _ => None,
+    }
+}
+
+/// Essential dignity of `body` sitting in `sign`, on the classical scale:
+/// +5 domicile, +4 exaltation, −5 detriment, −4 fall, 0 peregrine. Derived from
+/// the game's own rulership map, so it stays consistent with `sign_ruler`.
+/// (Independent of the client-supplied `Placement.dignity`, which still feeds
+/// `card_stats` for deck minting — this drives faction scoring only.)
+pub fn essential_dignity(body: Planet, sign: u8) -> i8 {
+    let opposite = (sign + 6) % 12;
+    if sign_ruler(sign) == body { 5 }                       // domicile
+    else if exalt_ruler(sign) == Some(body) { 4 }           // exaltation
+    else if sign_ruler(opposite) == body { -5 }             // detriment (rules the opposite sign)
+    else if exalt_ruler(opposite) == Some(body) { -4 }      // fall (exalted in the opposite sign)
+    else { 0 }                                              // peregrine
+}
+
 fn is_fixed(sign: u8) -> bool { matches!(sign % 12, 1 | 4 | 7 | 10) }
 fn is_cardinal(sign: u8) -> bool { matches!(sign % 12, 0 | 3 | 6 | 9) }
 
@@ -86,7 +116,12 @@ fn card_stats(p: &Placement, suit: Suit) -> (u16, u16, u16, u16, u8) {
     (health, attack, armour, cooldown, rank)
 }
 
-/// Weighted dignity vector → a score per planet (index by `Planet::idx`).
+/// How many of the chart's top options become per-round draft choices (GDD §02).
+pub const DRAFT_CHOICES: usize = 3;
+
+/// Weighted dignity vector → a draft weight per planet (index by `Planet::idx`).
+/// Higher weight = an earlier/cheaper pick in the round draft; every planet in
+/// the chart stays eligible, dignity only sets priority (GDD §02).
 pub fn faction_scores(chart: &NatalChart) -> [f32; 10] {
     let mut s = [0.0f32; 10];
     let asc_sign = ((chart.ascendant / 1800) % 12) as u8;
@@ -101,7 +136,8 @@ pub fn faction_scores(chart: &NatalChart) -> [f32; 10] {
     }
 
     for p in &chart.placements {
-        s[p.body.idx()] += 1.0 + p.dignity as f32 * 0.4;
+        // Presence + engine-computed essential dignity (domicile/exalt/detriment/fall).
+        s[p.body.idx()] += 1.0 + essential_dignity(p.body, p.sign) as f32 * 0.4;
         if angular(p, chart) {
             s[p.body.idx()] += 1.5;
         }
@@ -116,7 +152,135 @@ pub fn faction_scores(chart: &NatalChart) -> [f32; 10] {
             s[sign_ruler(p.sign).idx()] += 2.0;
         }
     }
+
+    // Reception & mutual reception — planets lift one another's dignity (GDD §02).
+    add_reception(chart, &mut s);
     s
+}
+
+/// Reception: a planet sitting in another's domicile or exaltation is *received*
+/// and strengthened by its host; when two planets sit in each other's dignities
+/// (mutual reception, e.g. Mars in Cancer with the Moon in Aries) both gain
+/// more. This is the literal "planets influence each other's dignity" (GDD §02).
+fn add_reception(chart: &NatalChart, s: &mut [f32; 10]) {
+    for p in &chart.placements {
+        let guest = p.body;
+        // The lord(s) of the sign the guest sits in: its hosts.
+        for (host, welcome) in [
+            (Some(sign_ruler(p.sign)), 1.5f32),  // domicile lord — the stronger host
+            (exalt_ruler(p.sign), 1.0f32),       // exaltation lord
+        ] {
+            let Some(host) = host else { continue };
+            if host == guest { continue; }                       // own dignity ≠ reception
+            // The host must actually be present in the chart to receive anyone.
+            let Some(hp) = chart.placements.iter().find(|q| q.body == host) else { continue };
+            s[guest.idx()] += welcome;                           // guest welcomed by its host
+            s[host.idx()] += welcome * 0.4;                      // host gains a little for hosting
+            // Mutual reception: the host in turn sits in one of the guest's dignities.
+            if sign_ruler(hp.sign) == guest || exalt_ruler(hp.sign) == Some(guest) {
+                s[guest.idx()] += 1.5;                           // each direction credits its own guest
+            }
+        }
+    }
+}
+
+/// If `pl` is in mutual reception with another *present* planet, return it.
+pub fn mutual_reception_of(chart: &NatalChart, pl: Planet) -> Option<Planet> {
+    let p = chart.placements.iter().find(|p| p.body == pl)?;
+    for host in [Some(sign_ruler(p.sign)), exalt_ruler(p.sign)].into_iter().flatten() {
+        if host == pl { continue; }
+        if let Some(hp) = chart.placements.iter().find(|q| q.body == host) {
+            if sign_ruler(hp.sign) == pl || exalt_ruler(hp.sign) == Some(pl) {
+                return Some(host);
+            }
+        }
+    }
+    None
+}
+
+/// If `pl` sits in a *present* planet's domicile/exaltation, return that host.
+pub fn received_by(chart: &NatalChart, pl: Planet) -> Option<Planet> {
+    let p = chart.placements.iter().find(|p| p.body == pl)?;
+    for host in [Some(sign_ruler(p.sign)), exalt_ruler(p.sign)].into_iter().flatten() {
+        if host == pl { continue; }
+        if chart.placements.iter().any(|q| q.body == host) {
+            return Some(host);
+        }
+    }
+    None
+}
+
+/// One draftable faction option: the planet, its dignity-derived draft weight
+/// (higher = earlier/cheaper pick), and the dominant astrological path that
+/// earned it — the "named path" surfaced to the player (GDD §02).
+#[derive(Clone, Debug)]
+pub struct FactionOption {
+    pub planet: Planet,
+    pub weight: f32,
+    pub path: String,
+}
+
+/// Rank every planet into draftable faction options, highest draft weight first,
+/// each tagged with the named path that earned it (GDD §02).
+pub fn faction_options(chart: &NatalChart) -> Vec<FactionOption> {
+    let scores = faction_scores(chart);
+    let mut opts: Vec<FactionOption> = ALL_PLANETS
+        .iter()
+        .map(|&pl| FactionOption { planet: pl, weight: scores[pl.idx()], path: dominant_path(chart, pl) })
+        .collect();
+    opts.sort_by(|a, b| b.weight.partial_cmp(&a.weight).unwrap_or(std::cmp::Ordering::Equal));
+    opts
+}
+
+/// The planets eligible to be drafted this round — the top `DRAFT_CHOICES`
+/// options by draft weight (GDD §02).
+pub fn eligible_factions(chart: &NatalChart) -> Vec<Planet> {
+    faction_options(chart).into_iter().take(DRAFT_CHOICES).map(|o| o.planet).collect()
+}
+
+/// The single strongest astrological reason `pl` is an option, in priority
+/// order — what the draft UI shows beside the planet (GDD §02).
+fn dominant_path(chart: &NatalChart, pl: Planet) -> String {
+    let asc_sign = ((chart.ascendant / 1800) % 12) as u8;
+    if sign_ruler(asc_sign) == pl {
+        return "Chart ruler — lord of your Ascendant".into();
+    }
+    let mut sun_sign = None;
+    let mut moon_sign = None;
+    for p in &chart.placements {
+        match p.body {
+            Planet::Sun => sun_sign = Some(p.sign),
+            Planet::Moon => moon_sign = Some(p.sign),
+            _ => {}
+        }
+    }
+    if sun_sign.map(sign_ruler) == Some(pl) {
+        return "Lord of your Sun sign".into();
+    }
+    if moon_sign.map(sign_ruler) == Some(pl) {
+        return "Lord of your Moon sign".into();
+    }
+    if let Some(p) = chart.placements.iter().find(|p| p.body == pl) {
+        if let Some(other) = mutual_reception_of(chart, pl) {
+            return format!("Mutual reception with {:?}", other);
+        }
+        match essential_dignity(pl, p.sign) {
+            5 => return "In domicile — ruling its own sign".into(),
+            4 => return "Exalted in its sign".into(),
+            _ => {}
+        }
+        if let Some(host) = received_by(chart, pl) {
+            return format!("Received by {:?}", host);
+        }
+        if angular(p, chart) {
+            return "Angular — on an axis of the chart".into();
+        }
+        if chart.placements.iter().filter(|q| q.sign % 12 == p.sign % 12).count() >= 3 {
+            return "Part of a stellium".into();
+        }
+        return format!("{:?} placed in your chart", pl);
+    }
+    format!("{:?}", pl)
 }
 
 /// Human-readable rank label (Ace, Two … Page, Knight, Queen, King).
@@ -199,4 +363,79 @@ pub fn mint_deck(
     });
 
     (seed, chart.placements.len() + 1)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use spacetimedb::Identity;
+
+    fn pl(body: Planet, sign: u8) -> Placement {
+        Placement { body, sign, arc_minutes: 15 * 60, retrograde: false, dignity: 0 }
+    }
+
+    fn chart(placements: Vec<Placement>, asc_sign: u8) -> NatalChart {
+        NatalChart {
+            identity: Identity::ZERO,
+            birth_unix: 0,
+            birth_lat: 0.0,
+            birth_lon: 0.0,
+            time_known: true,
+            placements,
+            ascendant: asc_sign as u16 * 1800 + 900, // mid-sign
+            midheaven: 0,
+        }
+    }
+
+    #[test]
+    fn essential_dignity_classical() {
+        assert_eq!(essential_dignity(Planet::Sun, 4), 5);     // Leo — domicile
+        assert_eq!(essential_dignity(Planet::Sun, 0), 4);     // Aries — exaltation
+        assert_eq!(essential_dignity(Planet::Sun, 10), -5);   // Aquarius — detriment (opp Leo)
+        assert_eq!(essential_dignity(Planet::Sun, 6), -4);    // Libra — fall (opp Aries)
+        assert_eq!(essential_dignity(Planet::Jupiter, 3), 4); // Jupiter exalted in Cancer
+        assert_eq!(essential_dignity(Planet::Mars, 0), 5);    // Mars rules Aries
+        assert_eq!(essential_dignity(Planet::Mercury, 0), 0); // peregrine
+    }
+
+    #[test]
+    fn reception_lifts_the_received_planet() {
+        // Mars in Cancer (the Moon's domicile). With the Moon present, Mars is
+        // received; with no Moon there is no host, so no lift.
+        let with_moon = chart(vec![pl(Planet::Mars, 3), pl(Planet::Moon, 2)], 2);
+        let without = chart(vec![pl(Planet::Mars, 3)], 2);
+        let a = faction_scores(&with_moon)[Planet::Mars.idx()];
+        let b = faction_scores(&without)[Planet::Mars.idx()];
+        assert!(a > b, "reception should lift Mars: {a} !> {b}");
+        assert_eq!(received_by(&with_moon, Planet::Mars), Some(Planet::Moon));
+        assert_eq!(mutual_reception_of(&with_moon, Planet::Mars), None);
+    }
+
+    #[test]
+    fn mutual_reception_is_symmetric_and_boosts() {
+        // Mars in Cancer + Moon in Aries — each sits in the other's domicile.
+        let c = chart(vec![pl(Planet::Mars, 3), pl(Planet::Moon, 0)], 8); // Asc Sagittarius → ruler Jupiter
+        assert_eq!(mutual_reception_of(&c, Planet::Mars), Some(Planet::Moon));
+        assert_eq!(mutual_reception_of(&c, Planet::Moon), Some(Planet::Mars));
+        let s = faction_scores(&c);
+        let solo = faction_scores(&chart(vec![pl(Planet::Mars, 3)], 8));
+        assert!(s[Planet::Mars.idx()] > solo[Planet::Mars.idx()], "mutual reception should lift Mars");
+    }
+
+    #[test]
+    fn options_are_ranked_and_eligibility_capped() {
+        // Asc Cancer → chart ruler Moon; Jupiter exalted in Cancer (worked example).
+        let c = chart(
+            vec![pl(Planet::Sun, 3), pl(Planet::Moon, 1), pl(Planet::Jupiter, 3)],
+            3,
+        );
+        let opts = faction_options(&c);
+        assert_eq!(opts.len(), 10);
+        for w in opts.windows(2) {
+            assert!(w[0].weight >= w[1].weight, "options must be sorted by weight");
+        }
+        let eligible = eligible_factions(&c);
+        assert_eq!(eligible.len(), DRAFT_CHOICES);
+        assert!(eligible.contains(&Planet::Jupiter), "Jupiter-in-Cancer should be draftable: {eligible:?}");
+    }
 }
