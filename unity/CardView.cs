@@ -12,6 +12,7 @@ public class CardView : MonoBehaviour
 
     Image _bg;
     Action<ulong> _onClick;
+    float _suppressClickUntil;
 
     static readonly string[] SuitGlyph = { "♥", "♠", "♦", "♣" };          // Cups, Swords, Pentacles, Wands
     static readonly string[] SuitName = { "Cups", "Swords", "Pentacles", "Wands" };
@@ -75,7 +76,17 @@ public class CardView : MonoBehaviour
         // Bench cards read as dimmed; Active/Defense at full strength.
         go.GetComponent<CanvasGroup>().alpha = loadout == Loadout.Bench ? 0.55f : 1f;
 
-        go.GetComponent<Button>().onClick.AddListener(() => view._onClick?.Invoke(view.CardId));
+        go.GetComponent<Button>().onClick.AddListener(() =>
+        {
+            if (Time.unscaledTime < view._suppressClickUntil) return; // swallow the click after a long-press
+            view._onClick?.Invoke(view.CardId);
+        });
+        // Long-press a card to read what it is, with an Oracle escalation.
+        LongPress.Attach(go, () =>
+        {
+            view._suppressClickUntil = Time.unscaledTime + 0.5f;
+            Tooltip.ShowForCard(c);
+        });
         view.SetSelected(false);
         return view;
     }

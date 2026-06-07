@@ -185,6 +185,8 @@ public class OraclePanel : MonoBehaviour
                 UIKit.Button(_content, $"{i + 1}.  {OracleLore.Codex[i].Title}", () => { _codexIndex = idx; _dirty = true; },
                     16, new Color(0.18f, 0.20f, 0.28f, 0.6f)).GetComponent<LayoutElement>().minHeight = 46;
             }
+            UIKit.Button(_content, "↻ Replay the first-run guide", () => { Close(); Tutorial.Instance?.Replay(); },
+                15, new Color(0.36f, 0.40f, 0.56f, 0.45f)).GetComponent<LayoutElement>().minHeight = 44;
             return;
         }
 
