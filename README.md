@@ -94,11 +94,16 @@ Drop the `unity/*.cs` scripts into your Unity (AR Foundation) project. Wiring:
   duel for its zone; when a second player queues the same zone the server spawns
   a `duel`, both phones open this panel, assign one card per lane, and
   `commit_duel` resolves best-of-3 to swing the zone.
-- **`Oracle`** on the AR rig — the in-world advisor. A top-right "✦ Oracle" button
-  gives an on-demand tip; it also surfaces cadence-capped nudges (a planet entering
-  a favorable zone, the weather turning to your suit, a held zone slipping, a fresh
-  reachable target) as toasts, with a Mute toggle. Pure client-side heuristics over
-  the public tables + your chart — no service required.
+- **`Oracle`** on the AR rig — the in-world advisor. It surfaces cadence-capped
+  nudges (a planet entering a favorable zone, the weather turning to your suit, a
+  held zone slipping, a fresh reachable target) as toasts, with a Mute toggle —
+  pure client-side heuristics, no service required. The top-right "✦ Oracle"
+  button opens:
+- **`OraclePanel`** + **`OracleLore`** on the AR rig — tips + chat + codex. An
+  instant heuristic tip, a free-text chat with Claude (a question → `ask_oracle`
+  with a derived context summary, never birth data; the reply streams back via
+  `oracle_reply`), and the browsable "Book of the Sky". Tips + codex work offline;
+  chat needs the companion service running to answer.
 - **`CollectionPanel`** on the AR rig — a "✦ Cards" launcher opens your whole
   collection; tap a card then a matching copy to **fuse** them (`combine_cards`),
   leveling it up. Card widgets show a card's `✦ Lv`. A "Trade ⇄" button opens:
@@ -136,7 +141,7 @@ token plumbing.
 | Card individuality & economy | Every `card` is a unique instance: starter cards are minted from your natal placements (`mint_deck`), and **any capture mints a fresh card from the live sky at that instant** (`chart::mint_from_sky` — its source body is the most-dignified transiting planet; its arc-minute is the literal second of minting). Copies of the same card **combine** to `level` up with gentle-plateau diminishing returns (`combat::level_mult`, ×1.0→×1.5 ceiling, applied in every siege & duel); cards move between players by **confirmed two-way trades** (`propose_trade` / `confirm_trade` / `cancel_trade`, both sides stake & re-validated at commit) |
 | Bots (always-on war) | `tick_sky` → `bot_raid` for unmanned factions |
 | Oracle (advisor) | client-side heuristic `OracleAdvisor` + `Oracle` — proactive nudges (Toast, cadence-capped + mutable) on transits / favorable weather / a slipping zone / a fresh target, and an on-demand tip. In-world oracle voice; reads only public tables + your local chart |
-| Oracle (chat agent) | `ask_oracle` (per-player cooldown; instant answer from `oracle_cache` on a repeat rules question, else queued) → a `feeder/`-style companion service reads `oracle_request`, asks Claude (tiered Haiku/Sonnet), and returns it via owner-gated `answer_oracle` → `oracle_reply` (caching generic answers for everyone). Only a derived chart/state summary is sent — never birth data. _Server plumbing landed; the TS service + client chat panel are the next pieces._ |
+| Oracle (chat agent) | `ask_oracle` (per-player cooldown; instant answer from `oracle_cache` on a repeat rules question, else queued) → a `feeder/`-style companion service reads `oracle_request`, asks Claude (tiered Haiku/Sonnet), and returns it via owner-gated `answer_oracle` → `oracle_reply` (caching generic answers for everyone). Only a derived chart/state summary is sent — never birth data. _Server plumbing + the client chat panel (`OraclePanel`) landed; the TS companion service is the remaining piece._ |
 
 ## Notes & accuracy
 

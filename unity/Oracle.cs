@@ -41,6 +41,14 @@ public class Oracle : MonoBehaviour
 
     public void ShowTip() => Toast.Show(OracleAdvisor.BestTip(CelestialPentacleConn.Instance), 6f);
 
+    /// The button opens the full panel (tips + chat + codex); without that
+    /// component attached it falls back to a one-shot toast tip.
+    void OpenPanel()
+    {
+        if (OraclePanel.Instance != null) OraclePanel.Instance.Open();
+        else ShowTip();
+    }
+
     public void ToggleMute()
     {
         Muted = !Muted;
@@ -130,7 +138,7 @@ public class Oracle : MonoBehaviour
         f.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
         f.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
-        var ask = UIKit.Button(row.transform, "✦ Oracle", ShowTip, 18,
+        var ask = UIKit.Button(row.transform, "✦ Oracle", OpenPanel, 18,
             new Color(0.50f, 0.40f, 0.66f, 0.50f));
         ask.GetComponent<LayoutElement>().minWidth = 150;
 
