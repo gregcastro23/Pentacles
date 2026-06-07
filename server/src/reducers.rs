@@ -4,10 +4,17 @@
 use crate::types::*;
 use crate::{chart, combat};
 use crate::tables::*;
-use spacetimedb::{reducer, Identity, ReducerContext, ScheduleAt, Table};
+use spacetimedb::{reducer, ReducerContext, ScheduleAt, Table, Timestamp};
 use std::time::Duration;
 
 const FLIP_THRESHOLD: i32 = 600;
+/// A live duel stalls if an opponent never commits. After this grace window the
+/// committed side may `claim_duel_timeout`, and the `tick_sky` sweep auto-resolves
+/// it regardless so the board never holds a zombie duel.
+const DUEL_GRACE_SECS: i64 = 120;
+/// Zone swing granted to a player who wins a duel by their opponent's forfeit
+/// (a flat walkover — less than a fought best-of-3, which adds a lane bonus).
+const DUEL_WALKOVER: i32 = 150;
 
 // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -312,9 +319,98 @@ fn lane_power(att: &Card, def: &Card) -> f32 {
     s * combat::suit_multiplier(att.suit, def.suit)
 }
 
+/// Claim a stalled duel: if your opponent never committed within the grace
+/// window, the committed side takes the zone by walkover. Either participant may
+/// call it (the no-show just hands over the win); the `tick_sky` sweep is the
+/// automatic backstop if neither client ever calls this.
+#[reducer]
+pub fn claim_duel_timeout(ctx: &ReducerContext, duel_id: u64) -> Result<(), String> {
+    let mut duel = ctx
+        .db
+        .duel()
+        .duel_id()
+        .find(&duel_id)
+        .ok_or_else(|| "no such duel".to_string())?;
+    if duel.state != DuelState::Active {
+        return Err("duel already resolved".into());
+    }
+    if duel.player_a != ctx.sender && duel.player_b != ctx.sender {
+        return Err("not your duel".into());
+    }
+    if elapsed_secs(ctx.timestamp, duel.updated_at) < DUEL_GRACE_SECS {
+        return Err("duel is still within its grace period".into());
+    }
+    if !timeout_resolve(ctx, &mut duel) {
+        return Err("both sides committed — the resolver will settle it".into());
+    }
+    ctx.db.duel().duel_id().update(duel);
+    Ok(())
+}
+
+/// Scheduled backstop (driven by `tick_sky`): auto-resolve any duel left stalled
+/// past the grace window so a phone that quietly drops never freezes the zone.
+fn sweep_stale_duels(ctx: &ReducerContext) {
+    for mut duel in ctx.db.duel().iter() {
+        if duel.state != DuelState::Active {
+            continue;
+        }
+        if elapsed_secs(ctx.timestamp, duel.updated_at) < DUEL_GRACE_SECS {
+            continue;
+        }
+        if timeout_resolve(ctx, &mut duel) {
+            ctx.db.duel().duel_id().update(duel);
+        }
+    }
+}
+
+/// Settle a stalled duel by forfeit. Returns false (no mutation) when it isn't
+/// actually resolvable this way — i.e. both sides already committed, which is
+/// `commit_duel`'s job, not a timeout's.
+fn timeout_resolve(ctx: &ReducerContext, duel: &mut Duel) -> bool {
+    match (duel.a_committed, duel.b_committed) {
+        (true, false) => award_walkover(ctx, duel, true),
+        (false, true) => award_walkover(ctx, duel, false),
+        (false, false) => {
+            // Nobody showed — close the duel without moving the zone meter.
+            duel.lanes_a = 0;
+            duel.lanes_b = 0;
+            duel.winner = None;
+            duel.state = DuelState::Resolved;
+            duel.updated_at = ctx.timestamp;
+            true
+        }
+        (true, true) => false,
+    }
+}
+
+/// Award the committed side a walkover: a clean 3–0 and a flat zone swing.
+fn award_walkover(ctx: &ReducerContext, duel: &mut Duel, a_wins: bool) -> bool {
+    let (winner, faction) = if a_wins {
+        duel.lanes_a = 3;
+        duel.lanes_b = 0;
+        (duel.player_a, duel.faction_a)
+    } else {
+        duel.lanes_a = 0;
+        duel.lanes_b = 3;
+        (duel.player_b, duel.faction_b)
+    };
+    duel.winner = Some(winner);
+    duel.state = DuelState::Resolved;
+    duel.updated_at = ctx.timestamp;
+    apply_control(ctx, duel.zone_id, faction, DUEL_WALKOVER);
+    true
+}
+
+/// Whole seconds between two timestamps (`later − earlier`), floored at 0.
+fn elapsed_secs(later: Timestamp, earlier: Timestamp) -> i64 {
+    let micros = later.to_micros_since_unix_epoch() - earlier.to_micros_since_unix_epoch();
+    (micros / 1_000_000).max(0)
+}
+
 // ── Scheduled & owner feeds ───────────────────────────────────────────────
 
-/// Fires on the schedule: decays held zones and lets unmanned factions raid.
+/// Fires on the schedule: decays held zones, wheels the living sky, sweeps
+/// stalled duels, and lets unmanned factions raid.
 #[reducer]
 pub fn tick_sky(ctx: &ReducerContext, _timer: SkyTickTimer) {
     for mut z in ctx.db.zone().iter() {
@@ -327,6 +423,8 @@ pub fn tick_sky(ctx: &ReducerContext, _timer: SkyTickTimer) {
             ctx.db.zone().zone_id().update(z);
         }
     }
+    recompute_star_zones(ctx); // A — de-freeze the sky before bots read hints
+    sweep_stale_duels(ctx);    // B — auto-resolve abandoned duels
     bot_raid(ctx);
 }
 
@@ -389,6 +487,39 @@ fn apply_control(ctx: &ReducerContext, zone_id: u8, attacker: Planet, delta: i32
         }
         z.updated_at = ctx.timestamp;
         ctx.db.zone().zone_id().update(z);
+    }
+}
+
+/// Canonical zone bucket: a 0..360° angle mapped into the eleven zones exactly
+/// the way the feeder maps a planet's ecliptic longitude
+/// (`min(10, floor(lon/360 * 11))`), so stars and planets share one zone basis.
+fn zone_for_lon(lon_deg: f64) -> u8 {
+    let l = lon_deg.rem_euclid(360.0);
+    ((l / 360.0) * 11.0).floor().clamp(0.0, 10.0) as u8
+}
+
+/// Greenwich Mean Sidereal Time in degrees, 0..360 (game-grade IAU 1982 series).
+/// This is the sky's rotation angle — what makes the catalogue *live*.
+fn gmst_deg(ts: Timestamp) -> f64 {
+    let unix_secs = ts.to_micros_since_unix_epoch() as f64 / 1_000_000.0;
+    let jd = unix_secs / 86_400.0 + 2_440_587.5; // Unix epoch → Julian Day
+    let d = jd - 2_451_545.0; // days since J2000.0
+    (280.460_618_37 + 360.985_647_366_29 * d).rem_euclid(360.0)
+}
+
+/// Living sky (A): recompute each star's `region_hint` from its RA and the
+/// current sidereal time, so the catalogue wheels through the zones once per
+/// sidereal day instead of sitting frozen on its seed hint. A star's zone is its
+/// hour angle from the prime meridian (`GMST − RA`), bucketed canonically.
+/// Writes only rows whose zone actually changed (≈ one cross per star / ~2 h).
+fn recompute_star_zones(ctx: &ReducerContext) {
+    let gmst = gmst_deg(ctx.timestamp);
+    for mut s in ctx.db.star_node().iter() {
+        let zone = zone_for_lon(gmst - s.ra);
+        if zone != s.region_hint {
+            s.region_hint = zone;
+            ctx.db.star_node().hip_id().update(s);
+        }
     }
 }
 

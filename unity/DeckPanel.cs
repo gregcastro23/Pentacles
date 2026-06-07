@@ -109,4 +109,11 @@ public class DeckPanel : MonoBehaviour
         _selected.Clear();
         foreach (var v in _views.Values) v.SetSelected(false);
     }
+
+    /// Card-granted feedback, folded in from the retired DeckUI stub. The strip
+    /// itself re-renders via the Card.OnInsert handler wired in Build(); this is
+    /// just the toast announcing the new card.
+    public void OnCardGranted(Card card) =>
+        Debug.Log($"[Deck] +{(card.IsTrump ? "TRUMP " : "")}{card.Suit} rank {card.Rank} " +
+                  $"(atk {card.Attack} / hp {card.Health})");
 }

@@ -20,14 +20,13 @@ Pentacles/
 │   ├── SkyMath.cs                  # ecliptic ↔ equatorial ↔ horizontal ↔ world
 │   ├── PentacleGrid.cs             # the eleven-zone geometry (horizon-anchored)
 │   ├── SkyRenderer.cs              # P0 AR renderer: stars + Pentacle + tap-to-attack
-│   ├── DeckUI.cs                   # minimal hand stub
 │   ├── FactionData.cs              # faction glyphs/colours/doctrines (GDD §03)
 │   ├── OnboardingController.cs     # birth → TopFactions → CreatePlayer (flow logic)
 │   ├── OnboardingUI.cs             # drop-in birth-form + faction-select screen
 │   ├── UIKit.cs                    # shared programmatic-uGUI helpers
 │   ├── CardView.cs                 # one Tarot card widget
 │   ├── CombatPreview.cs            # client-side strike-power estimate
-│   ├── DeckPanel.cs                # live hand strip + card selection
+│   ├── DeckPanel.cs                # live hand strip + selection + card-granted toast
 │   ├── BattlePanel.cs              # star-target overlay: strike + result
 │   └── DuelPanel.cs                # live PvP "Lane Skirmish" duel
 └── feeder/                     # real-ephemeris cron (Bun)

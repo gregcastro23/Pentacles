@@ -70,7 +70,7 @@ public class CelestialPentacleConn : MonoBehaviour
                 SkyRenderer.Instance?.OnStarCaptured(newS);
         };
         conn.Db.Zone.OnUpdate += (_, _, zone) => SkyRenderer.Instance?.OnZoneChanged(zone);
-        conn.Db.Card.OnInsert += (_, card) => DeckUI.Instance?.OnCardGranted(card);
+        conn.Db.Card.OnInsert += (_, card) => DeckPanel.Instance?.OnCardGranted(card);
     }
 
     void HandleConnectError(System.Exception e) =>
@@ -99,4 +99,8 @@ public class CelestialPentacleConn : MonoBehaviour
 
     public void CommitDuel(ulong duelId, ulong lane0, ulong lane1, ulong lane2) =>
         Conn.Reducers.CommitDuel(duelId, lane0, lane1, lane2);
+
+    // Claim a stalled duel whose opponent never committed. The binding appears
+    // after you re-run `spacetime generate` for the new claim_duel_timeout reducer.
+    public void ClaimDuelTimeout(ulong duelId) => Conn.Reducers.ClaimDuelTimeout(duelId);
 }
