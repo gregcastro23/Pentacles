@@ -8,13 +8,9 @@
 //!   types.rs    — enums + value structs (Planet, Suit, Placement, BattleLog …)
 //!   tables.rs   — the database schema (players, charts, cards, map state …)
 //!   chart.rs    — faction scoring + deterministic deck minting from a chart
-//!   combat.rs   — the suit triangle + auto-siege resolver
+//!   combat.rs   — environmental suit weather + auto-siege resolver
 //!   reducers.rs — the only writers: create_player, resolve_star_battle,
 //!                 tick_sky, enqueue_duel, push_ephemeris, init
-//!
-//! NOTE: this is a faithful scaffold against the modern SpacetimeDB Rust API.
-//! Run `spacetime build` and adjust any method signatures that drifted in your
-//! installed version (find/update/delete arg-by-ref vs by-value is the usual one).
 
 mod chart;
 mod combat;

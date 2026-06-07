@@ -11,7 +11,6 @@ namespace SpacetimeDB.Types
     public enum CombatModel
     {
         LaneSkirmish,
-        SpreadDuel,
         AutoSiege,
     }
 }

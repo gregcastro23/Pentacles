@@ -58,6 +58,9 @@ public class CollectionPanel : MonoBehaviour
             conn.Conn.Db.Card.OnInsert += (_, __) => _dirty = true;
             conn.Conn.Db.Card.OnUpdate += (_, __, ___) => _dirty = true;
             conn.Conn.Db.Card.OnDelete += (_, __) => _dirty = true;
+            conn.Conn.Db.DeckSlot.OnInsert += (_, __) => _dirty = true;
+            conn.Conn.Db.DeckSlot.OnUpdate += (_, __, ___) => _dirty = true;
+            conn.Conn.Db.DeckSlot.OnDelete += (_, __) => _dirty = true;
             _subscribed = true;
         }
         Rebuild();

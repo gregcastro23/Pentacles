@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pentacles — Web App Client</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,400&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="client.css">
+</head>
+<body>
+
+  <!-- Background camera feed & star field fallback -->
+  <video id="ar-video-bg" autoplay playsinline></video>
+  <canvas id="canvas-stars-bg"></canvas>
+
+  <!-- ===================== ONBOARDING OVERLAY ===================== -->
+  <div id="onboarding-overlay" class="overlay-fullscreen">
+    <div class="onboarding-window">
+      <h2 style="font-family: var(--display); font-size: 28px; color: var(--gold-bright); text-align: center;">Forge Natal Deck</h2>
+      <p style="font-size: 13px; color: var(--dim); text-align: center; margin-top: -10px;">Enter your birth details to calculate your chart, join a planetary faction, and mint your procedural cards.</p>
+      
+      <div id="onboarding-step-1" style="display: flex; flex-direction: column; gap: 16px;">
+        <div class="form-group">
+          <label>Seeker Name / Handle</label>
+          <input type="text" id="ob-handle" class="form-input" placeholder="e.g. ArcturusSeeker" value="CelestialSeeker">
+        </div>
+        <div class="form-group">
+          <label>Birth Date</label>
+          <input type="date" id="ob-date" class="form-input" value="1998-05-14">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Birth Time</label>
+            <input type="time" id="ob-time" class="form-input" value="14:30">
+          </div>
+          <div class="form-group">
+            <label>Location (City)</label>
+            <input type="text" id="ob-loc" class="form-input" placeholder="e.g. New York, US" value="New York, US">
+          </div>
+        </div>
+        <button class="btn" style="margin-top: 10px;" onclick="calculateNatalOnboarding()">✦ Calculate Placements</button>
+      </div>
+
+      <div id="onboarding-step-2" style="display: none; flex-direction: column; gap: 16px;">
+        <h3 class="title-orn">Planetary Alignments</h3>
+        <p style="font-size: 13px; color: var(--dim);">Your chart's dignity scores recommendation choices. Choose your planetary faction:</p>
+        
+        <div id="faction-picks-grid" class="faction-choices-grid">
+          <!-- Populated by JS -->
+        </div>
+
+        <button id="faction-confirm-btn" class="btn" disabled onclick="confirmFactionOnboarding()">Confirm Allegiance & Mint Deck ⚔</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== MAIN APPLICATION SHELL ===================== -->
+  <div class="app-shell">
+    
+    <!-- LEFT SIDEBAR: STANDINGS & WORLD STATE -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h2>✦ Sky Dashboard</h2>
+        <div class="spinner" id="sync-spinner" style="display:none"></div>
+      </div>
+      
+      <div class="sidebar-content">
+        <!-- Factions Leaderboard -->
+        <div class="panel">
+          <h3 class="title-orn" style="margin-bottom: 12px;">Faction Standings</h3>
+          <div id="leaderboard-container" class="standings-list">
+            <!-- Rendered by JS -->
+          </div>
+        </div>
+
+        <!-- Zones Weather & Control -->
+        <div class="panel" style="flex: 1; display: flex; flex-direction: column; min-height: 250px;">
+          <h3 class="title-orn" style="margin-bottom: 12px;">Zones weather & ownership</h3>
+          <div id="zones-list-container" style="overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 10px;">
+            <!-- Rendered by JS -->
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- CENTER VIEWPORT: THE PENTACLE VIEW -->
+    <main class="viewport-center">
+      <!-- HUD Top Bar -->
+      <div class="hud-bar">
+        <div id="player-banner" style="display:flex; flex-direction:column; text-shadow:0 2px 4px #000; pointer-events:auto;">
+          <!-- Loaded dynamically -->
+        </div>
+        <div class="hud-btn-group">
+          <button class="btn" onclick="toggleSound()">🔊 Sound: ON</button>
+          <button class="btn" onclick="toggleARMode()">📹 Toggle AR Mode</button>
+        </div>
+      </div>
+
+      <!-- The Pentacle SVGs wrapper -->
+      <div class="map-container" id="sky-map-wrapper">
+        <svg viewBox="0 0 600 600" class="pentacle-svg">
+          <defs>
+            <radialGradient id="sky-halo" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="rgba(22, 32, 58, 0.4)" />
+              <stop offset="100%" stop-color="rgba(5, 6, 12, 0.0)" />
+            </radialGradient>
+          </defs>
+          
+          <circle cx="300" cy="300" r="250" fill="url(#sky-halo)" />
+
+          <!-- The Eleven Zones clickable boundaries -->
+          <!-- 5 ARC-HOUSES -->
+          <path id="zone-shape-0" class="zone-shape" d="M300,50 L356.1,222.8 L537.8,222.8 A250,250 0 0,0 300,50 Z" onclick="selectZone(0)" />
+          <path id="zone-shape-1" class="zone-shape" d="M537.8,222.8 L390.8,329.5 L447,502.3 A250,250 0 0,0 537.8,222.8 Z" onclick="selectZone(1)" />
+          <path id="zone-shape-2" class="zone-shape" d="M447,502.3 L300,395.5 L153,502.3 A250,250 0 0,0 447,502.3 Z" onclick="selectZone(2)" />
+          <path id="zone-shape-3" class="zone-shape" d="M153,502.3 L209.2,329.5 L62.2,222.8 A250,250 0 0,0 153,502.3 Z" onclick="selectZone(3)" />
+          <path id="zone-shape-4" class="zone-shape" d="M62.2,222.8 L243.9,222.8 L300,50 A250,250 0 0,0 62.2,222.8 Z" onclick="selectZone(4)" />
+
+          <!-- 5 SPIRES -->
+          <path id="zone-shape-5" class="zone-shape" d="M300,50 L243.9,222.8 L356.1,222.8 Z" fill="rgba(241,219,161,0.05)" onclick="selectZone(5)" />
+          <path id="zone-shape-6" class="zone-shape" d="M537.8,222.8 L356.1,222.8 L390.8,329.5 Z" fill="rgba(241,219,161,0.05)" onclick="selectZone(6)" />
+          <path id="zone-shape-7" class="zone-shape" d="M447,502.3 L390.8,329.5 L300,395.5 Z" fill="rgba(241,219,161,0.05)" onclick="selectZone(7)" />
+          <path id="zone-shape-8" class="zone-shape" d="M153,502.3 L300,395.5 L209.2,329.5 Z" fill="rgba(241,219,161,0.05)" onclick="selectZone(8)" />
+          <path id="zone-shape-9" class="zone-shape" d="M62.2,222.8 L209.2,329.5 L243.9,222.8 Z" fill="rgba(241,219,161,0.05)" onclick="selectZone(9)" />
+
+          <!-- CENTRAL CROWN -->
+          <path id="zone-shape-10" class="zone-shape" d="M356.1,222.8 L390.8,329.5 L300,395.5 L209.2,329.5 L243.9,222.8 Z" fill="rgba(216,180,106,0.1)" onclick="selectZone(10)" />
+
+          <!-- The static pentagram star and circle overlays -->
+          <circle cx="300" cy="300" r="250" fill="none" stroke="var(--gold)" stroke-width="2.2" pointer-events="none" />
+          <polygon points="300,50 447,502.3 62.2,222.8 537.8,222.8 153,502.3" fill="none" stroke="var(--gold)" stroke-width="2.2" stroke-linejoin="round" pointer-events="none" />
+
+          <text x="300" y="304" text-anchor="middle" fill="var(--gold)" font-family="Space Grotesk" font-size="10" letter-spacing="1">CROWN</text>
+
+          <!-- Dynamic overlay layer for Star Nodes -->
+          <g id="stars-nodes-g"></g>
+        </svg>
+      </div>
+
+      <!-- BOTTOM PANEL: ACTIVE HAND STRIP -->
+      <footer class="hud-card-footer">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <h3 class="title-orn">Active Hand (Select to Strike)</h3>
+          <span id="active-hand-count" style="font-size:11px; color:var(--dim)">0 / 8 Selected</span>
+        </div>
+        <div id="active-deck-strip" class="cards-scroller">
+          <!-- Populated by JS -->
+        </div>
+      </footer>
+    </main>
+
+    <!-- RIGHT SIDEBAR: INVENTORY, FUSION & DUELS LOGS -->
+    <aside class="sidebar right">
+      <div class="tab-headers">
+        <button class="tab-btn active" onclick="switchTab('tab-collection')">Cards (Fusion)</button>
+        <button class="tab-btn" onclick="switchTab('tab-duel')">Duel Console</button>
+      </div>
+      
+      <div class="sidebar-content" style="padding-top:0">
+        <!-- Collection Panel -->
+        <div id="tab-collection" class="tab-pane active">
+          <p style="font-size:12px; color:var(--dim)">Cycle loadouts (Active / Defense / Bench). Tap a card and then a matching copy to fuse and level it up.</p>
+          <div id="collection-grid" style="display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; overflow-y:auto; flex:1;">
+            <!-- Populated by JS -->
+          </div>
+          <div id="fuse-controls-bar" style="display:none; padding:10px; background:rgba(216, 180, 106, 0.05); border:1px dashed var(--gold); border-radius:3px; justify-content:space-between; align-items:center;">
+            <span id="fuse-label" style="font-size:11px; color:var(--gold-bright)">Fusing...</span>
+            <button class="btn" style="padding:6px 12px;" onclick="cancelFuse()">Cancel</button>
+          </div>
+        </div>
+
+        <!-- Duel & Auto-Siege Console -->
+        <div id="tab-duel" class="tab-pane">
+          <!-- Strike target Details -->
+          <div class="panel" style="display:flex; flex-direction:column; gap:10px">
+            <h4 style="font-size:12px; color:var(--gold-bright);">Combat Preview</h4>
+            <div id="duel-target-details" style="font-size:13px; color:var(--dim)">
+              Select a star in the sky map to coordinate a siege target.
+            </div>
+            <button id="strike-btn" class="btn" style="width:100%" disabled onclick="initiateSiegeStrike()">Initiate Auto-Siege ⚔</button>
+          </div>
+
+          <!-- Real-Time Combat Logs -->
+          <div style="display:flex; flex-direction:column; gap:8px; flex:1;">
+            <h4 class="title-orn">Combat Log</h4>
+            <div id="combat-log-console" class="battle-console">
+              <span class="log-line system">Waiting for target selection...</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+  <!-- ===================== SIGN IN / SWITCH ACCOUNT MODAL ===================== -->
+  <div id="signin-modal" class="overlay-fullscreen" style="display: none; background: rgba(5, 6, 12, 0.95); z-index: 101;">
+    <div class="onboarding-window" style="width: 440px;">
+      <h2 style="font-family: var(--display); font-size: 26px; color: var(--gold-bright); text-align: center; margin-bottom: 5px;">Astral Sign In</h2>
+      <p style="font-size: 12px; color: var(--dim); text-align: center; margin-top: 0;">Access or manage your seeker profiles and credentials.</p>
+      
+      <!-- Modal Tabs -->
+      <div class="tab-headers" style="margin-bottom: 15px;">
+        <button id="modal-tab-select" class="tab-btn active" onclick="switchModalTab('select')">Profiles</button>
+        <button id="modal-tab-key" class="tab-btn" onclick="switchModalTab('key')">Astral Key</button>
+      </div>
+
+      <!-- Select Profile Pane -->
+      <div id="modal-pane-select" class="tab-pane active" style="gap: 12px; display: flex; flex-direction: column;">
+        <div id="profiles-list-container" style="max-height: 160px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
+          <!-- Loaded dynamically -->
+        </div>
+        
+        <div style="display: flex; gap: 10px; margin-top: 10px;">
+          <button class="btn" style="flex: 1;" onclick="createNewSeekerProfile()">Create New Seeker ✦</button>
+          <button class="btn" style="flex: 1; border-color: var(--dim); color: var(--dim);" onclick="closeSignInModal()">Close</button>
+        </div>
+      </div>
+
+      <!-- Import/Export Astral Key Pane -->
+      <div id="modal-pane-key" class="tab-pane" style="gap: 12px; display: none; flex-direction: column;">
+        <div class="form-group">
+          <label>Your Astral Key (Export/Backup)</label>
+          <textarea id="astral-key-textarea" class="form-input" style="height: 80px; font-family: var(--mono); font-size: 11px; resize: none; background: #070910;" readonly onclick="this.select()"></textarea>
+          <span style="font-size: 10px; color: var(--dim); margin-top: 2px;">Click to select and copy this key to transfer your profile.</span>
+        </div>
+        
+        <div class="form-group">
+          <label>Import Astral Key</label>
+          <input type="text" id="astral-key-import-input" class="form-input" placeholder="Paste Astral Key here..." style="font-family: var(--mono); font-size: 11px;">
+        </div>
+
+        <div style="display: flex; gap: 10px;">
+          <button class="btn" style="flex: 1;" onclick="importAstralKey()">Load Astral Key ⚡</button>
+          <button class="btn" style="flex: 1; border-color: var(--dim); color: var(--dim);" onclick="closeSignInModal()">Close</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="client.js"></script>
+  <script>
+    // ---- WEB CLIENT UI RENDERING BINDINGS ----
+
+    // Background stars canvas animation
+    (function() {
+      const c = document.getElementById("canvas-stars-bg");
+      const ctx = c.getContext("2d");
+      let w, h, stars = [];
+
+      function size() {
+        w = c.width = window.innerWidth;
+        h = c.height = window.innerHeight;
+        stars = Array.from({ length: 150 }, () => ({
+          x: Math.random() * w,
+          y: Math.random() * h,
+          r: Math.random() * 1.2 + 0.2,
+          a: Math.random() * 0.5 + 0.1,
+          tw: Math.random() * 0.02 + 0.005,
+          ph: Math.random() * Math.PI * 2
+        }));
+      }
+
+      function draw(t) {
+        ctx.clearRect(0, 0, w, h);
+        stars.forEach(s => {
+          const alpha = s.a * (0.6 + 0.4 * Math.sin(t * s.tw + s.ph));
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(232, 225, 205, ${alpha})`;
+          ctx.fill();
+        });
+        requestAnimationFrame(draw);
+      }
+
+      size();
+      window.addEventListener("resize", size);
+      requestAnimationFrame(draw);
+    })();
+
+    // Onboarding Calculation
+    function calculateNatalOnboarding() {
+      const handle = document.getElementById("ob-handle").value.trim();
+      const date = document.getElementById("ob-date").value;
+      const time = document.getElementById("ob-time").value;
+      const loc = document.getElementById("ob-loc").value;
+
+      if (!handle) { alert("Enter a seeker name!"); return; }
+      
+      // Calculate deterministic local placements.
+      const chart = deriveLocalNatalChart(`${date} ${time} ${loc}`);
+      const picks = scoreFactions(chart);
+      
+      // Populate choices Grid
+      const grid = document.getElementById("faction-picks-grid");
+      grid.innerHTML = "";
+      picks.forEach(pick => {
+        const name = PLANET_NAMES[pick.id];
+        const glyph = PLANET_GLYPHS[pick.id];
+        const color = PLANET_COLORS[pick.id];
+        
+        grid.innerHTML += `
+          <div class="faction-choice-card" onclick="selectFactionPick(${pick.id})" id="faction-pick-${pick.id}">
+            <div class="faction-choice-sigil" style="color: ${color}">${glyph}</div>
+            <div class="faction-choice-name">${name}</div>
+            <div style="font-size:9px; color:var(--dim); margin-top:4px">Score: ${pick.score}</div>
+          </div>
+        `;
+      });
+
+      // Show step 2
+      document.getElementById("onboarding-step-1").style.display = "none";
+      document.getElementById("onboarding-step-2").style.display = "flex";
+      
+      // Save temp chart
+      window.tempChart = chart;
+      window.tempHandle = handle;
+      synth.playSelect();
+    }
+
+    window.chosenFaction = null;
+    function selectFactionPick(factionId) {
+      document.querySelectorAll(".faction-choice-card").forEach(el => el.classList.remove("selected"));
+      document.getElementById(`faction-pick-${factionId}`).classList.add("selected");
+      window.chosenFaction = factionId;
+      document.getElementById("faction-confirm-btn").removeAttribute("disabled");
+      synth.playClick();
+    }
+
+    function confirmFactionOnboarding() {
+      if (window.chosenFaction === null) return;
+      state.registerPlayer(window.tempHandle, window.chosenFaction, window.tempChart);
+      
+      // Dismiss overlay
+      document.getElementById("onboarding-overlay").style.display = "none";
+      synth.playFanfare();
+      
+      // Full UI Render
+      renderAll();
+    }
+
+    // App Navigation tabs
+    function switchTab(tabId) {
+      document.querySelectorAll(".tab-btn").forEach((btn, idx) => {
+        btn.classList.toggle("active", (idx === 0 && tabId === 'tab-collection') || (idx === 1 && tabId === 'tab-duel'));
+      });
+      document.querySelectorAll(".tab-pane").forEach(pane => {
+        pane.classList.toggle("active", pane.id === tabId);
+      });
+      synth.playClick();
+    }
+
+    // Sound toggle
+    function toggleSound() {
+      const isMuted = synth.toggleMute();
+      event.target.innerText = isMuted ? "🔇 Sound: OFF" : "🔊 Sound: ON";
+      event.target.classList.toggle("active", !isMuted);
+    }
+
+    // AR Mode Camera Toggle
+    let arActive = false;
+    async function toggleARMode() {
+      arActive = await toggleARCamera();
+      const btn = event.target;
+      btn.innerText = arActive ? "📹 Camera: ON" : "📹 Toggle AR Mode";
+      btn.classList.toggle("active", arActive);
+    }
+
+    // Render Web Card Component HTML
+    function buildCardHTML(c, loadout, isSelectionMode = false) {
+      const isSelected = state.selectedCards.has(c.card_id);
+      const selClass = isSelected ? "selected" : "";
+      const isTrump = c.is_trump;
+      const detailText = isTrump ? `Trump ${TRUMP_ARCANA[c.source_body]}` : `${SIGN_GLYPHS[c.sign_idx]} ${SIGN_NAMES[c.sign_idx]}`;
+      const actionFn = isSelectionMode ? `toggleActiveSelection(${c.card_id})` : `handleCollectionCardClick(${c.card_id})`;
+      const badge = loadout === "active" ? `<span class="web-card-chip">Active</span>` : (loadout === "defense" ? `<span class="web-card-chip defense">Defense</span>` : "");
+
+      return `
+        <div class="web-card ${c.suit} ${selClass} ${isTrump ? 'trump' : ''} ${c.inverted ? 'inverted' : ''}" onclick="${actionFn}">
+          ${badge}
+          <div class="web-card-glyph" style="color: ${PLANET_COLORS[c.source_body]};">${SUIT_GLYPHS[c.suit]}</div>
+          <div class="web-card-title">${c.title}</div>
+          <div class="web-card-subtitle">${detailText} ${c.inverted ? '(rev)' : ''}</div>
+          <div class="web-card-sep"></div>
+          <div class="web-card-stats">
+            ⚔ ${c.attack} &nbsp; ♥ ${c.health}<br>
+            🛡 ${c.armour} &nbsp; ⏳ ${c.cooldown_ms}
+          </div>
+          <div class="web-card-footnote" style="color: ${PLANET_COLORS[c.source_body]};">
+            ${PLANET_GLYPHS[c.source_body]} Lv ${c.level}
+          </div>
+        </div>
+      `;
+    }
+
+    // Render Active selection hand (scroller strip)
+    function renderActiveHand() {
+      const container = document.getElementById("active-deck-strip");
+      container.innerHTML = "";
+
+      const activeSlots = state.deck.filter(d => d.loadout === "active");
+      activeSlots.forEach(slot => {
+        const c = state.collection.find(card => card.card_id === slot.card_id);
+        if (c) {
+          container.innerHTML += buildCardHTML(c, "active", true);
+        }
+      });
+
+      document.getElementById("active-hand-count").innerText = `${state.selectedCards.size} / ${activeSlots.length} Selected`;
+    }
+
+    // Toggle active card selection
+    function toggleActiveSelection(cardId) {
+      if (state.selectedCards.has(cardId)) {
+        state.selectedCards.delete(cardId);
+      } else {
+        state.selectedCards.add(cardId);
+      }
+      renderActiveHand();
+      updateCombatPreview();
+      synth.playClick();
+    }
+
+    // Render Faction Leaderboard
+    function renderLeaderboard() {
+      const container = document.getElementById("leaderboard-container");
+      container.innerHTML = "";
+
+      state.leaderboard.forEach((item, index) => {
+        const name = PLANET_NAMES[item.id];
+        const glyph = PLANET_GLYPHS[item.id];
+        const isMe = state.player && state.player.faction === item.id;
+        
+        container.innerHTML += `
+          <div class="standings-item ${isMe ? 'me' : ''}">
+            <span>#${index + 1} &nbsp; ${glyph} ${name}</span>
+            <span>${item.score} pts</span>
+          </div>
+        `;
+      });
+    }
+
+    // Render Zones List
+    function renderZonesList() {
+      const container = document.getElementById("zones-list-container");
+      container.innerHTML = "";
+
+      // Local weather rotation based on the same suit elements as the server clock.
+      const weathers = ["Clear Sky", "Meteor Shower", "Solar Flare", "Aether Eclipse", "Galactic Wind"];
+
+      state.map.forEach(zone => {
+        const ownerStr = zone.owner !== null ? `${PLANET_GLYPHS[zone.owner]} ${PLANET_NAMES[zone.owner]}` : "Neutral";
+        const zoneName = zone.kind === "house" ? `House ${zone.zone_id}` : (zone.kind === "spire" ? `Spire ${zone.zone_id}` : "Crown Zenith");
+        
+        // Compute meter fills
+        const valPercent = ((zone.control + 1000) / 2000) * 100;
+        const fillCol = zone.owner !== null ? PLANET_COLORS[zone.owner] : "#6a6c84";
+        const wIdx = (zone.zone_id + Math.floor(state.seasonDegree / 72)) % weathers.length;
+        
+        container.innerHTML += `
+          <div class="panel" style="padding: 10px; cursor: pointer; border-color: ${state.selectedZone === zone.zone_id ? 'var(--gold-bright)' : 'var(--line)'}" onclick="selectZone(${zone.zone_id})">
+            <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:bold;">
+              <span>${zoneName}</span>
+              <span style="color: ${fillCol}">${ownerStr}</span>
+            </div>
+            <div style="font-size:10px; color:var(--dim); margin-top:2px;">
+              Weather: ${weathers[wIdx]} · Favored Suit: ${SIGN_SUITS[zone.zone_id % 12].toUpperCase()}
+            </div>
+            <div class="control-meter-bar">
+              <div class="control-meter-fill" style="width: ${valPercent}%; background: ${fillCol};"></div>
+            </div>
+          </div>
+        `;
+      });
+    }
+
+    // Select zone click
+    function selectZone(zoneId) {
+      state.selectedZone = zoneId;
+      state.selectedStar = null;
+      
+      // Update zone SVG paths selections
+      for (let i = 0; i < 11; i++) {
+        const el = document.getElementById(`zone-shape-${i}`);
+        if (el) el.classList.toggle("selected", i === zoneId);
+      }
+      
+      renderZonesList();
+      renderStarsNodes();
+      updateCombatPreview();
+      synth.playSelect();
+    }
+
+    // Render Stars inside SVG Pentacle
+    function renderStarsNodes() {
+      const container = document.getElementById("stars-nodes-g");
+      container.innerHTML = "";
+
+      const zonePoints = [
+        [300, 100], [420, 240], [380, 420], [220, 420], [180, 240], // Houses
+        [280, 140], [400, 200], [360, 360], [240, 360], [200, 200], // Spires
+        [300, 280] // Crown
+      ];
+
+      state.map.forEach(zone => {
+        const pt = zonePoints[zone.zone_id] || [300, 300];
+        
+        zone.stars.forEach((star, idx) => {
+          // Displace stars slightly so they don't stack
+          const dx = Math.cos(idx * 2) * 22;
+          const dy = Math.sin(idx * 2) * 22;
+          const x = pt[0] + dx;
+          const y = pt[1] + dy;
+          const fillCol = star.held_by !== null ? PLANET_COLORS[star.held_by] : "var(--gold-bright)";
+          const isSelected = state.selectedStar && state.selectedStar.hip_id === star.hip_id;
+          const size = Math.max(3, Math.round(7 - star.magnitude));
+
+          const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+          circle.setAttribute("cx", x);
+          circle.setAttribute("cy", y);
+          circle.setAttribute("r", size);
+          circle.setAttribute("fill", fillCol);
+          circle.setAttribute("class", `star-node-dot ${isSelected ? 'selected' : ''}`);
+          circle.style.color = fillCol;
+          
+          circle.onclick = (e) => {
+            e.stopPropagation();
+            selectStar(zone.zone_id, star);
+          };
+
+          container.appendChild(circle);
+        });
+      });
+    }
+
+    // Select star click
+    function selectStar(zoneId, star) {
+      state.selectedZone = zoneId;
+      state.selectedStar = star;
+      
+      // Toggle shapes selections
+      for (let i = 0; i < 11; i++) {
+        const el = document.getElementById(`zone-shape-${i}`);
+        if (el) el.classList.toggle("selected", i === zoneId);
+      }
+      
+      renderZonesList();
+      renderStarsNodes();
+      updateCombatPreview();
+      switchTab("tab-duel");
+      synth.playSelect();
+    }
+
+    // Update Duel combat details
+    function updateCombatPreview() {
+      const details = document.getElementById("duel-target-details");
+      const btn = document.getElementById("strike-btn");
+
+      if (!state.selectedStar) {
+        details.innerHTML = "Select a star in the sky map to coordinate a siege target.";
+        btn.setAttribute("disabled", "true");
+        return;
+      }
+
+      const zone = state.map.find(z => z.zone_id === state.selectedZone);
+      const star = state.selectedStar;
+      const zoneName = zone.kind === "house" ? `House ${zone.zone_id}` : (zone.kind === "spire" ? `Spire ${zone.zone_id}` : "Crown Zenith");
+      const ownerStr = star.held_by !== null ? `${PLANET_GLYPHS[star.held_by]} ${PLANET_NAMES[star.held_by]}` : "Neutral";
+      const suitSign = SIGN_SUITS[zone.zone_id % 12];
+      
+      // Get contesters list
+      const contesters = getStarContesters(zone, star);
+      const contestersNames = contesters.map(id => {
+        const isMe = state.player && id === state.player.faction;
+        const name = `${PLANET_GLYPHS[id]} ${PLANET_NAMES[id]}`;
+        return isMe ? `<strong>${name} (You)</strong>` : name;
+      }).join(", ");
+
+      // Calculate selected strike power
+      let totalAtk = 0;
+      let handCount = 0;
+      state.selectedCards.forEach(id => {
+        const c = state.collection.find(card => card.card_id === id);
+        if (c) {
+          totalAtk += c.attack;
+          handCount++;
+        }
+      });
+
+      // If no cards selected, default to all Active
+      if (handCount === 0) {
+        state.deck.filter(d => d.loadout === "active").forEach(slot => {
+          const c = state.collection.find(card => card.card_id === slot.card_id);
+          if (c) totalAtk += c.attack;
+        });
+      }
+
+      details.innerHTML = `
+        <strong>Target Node:</strong> ${star.name} (${star.magnitude} mag)<br>
+        <strong>Zone Location:</strong> ${zoneName} (Favored Suit: ${suitSign.toUpperCase()})<br>
+        <strong>Current Node Owner:</strong> ${ownerStr}<br>
+        <strong>Round Contesters (${contesters.length}):</strong> ${contestersNames}<br>
+        <strong>Attack Cards:</strong> ${handCount > 0 ? handCount : 'All Active'} (${totalAtk} Base Power)
+      `;
+
+      btn.removeAttribute("disabled");
+    }
+
+    // Execute Auto-resolve strike siege
+    function initiateSiegeStrike() {
+      if (!state.selectedStar) return;
+      
+      const zone = state.map.find(z => z.zone_id === state.selectedZone);
+      const star = state.selectedStar;
+      const zoneElement = SIGN_SUITS[zone.zone_id % 12];
+
+      const contesters = getStarContesters(zone, star);
+      const teams = [];
+
+      contesters.forEach(factionId => {
+        let cards = [];
+        const isPlayer = state.player && factionId === state.player.faction;
+
+        if (isPlayer) {
+          if (state.selectedCards.size > 0) {
+            state.selectedCards.forEach(id => {
+              const c = state.collection.find(card => card.card_id === id);
+              if (c) cards.push(JSON.parse(JSON.stringify(c)));
+            });
+          } else {
+            state.deck.filter(d => d.loadout === "active").forEach(slot => {
+              const c = state.collection.find(card => card.card_id === slot.card_id);
+              if (c) cards.push(JSON.parse(JSON.stringify(c)));
+            });
+          }
+        } else {
+          // Generate 3 defender cards if this faction is current owner, else 2 attacker cards
+          const isOwner = factionId === star.held_by;
+          const count = isOwner ? 3 : 2;
+          for (let i = 0; i < count; i++) {
+            const degree = 4 + i * 2 + Math.floor(Math.random() * 3);
+            cards.push(state.createCard(factionId, false, degree, 10, 0, false, pipRank(zone.zone_id % 12, degree), zone.zone_id % 12));
+          }
+        }
+
+        teams.push({
+          faction: factionId,
+          name: PLANET_NAMES[factionId],
+          glyph: PLANET_GLYPHS[factionId],
+          color: PLANET_COLORS[factionId],
+          isPlayer: isPlayer,
+          cards: cards
+        });
+      });
+
+      // Play Sound
+      synth.playStrike();
+
+      // Resolve Auto-Siege with all participating contesters
+      const result = runAutoSiege(teams, zoneElement);
+
+      // Render Console Logs
+      const consoleEl = document.getElementById("combat-log-console");
+      consoleEl.innerHTML = "";
+      
+      // Stream logs with a delay for visual impact
+      let logIdx = 0;
+      function streamLog() {
+        if (logIdx < result.logs.length) {
+          const item = result.logs[logIdx];
+          consoleEl.innerHTML += `<div class="log-line ${item.type}">${item.text}</div>`;
+          consoleEl.scrollTop = consoleEl.scrollHeight;
+          logIdx++;
+          setTimeout(streamLog, 80);
+        } else {
+          // Log finished - apply state changes on success
+          if (result.winnerFactionId !== null) {
+            star.held_by = result.winnerFactionId;
+            
+            const isMyFaction = state.player && result.winnerFactionId === state.player.faction;
+            if (isMyFaction) {
+              const delta = 200;
+              zone.control = Math.min(1000, zone.control + delta);
+              if (zone.control >= 600) {
+                zone.owner = state.player.faction;
+              }
+              synth.playFanfare();
+            } else {
+              // Shift control away from player or towards winner
+              const delta = 150;
+              if (zone.owner === state.player.faction) {
+                zone.control = Math.max(-1000, zone.control - delta);
+                if (zone.control <= -200) {
+                  zone.owner = result.winnerFactionId;
+                }
+              } else {
+                if (zone.owner === null) {
+                  zone.control = -delta;
+                  zone.owner = result.winnerFactionId;
+                } else if (zone.owner === result.winnerFactionId) {
+                  zone.control = Math.max(-1000, zone.control - delta);
+                } else {
+                  zone.control = Math.max(-1000, Math.min(1000, zone.control - delta));
+                  if (Math.abs(zone.control) < 100) {
+                    zone.owner = null;
+                  }
+                }
+              }
+            }
+          }
+          
+          // Clear contesters list on capture so next battle gets fresh random set
+          star.contesters = null;
+
+          state.recalculateLeaderboard();
+          state.save();
+          renderAll();
+        }
+      }
+
+      streamLog();
+    }
+
+    // Render Fusions and Deck Collection Tab
+    function renderCollection() {
+      const container = document.getElementById("collection-grid");
+      container.innerHTML = "";
+
+      state.collection.forEach(c => {
+        const slot = state.deck.find(d => d.card_id === c.card_id);
+        const loadout = slot ? slot.loadout : "bench";
+        container.innerHTML += buildCardHTML(c, loadout, false);
+      });
+    }
+
+    // Tap card on collection panel
+    window.tempFuseCard = null;
+    function handleCollectionCardClick(cardId) {
+      const c = state.collection.find(card => card.card_id === cardId);
+      if (!c) return;
+
+      if (window.tempFuseCard === null) {
+        // Tapped first copy - prepare for fusion
+        window.tempFuseCard = cardId;
+        
+        const fuseBar = document.getElementById("fuse-controls-bar");
+        const label = document.getElementById("fuse-label");
+        fuseBar.style.display = "flex";
+        label.innerHTML = `Pick matching copy of <strong>${c.title}</strong> to fuse:`;
+        synth.playClick();
+      } else {
+        // Tapped second copy - execute fuse if matches
+        if (window.tempFuseCard === cardId) {
+          cancelFuse();
+          return;
+        }
+
+        const first = state.collection.find(card => card.card_id === window.tempFuseCard);
+        if (first.suit === c.suit && first.rank === c.rank && first.is_trump === c.is_trump) {
+          // Match - Fuse keep stronger
+          const keepId = first.level >= c.level ? first.card_id : c.card_id;
+          const consumeId = keepId === first.card_id ? c.card_id : first.card_id;
+          
+          state.fuseCards(keepId, consumeId);
+          cancelFuse();
+          renderAll();
+        } else {
+          // Mismatch - re-anchor to new card
+          window.tempFuseCard = cardId;
+          const label = document.getElementById("fuse-label");
+          label.innerHTML = `Pick matching copy of <strong>${c.title}</strong> to fuse:`;
+          synth.playSelect();
+        }
+      }
+    }
+
+    function cancelFuse() {
+      window.tempFuseCard = null;
+      document.getElementById("fuse-controls-bar").style.display = "none";
+      synth.playSelect();
+    }
+
+    // Helper: double tap / hold cycles loadouts
+    // Since uGUI client double tap cycles, let's implement long-press or double click on Web Collection Cards
+    // In our Web client, let's make double-clicking a collection card cycle its loadout!
+    window.addEventListener("dblclick", (e) => {
+      const cardEl = e.target.closest(".web-card");
+      if (cardEl) {
+        // Parse Action function from onclick: handleCollectionCardClick(id) -> id
+        const onclickStr = cardEl.getAttribute("onclick");
+        if (onclickStr && onclickStr.includes("handleCollectionCardClick")) {
+          const match = onclickStr.match(/\d+/);
+          if (match) {
+            const cardId = parseInt(match[0]);
+            state.cycleLoadout(cardId);
+            renderAll();
+          }
+        }
+      }
+    });
+
+    // Populate user profile info in banner
+    function renderUserBanner() {
+      const banner = document.getElementById("player-banner");
+      if (!state.player) return;
+      const fIdx = state.player.faction;
+      banner.innerHTML = `
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="font-size: 14px; font-weight: bold; color: #fff;">${state.player.handle}</span>
+          <span style="font-size: 10px; color: var(--gold); cursor:pointer; text-decoration:underline;" onclick="openSignInModal()">[Switch]</span>
+        </div>
+        <span style="font-size: 10px; color: ${PLANET_COLORS[fIdx]}; letter-spacing: 0.05em; text-transform: uppercase;">
+          Faction: ${PLANET_GLYPHS[fIdx]} ${PLANET_NAMES[fIdx]}
+        </span>
+      `;
+    }
+
+    // ---- ASTRAL SIGN IN & MULTI-PROFILE HANDLERS ----
+    function openSignInModal() {
+      document.getElementById("signin-modal").style.display = "flex";
+      switchModalTab('select');
+      renderProfilesList();
+      
+      const astralKeyTextarea = document.getElementById("astral-key-textarea");
+      if (state.player && state.player.handle) {
+        const rawSave = localStorage.getItem(`pentacles_save_${state.player.handle}`);
+        if (rawSave) {
+          try {
+            const base64 = btoa(unescape(encodeURIComponent(rawSave)));
+            astralKeyTextarea.value = base64;
+          } catch(e) {
+            astralKeyTextarea.value = "Error generating Astral Key.";
+          }
+        }
+      } else {
+        astralKeyTextarea.value = "No active seeker profile to backup.";
+      }
+      
+      document.getElementById("astral-key-import-input").value = "";
+      synth.playSelect();
+    }
+
+    function closeSignInModal() {
+      document.getElementById("signin-modal").style.display = "none";
+      synth.playSelect();
+    }
+
+    function switchModalTab(tabId) {
+      document.getElementById("modal-tab-select").classList.toggle("active", tabId === 'select');
+      document.getElementById("modal-tab-key").classList.toggle("active", tabId === 'key');
+      
+      document.getElementById("modal-pane-select").style.display = tabId === 'select' ? 'flex' : 'none';
+      document.getElementById("modal-pane-key").style.display = tabId === 'key' ? 'flex' : 'none';
+      synth.playClick();
+    }
+
+    function renderProfilesList() {
+      const container = document.getElementById("profiles-list-container");
+      container.innerHTML = "";
+      
+      const list = state.getProfilesList();
+      if (list.length === 0) {
+        container.innerHTML = `<div style="font-size:12px; color:var(--dim); text-align:center; padding:20px;">No saved astral profiles. Create a new seeker below!</div>`;
+        return;
+      }
+      
+      list.forEach(handle => {
+        const isActive = state.player && state.player.handle === handle;
+        const profileRaw = localStorage.getItem(`pentacles_save_${handle}`);
+        let subtitle = "Incomplete Profile";
+        
+        if (profileRaw) {
+          try {
+            const data = JSON.parse(profileRaw);
+            const factionId = data.player.faction;
+            subtitle = `Faction: ${PLANET_GLYPHS[factionId]} ${PLANET_NAMES[factionId]}`;
+          } catch(e) {}
+        }
+        
+        container.innerHTML += `
+          <div class="standings-item ${isActive ? 'me' : ''}" style="cursor:pointer; margin-bottom: 6px;" onclick="selectProfile('${handle}')">
+            <div style="display:flex; flex-direction:column; gap:2px;">
+              <span style="font-weight:bold; color:#fff;">${handle} ${isActive ? '✦' : ''}</span>
+              <span style="font-size:10px; color:var(--dim);">${subtitle}</span>
+            </div>
+            <button class="btn" style="padding:4px 8px; font-size:9px; border-color:var(--wands); color:var(--wands); background:transparent;" onclick="deleteProfileClick('${handle}', event)">Discard</button>
+          </div>
+        `;
+      });
+    }
+
+    function selectProfile(handle) {
+      state.switchProfile(handle);
+      closeSignInModal();
+      renderAll();
+      synth.playFanfare();
+    }
+
+    function deleteProfileClick(handle, event) {
+      event.stopPropagation();
+      if (confirm(`Are you sure you want to discard seeker profile: "${handle}"? This action is permanent.`)) {
+        state.deleteProfile(handle);
+        
+        const loaded = state.load();
+        if (!loaded) {
+          closeSignInModal();
+          document.getElementById("onboarding-overlay").style.display = "flex";
+        } else {
+          renderProfilesList();
+          renderAll();
+        }
+        synth.playClick();
+      }
+    }
+
+    function createNewSeekerProfile() {
+      closeSignInModal();
+      document.getElementById("onboarding-overlay").style.display = "flex";
+      document.getElementById("onboarding-step-1").style.display = "flex";
+      document.getElementById("onboarding-step-2").style.display = "none";
+      
+      document.getElementById("ob-handle").value = "NewSeeker";
+      synth.playSelect();
+    }
+
+    function importAstralKey() {
+      const input = document.getElementById("astral-key-import-input").value.trim();
+      if (!input) {
+        alert("Please paste an Astral Key!");
+        return;
+      }
+      
+      try {
+        const decoded = decodeURIComponent(escape(atob(input)));
+        const data = JSON.parse(decoded);
+        if (data.player && data.player.handle) {
+          localStorage.setItem(`pentacles_save_${data.player.handle}`, decoded);
+          state.addProfileToList(data.player.handle);
+          state.switchProfile(data.player.handle);
+          
+          closeSignInModal();
+          renderAll();
+          synth.playFanfare();
+        } else {
+          alert("Invalid Astral Key structure.");
+        }
+      } catch(e) {
+        console.error("Import failed", e);
+        alert("Failed to decode Astral Key. Make sure you copied the entire key string.");
+      }
+    }
+
+    // Master render call
+    function renderAll() {
+      renderActiveHand();
+      renderLeaderboard();
+      renderZonesList();
+      renderStarsNodes();
+      renderCollection();
+      renderUserBanner();
+    }
+
+    // Init Page setup
+    document.addEventListener("DOMContentLoaded", () => {
+      const loaded = state.load();
+      if (loaded && state.player) {
+        // Load direct to board
+        document.getElementById("onboarding-overlay").style.display = "none";
+        renderAll();
+      }
+
+      // Periodically trigger state tick updates every 15s (decay & bot raids)
+      setInterval(() => {
+        if (state.player) {
+          state.tick();
+          renderLeaderboard();
+          renderZonesList();
+          renderStarsNodes();
+        }
+      }, 15000);
+    });
+  </script>
+</body>
+</html>

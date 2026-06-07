@@ -23,7 +23,7 @@ pub enum Loadout { Active, Defense, Bench }
 
 /// Combat model in play (season-level switch; resolver serves all three).
 #[derive(SpacetimeType, Clone, Copy, PartialEq, Eq, Debug)]
-pub enum CombatModel { LaneSkirmish, SpreadDuel, AutoSiege }
+pub enum CombatModel { LaneSkirmish, AutoSiege }
 
 /// Lifecycle of a live 3-lane duel.
 #[derive(SpacetimeType, Clone, Copy, PartialEq, Eq, Debug)]
