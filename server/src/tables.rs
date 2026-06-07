@@ -182,6 +182,61 @@ pub struct Duel {
     pub updated_at: Timestamp,
 }
 
+// ── Oracle (Claude companion) ───────────────────────────────────────────────
+
+/// A player's question for the Oracle. The companion service watches these,
+/// asks Claude, and answers via `answer_oracle`. Public so the asker's client
+/// sees the reply. `context` is a derived chart/state summary — never birth data.
+#[spacetimedb::table(name = oracle_request, public)]
+#[derive(Clone)]
+pub struct OracleRequest {
+    #[primary_key]
+    #[auto_inc]
+    pub request_id: u64,
+    pub asker: Identity,
+    pub question: String,
+    pub context: String,   // derived summary the client attaches; no private birth data
+    pub cacheable: bool,   // rules/lore (cacheable) vs live strategy (not)
+    pub qhash: u64,        // normalized-question hash, for the answer cache
+    pub answered: bool,
+    pub created_at: Timestamp,
+}
+
+/// The Oracle's answer to a request (1:1 by request_id).
+#[spacetimedb::table(name = oracle_reply, public)]
+#[derive(Clone)]
+pub struct OracleReply {
+    #[primary_key]
+    pub request_id: u64,
+    pub asker: Identity,
+    pub text: String,
+    pub model: String,     // which tier answered: "haiku", "sonnet", or "cache"
+    pub created_at: Timestamp,
+}
+
+/// Cache of generic Q&A (rules/lore), keyed by normalized-question hash, so a
+/// repeated question is answered instantly without troubling Claude.
+#[spacetimedb::table(name = oracle_cache, public)]
+#[derive(Clone)]
+pub struct OracleCache {
+    #[primary_key]
+    pub qhash: u64,
+    pub question: String,
+    pub text: String,
+    pub model: String,
+    pub created_at: Timestamp,
+}
+
+/// Per-player Oracle rate state, backing the ask cooldown (private).
+#[spacetimedb::table(name = oracle_rate)]
+#[derive(Clone)]
+pub struct OracleRate {
+    #[primary_key]
+    pub identity: Identity,
+    pub last_at: Timestamp,
+    pub count: u32,
+}
+
 // ── Scheduled tick ────────────────────────────────────────────────────────
 
 /// Schedule table: SpacetimeDB calls `tick_sky` per row at the cadence below.

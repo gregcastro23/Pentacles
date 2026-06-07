@@ -11,6 +11,8 @@ const FLIP_THRESHOLD: i32 = 600;
 /// A card stops gaining from combines past this level — the bonus is already near
 /// its +50% ceiling, so further copies would barely move it.
 const MAX_CARD_LEVEL: u8 = 6;
+/// Minimum seconds between a player's Oracle questions (gentle anti-spam / cost guard).
+const ORACLE_COOLDOWN_SECS: i64 = 4;
 /// A live duel stalls if an opponent never commits. After this grace window the
 /// committed side may `claim_duel_timeout`, and the `tick_sky` sweep auto-resolves
 /// it regardless so the board never holds a zombie duel.
@@ -740,6 +742,158 @@ pub fn push_ephemeris(
         ctx.db.ephemeris().body().update(row);
     } else {
         ctx.db.ephemeris().insert(row);
+    }
+    Ok(())
+}
+
+// ── Oracle (Claude companion) ───────────────────────────────────────────────
+
+/// Normalized FNV-1a hash of a question (trimmed, whitespace-collapsed,
+/// lowercased) for the answer cache, so trivially-different phrasings of the same
+/// rules question hit the same entry.
+fn question_hash(q: &str) -> u64 {
+    let norm = q.split_whitespace().collect::<Vec<_>>().join(" ").to_lowercase();
+    let mut h: u64 = 0xcbf29ce484222325;
+    for b in norm.as_bytes() {
+        h ^= *b as u64;
+        h = h.wrapping_mul(0x100000001b3);
+    }
+    h
+}
+
+/// Ask the Oracle a free-text question. Rate-limited per player. A cacheable
+/// (rules/lore) question already seen is answered instantly from the cache;
+/// otherwise it is queued for the companion service. `context` is a derived
+/// chart/state summary the client attaches — never private birth data.
+#[reducer]
+pub fn ask_oracle(
+    ctx: &ReducerContext,
+    question: String,
+    context: String,
+    cacheable: bool,
+) -> Result<(), String> {
+    let q = question.trim();
+    if q.is_empty() {
+        return Err("ask the Oracle something".into());
+    }
+    if q.len() > 500 {
+        return Err("that question is too long for the Oracle".into());
+    }
+
+    // Per-player cooldown — a rejected attempt does not reset the clock.
+    if let Some(rate) = ctx.db.oracle_rate().identity().find(&ctx.sender) {
+        if elapsed_secs(ctx.timestamp, rate.last_at) < ORACLE_COOLDOWN_SECS {
+            return Err("the Oracle is still considering your last question".into());
+        }
+        ctx.db.oracle_rate().identity().update(OracleRate {
+            identity: ctx.sender,
+            last_at: ctx.timestamp,
+            count: rate.count + 1,
+        });
+    } else {
+        ctx.db.oracle_rate().insert(OracleRate {
+            identity: ctx.sender,
+            last_at: ctx.timestamp,
+            count: 1,
+        });
+    }
+
+    let qhash = question_hash(q);
+
+    // Cache hit (rules/lore only): answer immediately, no service round-trip.
+    if cacheable {
+        if let Some(hit) = ctx.db.oracle_cache().qhash().find(&qhash) {
+            let req = ctx.db.oracle_request().insert(OracleRequest {
+                request_id: 0,
+                asker: ctx.sender,
+                question: q.to_string(),
+                context,
+                cacheable,
+                qhash,
+                answered: true,
+                created_at: ctx.timestamp,
+            });
+            ctx.db.oracle_reply().insert(OracleReply {
+                request_id: req.request_id,
+                asker: ctx.sender,
+                text: hit.text,
+                model: "cache".into(),
+                created_at: ctx.timestamp,
+            });
+            return Ok(());
+        }
+    }
+
+    // Miss: queue for the companion service to answer via `answer_oracle`.
+    ctx.db.oracle_request().insert(OracleRequest {
+        request_id: 0,
+        asker: ctx.sender,
+        question: q.to_string(),
+        context,
+        cacheable,
+        qhash,
+        answered: false,
+        created_at: ctx.timestamp,
+    });
+    Ok(())
+}
+
+/// The companion service (authenticated as the module owner) returns Claude's
+/// answer. Owner-gated. Writes the reply, marks the request answered, and — when
+/// the question was cacheable — populates the shared cache.
+#[reducer]
+pub fn answer_oracle(
+    ctx: &ReducerContext,
+    request_id: u64,
+    text: String,
+    model: String,
+) -> Result<(), String> {
+    let cfg = ctx
+        .db
+        .game_config()
+        .id()
+        .find(&0)
+        .ok_or_else(|| "not initialised".to_string())?;
+    if ctx.sender != cfg.owner {
+        return Err("owner-only reducer".into());
+    }
+    let mut req = ctx
+        .db
+        .oracle_request()
+        .request_id()
+        .find(&request_id)
+        .ok_or_else(|| "no such request".to_string())?;
+    if req.answered {
+        return Ok(()); // idempotent — already answered
+    }
+    req.answered = true;
+    let cacheable = req.cacheable;
+    let qhash = req.qhash;
+    let question = req.question.clone();
+    let asker = req.asker;
+    ctx.db.oracle_request().request_id().update(req);
+
+    ctx.db.oracle_reply().insert(OracleReply {
+        request_id,
+        asker,
+        text: text.clone(),
+        model: model.clone(),
+        created_at: ctx.timestamp,
+    });
+
+    if cacheable {
+        let entry = OracleCache {
+            qhash,
+            question,
+            text,
+            model,
+            created_at: ctx.timestamp,
+        };
+        if ctx.db.oracle_cache().qhash().find(&qhash).is_some() {
+            ctx.db.oracle_cache().qhash().update(entry);
+        } else {
+            ctx.db.oracle_cache().insert(entry);
+        }
     }
     Ok(())
 }
