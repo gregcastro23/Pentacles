@@ -24,6 +24,16 @@ const TRANSIT_BUFF: f32 = 1.5;
 const CROWN_BUFF: f32 = 1.25;
 const JUPITER_SNOWBALL: f32 = 0.15;
 
+// Card veterancy (GDD §06): survivors of a battle earn XP and level up.
+const XP_PER_SURVIVAL: u32 = 10;
+const MAX_LEVEL: u8 = 10;
+
+// Pluto attrition (GDD §03/§07): a zone's death charge lifts Pluto's capture
+// power there. Each stack lives ATTRITION_TTL ticks; the bonus is capped.
+const ATTRITION_TTL: u64 = 30; // ~5 min at the 10s tick
+const ATTRITION_SCALE: f32 = 0.03;
+const ATTRITION_MAX: f32 = 0.6;
+
 // ── Lifecycle ─────────────────────────────────────────────────────────────
 
 /// Runs once on first publish (and after a clear). `ctx.sender` is the owner.
@@ -36,6 +46,7 @@ pub fn init(ctx: &ReducerContext) {
             season_degree: 0,
             seeded: false,
             collection_cap: DEFAULT_COLLECTION_CAP,
+            tick_count: 0,
         });
     }
 
@@ -144,13 +155,16 @@ pub fn resolve_star_battle(
         .find(&hip_id)
         .ok_or_else(|| "no such star".to_string())?;
 
-    // Gather the attacker's played cards (validate ownership). Retrograde cards
-    // resolve as their defensive variant via card_stat().
+    // Gather the attacker's played cards (validate ownership), keeping a
+    // parallel id list for XP. Retrograde cards resolve as their defensive
+    // variant via card_stat().
     let mut attacker: Vec<combat::CardStat> = Vec::new();
+    let mut attacker_ids: Vec<u64> = Vec::new();
     for cid in &log.plays {
         if let Some(c) = ctx.db.card().card_id().find(cid) {
             if c.owner == ctx.sender {
                 attacker.push(card_stat(&c));
+                attacker_ids.push(c.card_id);
             }
         }
     }
@@ -169,13 +183,19 @@ pub fn resolve_star_battle(
         scale_defense(&mut defender, combat::faction_def_mult(h));
     }
 
-    let (won, margin) = combat::resolve_star(&attacker, &defender);
-    if won {
-        let prev = star.held_by;
+    // Round-based attrition (GDD §06).
+    let outcome = combat::simulate_battle(&attacker, &defender);
+    // Survivors earn XP; the fallen (both sides) feed the zone's attrition.
+    for &i in &outcome.attacker_survivors {
+        grant_xp(ctx, attacker_ids[i], XP_PER_SURVIVAL);
+    }
+    feed_attrition(ctx, star.region_hint, outcome.destroyed);
+
+    if outcome.attacker_won {
         star.held_by = Some(player.faction);
         ctx.db.star_node().hip_id().update(star.clone());
-        // Capture pressure, amplified by transit / Crown / snowball (GDD §07).
-        let base = combat::control_delta(star.magnitude, margin) as f32;
+        // Capture pressure, amplified by transit / Crown / snowball / attrition.
+        let base = combat::control_delta(star.magnitude, outcome.margin) as f32;
         let delta = (base * capture_multiplier(ctx, player.faction, star.region_hint)) as i32;
         apply_control(ctx, star.region_hint, player.faction, delta);
         // Spoils of the capture: mint one Sky-Drop card (GDD §04).
@@ -187,7 +207,6 @@ pub fn resolve_star_battle(
             star.region_hint,
             star.magnitude,
         );
-        let _ = prev;
     }
 
     let mut player = player;
@@ -315,11 +334,20 @@ fn resolve_duel(ctx: &ReducerContext, duel: &mut Duel) {
     let bm = combat::faction_atk_mult(duel.faction_b);
     let mut a = 0u8;
     let mut b = 0u8;
+    let mut winners: Vec<u64> = Vec::new(); // surviving lane victors → XP
+    let mut destroyed = 0u32;               // lane losers fall → attrition
     for lane in 0..3usize {
         let ca = ctx.db.card().card_id().find(&duel.a_cards[lane]);
         let cb = ctx.db.card().card_id().find(&duel.b_cards[lane]);
         if let (Some(x), Some(y)) = (ca, cb) {
-            if lane_power(&x, &y, am) >= lane_power(&y, &x, bm) { a += 1; } else { b += 1; }
+            if lane_power(&x, &y, am) >= lane_power(&y, &x, bm) {
+                a += 1;
+                winners.push(x.card_id);
+            } else {
+                b += 1;
+                winners.push(y.card_id);
+            }
+            destroyed += 1; // the losing lane card is destroyed
         }
     }
     duel.lanes_a = a;
@@ -331,6 +359,10 @@ fn resolve_duel(ctx: &ReducerContext, duel: &mut Duel) {
         (duel.player_b, duel.faction_b)
     };
     duel.winner = Some(winner);
+    for cid in &winners {
+        grant_xp(ctx, *cid, XP_PER_SURVIVAL);
+    }
+    feed_attrition(ctx, duel.zone_id, destroyed);
     let base = (150 + a.max(b) as i32 * 60) as f32;
     let delta = (base * capture_multiplier(ctx, faction, duel.zone_id)) as i32;
     apply_control(ctx, duel.zone_id, faction, delta);
@@ -373,6 +405,7 @@ pub fn tick_sky(ctx: &ReducerContext, _timer: SkyTickTimer) {
     }
     bot_raid(ctx);
     advance_season(ctx);
+    purge_attrition(ctx);
 }
 
 /// Owner-gated real-ephemeris feed. A trusted off-module job computes precise
@@ -549,6 +582,8 @@ fn mint_sky_drop(
         source_body,
         inverted: false,
         is_trump: false,
+        level: 1,
+        xp: 0,
     });
     ctx.db.deck_slot().insert(DeckSlot {
         slot_id: 0,
@@ -562,6 +597,56 @@ fn mint_sky_drop(
 /// Effective strength of a card's flat stats (mirrors `combat::card_strength`).
 fn card_power(attack: u16, health: u16, armour: u16) -> f32 {
     attack as f32 + health as f32 * 0.5 + armour as f32 * 0.4
+}
+
+/// XP needed to clear the current level.
+fn xp_to_next(level: u8) -> u32 {
+    level as u32 * 100
+}
+
+/// Award XP to a surviving card; each level grants a small permanent stat bump
+/// (GDD §06). Levels are capped to bound power creep.
+fn grant_xp(ctx: &ReducerContext, card_id: u64, amount: u32) {
+    if let Some(mut c) = ctx.db.card().card_id().find(&card_id) {
+        c.xp = c.xp.saturating_add(amount);
+        while c.level < MAX_LEVEL && c.xp >= xp_to_next(c.level) {
+            c.xp -= xp_to_next(c.level);
+            c.level += 1;
+            c.attack = c.attack.saturating_add(1);
+            c.health = c.health.saturating_add(2);
+            c.armour = c.armour.saturating_add(1);
+        }
+        ctx.db.card().card_id().update(c);
+    }
+}
+
+/// Record a zone's battle deaths as a Pluto attrition stack (GDD §03/§07).
+fn feed_attrition(ctx: &ReducerContext, zone: u8, destroyed: u32) {
+    if destroyed == 0 {
+        return;
+    }
+    let tick = ctx.db.game_config().id().find(&0).map(|c| c.tick_count).unwrap_or(0);
+    ctx.db.attrition().insert(Attrition {
+        id: 0,
+        zone_id: zone,
+        amount: destroyed,
+        expires_tick: tick + ATTRITION_TTL,
+    });
+}
+
+/// Drop attrition stacks whose lifetime has elapsed (called each sky tick).
+fn purge_attrition(ctx: &ReducerContext) {
+    let tick = ctx.db.game_config().id().find(&0).map(|c| c.tick_count).unwrap_or(0);
+    let expired: Vec<u64> = ctx
+        .db
+        .attrition()
+        .iter()
+        .filter(|a| a.expires_tick <= tick)
+        .map(|a| a.id)
+        .collect();
+    for id in &expired {
+        ctx.db.attrition().id().delete(id);
+    }
 }
 
 /// Flat combat stats for a card. A retrograde card is its **defensive variant**
@@ -652,6 +737,18 @@ fn capture_multiplier(ctx: &ReducerContext, faction: Planet, zone: u8) -> f32 {
         m *= 1.0 + JUPITER_SNOWBALL * held as f32;
     }
 
+    // Pluto attrition — the zone's live death charge lifts its captures.
+    if faction == Planet::Pluto {
+        let charge: u32 = ctx
+            .db
+            .attrition()
+            .iter()
+            .filter(|a| a.zone_id == zone)
+            .map(|a| a.amount)
+            .sum();
+        m *= 1.0 + (ATTRITION_SCALE * charge as f32).min(ATTRITION_MAX);
+    }
+
     m
 }
 
@@ -660,6 +757,7 @@ fn capture_multiplier(ctx: &ReducerContext, faction: Planet, zone: u8) -> f32 {
 /// holds are halved (winners keep a head-start edge), never wiped.
 fn advance_season(ctx: &ReducerContext) {
     let Some(mut cfg) = ctx.db.game_config().id().find(&0) else { return };
+    cfg.tick_count = cfg.tick_count.wrapping_add(1);
     let next = cfg.season_degree + 1;
     if next >= 360 {
         cfg.season_degree = 0;

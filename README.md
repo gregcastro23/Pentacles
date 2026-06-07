@@ -113,12 +113,12 @@ token plumbing.
 | GDD section | Where it lives |
 | --- | --- |
 | §02 Natal chart → faction | `unity/ChartCalculator.cs` + server `chart::faction_scores` (ruler ×3, luminaries ×2, angular/stellium +1.5; top-3 check in `create_player`) |
-| §03 Faction doctrines | `Planet::biased_suit` (all 10) · `combat::faction_atk_mult`/`faction_def_mult` (Sun/Mars/Saturn) · `decay_rate` (Saturn/Moon) · Jupiter snowball in `capture_multiplier` |
+| §03 Faction doctrines | `Planet::biased_suit` (all 10) · `combat::faction_atk_mult`/`faction_def_mult` (Sun/Mars/Saturn) · `decay_rate` (Saturn/Moon) · Jupiter snowball & Pluto attrition in `capture_multiplier` |
 | §04 Deck generation | `chart::mint_deck` — degree→rank, minute→health, dignity×, court cards, `Planet::hero_trump` + card names |
 | §04 Sky Drops | `mint_sky_drop` — a capture mints a card (magnitude→tier, transiting planet→suit), power-capped, `GameConfig.collection_cap` overflow |
 | §05 Eleven zones | `unity/PentacleGrid.cs` (geometry) + server `init` (5 houses / 5 spires / 1 crown) + `zone_neighbors` adjacency graph |
-| §06 Tarot combat | `resolve_star_battle` (Auto-Siege) · `enqueue_duel`/`commit_duel` (live Lane Skirmish) · `combat::suit_multiplier` (Wands→Swords→Pentacles, Cups support) · `card_stat` retrograde variant |
-| §07 Star → zone control | `resolve_star_battle` + `apply_control` (single-sided 0..1000 meter, flip at the zero-crossing) · `capture_multiplier` (transit ×1.5, Crown ×1.25, Jupiter snowball) |
+| §06 Tarot combat | `combat::simulate_battle` (round-based attrition: cards die, survivors heal & earn XP via `grant_xp`) · `resolve_star_battle` (Auto-Siege) · `enqueue_duel`/`commit_duel` (Lane Skirmish) · `combat::suit_multiplier` · `card_stat` retrograde variant |
+| §07 Star → zone control | `resolve_star_battle` + `apply_control` (single-sided 0..1000 meter, flip at the zero-crossing) · `capture_multiplier` (transit ×1.5, Crown ×1.25, Jupiter snowball, Pluto attrition via the `attrition` table) |
 | §07 Great Wheel | `tick_sky` → `advance_season` (1°/tick, 30° sign ingress, 360° soft-reset) |
 | §08 AR & ephemeris | `unity/SkyMath.cs` + `SkyRenderer.cs` (P0) · `feeder/` + `push_ephemeris` |
 | Bots (always-on war) | `tick_sky` → `bot_raid` for unmanned factions |
@@ -145,6 +145,11 @@ token plumbing.
   (×1.5), Crown dominion (×1.25) and Jupiter's snowball; faction attack/defense
   modifiers and the retrograde defensive variant also feed the resolver. Every
   knob and its default is catalogued in **GDD §13 · Balance & Tuning**.
-- **Schema note** — `card` now carries a `name` and `game_config` a
-  `collection_cap`; after `spacetime publish`, re-run `spacetime generate` so the
-  Unity bindings pick them up.
+- **Round combat & veterancy** — battles resolve over rounds (`simulate_battle`):
+  cards are destroyed when out-damaged, survivors heal each round, and cards that
+  live earn XP and level up (permanent stat bumps, `level`/`xp` on `card`). The
+  fallen feed Pluto's per-zone `attrition` charge, which lifts its captures there.
+- **Schema note** — `card` now carries `name`, `level` and `xp`; `game_config`
+  gains `collection_cap` and `tick_count`; there's a new `attrition` table. After
+  `spacetime publish`, re-run `spacetime generate` so the Unity bindings pick
+  them up.

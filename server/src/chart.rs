@@ -166,6 +166,8 @@ pub fn mint_deck(
             source_body: p.body,
             inverted: p.retrograde,
             is_trump: false,
+            level: 1,
+            xp: 0,
         });
 
         let loadout = if active < 8 { active += 1; Loadout::Active } else { Loadout::Bench };
@@ -186,6 +188,8 @@ pub fn mint_deck(
         source_body: faction,
         inverted: false,
         is_trump: true,
+        level: 1,
+        xp: 0,
     });
     ctx.db.deck_slot().insert(DeckSlot {
         slot_id: 0,

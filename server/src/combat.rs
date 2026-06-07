@@ -71,21 +71,82 @@ pub fn dominant_suit(cards: &[CardStat]) -> Suit {
     [Suit::Cups, Suit::Swords, Suit::Pentacles, Suit::Wands][best]
 }
 
-/// Total effective power of a side fought into a given enemy dominant suit.
-fn side_power(cards: &[CardStat], vs: Suit) -> f32 {
-    cards
-        .iter()
-        .map(|c| card_strength(c) * suit_multiplier(c.suit, vs))
-        .sum()
+/// Effective durability in the round loop — armour buffers health (GDD §06).
+fn durability(c: &CardStat) -> f32 {
+    (c.health as f32 + c.armour as f32).max(1.0)
 }
 
-/// Resolve attacker vs defender. Returns (attacker_wins, margin).
-pub fn resolve_star(attacker: &[CardStat], defender: &[CardStat]) -> (bool, f32) {
-    let a_dom = dominant_suit(attacker);
-    let d_dom = dominant_suit(defender);
-    let ap = side_power(attacker, d_dom);
-    let dp = side_power(defender, a_dom);
-    (ap > dp, ap - dp)
+/// Greedily destroy the weakest-durability living cards a damage budget can
+/// afford; flips their `alive` flag and returns the kill count.
+fn cull_weakest(side: &[CardStat], alive: &mut [bool], mut budget: f32) -> u32 {
+    let mut order: Vec<usize> = (0..side.len()).filter(|&i| alive[i]).collect();
+    order.sort_by(|&x, &y| {
+        durability(&side[x])
+            .partial_cmp(&durability(&side[y]))
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    let mut killed = 0;
+    for i in order {
+        let d = durability(&side[i]);
+        if budget >= d {
+            alive[i] = false;
+            budget -= d;
+            killed += 1;
+        } else {
+            break;
+        }
+    }
+    killed
+}
+
+/// Outcome of a round-based battle (GDD §06).
+pub struct BattleOutcome {
+    pub attacker_won: bool,
+    pub margin: f32,
+    /// Indices into `attacker` that survived — these earn XP (GDD §06).
+    pub attacker_survivors: Vec<usize>,
+    /// Cards destroyed across both sides — feeds Pluto attrition (GDD §03).
+    pub destroyed: u32,
+}
+
+/// Round-based attrition (GDD §06). Each round both sides deal suit-scaled
+/// damage simultaneously, the weakest cards that damage can afford are
+/// destroyed, and the survivors heal to full. Runs until one side is wiped, or
+/// a round cap is hit and the stronger remnant takes it.
+pub fn simulate_battle(attacker: &[CardStat], defender: &[CardStat]) -> BattleOutcome {
+    const MAX_ROUNDS: u32 = 8;
+    let mut a_alive = vec![true; attacker.len()];
+    let mut d_alive = vec![true; defender.len()];
+    let mut destroyed = 0u32;
+
+    for _ in 0..MAX_ROUNDS {
+        let a_cards: Vec<CardStat> =
+            (0..attacker.len()).filter(|&i| a_alive[i]).map(|i| attacker[i]).collect();
+        let d_cards: Vec<CardStat> =
+            (0..defender.len()).filter(|&i| d_alive[i]).map(|i| defender[i]).collect();
+        if a_cards.is_empty() || d_cards.is_empty() {
+            break;
+        }
+        let a_dom = dominant_suit(&a_cards);
+        let d_dom = dominant_suit(&d_cards);
+        // Both salvos are computed from the pre-round rosters, then applied.
+        let a_dmg: f32 = a_cards.iter().map(|c| c.attack as f32 * suit_multiplier(c.suit, d_dom)).sum();
+        let d_dmg: f32 = d_cards.iter().map(|c| c.attack as f32 * suit_multiplier(c.suit, a_dom)).sum();
+        destroyed += cull_weakest(defender, &mut d_alive, a_dmg);
+        destroyed += cull_weakest(attacker, &mut a_alive, d_dmg);
+    }
+
+    let attacker_survivors: Vec<usize> = (0..attacker.len()).filter(|&i| a_alive[i]).collect();
+    let d_surv: Vec<usize> = (0..defender.len()).filter(|&i| d_alive[i]).collect();
+    let a_power: f32 = attacker_survivors.iter().map(|&i| card_strength(&attacker[i])).sum();
+    let d_power: f32 = d_surv.iter().map(|&i| card_strength(&defender[i])).sum();
+    let attacker_won = match (attacker_survivors.is_empty(), d_surv.is_empty()) {
+        (false, true) => true,               // defender wiped
+        (true, _) => false,                  // attacker wiped (ties to the holder)
+        (false, false) => a_power > d_power,  // round cap: the stronger remnant
+    };
+
+    BattleOutcome { attacker_won, margin: a_power - d_power, attacker_survivors, destroyed }
 }
 
 /// A star's pull on the zone meter, from its brightness + the win margin.

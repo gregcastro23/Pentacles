@@ -52,6 +52,8 @@ pub struct Card {
     pub source_body: Planet, // which placement minted it
     pub inverted: bool,      // from a retrograde body
     pub is_trump: bool,      // the single Major-Arcana hero
+    pub level: u8,           // veterancy — survivors level up (GDD §06)
+    pub xp: u32,             // progress toward the next level
 }
 
 #[spacetimedb::table(name = deck_slot, public)]
@@ -115,6 +117,20 @@ pub struct GameConfig {
     pub season_degree: u16,   // the Great Wheel ingress marker, 0..359
     pub seeded: bool,
     pub collection_cap: u32,  // Sky-Drop collection ceiling (GDD §04)
+    pub tick_count: u64,      // monotonic sky-tick counter (drives expiries)
+}
+
+/// Per-zone "death charge" feeding Pluto's attrition doctrine (GDD §03/§07).
+/// Every battle that destroys cards drops a stack here; stacks expire by tick.
+#[spacetimedb::table(name = attrition, public)]
+#[derive(Clone)]
+pub struct Attrition {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub zone_id: u8,
+    pub amount: u32,       // cards destroyed in the feeding battle
+    pub expires_tick: u64, // purged once tick_count reaches this
 }
 
 /// Live-PvP matchmaking intents, drained by `enqueue_duel`.
