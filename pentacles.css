@@ -698,3 +698,97 @@ section.block:first-of-type::before { display: none; }
   section.block::before { left: 0; transform: none; text-align: left; width: 24px; }
 }
 
+/* ============================================================
+   STATUS / AS-BUILT LAYER — vision vs. shipped
+   Badges key each feature to the roadmap (§11). "As-built" notes
+   record where the live crate (/server, /unity, /feeder) diverges
+   from the design described above it.
+   ============================================================ */
+
+/* ---- Status badges ---- */
+.badges { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 0; }
+.badge {
+  font-family: var(--ui);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 11px;
+  border-radius: 100px;
+  border: 1px solid var(--line-soft);
+  color: var(--dim);
+  white-space: nowrap;
+  line-height: 1;
+  vertical-align: middle;
+}
+.badge::before {
+  content: "";
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: none;
+  box-shadow: 0 0 6px currentColor;
+}
+.badge .ph { font-variant-numeric: tabular-nums; opacity: 0.6; letter-spacing: 0.05em; }
+.badge.shipped  { color: #8fc987; border-color: rgba(116,171,108,0.42); background: rgba(116,171,108,0.07); }
+.badge.progress { color: var(--gold-bright); border-color: var(--line-hard); background: rgba(216,180,106,0.07); }
+.badge.planned  { color: #8b93c4; border-color: rgba(100,112,200,0.34); background: rgba(100,112,200,0.06); }
+
+/* Inline mini-badge (sits inside a faction / suit tile) */
+.badge.mini { font-size: 9.5px; padding: 3px 9px; letter-spacing: 0.1em; margin-top: 12px; }
+
+/* ---- Status legend (teaches the badge vocabulary) ---- */
+.statuskey { display: flex; flex-wrap: wrap; gap: 14px 26px; align-items: flex-start; }
+.statuskey .sk { display: flex; gap: 11px; align-items: baseline; max-width: 270px; }
+.statuskey .sk .badge { flex: none; }
+.statuskey .sk p { margin: 0; font-family: var(--ui); font-size: 12.5px; color: var(--faint); line-height: 1.5; max-width: none; }
+
+/* ---- "As built" note — the implementation reality beside the vision ---- */
+.asbuilt {
+  border-left: 2px solid var(--cups);
+  background: linear-gradient(90deg, rgba(95,147,216,0.07), rgba(95,147,216,0) 82%);
+  padding: 15px 20px;
+  border-radius: 0 3px 3px 0;
+  margin: 24px 0;
+  max-width: var(--measure);
+}
+.asbuilt .lbl {
+  font-family: var(--ui);
+  font-size: 10.5px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--cups);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.asbuilt .lbl::before { content: "\2699"; font-size: 12px; letter-spacing: 0; }
+.asbuilt p { font-family: var(--ui); font-size: 13.5px; color: var(--dim); line-height: 1.62; margin: 0; max-width: none; }
+.asbuilt p + p { margin-top: 9px; }
+.asbuilt strong { color: var(--text); }
+.asbuilt .mono { color: var(--gold); }
+
+/* ---- Changelog ---- */
+.log { border-top: 1px solid var(--line); margin-top: 10px; }
+.log .e {
+  display: grid;
+  grid-template-columns: 132px 1fr;
+  gap: 26px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+.log .ver { font-family: var(--ui); font-size: 13px; letter-spacing: 0.06em; color: var(--gold-bright); }
+.log .ver small { display: block; color: var(--faint); font-size: 10.5px; letter-spacing: 0.08em; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.log ul { margin: 0; padding-left: 18px; color: var(--dim); font-family: var(--ui); font-size: 13.5px; line-height: 1.62; }
+.log li { margin-bottom: 5px; }
+.log li::marker { color: var(--gold-deep); }
+
+@media (max-width: 940px) {
+  .log .e { grid-template-columns: 1fr; gap: 8px; }
+  .statuskey .sk { max-width: none; }
+}
+
