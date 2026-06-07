@@ -111,4 +111,22 @@ public class CelestialPentacleConn : MonoBehaviour
     // Move a card between loadouts (Active capped at 8). Binding appears after
     // `spacetime generate` for the new set_loadout reducer.
     public void SetLoadout(ulong cardId, Loadout loadout) => Conn.Reducers.SetLoadout(cardId, loadout);
+
+    // Fuse two copies of the same card; the kept one levels up (diminishing
+    // returns). Binding appears after `spacetime generate` for combine_cards.
+    public void CombineCards(ulong keepId, ulong consumeId) =>
+        Conn.Reducers.CombineCards(keepId, consumeId);
+
+    // Confirmed two-way trades: propose (stake your offer + name what you want
+    // from partner), then both confirm. Bindings appear after `spacetime generate`.
+    public void ProposeTrade(Identity partner, List<ulong> offer, List<ulong> request) =>
+        Conn.Reducers.ProposeTrade(partner, offer, request);
+    public void ConfirmTrade(ulong tradeId) => Conn.Reducers.ConfirmTrade(tradeId);
+    public void CancelTrade(ulong tradeId) => Conn.Reducers.CancelTrade(tradeId);
+
+    // Ask the Oracle a free-text question; the companion service answers via the
+    // oracle_reply table. `context` is a derived summary (no birth data). Binding
+    // appears after `spacetime generate` for ask_oracle.
+    public void AskOracle(string question, string context, bool cacheable) =>
+        Conn.Reducers.AskOracle(question, context, cacheable);
 }

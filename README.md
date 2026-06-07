@@ -94,6 +94,14 @@ Drop the `unity/*.cs` scripts into your Unity (AR Foundation) project. Wiring:
   duel for its zone; when a second player queues the same zone the server spawns
   a `duel`, both phones open this panel, assign one card per lane, and
   `commit_duel` resolves best-of-3 to swing the zone.
+- **`Oracle`** on the AR rig — the in-world advisor. A top-right "✦ Oracle" button
+  gives an on-demand tip; it also surfaces cadence-capped nudges (a planet entering
+  a favorable zone, the weather turning to your suit, a held zone slipping, a fresh
+  reachable target) as toasts, with a Mute toggle. Pure client-side heuristics over
+  the public tables + your chart — no service required.
+- **`CollectionPanel`** on the AR rig — a "✦ Cards" launcher opens your whole
+  collection; tap a card then a matching copy to **fuse** them (`combine_cards`),
+  leveling it up. Card widgets show a card's `✦ Lv`.
 
 ### 3 · Run the ephemeris feeder
 

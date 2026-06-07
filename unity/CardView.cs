@@ -59,6 +59,10 @@ public class CardView : MonoBehaviour
             c.IsTrump ? new Color(0.95f, 0.86f, 0.63f) : Color.white);
         UIKit.Label(go.transform, SuitName[suit] + (c.Inverted ? " (rev)" : ""), 10, FontStyle.Italic, sc);
         UIKit.Label(go.transform, $"ATK {c.Attack}   HP {c.Health}\nARM {c.Armour}", 11, FontStyle.Normal);
+        // A leveled card (fused from copies) shows its tier; the level scales its
+        // power in every siege & duel. Binding `c.Level` appears after generate.
+        if (c.Level > 1)
+            UIKit.Label(go.transform, $"✦ Lv {c.Level}", 11, FontStyle.Bold, new Color(0.95f, 0.86f, 0.63f));
 
         if (onLoadout != null)
         {
