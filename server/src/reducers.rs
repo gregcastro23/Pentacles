@@ -100,6 +100,11 @@ pub fn create_player(
         return Err("faction not in your chart's top-3 dignities".into());
     }
 
+    // Server owns identity — never trust a client-supplied one. House cusps,
+    // system and interceptions are derived authoritatively here (Placidus, or a
+    // Whole-Sign fallback), overwriting whatever the client previewed.
+    let mut chart = NatalChart { identity: ctx.sender, ..chart };
+    chart::populate_houses(&mut chart);
     // Server owns identity — never trust a client-supplied one.
     let chart = NatalChart {
         identity: ctx.sender,
@@ -151,6 +156,13 @@ pub fn create_player(
     } else {
         ctx.db.player().insert(player);
     }
+
+    // The live sky, read through this player's freshly-stamped houses, is the
+    // seed the per-round re-draft will consume (separate task). Exercised here at
+    // registration so the blend path stays live; logged, never fed to combat —
+    // dignity-weighting stays out of combat (GDD §02).
+    let blended = chart::blended_faction_vector(&chart, &live_transits(ctx));
+    log::debug!("blended faction vector for {:?}: {:?}", ctx.sender, blended);
     Ok(())
 }
 
@@ -662,6 +674,18 @@ pub fn enqueue_duel(ctx: &ReducerContext, zone_id: u8) -> Result<(), String> {
                 .find(&t.seeker)
                 .ok_or_else(|| "opponent vanished".to_string())?;
             ctx.db.duel_queue().ticket_id().delete(&t.ticket_id);
+            // Surface the pairing's synastry for matchmaking telemetry — read-only,
+            // never leaked to clients and never touching the duel's resolution.
+            if let (Some(my_chart), Some(opp_chart)) = (
+                ctx.db.natal_chart().identity().find(&ctx.sender),
+                ctx.db.natal_chart().identity().find(&t.seeker),
+            ) {
+                let syn = chart::synastry(&opp_chart, &my_chart);
+                log::debug!(
+                    "duel synastry total {:.2} (house {:.2} aspect {:.2} element {:.2})",
+                    syn.total, syn.house, syn.aspect, syn.element
+                );
+            }
             ctx.db.duel().insert(Duel {
                 duel_id: 0,
                 zone_id,
@@ -1244,6 +1268,17 @@ pub fn answer_oracle(
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────
+
+/// Snapshot the live sky as transit positions for the natal/transit blend. The
+/// `Ephemeris` table stores RA/Dec; `chart` maps each back onto the zodiac and
+/// through the player's own houses.
+fn live_transits(ctx: &ReducerContext) -> Vec<chart::TransitPos> {
+    ctx.db
+        .ephemeris()
+        .iter()
+        .map(|e| chart::TransitPos { body: e.body, ra: e.ra, dec: e.dec })
+        .collect()
+}
 
 fn faction_owns_zone(ctx: &ReducerContext, faction: Planet, zone_id: u8) -> bool {
     ctx.db
