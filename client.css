@@ -1,0 +1,670 @@
+/* ============================================================
+   PENTACLES — Web Client Stylesheet
+   Celestial Editorial Design System
+   ============================================================ */
+
+:root {
+  --bg:          #05060c;
+  --bg-panel:    rgba(13, 16, 28, 0.76);
+  --bg-dim:      rgba(0, 0, 0, 0.4);
+  --line:        rgba(216, 180, 106, 0.16);
+  --line-hard:   rgba(216, 180, 106, 0.32);
+  --gold:        #d8b46a;
+  --gold-bright: #f1dba1;
+  --gold-deep:   #9c7e42;
+  --text:        #ece9e0;
+  --dim:         #a3a4ba;
+  
+  /* Suits */
+  --cups:        #5f93d8;
+  --swords:      #aebbd6;
+  --pentacles:   #74ab6c;
+  --wands:       #db7a47;
+
+  --display:     "Cormorant Garamond", Georgia, serif;
+  --ui:          "Space Grotesk", system-ui, sans-serif;
+  --mono:        "JetBrains Mono", monospace;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--ui);
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ============================================================
+   LAYOUT SHELL
+   ============================================================ */
+.app-shell {
+  display: grid;
+  grid-template-columns: 360px 1fr 380px;
+  height: 100vh;
+  width: 100vw;
+  position: relative;
+  z-index: 2;
+}
+
+/* Sidebars styling */
+.sidebar {
+  background: var(--bg-panel);
+  backdrop-filter: blur(16px);
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow-y: auto;
+  position: relative;
+  transition: transform 0.3s;
+}
+.sidebar.right {
+  border-right: none;
+  border-left: 1px solid var(--line);
+}
+
+.sidebar-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.sidebar-header h2 {
+  font-family: var(--display);
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--gold-bright);
+}
+.sidebar-content {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  flex: 1;
+}
+
+/* Center Map Viewport */
+.viewport-center {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* ============================================================
+   AR BACKDROP LAYER
+   ============================================================ */
+#ar-video-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 1;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  pointer-events: none;
+}
+#ar-video-bg.active {
+  opacity: 1;
+}
+
+#canvas-stars-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* ============================================================
+   INTERACTIVE CELESTIAL MAP
+   ============================================================ */
+.map-container {
+  width: 600px;
+  height: 600px;
+  position: relative;
+  z-index: 3;
+  transform-style: preserve-3d;
+  transition: transform 0.1s ease-out;
+}
+.pentacle-svg {
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 0 20px rgba(0, 0, 0, 0.6));
+}
+
+/* Zone Hover highlight states */
+.zone-shape {
+  fill: rgba(13, 20, 38, 0.2);
+  transition: fill 0.3s, stroke-width 0.3s;
+  cursor: pointer;
+}
+.zone-shape:hover {
+  fill: rgba(216, 180, 106, 0.12);
+}
+.zone-shape.selected {
+  fill: rgba(216, 180, 106, 0.25);
+  stroke-width: 2px;
+}
+
+/* Stars mapping */
+.star-node-dot {
+  cursor: pointer;
+  transition: r 0.2s, fill 0.2s, filter 0.2s;
+}
+.star-node-dot:hover {
+  r: 8px;
+  filter: drop-shadow(0 0 8px currentColor);
+}
+.star-node-dot.selected {
+  r: 10px;
+  stroke: #fff;
+  stroke-width: 2px;
+  filter: drop-shadow(0 0 12px currentColor);
+}
+
+/* HUD Overlay Controls */
+.hud-bar {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  right: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 10;
+  pointer-events: none;
+}
+.hud-btn-group {
+  display: flex;
+  gap: 12px;
+  pointer-events: auto;
+}
+
+/* ============================================================
+   COMPONENTS
+   ============================================================ */
+.panel {
+  background: rgba(20, 24, 42, 0.4);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 16px;
+}
+
+.title-orn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--ui);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.title-orn::before {
+  content: "";
+  height: 1px;
+  width: 16px;
+  background: var(--line-hard);
+}
+
+/* Action Button */
+.btn {
+  background: rgba(216, 180, 106, 0.12);
+  border: 1px solid var(--gold);
+  color: var(--gold-bright);
+  font-family: var(--ui);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 10px 16px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  outline: none;
+}
+.btn:hover:not(:disabled) {
+  background: rgba(216, 180, 106, 0.28);
+  border-color: #fff;
+  box-shadow: 0 0 8px rgba(241, 219, 161, 0.2);
+}
+.btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.btn.active {
+  background: var(--gold);
+  color: #000;
+  border-color: var(--gold-bright);
+}
+
+/* Form Controls */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.form-group label {
+  font-family: var(--ui);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.form-select, .form-input {
+  background: rgba(7, 9, 18, 0.8);
+  border: 1px solid var(--line-hard);
+  color: var(--text);
+  padding: 10px 12px;
+  border-radius: 3px;
+  font-family: var(--ui);
+  font-size: 13px;
+  outline: none;
+  width: 100%;
+  transition: all 0.2s;
+}
+.form-select:focus, .form-input:focus {
+  border-color: var(--gold-bright);
+  box-shadow: 0 0 6px rgba(241, 219, 161, 0.25);
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+/* ============================================================
+   TAROT CARDS SCROLLER & GALLERY
+   ============================================================ */
+.cards-scroller {
+  overflow-x: auto;
+  padding: 8px 4px;
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  scroll-behavior: smooth;
+}
+
+/* Web Tarot Card UI */
+.web-card {
+  width: 110px;
+  height: 165px;
+  border-radius: 4px;
+  position: relative;
+  background: rgba(8, 10, 20, 0.9);
+  border: 1.5px solid rgba(216, 180, 106, 0.2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 6px;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.3s cubic-bezier(0.165, 0.84, 0.44, 1);
+  flex-shrink: 0;
+}
+.web-card:hover {
+  transform: translateY(-6px);
+  border-color: rgba(216, 180, 106, 0.6);
+}
+.web-card.selected {
+  transform: translateY(-8px) scale(1.04);
+  border-color: var(--gold-bright);
+  box-shadow: 0 4px 14px rgba(241, 219, 161, 0.25);
+}
+.web-card.bench {
+  opacity: 0.55;
+}
+
+/* Suit borders */
+.web-card.cups { border-color: rgba(95, 147, 216, 0.35); }
+.web-card.swords { border-color: rgba(174, 187, 214, 0.35); }
+.web-card.pentacles { border-color: rgba(116, 171, 108, 0.35); }
+.web-card.wands { border-color: rgba(219, 122, 71, 0.35); }
+
+.web-card.cups.selected { border-color: var(--cups); }
+.web-card.swords.selected { border-color: var(--swords); }
+.web-card.pentacles.selected { border-color: var(--pentacles); }
+.web-card.wands.selected { border-color: var(--wands); }
+
+.web-card.trump {
+  border-color: var(--gold-bright);
+  background: linear-gradient(135deg, rgba(16, 13, 6, 0.95) 0%, rgba(6, 8, 15, 0.98) 100%);
+}
+.web-card.trump::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: 4px;
+  padding: 1px;
+  background: linear-gradient(135deg, var(--gold-bright), var(--gold-deep));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.web-card-glyph {
+  font-size: 18px;
+  line-height: 1;
+  margin-bottom: 2px;
+}
+.web-card.inverted .web-card-glyph {
+  transform: rotate(180deg);
+}
+
+.web-card-title {
+  font-family: var(--display);
+  font-size: 9.5px;
+  font-weight: 600;
+  text-align: center;
+  color: #fff;
+  margin: 1px 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+.web-card.trump .web-card-title { color: var(--gold-bright); }
+
+.web-card-subtitle {
+  font-size: 7.5px;
+  color: var(--dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+}
+
+.web-card-sep {
+  width: 100%;
+  height: 1px;
+  background: rgba(216, 180, 106, 0.12);
+  margin: 4px 0;
+}
+
+.web-card-stats {
+  font-size: 8.5px;
+  color: var(--text);
+  text-align: center;
+  line-height: 1.4;
+}
+
+.web-card-footnote {
+  margin-top: auto;
+  font-size: 7.5px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.web-card-chip {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  font-size: 8px;
+  font-weight: 600;
+  background: var(--gold-deep);
+  color: #000;
+  padding: 1px 4px;
+  border-radius: 20px;
+  border: 1px solid var(--gold-bright);
+}
+.web-card-chip.defense {
+  background: #25446b;
+  color: #fff;
+  border-color: #5f93d8;
+}
+
+/* ============================================================
+   BATTLE LOG & LOGS SECTION
+   ============================================================ */
+.battle-console {
+  background: rgba(6, 8, 14, 0.85);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 12px;
+  height: 200px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  scroll-behavior: smooth;
+  border-left: 2px solid var(--gold);
+}
+.log-line {
+  line-height: 1.4;
+  opacity: 0.9;
+  animation: fadeInLog 0.2s forwards;
+}
+.log-line.system { color: var(--gold-bright); }
+.log-line.combat { color: #fff; }
+.log-line.hit { color: #f17b7b; }
+.log-line.heal { color: #7bf199; }
+.log-line.victory { color: #f5df9a; font-weight: bold; }
+.log-line.defeat { color: #f26262; font-weight: bold; }
+
+@keyframes fadeInLog {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 0.9; transform: none; }
+}
+
+/* ============================================================
+   Tab interface
+   ============================================================ */
+.tab-headers {
+  display: flex;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 16px;
+}
+.tab-btn {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--dim);
+  font-family: var(--ui);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 8px 12px;
+  cursor: pointer;
+  flex: 1;
+  transition: all 0.2s;
+}
+.tab-btn:hover {
+  color: var(--text);
+}
+.tab-btn.active {
+  color: var(--gold-bright);
+  border-bottom-color: var(--gold);
+}
+
+.tab-pane {
+  display: none;
+  flex-direction: column;
+  gap: 16px;
+  height: 100%;
+}
+.tab-pane.active {
+  display: flex;
+}
+
+/* Standings list */
+.standings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.standings-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--line-soft);
+  border-radius: 3px;
+  font-size: 12.5px;
+}
+.standings-item.me {
+  background: rgba(216, 180, 106, 0.06);
+  border-color: var(--gold);
+}
+
+/* Control Meter */
+.control-meter-bar {
+  height: 8px;
+  background: var(--bg-dim);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+  margin-top: 6px;
+}
+.control-meter-fill {
+  height: 100%;
+  width: 50%;
+  transition: width 0.3s ease, background 0.3s ease;
+  border-radius: 4px;
+}
+
+/* Footer widget styling */
+.hud-card-footer {
+  position: absolute;
+  bottom: 0;
+  left: 360px;
+  right: 380px;
+  background: var(--bg-panel);
+  border-top: 1px solid var(--line);
+  padding: 16px 24px;
+  backdrop-filter: blur(16px);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Onboarding fullscreen overlay */
+.overlay-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.onboarding-window {
+  width: 480px;
+  background: rgba(13, 16, 28, 0.92);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--line-hard);
+  border-radius: 6px;
+  padding: 36px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.8);
+}
+
+/* Faction choose selector */
+.faction-choices-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+.faction-choice-card {
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.02);
+  padding: 12px 6px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.faction-choice-card:hover {
+  border-color: var(--line-hard);
+  background: rgba(255, 255, 255, 0.04);
+}
+.faction-choice-card.selected {
+  border-color: var(--gold-bright);
+  background: rgba(216, 180, 106, 0.12);
+  box-shadow: 0 0 10px rgba(241, 219, 161, 0.15);
+}
+.faction-choice-sigil {
+  font-size: 24px;
+  margin-bottom: 6px;
+}
+.faction-choice-name {
+  font-size: 12px;
+  font-weight: bold;
+}
+
+/* Utility layout spacing */
+.flex-space {
+  flex: 1;
+}
+
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(216, 180, 106, 0.2);
+  border-top-color: var(--gold-bright);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Responsive adjustment */
+@media (max-width: 1100px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr auto;
+    overflow-y: auto;
+  }
+  .sidebar {
+    height: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--line);
+  }
+  .sidebar.right {
+    border-left: none;
+    border-top: 1px solid var(--line);
+  }
+  .viewport-center {
+    height: 600px;
+  }
+  .hud-card-footer {
+    position: static;
+    width: 100%;
+  }
+}

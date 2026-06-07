@@ -164,6 +164,27 @@ and tutorial all work without it; this powers only the free-text chat.
 | Oracle (advisor) | client-side heuristic `OracleAdvisor` + `Oracle` — proactive nudges (Toast, cadence-capped + mutable) on transits / favorable weather / a slipping zone / a fresh target, and an on-demand tip. In-world oracle voice; reads only public tables + your local chart |
 | Oracle (chat agent) | `ask_oracle` (per-player cooldown; instant answer from `oracle_cache` on a repeat rules question, else queued) → a `feeder/`-style companion service reads `oracle_request`, asks Claude (tiered Haiku/Sonnet), and returns it via owner-gated `answer_oracle` → `oracle_reply` (caching generic answers for everyone). Only a derived chart/state summary is sent — never birth data. Built end-to-end: `feeder/oracle-service.ts` is the companion service (tiered Haiku/Sonnet, prompt-cached) |
 
+## Playable Web Client (Non-AR & AR Gyroscope)
+
+A lightweight web client (`client.html`) is provided in the project root to play and test the game's core loops in any standard desktop or mobile web browser.
+
+### How to Run:
+1. Start the Bun development server (if not already running) to host the project files:
+   ```bash
+   # Kill any process on 8080 and start the static server
+   lsof -ti:8080 | xargs kill -9 2>/dev/null || true
+   bun --bun run /Users/cookingwithcastro/.gemini/antigravity-ide/brain/d48be6ce-77aa-4338-8553-6e50a95a2316/scratch/serve.ts
+   ```
+2. Navigate to **[http://localhost:8080/client.html](http://localhost:8080/client.html)**.
+3. Complete the onboarding screen with your birth details to generate your chart placements, RECOMMENDED factions, and procedural starting deck of 40 cards.
+
+### Key Features:
+- **Interactive 2D Pentacle Map**: A clickable vector representation of the 11 houses, spires, and zenith crown containing magnitude-weighted stars.
+- **Auto-Siege Resolver**: Full JS client-side port of the GDD auto-resolve math (suit advantages, element weather, cups heals, and retrograde ATK/ARM swaps).
+- **AR View Mode**: Integrates `navigator.mediaDevices.getUserMedia` for a camera backdrop and `deviceorientation` to rotate the celestial grid in real-time.
+- **Synthesized Audio**: Leverages the browser Web Audio API to play ambient cosmic drones, card flip chimes, and combat explosion sfx.
+- **Local Persistence & Bots**: Syncs state directly to browser `localStorage`. Runs a background simulation that decays controlled zones and triggers periodic bot attacks to keep the map contested.
+
 ## Notes & accuracy
 
 - **The chart is computed client-side** (`ChartCalculator`) and committed once;
