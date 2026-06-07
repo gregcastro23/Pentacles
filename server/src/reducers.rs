@@ -9,6 +9,13 @@ use std::time::Duration;
 
 const FLIP_THRESHOLD: i32 = 600;
 
+// Sky-Drop power ceilings — strictly below the hero trump (60/40/20), so a
+// won card widens the deck without inflating raw power (GDD §04).
+const SKY_DROP_HP_CAP: u16 = 55;
+const SKY_DROP_ATK_CAP: u16 = 38;
+const SKY_DROP_ARM_CAP: u16 = 18;
+const DEFAULT_COLLECTION_CAP: u32 = 60;
+
 // ── Lifecycle ─────────────────────────────────────────────────────────────
 
 /// Runs once on first publish (and after a clear). `ctx.sender` is the owner.
@@ -20,6 +27,7 @@ pub fn init(ctx: &ReducerContext) {
             owner: ctx.sender,
             season_degree: 0,
             seeded: false,
+            collection_cap: DEFAULT_COLLECTION_CAP,
         });
     }
 
@@ -161,6 +169,15 @@ pub fn resolve_star_battle(
             star.region_hint,
             player.faction,
             combat::control_delta(star.magnitude, margin),
+        );
+        // Spoils of the capture: mint one Sky-Drop card (GDD §04).
+        mint_sky_drop(
+            ctx,
+            ctx.sender,
+            player.faction,
+            player.deck_seed,
+            star.region_hint,
+            star.magnitude,
         );
         let _ = prev;
     }
@@ -305,6 +322,19 @@ fn resolve_duel(ctx: &ReducerContext, duel: &mut Duel) {
     };
     duel.winner = Some(winner);
     apply_control(ctx, duel.zone_id, faction, 150 + a.max(b) as i32 * 60);
+
+    // Sky-Drop for the duel winner, seeded by the contested zone's brightest star.
+    if let Some(wp) = ctx.db.player().identity().find(&winner) {
+        let mag = ctx
+            .db
+            .star_node()
+            .iter()
+            .filter(|s| s.region_hint == duel.zone_id)
+            .map(|s| s.magnitude)
+            .fold(f32::INFINITY, |m, x| m.min(x));
+        let mag = if mag.is_finite() { mag } else { 2.5 };
+        mint_sky_drop(ctx, winner, faction, wp.deck_seed, duel.zone_id, mag);
+    }
 }
 
 fn lane_power(att: &Card, def: &Card) -> f32 {
@@ -390,6 +420,141 @@ fn apply_control(ctx: &ReducerContext, zone_id: u8, attacker: Planet, delta: i32
         z.updated_at = ctx.timestamp;
         ctx.db.zone().zone_id().update(z);
     }
+}
+
+/// Mint one Sky-Drop card for `owner` after a capture (GDD §04 · Sky Drops).
+///
+/// Suit & `source_body` come from the planet transiting `zone` (else the
+/// victor's faction bias); rank/tier from the star's brightness; sub-stats from
+/// a deterministic battle seed. Stats are clamped strictly below the hero trump,
+/// the card lands on the Bench, and the collection cap is honoured with a
+/// replace-weakest-Bench-card-if-stronger overflow rule.
+fn mint_sky_drop(
+    ctx: &ReducerContext,
+    owner: Identity,
+    faction: Planet,
+    player_seed: u64,
+    zone: u8,
+    magnitude: f32,
+) {
+    // Suit & source ← the planet transiting this zone, else the victor's bias.
+    let (suit, source_body) = ctx
+        .db
+        .ephemeris()
+        .iter()
+        .find(|e| e.transiting_zone == zone)
+        .map(|e| (e.body.biased_suit(), e.body))
+        .unwrap_or((faction.biased_suit(), faction));
+
+    // Power tier ← star brightness; pip ranks 1..10 only (never court/hero).
+    let weight = combat::node_weight(magnitude); // ~0.4 (faint) .. ~8 (Sirius)
+    let rank = ((weight * 1.4).round() as i32).clamp(1, 10) as u8;
+    let degree = (rank as u16 - 1) * 29 / 9; // rank 1..10 → stat tier 0..29
+
+    // Deterministic sub-roll from a battle seed (victor + zone + body + count).
+    let owned = ctx.db.card().iter().filter(|c| c.owner == owner).count() as u32;
+    let seed = drop_seed(player_seed, zone, source_body, magnitude, owned as u64);
+    let sub = (seed % 60) as u16; // 0..59, mirrors a placement's arc-minute
+
+    // Stats mirror the natal feel, then clamp strictly below the hero trump.
+    let health =
+        (12 + sub * 28 / 59 + if suit == Suit::Cups { 10 } else { 0 }).min(SKY_DROP_HP_CAP);
+    let attack =
+        (6 + degree + if suit == Suit::Swords { 6 } else { 0 }).min(SKY_DROP_ATK_CAP);
+    let armour = (4 + if suit == Suit::Pentacles { 6 } else { 0 }).min(SKY_DROP_ARM_CAP);
+    let cooldown_ms = (3000_i32
+        - if suit == Suit::Wands { 600 } else { 0 }
+        - degree as i32 * 20)
+        .clamp(1000, 3000) as u16;
+    let new_strength = card_power(attack, health, armour);
+
+    // Collection cap: when full, replace the weakest Bench (non-trump) card —
+    // but only if the drop is stronger. Active & Sentinel cards are never touched.
+    let cap = ctx
+        .db
+        .game_config()
+        .id()
+        .find(&0)
+        .map(|c| c.collection_cap)
+        .unwrap_or(DEFAULT_COLLECTION_CAP);
+    if owned >= cap {
+        let mut weakest: Option<Card> = None;
+        for slot in ctx.db.deck_slot().iter() {
+            if slot.owner != owner || slot.loadout != Loadout::Bench {
+                continue;
+            }
+            if let Some(c) = ctx.db.card().card_id().find(&slot.card_id) {
+                if c.is_trump {
+                    continue;
+                }
+                let replace = match &weakest {
+                    Some(w) => {
+                        card_power(c.attack, c.health, c.armour)
+                            < card_power(w.attack, w.health, w.armour)
+                    }
+                    None => true,
+                };
+                if replace {
+                    weakest = Some(c);
+                }
+            }
+        }
+        match weakest {
+            Some(w) if new_strength > card_power(w.attack, w.health, w.armour) => {
+                let slots: Vec<u64> = ctx
+                    .db
+                    .deck_slot()
+                    .iter()
+                    .filter(|s| s.card_id == w.card_id)
+                    .map(|s| s.slot_id)
+                    .collect();
+                for sid in &slots {
+                    ctx.db.deck_slot().slot_id().delete(sid);
+                }
+                ctx.db.card().card_id().delete(&w.card_id);
+            }
+            _ => {
+                log::info!("sky-drop discarded — collection full ({} >= {})", owned, cap);
+                return;
+            }
+        }
+    }
+
+    let card = ctx.db.card().insert(Card {
+        card_id: 0,
+        owner,
+        suit,
+        rank,
+        health,
+        attack,
+        armour,
+        cooldown_ms,
+        source_body,
+        inverted: false,
+        is_trump: false,
+    });
+    ctx.db.deck_slot().insert(DeckSlot {
+        slot_id: 0,
+        owner,
+        card_id: card.card_id,
+        loadout: Loadout::Bench,
+    });
+    log::info!("sky-drop minted: {:?} rank {} (zone {})", suit, rank, zone);
+}
+
+/// Effective strength of a card's flat stats (mirrors `combat::card_strength`).
+fn card_power(attack: u16, health: u16, armour: u16) -> f32 {
+    attack as f32 + health as f32 * 0.5 + armour as f32 * 0.4
+}
+
+/// FNV-1a battle seed for a Sky-Drop's deterministic sub-roll.
+fn drop_seed(player_seed: u64, zone: u8, body: Planet, magnitude: f32, count: u64) -> u64 {
+    let mut h = player_seed ^ 0xcbf29ce484222325;
+    for b in [zone as u64, body.idx() as u64, magnitude.to_bits() as u64, count] {
+        h ^= b;
+        h = h.wrapping_mul(0x100000001b3);
+    }
+    h
 }
 
 /// Collect up to 8 Defense-loadout cards from members of the holding faction.

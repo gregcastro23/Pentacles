@@ -17,7 +17,7 @@
 
   <!-- ===================== HERO ===================== -->
   <header class="hero">
-    <div class="hero-meta">Game Design Document &nbsp;·&nbsp; v1.1 &nbsp;·&nbsp; June 2026 &nbsp;·&nbsp; Confidential</div>
+    <div class="hero-meta">Game Design Document &nbsp;·&nbsp; v1.2 &nbsp;·&nbsp; June 2026 &nbsp;·&nbsp; Confidential</div>
     <h1>Pentacles</h1>
     <p class="tag">Claim the night sky.</p>
     <p class="desc">A location-based AR MMO where your birth chart decides your allegiance, the Tarot is your arsenal, and the visible heavens are the contested map.</p>
@@ -74,7 +74,7 @@
         </div>
         <div class="reveal" style="margin-top:44px">
           <h4 style="color:var(--gold-bright); margin-bottom:8px">Reading this document</h4>
-          <p class="note" style="max-width:var(--measure); margin-bottom:18px">This is a living spec (v1.1). Vision leads each section; where the shipped crate (<span class="mono">/server</span>, <span class="mono">/unity</span>, <span class="mono">/feeder</span>) differs, an <span style="color:var(--cups)">⚙ as-built</span> note records the reality. Feature badges key each system to a roadmap phase (§11):</p>
+          <p class="note" style="max-width:var(--measure); margin-bottom:18px">This is a living spec (v1.2). Vision leads each section; where the shipped crate (<span class="mono">/server</span>, <span class="mono">/unity</span>, <span class="mono">/feeder</span>) differs, an <span style="color:var(--cups)">⚙ as-built</span> note records the reality. Feature badges key each system to a roadmap phase (§11):</p>
           <div class="statuskey">
             <div class="sk"><span class="badge shipped">Shipped</span><p>In the live codebase today and exercised end to end.</p></div>
             <div class="sk"><span class="badge progress">In&nbsp;progress</span><p>Partially built — a working core with design still landing.</p></div>
@@ -172,7 +172,7 @@
         <div class="block-head reveal">
           <p class="eyebrow">04 — Deck Generation</p>
           <h2>Your chart, dealt as <em>cards</em>.</h2>
-          <div class="badges"><span class="badge shipped">Deterministic minting<span class="ph">P1</span></span><span class="badge shipped">Court &amp; hero rules<span class="ph">P1</span></span><span class="badge planned">Sky drops<span class="ph">P2</span></span><span class="badge planned">40-card depth<span class="ph">P2</span></span></div>
+          <div class="badges"><span class="badge shipped">Deterministic minting<span class="ph">P1</span></span><span class="badge shipped">Court &amp; hero rules<span class="ph">P1</span></span><span class="badge shipped">Sky drops<span class="ph">P2</span></span><span class="badge planned">40-card depth<span class="ph">P2</span></span></div>
         </div>
         <p class="lead reveal">A starting deck of 40 cards spans the four Minor Arcana suits. Suit balance, card identities, and per-card stats are all derived deterministically from the chart's exact placements — same chart, same deck, every time.</p>
 
@@ -241,7 +241,7 @@
           <p><span class="mono">mint_deck</span> grants exactly one <span class="mono">is_trump</span> card per deck — on the faction's biased suit, with fixed keystone stats (60 HP / 40 ATK / 20 ARM). The <strong>specific Major-Arcana identity</strong> above (The Tower, The World …), a <span class="mono">Planet::hero_trump()</span> mapping and each hero's signature ability are a content task, not yet in the crate. Room to grow: the remaining 12 zodiacal &amp; elemental trumps stay reserved for a future <em>seasonal reward</em> track tied to the 360° wheel.</p>
         </div>
 
-        <h3 class="reveal" style="margin-top:56px">Decks that grow — <em>Sky Drops</em> <span class="badge planned" style="vertical-align:middle; margin-left:10px">Planned<span class="ph">P2</span></span></h3>
+        <h3 class="reveal" style="margin-top:56px">Decks that grow — <em>Sky Drops</em> <span class="badge shipped" style="vertical-align:middle; margin-left:10px">Shipped<span class="ph">P2</span></span></h3>
         <p class="reveal">The starting deck is your chart; the deck you <em>end</em> with is your conquest. <strong>Every star you capture mints one new card</strong> — a <em>Sky Drop</em> forged from the star's brightness and the planet transiting its zone. Because the reward is drawn from the sky you just took rather than a shop, a grown deck still reads as <em>yours</em>: Pillar II holds even as the collection widens.</p>
 
         <div class="spec reveal" style="margin-top:32px">
@@ -282,7 +282,7 @@
 
         <div class="asbuilt reveal">
           <div class="lbl">Implementation — as built</div>
-          <p>Not yet built. Today <span class="mono">resolve_star_battle</span> and <span class="mono">commit_duel</span> only flip the star and move zone control — <strong>no card is minted on a win</strong>. Shipping Sky Drops adds a <span class="mono">mint_sky_drop</span> path (reusing <span class="mono">card_stats</span> with a magnitude→tier map plus the power clamp), a <span class="mono">collection_cap</span> on <span class="mono">GameConfig</span>, and the replace-weakest overflow rule — all inside the authoritative reducers. Targeted for P2 (Combat Core).</p>
+          <p>Shipped in the crate. <span class="mono">mint_sky_drop</span> fires inside <span class="mono">resolve_star_battle</span> (on a star flip) and the duel resolver (for the winner). Suit &amp; source come from the zone's transiting <span class="mono">ephemeris</span> row; rank from <span class="mono">combat::node_weight</span>; sub-stats from an FNV battle seed. Stats are clamped to 55 HP / 38 ATK / 18 ARM (below the 60/40/20 hero), the card lands on <span class="mono">Loadout::Bench</span>, and at <span class="mono">GameConfig.collection_cap</span> (default 60) a drop replaces the weakest <em>Bench</em> card only if stronger — so Active &amp; Sentinel cards are never disturbed.</p>
         </div>
       </section>
 
@@ -442,7 +442,7 @@
 
         <div class="spec reveal" style="margin-top:40px">
           <div class="row"><div class="k">Star weighting</div><div class="v"><p>Node value scales with apparent magnitude — a 1st-magnitude star (e.g. Vega, Sirius) is worth many times a faint one, creating natural “objective” stars players rally around.</p></div></div>
-          <div class="row"><div class="k">Sky-drop reward</div><div class="v"><p>Every star you capture also <strong>mints a new card</strong>, forged from that star's brightness and the planet transiting its zone — the deck grows from the sky it conquers. Full rules in <a href="#decks">§04 · Sky Drops</a>.</p><p class="note" style="margin-top:6px">Planned — the resolver doesn't mint rewards yet.</p></div></div>
+          <div class="row"><div class="k">Sky-drop reward</div><div class="v"><p>Every star you capture also <strong>mints a new card</strong>, forged from that star's brightness and the planet transiting its zone — the deck grows from the sky it conquers. Full rules in <a href="#decks">§04 · Sky Drops</a>.</p><p class="note" style="margin-top:6px">Shipped — minted by <span class="mono">resolve_star_battle</span> and the duel resolver.</p></div></div>
           <div class="row"><div class="k">Decay</div><div class="v"><p>Uncontested control bleeds toward neutral at a fixed rate, modified by faction passives (Saturn slow, Moon nightly slow). This prevents permanent lockout and keeps the map fluid.</p></div></div>
           <div class="row"><div class="k">The Great Wheel</div><div class="v"><p>A season is one full revolution of the <strong>360° zodiac</strong>. An <em>Ingress Marker</em> advances a degree at a time across the wheel; each <strong>30° crossing</strong> (a sign ingress) fires a mid-season event that re-weights a region of the sky. Completing all 360° resolves the season.</p></div></div>
           <div class="row"><div class="k">Transit bonus</div><div class="v"><p>When a faction's real planet is currently transiting a zone, every capture there is amplified — the live sky is a rotating buff that no one controls.</p></div></div>
@@ -634,6 +634,7 @@
     owner:         <span class="ty">Identity</span>,          <span class="c">// gates push_ephemeris</span>
     season_degree: <span class="ty">u16</span>,               <span class="c">// Great-Wheel ingress marker, 0..359</span>
     seeded:        <span class="ty">bool</span>,
+    collection_cap: <span class="ty">u32</span>,             <span class="c">// Sky-Drop ceiling (§04)</span>
 }
 
 <span class="c">// ── Live PvP: matchmaking intents + the 3-lane duel ────────</span>
@@ -733,7 +734,7 @@
         </div>
         <div class="asbuilt reveal">
           <div class="lbl">Implementation — as built</div>
-          <p>The shipped slice of the loop: <strong>Look Up</strong> renders via <span class="mono">SkyRenderer</span> (P0); <strong>Pick a Star → Duel</strong> runs through <span class="mono">resolve_star_battle</span> (Auto-Siege) or <span class="mono">enqueue_duel</span>/<span class="mono">commit_duel</span> (live Lane Skirmish); <strong>Shift &amp; Hold</strong> moves <span class="mono">Zone.control</span> and reads back from the Defense (Sentinel) loadout. The transit-aware “where your planet is now” read-out is fed but not yet a capture buff, and sky-drop card rewards (§04) are designed but not yet minted.</p>
+          <p>The shipped slice of the loop: <strong>Look Up</strong> renders via <span class="mono">SkyRenderer</span> (P0); <strong>Pick a Star → Duel</strong> runs through <span class="mono">resolve_star_battle</span> (Auto-Siege) or <span class="mono">enqueue_duel</span>/<span class="mono">commit_duel</span> (live Lane Skirmish); <strong>Shift &amp; Hold</strong> moves <span class="mono">Zone.control</span> and reads back from the Defense (Sentinel) loadout. The transit-aware “where your planet is now” read-out is fed but not yet a capture buff; sky-drop card rewards (§04) are minted on every capture.</p>
         </div>
       </section>
 
@@ -765,6 +766,12 @@
         <h3 class="reveal" style="margin-top:56px">Changelog</h3>
         <div class="log reveal">
           <div class="e">
+            <div class="ver">v1.2<small>Jun 2026</small></div>
+            <div><ul>
+              <li>Implemented <strong>Sky Drops</strong> in <span class="mono">/server</span>: <span class="mono">mint_sky_drop</span> now fires from <span class="mono">resolve_star_battle</span> and the duel resolver, with the power cap, <span class="mono">GameConfig.collection_cap</span> and the replace-weakest-Bench overflow rule. Crate builds clean against SpacetimeDB 1.12.</li>
+            </ul></div>
+          </div>
+          <div class="e">
             <div class="ver">v1.1<small>Jun 2026</small></div>
             <div><ul>
               <li>Added <strong>Sky Drops</strong> (§04): every successful star capture mints one new card, seeded by the star's magnitude and the planet transiting its zone — keeping deck growth on-theme.</li>
@@ -787,7 +794,7 @@
           </div>
         </div>
 
-        <p class="note reveal" style="margin-top:40px; text-align:center; letter-spacing:0.1em">✦ &nbsp; END OF DOCUMENT &nbsp; ✦<br><span style="color:var(--ghost)">Pentacles GDD v1.1 — for internal review</span></p>
+        <p class="note reveal" style="margin-top:40px; text-align:center; letter-spacing:0.1em">✦ &nbsp; END OF DOCUMENT &nbsp; ✦<br><span style="color:var(--ghost)">Pentacles GDD v1.2 — for internal review</span></p>
       </section>
 
     </main>

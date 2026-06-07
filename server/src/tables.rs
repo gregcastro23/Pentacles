@@ -113,6 +113,7 @@ pub struct GameConfig {
     pub owner: Identity,
     pub season_degree: u16,   // the Great Wheel ingress marker, 0..359
     pub seeded: bool,
+    pub collection_cap: u32,  // Sky-Drop collection ceiling (GDD §04)
 }
 
 /// Live-PvP matchmaking intents, drained by `enqueue_duel`.
