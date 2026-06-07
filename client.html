@@ -110,9 +110,6 @@
           
           <circle cx="300" cy="300" r="250" fill="url(#sky-halo)" />
 
-          <!-- Outer boundary -->
-          <circle cx="300" cy="300" r="250" fill="none" stroke="var(--gold)" stroke-width="1.5" stroke-opacity="0.8" />
-
           <!-- The Eleven Zones clickable boundaries -->
           <!-- 5 ARC-HOUSES -->
           <path id="zone-shape-0" class="zone-shape" d="M300,50 L356.1,222.8 L537.8,222.8 A250,250 0 0,0 300,50 Z" onclick="selectZone(0)" />
@@ -129,7 +126,11 @@
           <path id="zone-shape-9" class="zone-shape" d="M62.2,222.8 L209.2,329.5 L243.9,222.8 Z" fill="rgba(241,219,161,0.05)" onclick="selectZone(9)" />
 
           <!-- CENTRAL CROWN -->
-          <path id="zone-shape-10" class="zone-shape" d="M356.1,222.8 L390.8,329.5 L300,395.5 L209.2,329.5 L243.9,222.8 Z" fill="rgba(216,180,106,0.1)" stroke="var(--gold-bright)" stroke-width="1" onclick="selectZone(10)" />
+          <path id="zone-shape-10" class="zone-shape" d="M356.1,222.8 L390.8,329.5 L300,395.5 L209.2,329.5 L243.9,222.8 Z" fill="rgba(216,180,106,0.1)" onclick="selectZone(10)" />
+
+          <!-- The static pentagram star and circle overlays -->
+          <circle cx="300" cy="300" r="250" fill="none" stroke="var(--gold)" stroke-width="2.2" pointer-events="none" />
+          <polygon points="300,50 447,502.3 62.2,222.8 537.8,222.8 153,502.3" fill="none" stroke="var(--gold)" stroke-width="2.2" stroke-linejoin="round" pointer-events="none" />
 
           <text x="300" y="304" text-anchor="middle" fill="var(--gold)" font-family="Space Grotesk" font-size="10" letter-spacing="1">CROWN</text>
 
@@ -243,8 +244,8 @@
 
       if (!handle) { alert("Enter a seeker name!"); return; }
       
-      // Calculate mock placements
-      const chart = generateMockNatalChart(`${date} ${time} ${loc}`);
+      // Calculate deterministic local placements.
+      const chart = deriveLocalNatalChart(`${date} ${time} ${loc}`);
       const picks = scoreFactions(chart);
       
       // Populate choices Grid
@@ -327,7 +328,6 @@
       const isSelected = state.selectedCards.has(c.card_id);
       const selClass = isSelected ? "selected" : "";
       const isTrump = c.is_trump;
-      const suitText = isTrump ? "Hero" : SUIT_NAMES[c.suit];
       const detailText = isTrump ? `Trump ${TRUMP_ARCANA[c.source_body]}` : `${SIGN_GLYPHS[c.sign_idx]} ${SIGN_NAMES[c.sign_idx]}`;
       const actionFn = isSelectionMode ? `toggleActiveSelection(${c.card_id})` : `handleCollectionCardClick(${c.card_id})`;
       const badge = loadout === "active" ? `<span class="web-card-chip">Active</span>` : (loadout === "defense" ? `<span class="web-card-chip defense">Defense</span>` : "");
@@ -402,7 +402,7 @@
       const container = document.getElementById("zones-list-container");
       container.innerHTML = "";
 
-      // Static mock weather rotation based on season clock
+      // Local weather rotation based on the same suit elements as the server clock.
       const weathers = ["Clear Sky", "Meteor Shower", "Solar Flare", "Aether Eclipse", "Galactic Wind"];
 
       state.map.forEach(zone => {
@@ -421,7 +421,7 @@
               <span style="color: ${fillCol}">${ownerStr}</span>
             </div>
             <div style="font-size:10px; color:var(--dim); margin-top:2px;">
-              Weather: ${weathers[wIdx]} · Element: ${SIGN_SUITS[zone.zone_id % 12].toUpperCase()}
+              Weather: ${weathers[wIdx]} · Favored Suit: ${SIGN_SUITS[zone.zone_id % 12].toUpperCase()}
             </div>
             <div class="control-meter-bar">
               <div class="control-meter-fill" style="width: ${valPercent}%; background: ${fillCol};"></div>
@@ -546,7 +546,7 @@
 
       details.innerHTML = `
         <strong>Target Node:</strong> ${star.name} (${star.magnitude} mag)<br>
-        <strong>Zone Location:</strong> ${zoneName} (Element: ${suitSign.toUpperCase()})<br>
+        <strong>Zone Location:</strong> ${zoneName} (Favored Suit: ${suitSign.toUpperCase()})<br>
         <strong>Current Node Owner:</strong> ${ownerStr}<br>
         <strong>Attack Cards:</strong> ${handCount > 0 ? handCount : 'All Active'} (${totalAtk} Base Power)
       `;
@@ -576,22 +576,23 @@
         });
       }
 
-      // Generate defender sentinel cards (simulated matching magnitude weights)
+      // Generate local defender sentinels scaled to the target's zone weather.
       let defCards = [];
       if (star.held_by !== null) {
         // Build 3 defender sentinels
         for (let i = 0; i < 3; i++) {
-          defCards.push(state.createCard(star.held_by, false, 5 + i * 2, 10, 0, false, false, zone.zone_id % 12));
+          const degree = 5 + i * 2;
+          defCards.push(state.createCard(star.held_by, false, degree, 10, 0, false, pipRank(zone.zone_id % 12, degree), zone.zone_id % 12));
         }
       } else {
         // Neutral stars have minor elemental guardians
-        defCards.push(state.createCard(6, false, 2, 0, 0, false, false, zone.zone_id % 12)); // neutral guard
+        defCards.push(state.createCard(6, false, 2, 0, 0, false, pipRank(zone.zone_id % 12, 2), zone.zone_id % 12));
       }
 
       // Play Sound
       synth.playStrike();
 
-      // Resolve Duel
+      // Resolve Auto-Siege
       const result = runAutoSiege(atkCards, defCards, zoneElement, state.player.faction, star.held_by);
 
       // Render Console Logs

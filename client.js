@@ -13,12 +13,100 @@ const PLANET_COLORS = [
 const SIGN_NAMES = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"];
 const SIGN_GLYPHS = ["♈", "♉", "♊", "♋", "♌", "♍", "♎", "♏", "♐", "♑", "♒", "♓"];
 const SIGN_SUITS = ["wands", "pentacles", "swords", "cups", "wands", "pentacles", "swords", "cups", "wands", "pentacles", "swords", "cups"];
+const SIGN_RULERS = [4, 3, 2, 1, 0, 2, 3, 9, 5, 6, 7, 8];
+const PLANET_SUITS = ["wands", "cups", "swords", "cups", "wands", "wands", "pentacles", "swords", "cups", "swords"];
 
 const SUIT_GLYPHS = { cups: "♥", swords: "♠", pentacles: "♦", wands: "♣" };
 const SUIT_NAMES = { cups: "Cups", swords: "Swords", pentacles: "Pentacles", wands: "Wands" };
+const OPPOSITE_SUITS = { wands: "cups", cups: "wands", swords: "pentacles", pentacles: "swords" };
 
 const TRUMP_NAMES = ["The Sun", "The High Priestess", "The Magician", "The Empress", "The Tower", "Wheel of Fortune", "The World", "The Fool", "The Hanged Man", "Judgement"];
 const TRUMP_ARCANA = ["XIX", "II", "I", "III", "XVI", "X", "XXI", "0", "XII", "XX"];
+const TRUMP_MAJOR_INDEX = [19, 2, 1, 3, 16, 10, 21, 0, 12, 20];
+
+function isFixedSign(sign) {
+  return [1, 4, 7, 10].includes(sign % 12);
+}
+
+function isCardinalSign(sign) {
+  return [0, 3, 6, 9].includes(sign % 12);
+}
+
+function decan(degree) {
+  return Math.min(2, Math.floor(degree / 10));
+}
+
+function pipRank(sign, degree) {
+  const base = isCardinalSign(sign) ? 2 : (isFixedSign(sign) ? 5 : 8);
+  return base + decan(degree);
+}
+
+function courtRank(dignity) {
+  if (dignity >= 5) return 14;
+  if (dignity >= 3) return 13;
+  if (dignity >= 1) return 12;
+  return 11;
+}
+
+function rankName(rank) {
+  const pips = ["", "Ace", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten"];
+  const courts = { 11: "Page", 12: "Knight", 13: "Queen", 14: "King" };
+  return courts[rank] || pips[rank] || "Card";
+}
+
+function absoluteMinutes(placement) {
+  return placement.sign * 1800 + placement.arc_minutes;
+}
+
+function circularDistance(a, b) {
+  const diff = Math.abs(a - b);
+  return Math.min(diff, 21600 - diff);
+}
+
+function isAngularPlacement(placement, chart) {
+  const pos = absoluteMinutes(placement);
+  return circularDistance(pos, chart.ascendant) < 600 || circularDistance(pos, chart.midheaven) < 600;
+}
+
+function calculateReceptionBoosts(chart) {
+  const boosts = new Array(10).fill(0);
+  chart.placements.forEach(p => {
+    const ruler = SIGN_RULERS[p.sign];
+    if (ruler !== p.body) boosts[p.body] += 0.5;
+  });
+
+  for (let i = 0; i < chart.placements.length; i++) {
+    for (let j = i + 1; j < chart.placements.length; j++) {
+      const a = chart.placements[i];
+      const b = chart.placements[j];
+      if (SIGN_RULERS[a.sign] === b.body && SIGN_RULERS[b.sign] === a.body) {
+        boosts[a.body] += 1.5;
+        boosts[b.body] += 1.5;
+      }
+    }
+  }
+
+  return boosts;
+}
+
+function elementWeather(suit, favoredSuit) {
+  if (suit === favoredSuit) return 1.35;
+  if (suit === OPPOSITE_SUITS[favoredSuit]) return 0.75;
+  return 1.0;
+}
+
+function levelMultiplier(level) {
+  return 1.0 + 0.5 * (1.0 - Math.pow(0.6, Math.max(1, level) - 1));
+}
+
+function sealedSuitsForFaction(factionId) {
+  if (factionId === null || factionId === undefined) return new Set();
+  return new Set(state.map.filter(zone => zone.owner === factionId).map(zone => SIGN_SUITS[zone.zone_id % 12]));
+}
+
+function sealMultiplier(suit, sealedSuits) {
+  return sealedSuits.has(suit) ? 1.15 : 1.0;
+}
 
 // ---- WEB AUDIO SYNTHESIZER ENGINE ----
 class CosmicSynth {
@@ -150,8 +238,8 @@ class CosmicSynth {
 const synth = new CosmicSynth();
 
 // ---- DETERMINISTIC SEED & PLACEMENT CALCULATOR ----
-function generateMockNatalChart(seedStr) {
-  // Simple LCG hash function to make inputs deterministic
+function deriveLocalNatalChart(seedStr) {
+  // Deterministic browser-side chart preview for the standalone client.
   let s = 0;
   for (let i = 0; i < seedStr.length; i++) {
     s = (s << 5) - s + seedStr.charCodeAt(i);
@@ -163,15 +251,15 @@ function generateMockNatalChart(seedStr) {
   };
 
   const placements = [];
-  // Generate 10 planetary placements
+  // Generate the 10 planetary placements used by the submission deck.
   for (let i = 0; i < 10; i++) {
     const sign = Math.floor(random() * 12);
     const degree = Math.floor(random() * 30);
     const minute = Math.floor(random() * 60);
     const retrograde = random() < 0.22;
-    // Essential dignity mapping based on planet and sign
+    // Lightweight dignity approximation; the Unity client uses full chart math.
     let dignity = 0; // neutral
-    if ((i === 4 && sign === 0) || (i === 6 && sign === 9) || (i === 0 && sign === 4)) {
+    if (SIGN_RULERS[sign] === i) {
       dignity = 5; // Rulership
     } else if ((i === 5 && sign === 11) || (i === 0 && sign === 0)) {
       dignity = 3; // Exaltation
@@ -198,30 +286,23 @@ function generateMockNatalChart(seedStr) {
 }
 
 function scoreFactions(chart) {
-  // dignity vector: Chart ruler (Ascendant lord) x3, Sun/Moon rulers x2, angular x1.5, dignity matching x1.5
-  const scores = new Array(10).fill(10); // base score is 10
+  const scores = new Array(10).fill(0);
+  const ascSign = Math.floor(chart.ascendant / 1800) % 12;
+  scores[SIGN_RULERS[ascSign]] += 3.0;
 
-  chart.placements.forEach((p, idx) => {
-    // Add essential dignity score
-    scores[p.body] += p.dignity * 1.5;
-    
-    // stelliums (same element signs)
-    const suit = SIGN_SUITS[p.sign];
-    chart.placements.forEach((other, oIdx) => {
-      if (idx !== oIdx && SIGN_SUITS[other.sign] === suit) {
-        scores[p.body] += 1.0;
-      }
-    });
+  chart.placements.forEach(p => {
+    scores[p.body] += 1.0 + p.dignity * 0.4;
+    if (isAngularPlacement(p, chart)) scores[p.body] += 1.5;
+
+    if (p.body === 0 || p.body === 1) {
+      scores[SIGN_RULERS[p.sign]] += 2.0;
+    }
   });
 
-  // Chart ruler boost (mocking Ascendant lord index mapping)
-  const ascSign = Math.floor(chart.ascendant / 1800) % 12;
-  const rulerBody = [4, 6, 2, 1, 0, 2, 3, 9, 5, 6, 7, 8][ascSign]; // sign ruling planet
-  scores[rulerBody] += 15;
-
-  // Sun and Moon rulers boost
-  scores[chart.placements[0].body] += 10; // Sun
-  scores[chart.placements[1].body] += 8;  // Moon
+  const receptionBoosts = calculateReceptionBoosts(chart);
+  receptionBoosts.forEach((boost, idx) => {
+    scores[idx] += boost;
+  });
 
   // Convert to sorted faction picks
   const sorted = scores.map((val, idx) => ({ id: idx, score: Math.round(val) }));
@@ -342,82 +423,86 @@ class GameState {
     // Mint starting deck
     this.collection = [];
     this.deck = [];
-    
-    // 1. Major Arcana Hero Trump
-    const trumpCard = this.createCard(faction, true, 0, 0, 5, false);
-    this.collection.push(trumpCard);
-    this.deck.push({ card_id: trumpCard.card_id, loadout: "active" });
 
-    // 2. Mint placements
-    chart.placements.forEach((p, idx) => {
+    const chartRuler = SIGN_RULERS[Math.floor(chart.ascendant / 1800) % 12];
+    const receptionBoosts = calculateReceptionBoosts(chart);
+
+    chart.placements.forEach(p => {
       const degree = Math.floor(p.arc_minutes / 60);
       const minute = p.arc_minutes % 60;
-      const isCourt = (idx === 0 || idx === 4 || idx === 6); // Angular bodies (Sun, Mars, Saturn)
-      
-      const card = this.createCard(
+      const receptionBoost = receptionBoosts[p.body];
+      const effectiveDignity = p.dignity + Math.round(receptionBoost * 2);
+      const minorRank = p.body === chartRuler
+        ? 1
+        : ((isAngularPlacement(p, chart) || SIGN_RULERS[p.sign] === p.body)
+          ? courtRank(effectiveDignity)
+          : pipRank(p.sign, degree));
+
+      const minor = this.createCard(
         p.body,
         false,
         degree,
         minute,
         p.dignity,
         p.retrograde,
-        isCourt,
-        p.sign
+        minorRank,
+        p.sign,
+        receptionBoost
       );
-      this.collection.push(card);
-      
-      // Auto-assign first 7 pips/courts to Active, others to Bench
-      const loadout = this.deck.filter(d => d.loadout === "active").length < 8 ? "active" : "bench";
-      this.deck.push({ card_id: card.card_id, loadout: loadout });
+      this.collection.push(minor);
+      this.mintSlot(minor.card_id);
+
+      const trump = this.createCard(
+        p.body,
+        true,
+        degree,
+        minute,
+        p.dignity,
+        p.retrograde,
+        TRUMP_MAJOR_INDEX[p.body],
+        p.sign,
+        receptionBoost
+      );
+      this.collection.push(trump);
+      this.mintSlot(trump.card_id);
     });
 
     this.save();
   }
 
-  createCard(bodyIdx, isTrump, degree, minute, dignity, retrograde, isCourt = false, signIdx = 0) {
+  mintSlot(cardId) {
+    const activeCount = this.deck.filter(d => d.loadout === "active").length;
+    this.deck.push({ card_id: cardId, loadout: activeCount < 8 ? "active" : "bench" });
+  }
+
+  createCard(bodyIdx, isTrump, degree, minute, dignity, retrograde, rankOverride = null, signIdx = 0, receptionBoost = 0) {
     const cardId = Math.floor(Math.random() * 90000000) + 10000000;
-    const suit = SIGN_SUITS[signIdx];
-    
-    // Suit stats
-    let baseAtk = 25, baseHp = 50, baseArm = 10, baseCd = 700;
-    if (suit === "wands") { baseAtk = 30; baseHp = 45; baseArm = 8; baseCd = 600; }
-    else if (suit === "swords") { baseAtk = 40; baseHp = 40; baseArm = 5; baseCd = 750; }
-    else if (suit === "pentacles") { baseAtk = 18; baseHp = 60; baseArm = 20; baseCd = 900; }
+    const suit = isTrump ? PLANET_SUITS[bodyIdx] : SIGN_SUITS[signIdx];
+    const rank = rankOverride ?? (isTrump ? TRUMP_MAJOR_INDEX[bodyIdx] : pipRank(signIdx, degree));
+    const dignityMult = 1.0 + (dignity + receptionBoost * 2.0) * 0.08;
 
-    const scale = 1.0 + (degree / 15.0);
-    const dignityMult = dignity >= 3 ? 1.35 : (dignity <= -3 ? 0.75 : 1.0);
+    let hp = 12 + Math.round(minute * 28 / 59);
+    let atk = Math.max(1, Math.floor((6 + degree) * dignityMult));
+    let arm = 4 + (isFixedSign(signIdx) ? 8 : 0);
+    let cd = Math.max(800, Math.min(3000, 3000 - (isCardinalSign(signIdx) ? 800 : 0) - degree * 20));
 
-    let atk = Math.round(baseAtk * scale * dignityMult);
-    let hp = Math.round(baseHp * scale * dignityMult);
-    let arm = Math.round(baseArm * scale * dignityMult);
-    let cd = Math.round(baseCd / scale);
-
-    hp += Math.round(minute * 0.4);
-    atk += Math.round(minute * 0.15);
-
-    if (retrograde) {
-      let temp = atk;
-      atk = arm;
-      arm = temp;
-      if (atk < 5) atk = 5;
-      cd = Math.round(cd * 1.15);
+    if (isTrump) {
+      hp = Math.floor(hp * 1.5);
+      atk = Math.floor(atk * 1.5);
+      arm = Math.floor(arm * 1.5);
     }
 
     let title = "";
     if (isTrump) {
       title = TRUMP_NAMES[bodyIdx];
-    } else if (isCourt) {
-      const courts = ["Page", "Knight", "Queen", "King"];
-      title = courts[degree % 4] + " of " + SUIT_NAMES[suit];
     } else {
-      const pips = ["Ace", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten"];
-      title = pips[Math.min(9, Math.floor((degree / 30) * 10))] + " of " + SUIT_NAMES[suit];
+      title = rankName(rank) + " of " + SUIT_NAMES[suit];
     }
 
     return {
       card_id: cardId,
       suit: suit,
-      rank: isTrump ? bodyIdx : (isCourt ? 11 + (degree % 4) : Math.floor((degree / 30) * 10) + 1),
+      rank: rank,
       health: hp,
       attack: atk,
       armour: arm,
@@ -472,12 +557,13 @@ class GameState {
     
     if (!keepCard || !consumeCard) return;
 
-    // Level up keep card
+    const previousMult = levelMultiplier(keepCard.level);
     keepCard.level++;
-    // Scale stats with leveling diminishing ceiling (level multiplier: Level 1 = 1.0, 2 = 1.15, 3 = 1.25, 4 = 1.32, etc.)
-    const mult = 1.0 + (keepCard.level * 0.12);
-    keepCard.attack = Math.round(keepCard.attack * mult / (1 + (keepCard.level - 1) * 0.12));
-    keepCard.health = Math.round(keepCard.health * mult / (1 + (keepCard.level - 1) * 0.12));
+    const nextMult = levelMultiplier(keepCard.level);
+    const ratio = nextMult / previousMult;
+    keepCard.attack = Math.round(keepCard.attack * ratio);
+    keepCard.health = Math.round(keepCard.health * ratio);
+    keepCard.armour = Math.round(keepCard.armour * ratio);
 
     // Delete consume card
     this.collection = this.collection.filter(c => c.card_id !== consumeId);
@@ -553,11 +639,13 @@ const state = new GameState();
 // ---- AUTO-SIEGE COMBAT RESOLVER ----
 function runAutoSiege(attackerCards, defenderCards, zoneElement, attackerFaction, zoneOwnerFaction) {
   const logs = [];
-  logs.push({ type: "system", text: "⚔ Duel started inside zone (" + zoneElement.toUpperCase() + " element) ⚔" });
+  logs.push({ type: "system", text: "⚔ Auto-Siege started under " + zoneElement.toUpperCase() + " weather ⚔" });
 
   // Clone cards to simulate HP decay during fight
   const aTeam = attackerCards.map(c => ({ ...c, maxHp: c.health, curHp: c.health }));
   const dTeam = defenderCards.map(c => ({ ...c, maxHp: c.health, curHp: c.health }));
+  const attackerSeals = sealedSuitsForFaction(attackerFaction);
+  const defenderSeals = sealedSuitsForFaction(zoneOwnerFaction);
 
   if (dTeam.length === 0) {
     logs.push({ type: "system", text: "No defensive sentinels deployed! Attacker breaches base easily." });
@@ -573,26 +661,9 @@ function runAutoSiege(attackerCards, defenderCards, zoneElement, attackerFaction
       if (a.curHp <= 0 || dTeam.length === 0) return;
       const target = dTeam[0]; // focus target
       
-      // Calculate multipliers
-      let mult = 1.0;
-      
-      // 1. Suit triangle (Wands > Swords > Pentacles > Wands)
-      if (a.suit === "wands" && target.suit === "swords") mult = 1.5;
-      else if (a.suit === "swords" && target.suit === "pentacles") mult = 1.5;
-      else if (a.suit === "pentacles" && target.suit === "wands") mult = 1.5;
-      else if (target.suit === "wands" && a.suit === "swords") mult = 0.66;
-      else if (target.suit === "swords" && a.suit === "pentacles") mult = 0.66;
-      else if (target.suit === "pentacles" && a.suit === "wands") mult = 0.66;
-
-      // 2. Zone element weather match
-      if (SIGN_SUITS[SIGN_SUITS.indexOf(a.suit)] === zoneElement) {
-        mult *= 1.35;
-      }
-
-      // 3. Zodiac seal bonus (+15% attack if faction holds sign element)
-      if (attackerFaction === state.player?.faction) {
-        mult *= 1.15;
-      }
+      const mult = elementWeather(a.suit, zoneElement)
+        * sealMultiplier(a.suit, attackerSeals)
+        * levelMultiplier(a.level);
 
       let dmg = Math.round(a.attack * mult) - target.armour;
       dmg = Math.max(1, dmg);
@@ -616,14 +687,9 @@ function runAutoSiege(attackerCards, defenderCards, zoneElement, attackerFaction
       if (d.curHp <= 0 || aTeam.length === 0) return;
       const target = aTeam[0];
 
-      let mult = 1.0;
-      if (d.suit === "wands" && target.suit === "swords") mult = 1.5;
-      else if (d.suit === "swords" && target.suit === "pentacles") mult = 1.5;
-      else if (d.suit === "pentacles" && target.suit === "wands") mult = 1.5;
-      
-      if (SIGN_SUITS[SIGN_SUITS.indexOf(d.suit)] === zoneElement) {
-        mult *= 1.35;
-      }
+      const mult = elementWeather(d.suit, zoneElement)
+        * sealMultiplier(d.suit, defenderSeals)
+        * levelMultiplier(d.level);
 
       let dmg = Math.round(d.attack * mult) - target.armour;
       dmg = Math.max(1, dmg);

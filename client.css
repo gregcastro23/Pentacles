@@ -151,7 +151,9 @@ body {
 /* Zone Hover highlight states */
 .zone-shape {
   fill: rgba(13, 20, 38, 0.2);
-  transition: fill 0.3s, stroke-width 0.3s;
+  stroke: transparent;
+  stroke-width: 1.5px;
+  transition: fill 0.3s, stroke 0.3s, stroke-width 0.3s;
   cursor: pointer;
 }
 .zone-shape:hover {
@@ -159,7 +161,8 @@ body {
 }
 .zone-shape.selected {
   fill: rgba(216, 180, 106, 0.25);
-  stroke-width: 2px;
+  stroke: var(--gold-bright);
+  stroke-width: 1.5px;
 }
 
 /* Stars mapping */

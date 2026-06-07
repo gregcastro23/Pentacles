@@ -332,7 +332,7 @@
               <circle cx="300" cy="300" r="250" fill="url(#halo)"/>
 
               <!-- 5 LARGE arc zones (segment between two tips, valley + circle arc) -->
-              <g stroke="var(--gold)" stroke-width="1" stroke-opacity="0.55">
+              <g fill="rgba(216, 180, 106, 0.12)">
                 <path class="zone-large" d="M300,50 L356.1,222.8 L537.8,222.8 A250,250 0 0,0 300,50 Z"/>
                 <path class="zone-large" d="M537.8,222.8 L390.8,329.5 L447,502.3 A250,250 0 0,0 537.8,222.8 Z"/>
                 <path class="zone-large" d="M447,502.3 L300,395.5 L153,502.3 A250,250 0 0,0 447,502.3 Z"/>
@@ -341,7 +341,7 @@
               </g>
 
               <!-- 5 SMALL star-tip triangles -->
-              <g stroke="var(--gold-bright)" stroke-width="1" stroke-opacity="0.75">
+              <g fill="rgba(241, 219, 161, 0.3)">
                 <path class="zone-tip" d="M300,50 L243.9,222.8 L356.1,222.8 Z"/>
                 <path class="zone-tip" d="M537.8,222.8 L356.1,222.8 L390.8,329.5 Z"/>
                 <path class="zone-tip" d="M447,502.3 L390.8,329.5 L300,395.5 Z"/>
@@ -351,9 +351,11 @@
 
               <!-- central pentagon -->
               <path class="zone-core" d="M356.1,222.8 L390.8,329.5 L300,395.5 L209.2,329.5 L243.9,222.8 Z"
-                    fill="rgba(216,180,106,0.17)" stroke="var(--gold-bright)" stroke-width="1.4"/>
+                    fill="rgba(216,180,106,0.5)"/>
 
-              <circle cx="300" cy="300" r="250" fill="none" stroke="var(--gold)" stroke-width="1.6" stroke-opacity="0.8"/>
+              <!-- Outer boundary circle and Star lines overlay -->
+              <circle cx="300" cy="300" r="250" fill="none" stroke="var(--gold)" stroke-width="2.2" />
+              <polygon points="300,50 447,502.3 62.2,222.8 537.8,222.8 153,502.3" fill="none" stroke="var(--gold)" stroke-width="2.2" stroke-linejoin="round" />
 
               <!-- tip & valley node markers -->
               <g fill="var(--gold-bright)">
