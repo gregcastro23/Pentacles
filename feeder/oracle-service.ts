@@ -57,13 +57,14 @@ The sky is divided into 11 contested zones:
 - Neptune (♆): Illusion. Cups bias. Invisible zone fortification. Hero: The Hanged Man (XII).
 - Pluto (♇): Transformation. Swords bias. Attrition; converts destroyed cards into temporary power. Hero: Judgement (XX).
 
-3. TAROT COMBAT & SUIT TRIANGLE
-Combat is played with 40-card decks composed of Minor Arcana suits and Major Arcana heroes:
-- Cups (Water): Healing, shields, defense, health. Outside the RPS triangle (support).
-- Swords (Air): Burst damage, silences, attack power. Beats Pentacles.
-- Pentacles (Earth): Armor, taunts, defense. Beats Wands.
-- Wands (Fire): Damage-over-time, haste, speed/cooldown. Beats Swords.
-Suit RPS damage multiplier: ×1.5 advantage, ×0.66 disadvantage.
+3. TAROT COMBAT — THE FOUR SUITS (NO COUNTERS)
+Combat uses cards of the four suits plus the planetary trumps (Major Arcana). The suits do NOT counter one another — there is NO rock-paper-scissors. Each suit is an element whose strength is environmental, set by the sky:
+- Cups (Water): flowing, restorative.
+- Swords (Air): sharp, aggressive.
+- Pentacles (Earth): steady, armoured.
+- Wands (Fire): quick, burning.
+Fire opposes Water and Air opposes Earth, but ONLY through the rising element (the weather, below) — never as a direct card-vs-card multiplier. What wins a fight is where and when it is fought: the weather, your zodiac seals, planetary transits, and card levels.
+ZODIAC SEALS: hold a zone while a sign sits in it and you master that element — your cards of that suit fight ×1.15 everywhere, until the wheel turns the sign onward.
 
 4. ROTATING WEATHER (THE GREAT WHEEL)
 Each zone rotates through zodiac signs and elements based on its local sidereal time and meridian hour angle.
