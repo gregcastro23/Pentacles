@@ -193,6 +193,50 @@
       </div>
     </aside>
 
+  <!-- ===================== SIGN IN / SWITCH ACCOUNT MODAL ===================== -->
+  <div id="signin-modal" class="overlay-fullscreen" style="display: none; background: rgba(5, 6, 12, 0.95); z-index: 101;">
+    <div class="onboarding-window" style="width: 440px;">
+      <h2 style="font-family: var(--display); font-size: 26px; color: var(--gold-bright); text-align: center; margin-bottom: 5px;">Astral Sign In</h2>
+      <p style="font-size: 12px; color: var(--dim); text-align: center; margin-top: 0;">Access or manage your seeker profiles and credentials.</p>
+      
+      <!-- Modal Tabs -->
+      <div class="tab-headers" style="margin-bottom: 15px;">
+        <button id="modal-tab-select" class="tab-btn active" onclick="switchModalTab('select')">Profiles</button>
+        <button id="modal-tab-key" class="tab-btn" onclick="switchModalTab('key')">Astral Key</button>
+      </div>
+
+      <!-- Select Profile Pane -->
+      <div id="modal-pane-select" class="tab-pane active" style="gap: 12px; display: flex; flex-direction: column;">
+        <div id="profiles-list-container" style="max-height: 160px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
+          <!-- Loaded dynamically -->
+        </div>
+        
+        <div style="display: flex; gap: 10px; margin-top: 10px;">
+          <button class="btn" style="flex: 1;" onclick="createNewSeekerProfile()">Create New Seeker ✦</button>
+          <button class="btn" style="flex: 1; border-color: var(--dim); color: var(--dim);" onclick="closeSignInModal()">Close</button>
+        </div>
+      </div>
+
+      <!-- Import/Export Astral Key Pane -->
+      <div id="modal-pane-key" class="tab-pane" style="gap: 12px; display: none; flex-direction: column;">
+        <div class="form-group">
+          <label>Your Astral Key (Export/Backup)</label>
+          <textarea id="astral-key-textarea" class="form-input" style="height: 80px; font-family: var(--mono); font-size: 11px; resize: none; background: #070910;" readonly onclick="this.select()"></textarea>
+          <span style="font-size: 10px; color: var(--dim); margin-top: 2px;">Click to select and copy this key to transfer your profile.</span>
+        </div>
+        
+        <div class="form-group">
+          <label>Import Astral Key</label>
+          <input type="text" id="astral-key-import-input" class="form-input" placeholder="Paste Astral Key here..." style="font-family: var(--mono); font-size: 11px;">
+        </div>
+
+        <div style="display: flex; gap: 10px;">
+          <button class="btn" style="flex: 1;" onclick="importAstralKey()">Load Astral Key ⚡</button>
+          <button class="btn" style="flex: 1; border-color: var(--dim); color: var(--dim);" onclick="closeSignInModal()">Close</button>
+        </div>
+      </div>
+
+    </div>
   </div>
 
   <script src="client.js"></script>
@@ -525,6 +569,14 @@
       const ownerStr = star.held_by !== null ? `${PLANET_GLYPHS[star.held_by]} ${PLANET_NAMES[star.held_by]}` : "Neutral";
       const suitSign = SIGN_SUITS[zone.zone_id % 12];
       
+      // Get contesters list
+      const contesters = getStarContesters(zone, star);
+      const contestersNames = contesters.map(id => {
+        const isMe = state.player && id === state.player.faction;
+        const name = `${PLANET_GLYPHS[id]} ${PLANET_NAMES[id]}`;
+        return isMe ? `<strong>${name} (You)</strong>` : name;
+      }).join(", ");
+
       // Calculate selected strike power
       let totalAtk = 0;
       let handCount = 0;
@@ -548,6 +600,7 @@
         <strong>Target Node:</strong> ${star.name} (${star.magnitude} mag)<br>
         <strong>Zone Location:</strong> ${zoneName} (Favored Suit: ${suitSign.toUpperCase()})<br>
         <strong>Current Node Owner:</strong> ${ownerStr}<br>
+        <strong>Round Contesters (${contesters.length}):</strong> ${contestersNames}<br>
         <strong>Attack Cards:</strong> ${handCount > 0 ? handCount : 'All Active'} (${totalAtk} Base Power)
       `;
 
@@ -562,38 +615,50 @@
       const star = state.selectedStar;
       const zoneElement = SIGN_SUITS[zone.zone_id % 12];
 
-      // Get attacker cards
-      let atkCards = [];
-      if (state.selectedCards.size > 0) {
-        state.selectedCards.forEach(id => {
-          const c = state.collection.find(card => card.card_id === id);
-          if (c) atkCards.push(c);
-        });
-      } else {
-        state.deck.filter(d => d.loadout === "active").forEach(slot => {
-          const c = state.collection.find(card => card.card_id === slot.card_id);
-          if (c) atkCards.push(c);
-        });
-      }
+      const contesters = getStarContesters(zone, star);
+      const teams = [];
 
-      // Generate local defender sentinels scaled to the target's zone weather.
-      let defCards = [];
-      if (star.held_by !== null) {
-        // Build 3 defender sentinels
-        for (let i = 0; i < 3; i++) {
-          const degree = 5 + i * 2;
-          defCards.push(state.createCard(star.held_by, false, degree, 10, 0, false, pipRank(zone.zone_id % 12, degree), zone.zone_id % 12));
+      contesters.forEach(factionId => {
+        let cards = [];
+        const isPlayer = state.player && factionId === state.player.faction;
+
+        if (isPlayer) {
+          if (state.selectedCards.size > 0) {
+            state.selectedCards.forEach(id => {
+              const c = state.collection.find(card => card.card_id === id);
+              if (c) cards.push(JSON.parse(JSON.stringify(c)));
+            });
+          } else {
+            state.deck.filter(d => d.loadout === "active").forEach(slot => {
+              const c = state.collection.find(card => card.card_id === slot.card_id);
+              if (c) cards.push(JSON.parse(JSON.stringify(c)));
+            });
+          }
+        } else {
+          // Generate 3 defender cards if this faction is current owner, else 2 attacker cards
+          const isOwner = factionId === star.held_by;
+          const count = isOwner ? 3 : 2;
+          for (let i = 0; i < count; i++) {
+            const degree = 4 + i * 2 + Math.floor(Math.random() * 3);
+            cards.push(state.createCard(factionId, false, degree, 10, 0, false, pipRank(zone.zone_id % 12, degree), zone.zone_id % 12));
+          }
         }
-      } else {
-        // Neutral stars have minor elemental guardians
-        defCards.push(state.createCard(6, false, 2, 0, 0, false, pipRank(zone.zone_id % 12, 2), zone.zone_id % 12));
-      }
+
+        teams.push({
+          faction: factionId,
+          name: PLANET_NAMES[factionId],
+          glyph: PLANET_GLYPHS[factionId],
+          color: PLANET_COLORS[factionId],
+          isPlayer: isPlayer,
+          cards: cards
+        });
+      });
 
       // Play Sound
       synth.playStrike();
 
-      // Resolve Auto-Siege
-      const result = runAutoSiege(atkCards, defCards, zoneElement, state.player.faction, star.held_by);
+      // Resolve Auto-Siege with all participating contesters
+      const result = runAutoSiege(teams, zoneElement);
 
       // Render Console Logs
       const consoleEl = document.getElementById("combat-log-console");
@@ -610,18 +675,44 @@
           setTimeout(streamLog, 80);
         } else {
           // Log finished - apply state changes on success
-          if (result.victory) {
-            star.held_by = state.player.faction;
+          if (result.winnerFactionId !== null) {
+            star.held_by = result.winnerFactionId;
             
-            // Adjust zone control meter towards player's faction
-            const delta = 200;
-            zone.control = Math.min(1000, zone.control + delta);
-            if (zone.control >= 600) {
-              zone.owner = state.player.faction;
+            const isMyFaction = state.player && result.winnerFactionId === state.player.faction;
+            if (isMyFaction) {
+              const delta = 200;
+              zone.control = Math.min(1000, zone.control + delta);
+              if (zone.control >= 600) {
+                zone.owner = state.player.faction;
+              }
+              synth.playFanfare();
+            } else {
+              // Shift control away from player or towards winner
+              const delta = 150;
+              if (zone.owner === state.player.faction) {
+                zone.control = Math.max(-1000, zone.control - delta);
+                if (zone.control <= -200) {
+                  zone.owner = result.winnerFactionId;
+                }
+              } else {
+                if (zone.owner === null) {
+                  zone.control = -delta;
+                  zone.owner = result.winnerFactionId;
+                } else if (zone.owner === result.winnerFactionId) {
+                  zone.control = Math.max(-1000, zone.control - delta);
+                } else {
+                  zone.control = Math.max(-1000, Math.min(1000, zone.control - delta));
+                  if (Math.abs(zone.control) < 100) {
+                    zone.owner = null;
+                  }
+                }
+              }
             }
-            synth.playFanfare();
           }
           
+          // Clear contesters list on capture so next battle gets fresh random set
+          star.contesters = null;
+
           state.recalculateLeaderboard();
           state.save();
           renderAll();
@@ -715,11 +806,149 @@
       if (!state.player) return;
       const fIdx = state.player.faction;
       banner.innerHTML = `
-        <span style="font-size: 14px; font-weight: bold; color: #fff;">${state.player.handle}</span>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="font-size: 14px; font-weight: bold; color: #fff;">${state.player.handle}</span>
+          <span style="font-size: 10px; color: var(--gold); cursor:pointer; text-decoration:underline;" onclick="openSignInModal()">[Switch]</span>
+        </div>
         <span style="font-size: 10px; color: ${PLANET_COLORS[fIdx]}; letter-spacing: 0.05em; text-transform: uppercase;">
           Faction: ${PLANET_GLYPHS[fIdx]} ${PLANET_NAMES[fIdx]}
         </span>
       `;
+    }
+
+    // ---- ASTRAL SIGN IN & MULTI-PROFILE HANDLERS ----
+    function openSignInModal() {
+      document.getElementById("signin-modal").style.display = "flex";
+      switchModalTab('select');
+      renderProfilesList();
+      
+      const astralKeyTextarea = document.getElementById("astral-key-textarea");
+      if (state.player && state.player.handle) {
+        const rawSave = localStorage.getItem(`pentacles_save_${state.player.handle}`);
+        if (rawSave) {
+          try {
+            const base64 = btoa(unescape(encodeURIComponent(rawSave)));
+            astralKeyTextarea.value = base64;
+          } catch(e) {
+            astralKeyTextarea.value = "Error generating Astral Key.";
+          }
+        }
+      } else {
+        astralKeyTextarea.value = "No active seeker profile to backup.";
+      }
+      
+      document.getElementById("astral-key-import-input").value = "";
+      synth.playSelect();
+    }
+
+    function closeSignInModal() {
+      document.getElementById("signin-modal").style.display = "none";
+      synth.playSelect();
+    }
+
+    function switchModalTab(tabId) {
+      document.getElementById("modal-tab-select").classList.toggle("active", tabId === 'select');
+      document.getElementById("modal-tab-key").classList.toggle("active", tabId === 'key');
+      
+      document.getElementById("modal-pane-select").style.display = tabId === 'select' ? 'flex' : 'none';
+      document.getElementById("modal-pane-key").style.display = tabId === 'key' ? 'flex' : 'none';
+      synth.playClick();
+    }
+
+    function renderProfilesList() {
+      const container = document.getElementById("profiles-list-container");
+      container.innerHTML = "";
+      
+      const list = state.getProfilesList();
+      if (list.length === 0) {
+        container.innerHTML = `<div style="font-size:12px; color:var(--dim); text-align:center; padding:20px;">No saved astral profiles. Create a new seeker below!</div>`;
+        return;
+      }
+      
+      list.forEach(handle => {
+        const isActive = state.player && state.player.handle === handle;
+        const profileRaw = localStorage.getItem(`pentacles_save_${handle}`);
+        let subtitle = "Incomplete Profile";
+        
+        if (profileRaw) {
+          try {
+            const data = JSON.parse(profileRaw);
+            const factionId = data.player.faction;
+            subtitle = `Faction: ${PLANET_GLYPHS[factionId]} ${PLANET_NAMES[factionId]}`;
+          } catch(e) {}
+        }
+        
+        container.innerHTML += `
+          <div class="standings-item ${isActive ? 'me' : ''}" style="cursor:pointer; margin-bottom: 6px;" onclick="selectProfile('${handle}')">
+            <div style="display:flex; flex-direction:column; gap:2px;">
+              <span style="font-weight:bold; color:#fff;">${handle} ${isActive ? '✦' : ''}</span>
+              <span style="font-size:10px; color:var(--dim);">${subtitle}</span>
+            </div>
+            <button class="btn" style="padding:4px 8px; font-size:9px; border-color:var(--wands); color:var(--wands); background:transparent;" onclick="deleteProfileClick('${handle}', event)">Discard</button>
+          </div>
+        `;
+      });
+    }
+
+    function selectProfile(handle) {
+      state.switchProfile(handle);
+      closeSignInModal();
+      renderAll();
+      synth.playFanfare();
+    }
+
+    function deleteProfileClick(handle, event) {
+      event.stopPropagation();
+      if (confirm(`Are you sure you want to discard seeker profile: "${handle}"? This action is permanent.`)) {
+        state.deleteProfile(handle);
+        
+        const loaded = state.load();
+        if (!loaded) {
+          closeSignInModal();
+          document.getElementById("onboarding-overlay").style.display = "flex";
+        } else {
+          renderProfilesList();
+          renderAll();
+        }
+        synth.playClick();
+      }
+    }
+
+    function createNewSeekerProfile() {
+      closeSignInModal();
+      document.getElementById("onboarding-overlay").style.display = "flex";
+      document.getElementById("onboarding-step-1").style.display = "flex";
+      document.getElementById("onboarding-step-2").style.display = "none";
+      
+      document.getElementById("ob-handle").value = "NewSeeker";
+      synth.playSelect();
+    }
+
+    function importAstralKey() {
+      const input = document.getElementById("astral-key-import-input").value.trim();
+      if (!input) {
+        alert("Please paste an Astral Key!");
+        return;
+      }
+      
+      try {
+        const decoded = decodeURIComponent(escape(atob(input)));
+        const data = JSON.parse(decoded);
+        if (data.player && data.player.handle) {
+          localStorage.setItem(`pentacles_save_${data.player.handle}`, decoded);
+          state.addProfileToList(data.player.handle);
+          state.switchProfile(data.player.handle);
+          
+          closeSignInModal();
+          renderAll();
+          synth.playFanfare();
+        } else {
+          alert("Invalid Astral Key structure.");
+        }
+      } catch(e) {
+        console.error("Import failed", e);
+        alert("Failed to decode Astral Key. Make sure you copied the entire key string.");
+      }
     }
 
     // Master render call

@@ -325,26 +325,54 @@ class GameState {
   }
 
   load() {
-    const raw = localStorage.getItem("pentacles_save");
-    if (raw) {
-      try {
-        const data = JSON.parse(raw);
-        this.player = data.player;
-        this.collection = data.collection;
-        this.deck = data.deck;
-        this.map = data.map;
-        this.leaderboard = data.leaderboard;
-        this.seasonDegree = data.seasonDegree || 0;
-        return true;
-      } catch (e) {
-        console.error("Failed parsing state", e);
+    // 1. Get active profile handle
+    let activeHandle = localStorage.getItem("pentacles_active_profile");
+    
+    // 2. Fallback/migrate legacy single-profile save
+    if (!activeHandle) {
+      const rawLegacy = localStorage.getItem("pentacles_save");
+      if (rawLegacy) {
+        try {
+          const data = JSON.parse(rawLegacy);
+          if (data.player && data.player.handle) {
+            activeHandle = data.player.handle;
+            localStorage.setItem("pentacles_active_profile", activeHandle);
+            localStorage.setItem(`pentacles_save_${activeHandle}`, rawLegacy);
+            this.addProfileToList(activeHandle);
+            localStorage.removeItem("pentacles_save");
+          }
+        } catch (e) {
+          console.error("Failed legacy migration", e);
+        }
       }
     }
+
+    if (activeHandle) {
+      const raw = localStorage.getItem(`pentacles_save_${activeHandle}`);
+      if (raw) {
+        try {
+          const data = JSON.parse(raw);
+          this.player = data.player;
+          this.collection = data.collection;
+          this.deck = data.deck;
+          this.map = data.map;
+          this.leaderboard = data.leaderboard;
+          this.seasonDegree = data.seasonDegree || 0;
+          return true;
+        } catch (e) {
+          console.error("Failed parsing profile state", e);
+        }
+      }
+    }
+    
     this.initDefaultMap();
     return false;
   }
 
   save() {
+    if (!this.player || !this.player.handle) return;
+    const activeHandle = this.player.handle;
+    
     const data = {
       player: this.player,
       collection: this.collection,
@@ -353,11 +381,60 @@ class GameState {
       leaderboard: this.leaderboard,
       seasonDegree: this.seasonDegree
     };
-    localStorage.setItem("pentacles_save", JSON.stringify(data));
+    
+    localStorage.setItem(`pentacles_save_${activeHandle}`, JSON.stringify(data));
+    localStorage.setItem("pentacles_active_profile", activeHandle);
+    this.addProfileToList(activeHandle);
+  }
+
+  addProfileToList(handle) {
+    let list = [];
+    const rawList = localStorage.getItem("pentacles_profiles_list");
+    if (rawList) {
+      try {
+        list = JSON.parse(rawList);
+      } catch (e) {}
+    }
+    if (!list.includes(handle)) {
+      list.push(handle);
+      localStorage.setItem("pentacles_profiles_list", JSON.stringify(list));
+    }
+  }
+
+  getProfilesList() {
+    const rawList = localStorage.getItem("pentacles_profiles_list");
+    if (rawList) {
+      try {
+        return JSON.parse(rawList);
+      } catch (e) {}
+    }
+    return [];
+  }
+
+  switchProfile(handle) {
+    localStorage.setItem("pentacles_active_profile", handle);
+    return this.load();
+  }
+
+  deleteProfile(handle) {
+    localStorage.removeItem(`pentacles_save_${handle}`);
+    let list = this.getProfilesList().filter(h => h !== handle);
+    localStorage.setItem("pentacles_profiles_list", JSON.stringify(list));
+    
+    const activeHandle = localStorage.getItem("pentacles_active_profile");
+    if (activeHandle === handle) {
+      if (list.length > 0) {
+        localStorage.setItem("pentacles_active_profile", list[0]);
+      } else {
+        localStorage.removeItem("pentacles_active_profile");
+      }
+    }
   }
 
   reset() {
-    localStorage.removeItem("pentacles_save");
+    if (this.player && this.player.handle) {
+      this.deleteProfile(this.player.handle);
+    }
     this.player = null;
     this.collection = [];
     this.deck = [];
@@ -637,113 +714,169 @@ class GameState {
 const state = new GameState();
 
 // ---- AUTO-SIEGE COMBAT RESOLVER ----
-function runAutoSiege(attackerCards, defenderCards, zoneElement, attackerFaction, zoneOwnerFaction) {
+// ---- MULTI-FACTION BATTLE HELPERS & RESOLVER ----
+function getStarContesters(zone, star) {
+  if (!star.contesters) {
+    const contesters = new Set();
+    // 1. Add player faction
+    if (state.player) {
+      contesters.add(state.player.faction);
+    }
+    // 2. Add owner faction
+    if (star.held_by !== null) {
+      contesters.add(star.held_by);
+    }
+    // 3. Add random other factions
+    let numOthers = 2; // default
+    if (zone.kind === "spire") numOthers = Math.floor(Math.random() * 3) + 2; // 2..4 others
+    else if (zone.kind === "crown") numOthers = Math.floor(Math.random() * 4) + 5; // 5..8 others (up to all 10 factions)
+    else numOthers = Math.floor(Math.random() * 2) + 1; // 1..2 others
+
+    while (contesters.size < Math.min(10, numOthers + 1)) {
+      const randomFaction = Math.floor(Math.random() * 10);
+      contesters.add(randomFaction);
+    }
+    star.contesters = Array.from(contesters);
+  }
+  return star.contesters;
+}
+
+// ---- AUTO-SIEGE COMBAT RESOLVER ----
+function runAutoSiege(teams, zoneElement) {
   const logs = [];
   logs.push({ type: "system", text: "⚔ Auto-Siege started under " + zoneElement.toUpperCase() + " weather ⚔" });
 
-  // Clone cards to simulate HP decay during fight
-  const aTeam = attackerCards.map(c => ({ ...c, maxHp: c.health, curHp: c.health }));
-  const dTeam = defenderCards.map(c => ({ ...c, maxHp: c.health, curHp: c.health }));
-  const attackerSeals = sealedSuitsForFaction(attackerFaction);
-  const defenderSeals = sealedSuitsForFaction(zoneOwnerFaction);
+  // Clone teams to keep local combat state
+  const combatTeams = teams.map(t => ({
+    ...t,
+    cards: t.cards.map(c => ({ ...c, maxHp: c.health, curHp: c.health }))
+  })).filter(t => t.cards.length > 0);
 
-  if (dTeam.length === 0) {
-    logs.push({ type: "system", text: "No defensive sentinels deployed! Attacker breaches base easily." });
-    return { victory: true, logs };
+  if (combatTeams.length === 0) {
+    logs.push({ type: "system", text: "No combatants present!" });
+    return { victory: false, winnerFactionId: null, logs };
   }
 
+  // Map faction seals for each combat team
+  combatTeams.forEach(t => {
+    t.seals = sealedSuitsForFaction(t.faction);
+  });
+
   let round = 1;
-  while (aTeam.length > 0 && dTeam.length > 0 && round <= 20) {
+  while (combatTeams.length > 1 && round <= 30) {
     logs.push({ type: "system", text: `✦ Round ${round} ✦` });
 
-    // Attacker turns
-    aTeam.forEach(a => {
-      if (a.curHp <= 0 || dTeam.length === 0) return;
-      const target = dTeam[0]; // focus target
-      
-      const mult = elementWeather(a.suit, zoneElement)
-        * sealMultiplier(a.suit, attackerSeals)
-        * levelMultiplier(a.level);
+    // Collect all alive cards and sort them by speed/cooldown
+    const turnQueue = [];
+    combatTeams.forEach(t => {
+      t.cards.forEach(c => {
+        if (c.curHp > 0) {
+          turnQueue.push({ team: t, card: c });
+        }
+      });
+    });
 
-      let dmg = Math.round(a.attack * mult) - target.armour;
-      dmg = Math.max(1, dmg);
-      target.curHp -= dmg;
-      
-      logs.push({ 
-        type: "hit", 
-        text: `⚔ Attacker's ${a.title} strikes Sentinel's ${target.title} for ${dmg} dmg (${target.curHp}/${target.maxHp} HP left)` 
+    // Sort queue by cooldown ascending (lower cooldown = faster = goes first)
+    turnQueue.sort((a, b) => a.card.cooldown_ms - b.card.cooldown_ms);
+
+    turnQueue.forEach(actor => {
+      const { team, card } = actor;
+      if (card.curHp <= 0 || combatTeams.length <= 1) return;
+
+      // Find target: choose a card from any other team
+      const enemyTeams = combatTeams.filter(t => t.faction !== team.faction);
+      if (enemyTeams.length === 0) return;
+
+      // Target the team with the highest remaining total HP to focus the strongest threat
+      enemyTeams.sort((a, b) => {
+        const aHp = a.cards.reduce((sum, c) => sum + Math.max(0, c.curHp), 0);
+        const bHp = b.cards.reduce((sum, c) => sum + Math.max(0, c.curHp), 0);
+        return bHp - aHp;
       });
 
-      if (target.curHp <= 0) {
-        logs.push({ type: "combat", text: `☠ Sentinel's ${target.title} has collapsed!` });
-      }
-    });
+      const targetTeam = enemyTeams[0];
+      const targetCard = targetTeam.cards.find(c => c.curHp > 0);
+      if (!targetCard) return;
 
-    // Clean up dead sentinels
-    while (dTeam.length > 0 && dTeam[0].curHp <= 0) dTeam.shift();
+      // Calculate damage using multiplier
+      const mult = elementWeather(card.suit, zoneElement)
+        * sealMultiplier(card.suit, team.seals)
+        * levelMultiplier(card.level);
 
-    // Defender turns
-    dTeam.forEach(d => {
-      if (d.curHp <= 0 || aTeam.length === 0) return;
-      const target = aTeam[0];
-
-      const mult = elementWeather(d.suit, zoneElement)
-        * sealMultiplier(d.suit, defenderSeals)
-        * levelMultiplier(d.level);
-
-      let dmg = Math.round(d.attack * mult) - target.armour;
+      let dmg = Math.round(card.attack * mult) - targetCard.armour;
       dmg = Math.max(1, dmg);
-      target.curHp -= dmg;
+      targetCard.curHp -= dmg;
 
-      logs.push({ 
-        type: "hit", 
-        text: `🛡 Sentinel's ${d.title} strikes Attacker's ${target.title} for ${dmg} dmg (${target.curHp}/${target.maxHp} HP left)` 
+      const actorStr = team.isPlayer ? `${card.title} (You)` : `[${team.glyph} ${team.name}] ${card.title}`;
+      const targetStr = targetTeam.isPlayer ? `${targetCard.title} (You)` : `[${targetTeam.glyph} ${targetTeam.name}] ${targetCard.title}`;
+
+      logs.push({
+        type: team.isPlayer ? "combat" : "hit",
+        text: `⚔ ${actorStr} strikes ${targetStr} for ${dmg} dmg (${targetCard.curHp}/${targetCard.maxHp} HP left)`
       });
 
-      if (target.curHp <= 0) {
-        logs.push({ type: "combat", text: `☠ Attacker's ${target.title} has collapsed!` });
+      if (targetCard.curHp <= 0) {
+        logs.push({ type: "hit", text: `☠ ${targetStr} has collapsed!` });
+        
+        // Clean up dead cards in target team
+        targetTeam.cards = targetTeam.cards.filter(c => c.curHp > 0);
+        
+        // If team is fully eliminated, log it
+        if (targetTeam.cards.length === 0) {
+          logs.push({ type: "system", text: `💥 Faction [${targetTeam.glyph} ${targetTeam.name}] has been eliminated from the round!` });
+        }
       }
     });
 
-    // Clean up dead attackers
-    while (aTeam.length > 0 && aTeam[0].curHp <= 0) aTeam.shift();
-
-    // Cups heal tick support
-    aTeam.forEach(a => {
-      if (a.suit === "cups" && a.curHp > 0) {
-        aTeam.forEach(h => {
-          if (h.curHp > 0 && h.curHp < h.maxHp) {
-            const healVal = Math.round(h.maxHp * 0.15);
-            h.curHp = Math.min(h.maxHp, h.curHp + healVal);
-            logs.push({ type: "heal", text: `💚 Cups healing swells friendly ${h.title} by +${healVal} HP` });
-          }
-        });
+    // Remove eliminated teams from turn list
+    for (let i = combatTeams.length - 1; i >= 0; i--) {
+      if (combatTeams[i].cards.length === 0) {
+        combatTeams.splice(i, 1);
       }
-    });
+    }
 
-    dTeam.forEach(d => {
-      if (d.suit === "cups" && d.curHp > 0) {
-        dTeam.forEach(h => {
-          if (h.curHp > 0 && h.curHp < h.maxHp) {
-            const healVal = Math.round(h.maxHp * 0.15);
-            h.curHp = Math.min(h.maxHp, h.curHp + healVal);
-            logs.push({ type: "heal", text: `💚 Cups healing swells Sentinel's ${h.title} by +${healVal} HP` });
-          }
-        });
-      }
+    // Support passive heal tick for Cups suits in all remaining teams
+    combatTeams.forEach(t => {
+      t.cards.forEach(c => {
+        if (c.suit === "cups" && c.curHp > 0) {
+          t.cards.forEach(h => {
+            if (h.curHp > 0 && h.curHp < h.maxHp) {
+              const healVal = Math.round(h.maxHp * 0.12);
+              h.curHp = Math.min(h.maxHp, h.curHp + healVal);
+              const nameStr = t.isPlayer ? `${h.title} (You)` : `[${t.glyph} ${t.name}] ${h.title}`;
+              logs.push({ type: "heal", text: `💚 Cups healing swells ${nameStr} by +${healVal} HP` });
+            }
+          });
+        }
+      });
     });
 
     round++;
   }
 
-  const victory = aTeam.length > 0;
-  if (victory) {
-    logs.push({ type: "victory", text: "✦ VICTORY: Star breached! Zone control meter shifts." });
-  } else {
-    logs.push({ type: "defeat", text: "✦ DEFEAT: Attacker team repelled by defensive sentinels." });
+  // Determine winner
+  let winner = null;
+  if (combatTeams.length > 0) {
+    combatTeams.sort((a, b) => {
+      const aHp = a.cards.reduce((sum, c) => sum + c.curHp, 0);
+      const bHp = b.cards.reduce((sum, c) => sum + c.curHp, 0);
+      return bHp - aHp;
+    });
+    winner = combatTeams[0];
   }
 
-  return { victory, logs };
+  if (winner) {
+    const isPlayerWin = winner.isPlayer;
+    if (isPlayerWin) {
+      logs.push({ type: "victory", text: `✦ VICTORY: You won the battle! Faction [${winner.glyph} ${winner.name}] claims the star.` });
+    } else {
+      logs.push({ type: "defeat", text: `✦ DEFEAT: Faction [${winner.glyph} ${winner.name}] won the battle and claims the star.` });
+    }
+    return { victory: isPlayerWin, winnerFactionId: winner.faction, logs };
+  } else {
+    logs.push({ type: "defeat", text: "✦ DRAW: No faction emerged victorious." });
+    return { victory: false, winnerFactionId: null, logs };
+  }
 }
 
 // ---- DEVICE ORIENTATION & CAMERA HANDLERS ----
