@@ -54,13 +54,15 @@ A standalone, lightweight 2D/AR-toggleable Web Client is now available in the pr
 
 Start the lightweight static file server from the root directory:
 ```bash
-# Serves the client at http://localhost:8080/client.html
+# Serves the playable client at http://localhost:8080/ (and /client.html)
 bun --bun run serve.ts  # Or serve via your preferred static file server
 ```
 
 ### Deploy to Vercel
 
-The web client can be deployed directly as a static project:
+The web client deploys directly as a static project (`vercel.json` rewrites `/`
+to `client.html`, so the root URL serves the playable client; the design doc
+stays at `/Pentacles_GDD.html`):
 ```bash
 # Deploy to Vercel production
 vercel --prod

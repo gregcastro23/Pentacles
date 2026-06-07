@@ -12,9 +12,10 @@ Bun.serve({
     const url = new URL(req.url);
     let path = url.pathname;
     
-    // Default route
+    // Default route → the playable web client (matches the Vercel rewrite in
+    // vercel.json). The design doc stays reachable at /Pentacles_GDD.html.
     if (path === "/" || path === "/index.html") {
-      path = "/Pentacles_GDD.html";
+      path = "/client.html";
     }
     
     const filePath = join(root, path);
