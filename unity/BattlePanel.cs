@@ -64,10 +64,10 @@ public class BattlePanel : MonoBehaviour
         var conn = CelestialPentacleConn.Instance;
         var cards = GatherCards(conn);
         string holder = star.HeldBy.HasValue ? FactionData.Names[(int)star.HeldBy.Value] : "uncontrolled";
-        int power = CombatPreview.StrikePower(cards, CombatPreview.FavoredSuitNow(conn));
+        int power = CombatPreview.StrikePower(cards, CombatPreview.FavoredSuitForZone(conn, star.RegionHint));
 
         _title.text = $"✦ {star.Name}";
-        _info.text = $"Held by: {holder}\nSky: {CombatPreview.SkyWeather(conn)}\n" +
+        _info.text = $"Held by: {holder}\nSky: {CombatPreview.SkyWeather(conn, star.RegionHint)}\n" +
                      $"Your strike: {cards.Count} card(s) · power ≈ {power}\n" +
                      "Tap cards in your hand to choose the strike.";
         _attack.interactable = cards.Count > 0;

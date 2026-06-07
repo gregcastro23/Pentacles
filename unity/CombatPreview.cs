@@ -29,14 +29,23 @@ public static class CombatPreview
         }
     }
 
-    /// Favored suit for the live sky, from game_config.season_degree (the world
-    /// ascendant the server advances each tick). Falls back to 0° (Aries) if absent.
-    public static int FavoredSuitNow(CelestialPentacleConn conn)
+    /// The sign rising at the world reference now (0 Aries..11 Pisces), from the
+    /// live ascendant the server stores in game_config.season_degree.
+    static int RisingSign(CelestialPentacleConn conn)
     {
         var cfg = conn?.Conn?.Db.GameConfig.Id.Find((byte)0);
         int deg = cfg != null ? cfg.SeasonDegree : 0;
-        return FavoredSuit((deg / 30) % 12);
+        return (deg / 30) % 12;
     }
+
+    /// The sign currently in a zone: the 12 signs rotate through the 11 zones,
+    /// zone_sign = rising_sign + zone_id. Mirrors server zone_favored_suit.
+    public static int ZoneSign(CelestialPentacleConn conn, int zoneId) =>
+        (RisingSign(conn) + zoneId) % 12;
+
+    /// Favored suit in a given zone right now (mirrors server zone_favored_suit).
+    public static int FavoredSuitForZone(CelestialPentacleConn conn, int zoneId) =>
+        FavoredSuit(ZoneSign(conn, zoneId));
 
     // Elemental opposite: Wands↔Cups (Fire↔Water), Swords↔Pentacles (Air↔Earth).
     static int Opposite(int suit) => suit switch
@@ -75,12 +84,24 @@ public static class CombatPreview
     static readonly string[] ElementByMod4 = { "Fire", "Earth", "Air", "Water" };
     static readonly string[] SuitNames = { "Cups", "Swords", "Pentacles", "Wands" };
 
-    /// e.g. "♉ Taurus — Earth favors Pentacles", describing the live round.
-    public static string SkyWeather(CelestialPentacleConn conn)
+    /// e.g. "♉ Taurus — Earth favors Pentacles", describing a zone's live weather.
+    public static string SkyWeather(CelestialPentacleConn conn, int zoneId)
     {
-        var cfg = conn?.Conn?.Db.GameConfig.Id.Find((byte)0);
-        int deg = cfg != null ? cfg.SeasonDegree : 0;
-        int sign = (deg / 30) % 12;
+        int sign = ZoneSign(conn, zoneId);
         return $"{SignGlyphs[sign]} {SignNames[sign]} — {ElementByMod4[sign % 4]} favors {SuitNames[FavoredSuit(sign)]}";
     }
+
+    // Major-Arcana names by arcana index (0..21). A trump card stores its index
+    // in Card.rank (disambiguated by Card.is_trump).
+    static readonly string[] MajorNames =
+    {
+        "The Fool", "The Magician", "The High Priestess", "The Empress", "The Emperor",
+        "The Hierophant", "The Lovers", "The Chariot", "Strength", "The Hermit",
+        "Wheel of Fortune", "Justice", "The Hanged Man", "Death", "Temperance",
+        "The Devil", "The Tower", "The Star", "The Moon", "The Sun", "Judgement", "The World",
+    };
+
+    /// Display name for a trump card (its rank is the Major-Arcana index).
+    public static string MajorName(int arcanaIndex) =>
+        arcanaIndex >= 0 && arcanaIndex < MajorNames.Length ? MajorNames[arcanaIndex] : "Trump";
 }

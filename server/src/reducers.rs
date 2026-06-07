@@ -100,7 +100,7 @@ pub fn create_player(
 
     let asc_sign = ((chart.ascendant / 1800) % 12) as u8;
     let chart_ruler = chart::sign_ruler(asc_sign);
-    let (deck_seed, _n) = chart::mint_deck(ctx, ctx.sender, &chart, faction, chart_ruler);
+    let (deck_seed, _n) = chart::mint_deck(ctx, ctx.sender, &chart, chart_ruler);
 
     let player = Player {
         identity: ctx.sender,
@@ -164,7 +164,7 @@ pub fn resolve_star_battle(
         None => neutral_garrison(&star),
     };
 
-    let favored = current_favored_suit(ctx);
+    let favored = zone_favored_suit(ctx, star.region_hint);
     let (won, margin) = combat::resolve_star(&attacker, &defender, favored);
     if won {
         let prev = star.held_by;
@@ -300,7 +300,7 @@ pub fn commit_duel(
 
 /// Lane-by-lane (suit-triangle scaled); best-of-3 wins and shifts the zone.
 fn resolve_duel(ctx: &ReducerContext, duel: &mut Duel) {
-    let favored = current_favored_suit(ctx);
+    let favored = zone_favored_suit(ctx, duel.zone_id);
     let mut a = 0u8;
     let mut b = 0u8;
     for lane in 0..3usize {
@@ -533,9 +533,11 @@ fn ascendant_deg(ts: Timestamp) -> f64 {
     asc.to_degrees().rem_euclid(360.0)
 }
 
-/// The suit favored by the currently-rising sign's element — the round's
-/// "weather", read from the live ascendant degree stored in season_degree.
-fn current_favored_suit(ctx: &ReducerContext) -> Suit {
+/// The suit favored in a given zone right now. One world Ascendant (stored in
+/// season_degree) sets the rising sign; the 12 signs rotate through the 11 zones
+/// (`zone_sign = rising_sign + zone_id`), so each zone carries its own weather and
+/// a contest is decided by the contested zone's element.
+fn zone_favored_suit(ctx: &ReducerContext, zone_id: u8) -> Suit {
     let deg = ctx
         .db
         .game_config()
@@ -543,7 +545,9 @@ fn current_favored_suit(ctx: &ReducerContext) -> Suit {
         .find(&0)
         .map(|c| c.season_degree)
         .unwrap_or(0);
-    chart::sign_element(((deg / 30) % 12) as u8)
+    let rising_sign = (deg / 30) % 12;
+    let zone_sign = ((rising_sign + zone_id as u16) % 12) as u8;
+    chart::sign_element(zone_sign)
 }
 
 /// Advance the round clock: store the world Ascendant's whole degree. Each 30°

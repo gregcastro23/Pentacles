@@ -58,7 +58,7 @@ public class DuelPanel : MonoBehaviour
         int opF = (int)(_amA ? d.FactionB : d.FactionA);
         _title.text = $"⚔ Live Duel — Zone {d.ZoneId}";
         _vs.text = $"{FactionData.Glyphs[myF]} {FactionData.Names[myF]}   vs   {FactionData.Glyphs[opF]} {FactionData.Names[opF]}\n"
-                 + $"Sky: {CombatPreview.SkyWeather(CelestialPentacleConn.Instance)}";
+                 + $"Sky: {CombatPreview.SkyWeather(CelestialPentacleConn.Instance, d.ZoneId)}";
         _status.text = "Assign one card to each lane, then commit.";
         _status.color = Color.white;
 
