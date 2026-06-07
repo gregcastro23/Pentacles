@@ -95,15 +95,14 @@ pub fn create_player(
     chart: NatalChart,
     faction: Planet,
 ) -> Result<(), String> {
-    // The chosen faction must be one of the chart's strongest dignities — the
-    // same named, dignity-weighted options the player drafts from each round
-    // (chart ruler, luminary lords, essential dignity, reception). GDD §02.
-    let options = chart::faction_options(&chart);
-    let chosen = options
-        .iter()
-        .take(chart::DRAFT_CHOICES)
+    // The chosen faction must be one of the chart's eligible options — the base
+    // named paths (chart ruler, luminary lords, the luminaries) widened by
+    // essential dignity and reception. The same set the player drafts from each
+    // round. GDD §02.
+    let chosen = chart::faction_options(&chart)
+        .into_iter()
         .find(|o| o.planet == faction)
-        .ok_or("faction not among your chart's strongest dignities")?;
+        .ok_or("faction not among your chart's eligible dignities")?;
     log::info!("{handle} drafts {:?} — {} (weight {:.1})", faction, chosen.path, chosen.weight);
 
     // Server owns identity — never trust a client-supplied one.

@@ -112,7 +112,7 @@ token plumbing.
 
 | GDD section | Where it lives |
 | --- | --- |
-| §02 Natal chart → faction | `unity/ChartCalculator.cs` + server `chart::faction_scores` (ruler ×3, luminaries ×2, angular/stellium +1.5, `essential_dignity` domicile/exalt/detriment/fall, `add_reception` reception + mutual reception) → `faction_options` named, ranked draft weights; `DRAFT_CHOICES` check in `create_player` |
+| §02 Natal chart → faction | `unity/ChartCalculator.cs` + server `chart::faction_scores` (ruler ×3, luminaries ×2, angular/stellium +1.5, `essential_dignity` domicile/exalt/detriment/fall, `add_reception` reception + mutual reception) → `faction_options` builds the eligible set (`base_path` paths widened by `dignified`), ranked by weight, `MIN_DRAFT_CHOICES` floor; membership check in `create_player` |
 | §03 Faction doctrines | `Planet::biased_suit` (all 10) · `combat::faction_atk_mult`/`faction_def_mult` (Sun/Mars/Saturn) · `decay_rate` (Saturn/Moon) · Jupiter snowball & Pluto attrition in `capture_multiplier` |
 | §04 Deck generation | `chart::mint_deck` — degree→rank, minute→health, dignity×, court cards, `Planet::hero_trump` + card names |
 | §04 Sky Drops | `mint_sky_drop` — a capture mints a card (magnitude→tier, transiting planet→suit), power-capped, `GameConfig.collection_cap` overflow |

@@ -116,12 +116,14 @@ fn card_stats(p: &Placement, suit: Suit) -> (u16, u16, u16, u16, u8) {
     (health, attack, armour, cooldown, rank)
 }
 
-/// How many of the chart's top options become per-round draft choices (GDD §02).
-pub const DRAFT_CHOICES: usize = 3;
+/// Floor on the number of draftable options — a dignity-poor chart still gets a
+/// real choice. Reception and essential dignity *widen* the set above this; the
+/// floor only tops it up when the chart is sparse (GDD §02).
+pub const MIN_DRAFT_CHOICES: usize = 3;
 
 /// Weighted dignity vector → a draft weight per planet (index by `Planet::idx`).
-/// Higher weight = an earlier/cheaper pick in the round draft; every planet in
-/// the chart stays eligible, dignity only sets priority (GDD §02).
+/// This ranks the *eligible* options (see `faction_options`); it does not decide
+/// eligibility — essential dignity and reception do that (GDD §02).
 pub fn faction_scores(chart: &NatalChart) -> [f32; 10] {
     let mut s = [0.0f32; 10];
     let asc_sign = ((chart.ascendant / 1800) % 12) as u8;
@@ -210,9 +212,44 @@ pub fn received_by(chart: &NatalChart, pl: Planet) -> Option<Planet> {
     None
 }
 
+/// A *base* named path — the structural identity options that are always
+/// eligible regardless of dignity: the chart ruler (Ascendant lord), the lords
+/// of your Sun and Moon signs, and the luminaries themselves when placed (so
+/// "the Moon in my chart" is always a team you can join — GDD §02).
+fn base_path(chart: &NatalChart, pl: Planet) -> bool {
+    let asc_sign = ((chart.ascendant / 1800) % 12) as u8;
+    if sign_ruler(asc_sign) == pl {
+        return true; // chart ruler
+    }
+    for p in &chart.placements {
+        match p.body {
+            Planet::Sun if sign_ruler(p.sign) == pl => return true,  // lord of your Sun sign
+            Planet::Moon if sign_ruler(p.sign) == pl => return true, // lord of your Moon sign
+            _ => {}
+        }
+    }
+    // The luminaries themselves are always an option when placed.
+    matches!(pl, Planet::Sun | Planet::Moon) && chart.placements.iter().any(|p| p.body == pl)
+}
+
+/// Does `pl` clear the dignity bar — in domicile/exaltation, received by a
+/// present host, or in mutual reception? This is what *widens* the eligible
+/// pool beyond the base paths: a planet a host welcomes becomes draftable when
+/// it otherwise wouldn't be (GDD §02).
+fn dignified(chart: &NatalChart, pl: Planet) -> bool {
+    let essential = chart
+        .placements
+        .iter()
+        .find(|p| p.body == pl)
+        .map_or(0, |p| essential_dignity(pl, p.sign));
+    essential >= 4 // domicile (+5) or exaltation (+4)
+        || received_by(chart, pl).is_some()
+        || mutual_reception_of(chart, pl).is_some()
+}
+
 /// One draftable faction option: the planet, its dignity-derived draft weight
-/// (higher = earlier/cheaper pick), and the dominant astrological path that
-/// earned it — the "named path" surfaced to the player (GDD §02).
+/// (ranks options within the eligible set), and the dominant astrological path
+/// that earned it — the "named path" surfaced to the player (GDD §02).
 #[derive(Clone, Debug)]
 pub struct FactionOption {
     pub planet: Planet,
@@ -220,22 +257,47 @@ pub struct FactionOption {
     pub path: String,
 }
 
-/// Rank every planet into draftable faction options, highest draft weight first,
-/// each tagged with the named path that earned it (GDD §02).
+/// The chart's draftable faction options — the *eligible set*, highest draft
+/// weight first, each tagged with the named path that earned it. Eligibility is
+/// the base named paths widened by essential dignity and reception; if that
+/// leaves fewer than `MIN_DRAFT_CHOICES`, the strongest remaining planets top it
+/// up so there is always a real choice (GDD §02).
 pub fn faction_options(chart: &NatalChart) -> Vec<FactionOption> {
     let scores = faction_scores(chart);
-    let mut opts: Vec<FactionOption> = ALL_PLANETS
+    let mut eligible: Vec<Planet> = ALL_PLANETS
         .iter()
-        .map(|&pl| FactionOption { planet: pl, weight: scores[pl.idx()], path: dominant_path(chart, pl) })
+        .copied()
+        .filter(|&pl| base_path(chart, pl) || dignified(chart, pl))
+        .collect();
+
+    // Floor: top up with the next strongest planets when the chart is sparse.
+    if eligible.len() < MIN_DRAFT_CHOICES {
+        let mut rest: Vec<Planet> = ALL_PLANETS
+            .iter()
+            .copied()
+            .filter(|pl| !eligible.contains(pl))
+            .collect();
+        rest.sort_by(|a, b| scores[b.idx()].partial_cmp(&scores[a.idx()]).unwrap_or(std::cmp::Ordering::Equal));
+        for pl in rest {
+            if eligible.len() >= MIN_DRAFT_CHOICES {
+                break;
+            }
+            eligible.push(pl);
+        }
+    }
+
+    let mut opts: Vec<FactionOption> = eligible
+        .into_iter()
+        .map(|pl| FactionOption { planet: pl, weight: scores[pl.idx()], path: dominant_path(chart, pl) })
         .collect();
     opts.sort_by(|a, b| b.weight.partial_cmp(&a.weight).unwrap_or(std::cmp::Ordering::Equal));
     opts
 }
 
-/// The planets eligible to be drafted this round — the top `DRAFT_CHOICES`
-/// options by draft weight (GDD §02).
+/// The planets eligible to be drafted — the base named paths widened by dignity
+/// and reception (GDD §02).
 pub fn eligible_factions(chart: &NatalChart) -> Vec<Planet> {
-    faction_options(chart).into_iter().take(DRAFT_CHOICES).map(|o| o.planet).collect()
+    faction_options(chart).into_iter().map(|o| o.planet).collect()
 }
 
 /// The single strongest astrological reason `pl` is an option, in priority
@@ -271,6 +333,9 @@ fn dominant_path(chart: &NatalChart, pl: Planet) -> String {
         }
         if let Some(host) = received_by(chart, pl) {
             return format!("Received by {:?}", host);
+        }
+        if matches!(pl, Planet::Sun | Planet::Moon) {
+            return format!("Your {pl:?} — a luminary in your chart");
         }
         if angular(p, chart) {
             return "Angular — on an axis of the chart".into();
@@ -423,19 +488,50 @@ mod tests {
     }
 
     #[test]
-    fn options_are_ranked_and_eligibility_capped() {
-        // Asc Cancer → chart ruler Moon; Jupiter exalted in Cancer (worked example).
+    fn options_are_ranked_paths_and_dignity_qualify() {
+        // Asc Cancer → chart ruler Moon; Moon in Taurus (exalted); Jupiter exalted
+        // in Cancer (the worked example). Venus is the lord of the Moon sign but
+        // is not itself placed — it should still be eligible as a named path.
         let c = chart(
             vec![pl(Planet::Sun, 3), pl(Planet::Moon, 1), pl(Planet::Jupiter, 3)],
             3,
         );
         let opts = faction_options(&c);
-        assert_eq!(opts.len(), 10);
         for w in opts.windows(2) {
             assert!(w[0].weight >= w[1].weight, "options must be sorted by weight");
         }
         let eligible = eligible_factions(&c);
-        assert_eq!(eligible.len(), DRAFT_CHOICES);
-        assert!(eligible.contains(&Planet::Jupiter), "Jupiter-in-Cancer should be draftable: {eligible:?}");
+        assert!(eligible.len() >= MIN_DRAFT_CHOICES, "must offer at least the floor of choices");
+        assert!(eligible.contains(&Planet::Jupiter), "Jupiter-in-Cancer (exalted) should qualify: {eligible:?}");
+        assert!(eligible.contains(&Planet::Venus), "lord of the Moon sign should be a named path: {eligible:?}");
+        // A peregrine, non-path body is not eligible just for being a planet.
+        assert!(!eligible.contains(&Planet::Saturn), "undignified non-path Saturn should not qualify: {eligible:?}");
+    }
+
+    #[test]
+    fn reception_widens_eligibility() {
+        // Three distinct base paths keep the floor inert: Asc Aries → Mars,
+        // Sun in Taurus → Venus, Moon in Gemini → Mercury.
+        let base = vec![pl(Planet::Sun, 1), pl(Planet::Moon, 2)];
+
+        // Saturn in Sagittarius is peregrine with no host present → not eligible.
+        let mut no_host = base.clone();
+        no_host.push(pl(Planet::Saturn, 8));
+        assert!(
+            !eligible_factions(&chart(no_host, 0)).contains(&Planet::Saturn),
+            "unreceived Saturn should stay out of the draft",
+        );
+
+        // Add Jupiter (Sagittarius' lord): Saturn is now received and is drafted —
+        // reception has widened the eligible set.
+        let mut with_host = base;
+        with_host.push(pl(Planet::Saturn, 8));
+        with_host.push(pl(Planet::Jupiter, 11));
+        let c = chart(with_host, 0);
+        assert_eq!(received_by(&c, Planet::Saturn), Some(Planet::Jupiter));
+        assert!(
+            eligible_factions(&c).contains(&Planet::Saturn),
+            "reception by Jupiter should widen eligibility to include Saturn",
+        );
     }
 }
