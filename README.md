@@ -129,6 +129,21 @@ It computes all ten bodies and calls `push_ephemeris` through the `spacetime`
 CLI, so it authenticates as your owner identity (the reducer is owner-gated). No
 token plumbing.
 
+### 4 · Run the Oracle service (Claude chat)
+
+```bash
+cd feeder
+bun add @anthropic-ai/sdk                        # once
+ANTHROPIC_API_KEY=sk-ant-... bun run oracle-service.ts
+```
+
+It polls `oracle_request` for unanswered questions, asks Claude (Haiku 4.5 for
+cacheable rules/lore, Sonnet 4.6 for live strategy; the rules system prompt is
+prompt-cached), and writes the reply back through the owner-gated `answer_oracle`
+— same `spacetime`-CLI owner auth as the feeder. It sees only the derived context
+summary the client attached, never birth data. The heuristic Oracle, tips, codex,
+and tutorial all work without it; this powers only the free-text chat.
+
 ## How the pieces map to the GDD
 
 | GDD section | Where it lives |
@@ -146,7 +161,7 @@ token plumbing.
 | Card individuality & economy | Every `card` is a unique instance: starter cards are minted from your natal placements (`mint_deck`), and **any capture mints a fresh card from the live sky at that instant** (`chart::mint_from_sky` — its source body is the most-dignified transiting planet; its arc-minute is the literal second of minting). Copies of the same card **combine** to `level` up with gentle-plateau diminishing returns (`combat::level_mult`, ×1.0→×1.5 ceiling, applied in every siege & duel); cards move between players by **confirmed two-way trades** (`propose_trade` / `confirm_trade` / `cancel_trade`, both sides stake & re-validated at commit) |
 | Bots (always-on war) | `tick_sky` → `bot_raid` for unmanned factions |
 | Oracle (advisor) | client-side heuristic `OracleAdvisor` + `Oracle` — proactive nudges (Toast, cadence-capped + mutable) on transits / favorable weather / a slipping zone / a fresh target, and an on-demand tip. In-world oracle voice; reads only public tables + your local chart |
-| Oracle (chat agent) | `ask_oracle` (per-player cooldown; instant answer from `oracle_cache` on a repeat rules question, else queued) → a `feeder/`-style companion service reads `oracle_request`, asks Claude (tiered Haiku/Sonnet), and returns it via owner-gated `answer_oracle` → `oracle_reply` (caching generic answers for everyone). Only a derived chart/state summary is sent — never birth data. _Server plumbing + the client chat panel (`OraclePanel`) landed; the TS companion service is the remaining piece._ |
+| Oracle (chat agent) | `ask_oracle` (per-player cooldown; instant answer from `oracle_cache` on a repeat rules question, else queued) → a `feeder/`-style companion service reads `oracle_request`, asks Claude (tiered Haiku/Sonnet), and returns it via owner-gated `answer_oracle` → `oracle_reply` (caching generic answers for everyone). Only a derived chart/state summary is sent — never birth data. Built end-to-end: `feeder/oracle-service.ts` is the companion service (tiered Haiku/Sonnet, prompt-cached) |
 
 ## Notes & accuracy
 

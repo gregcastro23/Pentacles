@@ -2,9 +2,13 @@
   "name": "pentacles-ephemeris-feeder",
   "private": true,
   "type": "module",
-  "description": "Pushes real planetary positions into SpacetimeDB via push_ephemeris",
+  "description": "SpacetimeDB side-services: the ephemeris feeder + the Oracle's Claude companion",
   "scripts": {
     "feed": "bun run push-ephemeris.ts",
-    "once": "bun run push-ephemeris.ts --once"
+    "once": "bun run push-ephemeris.ts --once",
+    "oracle": "bun run oracle-service.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "latest"
   }
 }
