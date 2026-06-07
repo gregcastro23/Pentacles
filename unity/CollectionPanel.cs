@@ -72,6 +72,13 @@ public class CollectionPanel : MonoBehaviour
         _views.Clear();
     }
 
+    void OpenTrade()
+    {
+        Close();
+        if (TradePanel.Instance != null) TradePanel.Instance.Open();
+        else Toast.Show("Attach the TradePanel component to enable trading.");
+    }
+
     void Build(CelestialPentacleConn conn)
     {
         var canvas = UIKit.Canvas("CollectionModal", 120);
@@ -132,6 +139,7 @@ public class CollectionPanel : MonoBehaviour
         rh.spacing = 12; rh.childAlignment = TextAnchor.MiddleCenter;
         rh.childControlWidth = rh.childControlHeight = true; rh.childForceExpandWidth = true;
         row.GetComponent<LayoutElement>().minHeight = 52;
+        UIKit.Button(row.transform, "Trade ⇄", OpenTrade, 18, new Color(0.40f, 0.50f, 0.66f, 0.5f));
         UIKit.Button(row.transform, "Close", Close, 18, new Color(0.30f, 0.30f, 0.40f, 0.5f));
     }
 

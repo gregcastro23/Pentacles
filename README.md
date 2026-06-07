@@ -101,7 +101,11 @@ Drop the `unity/*.cs` scripts into your Unity (AR Foundation) project. Wiring:
   the public tables + your chart — no service required.
 - **`CollectionPanel`** on the AR rig — a "✦ Cards" launcher opens your whole
   collection; tap a card then a matching copy to **fuse** them (`combine_cards`),
-  leveling it up. Card widgets show a card's `✦ Lv`.
+  leveling it up. Card widgets show a card's `✦ Lv`. A "Trade ⇄" button opens:
+- **`TradePanel`** on the AR rig — confirmed two-way trades. See your open trades
+  (you give / you get) with Confirm + Cancel, or propose one: pick a partner,
+  stake some of your cards and tap some of theirs (cards are public), and
+  `propose_trade`; the swap commits only when both sides confirm.
 
 ### 3 · Run the ephemeris feeder
 
