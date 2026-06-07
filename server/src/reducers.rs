@@ -1420,3 +1420,41 @@ fn seed_demo_stars(ctx: &ReducerContext) {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::question_hash;
+
+    #[test]
+    fn hash_ignores_case_and_collapses_whitespace() {
+        // Trivially-different phrasings of the same question share a cache entry.
+        assert_eq!(
+            question_hash("  What   is  a  Seal? "),
+            question_hash("what is a seal?"),
+        );
+    }
+
+    #[test]
+    fn hash_distinguishes_different_questions() {
+        assert_ne!(
+            question_hash("what is a seal?"),
+            question_hash("what is a spire?"),
+        );
+    }
+
+    #[test]
+    fn hash_of_blank_is_the_fnv_offset_basis() {
+        // Whitespace-only normalizes to empty → the bare FNV-1a offset basis.
+        assert_eq!(question_hash(""), 0xcbf29ce484222325);
+        assert_eq!(question_hash("   \t \n"), 0xcbf29ce484222325);
+    }
+
+    #[test]
+    fn hash_keeps_punctuation_significant() {
+        // Current behavior: punctuation is not stripped, so these differ.
+        assert_ne!(
+            question_hash("what is a seal"),
+            question_hash("what is a seal?"),
+        );
+    }
+}

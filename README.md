@@ -107,8 +107,9 @@ Drop the `unity/*.cs` scripts into your Unity (AR Foundation) project. Wiring:
 - **`Tutorial`** on the AR rig — an Oracle-narrated first-run walkthrough (the
   board → your chart-deck → the rotating weather → your first strike), shown once
   and replayable from the codex. **`LongPress`** + **`Tooltip`** add contextual
-  help: long-press a card to read what it is, with an "Ask the Oracle ›"
-  escalation to chat. (Both work on any uGUI element — wire zones/stars the same.)
+  help: long-press a card — or a star in the sky — to read what it is (and, for a
+  star, why you can or can't strike it yet), with an "Ask the Oracle ›" escalation
+  to chat.
 - **`CollectionPanel`** on the AR rig — a "✦ Cards" launcher opens your whole
   collection; tap a card then a matching copy to **fuse** them (`combine_cards`),
   leveling it up. Card widgets show a card's `✦ Lv`. A "Trade ⇄" button opens:
