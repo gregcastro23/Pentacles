@@ -22,7 +22,8 @@ public class TradePanel : MonoBehaviour
     GameObject _modal;
     Transform _content;
     bool _subscribed, _dirty;
-    Identity? _partner;
+    Identity _partner;
+    bool _hasPartner;
     readonly HashSet<ulong> _offer = new();
     readonly HashSet<ulong> _request = new();
 
@@ -58,7 +59,7 @@ public class TradePanel : MonoBehaviour
     {
         if (_modal != null) Destroy(_modal);
         _modal = null; _content = null;
-        _partner = null; _offer.Clear(); _request.Clear();
+        _hasPartner = false; _offer.Clear(); _request.Clear();
     }
 
     void Build(CelestialPentacleConn conn)
@@ -143,9 +144,9 @@ public class TradePanel : MonoBehaviour
         {
             if (p.Identity.Equals(me)) continue;
             others++;
-            bool sel = _partner.HasValue && _partner.Value.Equals(p.Identity);
+            bool sel = _hasPartner && _partner.Equals(p.Identity);
             var pid = p.Identity;
-            ChipBtn(partners, p.Handle, sel ? PartnerSel : Chip, () => { _partner = pid; _request.Clear(); _dirty = true; });
+            ChipBtn(partners, p.Handle, sel ? PartnerSel : Chip, () => { _partner = pid; _hasPartner = true; _request.Clear(); _dirty = true; });
         }
         if (others == 0) UIKit.Label(partners, "(no other players yet)", 12, FontStyle.Italic);
 
@@ -163,7 +164,7 @@ public class TradePanel : MonoBehaviour
 
         UIKit.Label(_content, "You get", 15, FontStyle.Bold);
         var theirStrip = Strip();
-        if (!_partner.HasValue)
+        if (!_hasPartner)
         {
             UIKit.Label(theirStrip, "Pick a partner first.", 12, FontStyle.Italic, new Color(0.70f, 0.72f, 0.78f));
         }
@@ -171,7 +172,7 @@ public class TradePanel : MonoBehaviour
         {
             int theirCount = 0;
             foreach (var c in conn.Conn.Db.Card.Iter())
-                if (c.Owner.Equals(_partner.Value))
+                if (c.Owner.Equals(_partner))
                 {
                     theirCount++;
                     var id = c.CardId;
@@ -212,9 +213,9 @@ public class TradePanel : MonoBehaviour
     {
         var conn = CelestialPentacleConn.Instance;
         if (conn == null) return;
-        if (!_partner.HasValue) { Toast.Show("Pick a partner to trade with."); return; }
+        if (!_hasPartner) { Toast.Show("Pick a partner to trade with."); return; }
         if (_offer.Count == 0 && _request.Count == 0) { Toast.Show("Stake at least one card."); return; }
-        conn.ProposeTrade(_partner.Value, new List<ulong>(_offer), new List<ulong>(_request));
+        conn.ProposeTrade(_partner, new List<ulong>(_offer), new List<ulong>(_request));
         Toast.Show("Trade proposed — waiting for them to confirm.", 3.5f);
         _offer.Clear(); _request.Clear();
         _dirty = true;
