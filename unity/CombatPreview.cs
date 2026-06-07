@@ -7,7 +7,7 @@
 // currently-rising sign favors its element's suit (×1.35), suppresses the
 // opposite element (×0.75), and leaves the perpendicular pair at ×1.0. Which
 // suit is favored sweeps the zodiac in real time — read it from the live
-// ascendant the server stores in game_config.season_degree.
+// ascendant the server stores in game_config.ascendant_degree.
 //
 // Suit codes: 0 Cups · 1 Swords · 2 Pentacles · 3 Wands.
 
@@ -29,23 +29,35 @@ public static class CombatPreview
         }
     }
 
-    /// The sign rising at the world reference now (0 Aries..11 Pisces), from the
-    /// live ascendant the server stores in game_config.season_degree.
-    static int RisingSign(CelestialPentacleConn conn)
+    /// Favored suit for the live sky, from game_config.ascendant_degree (the world
+    /// ascendant the server advances each tick). Falls back to 0° (Aries) if absent.
+    public static int FavoredSuitNow(CelestialPentacleConn conn)
     {
         var cfg = conn?.Conn?.Db.GameConfig.Id.Find((byte)0);
-        int deg = cfg != null ? cfg.SeasonDegree : 0;
-        return (deg / 30) % 12;
+        int deg = cfg != null ? cfg.AscendantDegree : 0;
+        return FavoredSuit((deg / 30) % 12);
     }
 
-    /// The sign currently in a zone: the 12 signs rotate through the 11 zones,
-    /// zone_sign = rising_sign + zone_id. Mirrors server zone_favored_suit.
-    public static int ZoneSign(CelestialPentacleConn conn, int zoneId) =>
-        (RisingSign(conn) + zoneId) % 12;
+    /// The sign currently in a zone: the 12 signs rotate through the 11 zones based on local sidereal time.
+    public static int ZoneSign(CelestialPentacleConn conn, int zoneId)
+    {
+        double jd = SkyMath.JulianDay(System.DateTime.UtcNow);
+        double gmst = SkyMath.GmstDeg(jd);
+        double ha = (zoneId + 0.5) * (360.0 / 11.0);
+        double zodiacLon = SkyMath.Norm360(gmst - ha);
+        return (int)(zodiacLon / 30.0) % 12;
+    }
 
     /// Favored suit in a given zone right now (mirrors server zone_favored_suit).
     public static int FavoredSuitForZone(CelestialPentacleConn conn, int zoneId) =>
         FavoredSuit(ZoneSign(conn, zoneId));
+
+    /// Descriptors of the dynamic weather sign for a specific zone.
+    public static string SkyWeatherForZone(CelestialPentacleConn conn, int zoneId)
+    {
+        int sign = ZoneSign(conn, zoneId);
+        return $"{SignGlyphs[sign]} {SignNames[sign]} — {ElementByMod4[sign % 4]} favors {SuitNames[FavoredSuit(sign)]}";
+    }
 
     // Elemental opposite: Wands↔Cups (Fire↔Water), Swords↔Pentacles (Air↔Earth).
     static int Opposite(int suit) => suit switch

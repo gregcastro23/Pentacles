@@ -42,6 +42,7 @@ namespace SpacetimeDB.Types
         public global::SpacetimeDB.Col<GameConfig, byte> Id { get; }
         public global::SpacetimeDB.Col<GameConfig, SpacetimeDB.Identity> Owner { get; }
         public global::SpacetimeDB.Col<GameConfig, ushort> SeasonDegree { get; }
+        public global::SpacetimeDB.Col<GameConfig, ushort> AscendantDegree { get; }
         public global::SpacetimeDB.Col<GameConfig, bool> Seeded { get; }
 
         public GameConfigCols(string tableName)
@@ -49,6 +50,7 @@ namespace SpacetimeDB.Types
             Id = new global::SpacetimeDB.Col<GameConfig, byte>(tableName, "id");
             Owner = new global::SpacetimeDB.Col<GameConfig, SpacetimeDB.Identity>(tableName, "owner");
             SeasonDegree = new global::SpacetimeDB.Col<GameConfig, ushort>(tableName, "season_degree");
+            AscendantDegree = new global::SpacetimeDB.Col<GameConfig, ushort>(tableName, "ascendant_degree");
             Seeded = new global::SpacetimeDB.Col<GameConfig, bool>(tableName, "seeded");
         }
     }

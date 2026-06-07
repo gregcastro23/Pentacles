@@ -37,6 +37,7 @@ pub fn init(ctx: &ReducerContext) {
             id: 0,
             owner: ctx.sender,
             season_degree: 0,
+            ascendant_degree: 0,
             seeded: false,
         });
     }
@@ -167,39 +168,50 @@ pub fn set_location(ctx: &ReducerContext, lat: f64, lon: f64) -> Result<(), Stri
     Ok(())
 }
 
-/// Move one of your cards between loadouts. Active is capped at 8 — bench a card
-/// before promoting another. Lets players curate their fielded eight.
+/// Change a card's loadout (Active, Defense, Bench) with limit validation.
 #[reducer]
-pub fn set_loadout(ctx: &ReducerContext, card_id: u64, loadout: Loadout) -> Result<(), String> {
-    let card = ctx
-        .db
-        .card()
-        .card_id()
-        .find(&card_id)
-        .ok_or_else(|| "no such card".to_string())?;
-    if card.owner != ctx.sender {
-        return Err("not your card".into());
-    }
+pub fn set_loadout(
+    ctx: &ReducerContext,
+    card_id: u64,
+    loadout: Loadout,
+) -> Result<(), String> {
     let mut slot = ctx
         .db
         .deck_slot()
         .iter()
-        .find(|s| s.owner == ctx.sender && s.card_id == card_id)
-        .ok_or_else(|| "card not in your deck".to_string())?;
+        .find(|s| s.card_id == card_id && s.owner == ctx.sender)
+        .ok_or_else(|| "card slot not found or not owned by you".to_string())?;
+
     if slot.loadout == loadout {
         return Ok(());
     }
-    if loadout == Loadout::Active {
-        let active = ctx
-            .db
-            .deck_slot()
-            .iter()
-            .filter(|s| s.owner == ctx.sender && s.loadout == Loadout::Active)
-            .count();
-        if active >= 8 {
-            return Err("Active is full (8) — bench a card first".into());
+
+    match loadout {
+        Loadout::Active => {
+            let active_count = ctx
+                .db
+                .deck_slot()
+                .iter()
+                .filter(|s| s.owner == ctx.sender && s.loadout == Loadout::Active)
+                .count();
+            if active_count >= 10 {
+                return Err("cannot have more than 10 active cards".to_string());
+            }
         }
+        Loadout::Defense => {
+            let defense_count = ctx
+                .db
+                .deck_slot()
+                .iter()
+                .filter(|s| s.owner == ctx.sender && s.loadout == Loadout::Defense)
+                .count();
+            if defense_count >= 8 {
+                return Err("cannot have more than 8 defense sentinel cards".to_string());
+            }
+        }
+        Loadout::Bench => {}
     }
+
     slot.loadout = loadout;
     ctx.db.deck_slot().slot_id().update(slot);
     Ok(())
@@ -416,6 +428,10 @@ pub fn resolve_star_battle(
         ));
     }
 
+    if !can_access_zone(ctx, player.faction, star.region_hint) {
+        return Err("Zone is locked. Faction must control adjacent zones first!".into());
+    }
+
     // Gather the attacker's played cards (validate ownership).
     let mut attacker: Vec<combat::CardStat> = Vec::new();
     for cid in &log.plays {
@@ -429,30 +445,93 @@ pub fn resolve_star_battle(
         return Err("no valid cards played".into());
     }
 
-    let defender = match star.held_by {
+    let mut defender = match star.held_by {
         Some(holder) => sentinel_for(ctx, holder),
         None => neutral_garrison(&star),
     };
+
+    // Apply faction doctrines (passives)
+    apply_passives(ctx, &mut attacker, player.faction, true, star.region_hint);
+    if let Some(holder) = star.held_by {
+        apply_passives(ctx, &mut defender, holder, false, star.region_hint);
+    }
+
+    // Apply planet transit buffs (+30% stats)
+    let transit_atk = ctx.db.ephemeris().body().find(&player.faction)
+        .map(|e| e.transiting_zone == star.region_hint)
+        .unwrap_or(false);
+    if transit_atk {
+        for c in attacker.iter_mut() {
+            c.attack = (c.attack as f32 * 1.30) as u16;
+            c.health = (c.health as f32 * 1.30) as u16;
+        }
+    }
+    if let Some(holder) = star.held_by {
+        let transit_def = ctx.db.ephemeris().body().find(&holder)
+            .map(|e| e.transiting_zone == star.region_hint)
+            .unwrap_or(false);
+        if transit_def {
+            for c in defender.iter_mut() {
+                c.attack = (c.attack as f32 * 1.30) as u16;
+                c.health = (c.health as f32 * 1.30) as u16;
+            }
+        }
+    }
 
     let favored = zone_favored_suit(ctx, star.region_hint);
     let attacker_seals = sealed_suits(ctx, player.faction);
     let defender_seals = star.held_by.map(|f| sealed_suits(ctx, f)).unwrap_or_default();
     let (won, margin) =
         combat::resolve_star(&attacker, &defender, favored, &attacker_seals, &defender_seals);
+
+    // Calculate final scores for logging
+    let ap = attacker
+        .iter()
+        .map(|c| {
+            let base = c.attack as f32 + c.health as f32 * 0.5 + c.armour as f32 * 0.4;
+            let mult = combat::element_weather(c.suit, favored);
+            let seal = if attacker_seals.contains(&c.suit) { combat::SEAL_BONUS } else { 1.0 };
+            base * mult * seal
+        })
+        .sum::<f32>();
+    let dp = defender
+        .iter()
+        .map(|c| {
+            let base = c.attack as f32 + c.health as f32 * 0.5 + c.armour as f32 * 0.4;
+            let mult = combat::element_weather(c.suit, favored);
+            let seal = if defender_seals.contains(&c.suit) { combat::SEAL_BONUS } else { 1.0 };
+            base * mult * seal
+        })
+        .sum::<f32>();
     if won {
         let prev = star.held_by;
         star.held_by = Some(player.faction);
         ctx.db.star_node().hip_id().update(star.clone());
-        apply_control(
-            ctx,
-            star.region_hint,
-            player.faction,
-            combat::control_delta(star.magnitude, margin),
-        );
+        // Ingress double-control buff: active ingress zone corresponds to (season_degree / 30) % 12
+        let cfg = ctx.db.game_config().id().find(&0).unwrap();
+        let ingress_zone = ((cfg.season_degree / 30) % 12) as u8 % 11;
+        let delta = if star.region_hint == ingress_zone {
+            combat::control_delta(star.magnitude, margin) * 2
+        } else {
+            combat::control_delta(star.magnitude, margin)
+        };
+
+        apply_control(ctx, star.region_hint, player.faction, delta);
         // The sky grants the victor a card of this very moment.
         let _ = chart::mint_from_sky(ctx, ctx.sender);
         let _ = prev;
     }
+
+    // Log the battle outcome for the client UI
+    ctx.db.battle().insert(Battle {
+        battle_id: 0,
+        star_id: hip_id,
+        attacker: ctx.sender,
+        won,
+        attacker_score: ap as u32,
+        defense_rating: dp as u32,
+        created_at: ctx.timestamp,
+    });
 
     let mut player = player;
     player.last_active = ctx.timestamp;
@@ -470,6 +549,10 @@ pub fn enqueue_duel(ctx: &ReducerContext, zone_id: u8) -> Result<(), String> {
         .identity()
         .find(&ctx.sender)
         .ok_or_else(|| "register first".to_string())?;
+
+    if !can_access_zone(ctx, me.faction, zone_id) {
+        return Err("Zone is locked. Faction must control adjacent zones first!".into());
+    }
 
     let waiting = ctx
         .db
@@ -562,7 +645,7 @@ pub fn commit_duel(
         duel.a_cards = vec![lane0, lane1, lane2];
         duel.a_committed = true;
     } else {
-        duel.b_cards = vec![lane0, lane1, lane2];
+    duel.b_cards = vec![lane0, lane1, lane2];
         duel.b_committed = true;
     }
     duel.updated_at = ctx.timestamp;
@@ -580,13 +663,53 @@ fn resolve_duel(ctx: &ReducerContext, duel: &mut Duel) {
     let b_seals = sealed_suits(ctx, duel.faction_b);
     let mut a = 0u8;
     let mut b = 0u8;
-    for lane in 0..3usize {
-        let ca = ctx.db.card().card_id().find(&duel.a_cards[lane]);
-        let cb = ctx.db.card().card_id().find(&duel.b_cards[lane]);
-        if let (Some(x), Some(y)) = (ca, cb) {
-            if lane_power(&x, favored, &a_seals) >= lane_power(&y, favored, &b_seals) { a += 1; } else { b += 1; }
+
+    let mut cards_a = Vec::new();
+    let mut cards_b = Vec::new();
+
+    for lane in 0..3 {
+        if let Some(c) = ctx.db.card().card_id().find(&duel.a_cards[lane]) {
+            cards_a.push(stat_of(&c));
+        }
+        if let Some(c) = ctx.db.card().card_id().find(&duel.b_cards[lane]) {
+            cards_b.push(stat_of(&c));
         }
     }
+
+    apply_passives(ctx, &mut cards_a, duel.faction_a, true, duel.zone_id);
+    apply_passives(ctx, &mut cards_b, duel.faction_b, false, duel.zone_id);
+
+    let transit_a = ctx.db.ephemeris().body().find(&duel.faction_a)
+        .map(|e| e.transiting_zone == duel.zone_id)
+        .unwrap_or(false);
+    if transit_a {
+        for c in cards_a.iter_mut() {
+            c.attack = (c.attack as f32 * 1.30) as u16;
+            c.health = (c.health as f32 * 1.30) as u16;
+        }
+    }
+    let transit_b = ctx.db.ephemeris().body().find(&duel.faction_b)
+        .map(|e| e.transiting_zone == duel.zone_id)
+        .unwrap_or(false);
+    if transit_b {
+        for c in cards_b.iter_mut() {
+            c.attack = (c.attack as f32 * 1.30) as u16;
+            c.health = (c.health as f32 * 1.30) as u16;
+        }
+    }
+
+    for lane in 0..3 {
+        if lane < cards_a.len() && lane < cards_b.len() {
+            let c_a = &cards_a[lane];
+            let c_b = &cards_b[lane];
+            let seal_a = if a_seals.contains(&c_a.suit) { combat::SEAL_BONUS } else { 1.0 };
+            let seal_b = if b_seals.contains(&c_b.suit) { combat::SEAL_BONUS } else { 1.0 };
+            let pa = (c_a.attack as f32 + c_a.health as f32 * 0.5 + c_a.armour as f32 * 0.4) * combat::element_weather(c_a.suit, favored) * seal_a;
+            let pb = (c_b.attack as f32 + c_b.health as f32 * 0.5 + c_b.armour as f32 * 0.4) * combat::element_weather(c_b.suit, favored) * seal_b;
+            if pa >= pb { a += 1; } else { b += 1; }
+        }
+    }
+
     duel.lanes_a = a;
     duel.lanes_b = b;
     duel.state = DuelState::Resolved;
@@ -599,13 +722,6 @@ fn resolve_duel(ctx: &ReducerContext, duel: &mut Duel) {
     apply_control(ctx, duel.zone_id, faction, 150 + a.max(b) as i32 * 60);
     let _ = chart::mint_from_sky(ctx, winner);
 }
-
-fn lane_power(att: &Card, favored: Suit, sealed: &[Suit]) -> f32 {
-    let s = att.attack as f32 + att.health as f32 * 0.5 + att.armour as f32 * 0.4;
-    let seal = if sealed.contains(&att.suit) { combat::SEAL_BONUS } else { 1.0 };
-    s * combat::level_mult(att.level) * combat::element_weather(att.suit, favored) * seal
-}
-
 /// Claim a stalled duel: if your opponent never committed within the grace
 /// window, the committed side takes the zone by walkover. Either participant may
 /// call it (the no-show just hands over the win); the `tick_sky` sweep is the
@@ -698,9 +814,10 @@ fn elapsed_secs(later: Timestamp, earlier: Timestamp) -> i64 {
 // ── Scheduled & owner feeds ───────────────────────────────────────────────
 
 /// Fires on the schedule: decays held zones, wheels the living sky, sweeps
-/// stalled duels, and lets unmanned factions raid.
+/// stalled duels, advances the Great Wheel, and lets unmanned factions raid.
 #[reducer]
 pub fn tick_sky(ctx: &ReducerContext, _timer: SkyTickTimer) {
+    // 1. Decay held zones
     for mut z in ctx.db.zone().iter() {
         if z.control > 0 {
             z.control = (z.control - decay_rate(&z)).max(0);
@@ -711,8 +828,80 @@ pub fn tick_sky(ctx: &ReducerContext, _timer: SkyTickTimer) {
             ctx.db.zone().zone_id().update(z);
         }
     }
+
+    // 2. Advance the Great Wheel season progression
+    if let Some(mut cfg) = ctx.db.game_config().id().find(&0) {
+        cfg.season_degree = (cfg.season_degree + 1) % 360;
+
+        if cfg.season_degree == 0 {
+            // Season Resolution: Calculate standings (House=1, Spire=2, Crown=3)
+            let mut standings = [0u32; 10];
+            for z in ctx.db.zone().iter() {
+                if let Some(owner) = z.owner {
+                    let weight = match z.kind {
+                        ZoneKind::House => 1,
+                        ZoneKind::Spire => 2,
+                        ZoneKind::Crown => 3,
+                    };
+                    standings[owner.idx()] += weight;
+                }
+            }
+
+            let mut champion: Option<Planet> = None;
+            let mut max_score = 0;
+            for i in 0..10 {
+                if standings[i] > max_score {
+                    max_score = standings[i];
+                    champion = Some(Planet::from_idx(i as u8));
+                }
+            }
+
+            // Soft Map Reset: clear stars
+            for mut star in ctx.db.star_node().iter() {
+                if star.held_by.is_some() {
+                    star.held_by = None;
+                    ctx.db.star_node().hip_id().update(star);
+                }
+            }
+
+            // Soft Map Reset: set champion head-start (300 control), clear others
+            for mut z in ctx.db.zone().iter() {
+                if champion.is_some() && z.owner == champion {
+                    z.control = 300;
+                } else {
+                    z.owner = None;
+                    z.control = 0;
+                }
+                z.updated_at = ctx.timestamp;
+                ctx.db.zone().zone_id().update(z);
+            }
+
+            if let Some(champ) = champion {
+                log::info!("Season resolved! Champion Faction is: {:?}", champ);
+            }
+        } else if cfg.season_degree % 30 == 0 {
+            // Sign Ingress Event
+            let sign = (cfg.season_degree / 30) % 12;
+            let active_zone = sign % 11;
+            log::info!("Zodiac Ingress: Great Wheel entered degree {}, active Ingress Buff zone is {}", cfg.season_degree, active_zone);
+        }
+
+        ctx.db.game_config().id().update(cfg);
+    }
+
     advance_round_clock(ctx);  // round weather: which sign is rising at the world horizon
     recompute_star_zones(ctx); // A — de-freeze the sky before bots read hints
+    
+    // Update planetary transit zones dynamically as the sky rotates
+    let gmst = gmst_deg(ctx.timestamp);
+    for mut eph in ctx.db.ephemeris().iter() {
+        let zone = zone_for_lon(gmst - eph.ra);
+        if zone != eph.transiting_zone {
+            eph.transiting_zone = zone;
+            ctx.db.ephemeris().body().update(eph);
+        }
+    }
+
     sweep_stale_duels(ctx);    // B — auto-resolve abandoned duels
     bot_raid(ctx);
 }
@@ -900,6 +1089,108 @@ pub fn answer_oracle(
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
+fn faction_owns_zone(ctx: &ReducerContext, faction: Planet, zone_id: u8) -> bool {
+    ctx.db.zone().zone_id().find(&zone_id)
+        .map(|z| z.owner == Some(faction))
+        .unwrap_or(false)
+}
+
+fn can_access_zone(ctx: &ReducerContext, faction: Planet, zone_id: u8) -> bool {
+    if zone_id < 5 {
+        true
+    } else if zone_id < 10 {
+        let spire_idx = zone_id - 5;
+        let house_a = spire_idx;
+        let house_b = (spire_idx + 4) % 5;
+        faction_owns_zone(ctx, faction, house_a) || faction_owns_zone(ctx, faction, house_b)
+    } else {
+        let mut owned_spires = 0;
+        for spire_id in 5..10 {
+            if faction_owns_zone(ctx, faction, spire_id) {
+                owned_spires += 1;
+            }
+        }
+        owned_spires >= 2
+    }
+}
+
+fn zone_center_ha(zone_id: u8) -> f64 {
+    (zone_id as f64 + 0.5) * (360.0 / 11.0)
+}
+
+fn zone_favored_suit(ctx: &ReducerContext, zone_id: u8) -> Suit {
+    let gmst = gmst_deg(ctx.timestamp);
+    let ha = zone_center_ha(zone_id);
+    let zodiac_lon = (gmst - ha).rem_euclid(360.0);
+    let sign = (zodiac_lon / 30.0) % 12.0;
+    chart::sign_element(sign as u8)
+}
+
+fn adjacent_zones(zone_id: u8) -> &'static [u8] {
+    match zone_id {
+        0 => &[5, 6],
+        1 => &[6, 7],
+        2 => &[7, 8],
+        3 => &[8, 9],
+        4 => &[9, 5],
+        5 => &[10, 4, 0],
+        6 => &[10, 0, 1],
+        7 => &[10, 1, 2],
+        8 => &[10, 2, 3],
+        9 => &[10, 3, 4],
+        10 => &[5, 6, 7, 8, 9],
+        _ => &[],
+    }
+}
+
+fn apply_passives(
+    ctx: &ReducerContext,
+    cards: &mut [combat::CardStat],
+    faction: Planet,
+    is_attacker: bool,
+    zone_id: u8,
+) {
+    match faction {
+        Planet::Mars => {
+            if is_attacker {
+                for c in cards.iter_mut() {
+                    c.attack = (c.attack as f32 * 1.25) as u16;
+                }
+            } else {
+                for c in cards.iter_mut() {
+                    c.armour = (c.armour as f32 * 0.75) as u16;
+                }
+            }
+        }
+        Planet::Saturn => {
+            if !is_attacker {
+                for c in cards.iter_mut() {
+                    c.health = (c.health as f32 * 1.30) as u16;
+                    c.armour = (c.armour as f32 * 1.30) as u16;
+                }
+            }
+        }
+        Planet::Jupiter => {
+            let mut jup_adj_count = 0f32;
+            for &adj in adjacent_zones(zone_id) {
+                if let Some(z) = ctx.db.zone().zone_id().find(&adj) {
+                    if z.owner == Some(Planet::Jupiter) {
+                        jup_adj_count += 1.0;
+                    }
+                }
+            }
+            if jup_adj_count > 0.0 {
+                let multiplier = 1.0 + jup_adj_count * 0.15;
+                for c in cards.iter_mut() {
+                    c.attack = (c.attack as f32 * multiplier) as u16;
+                    c.health = (c.health as f32 * multiplier) as u16;
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
 fn decay_rate(z: &Zone) -> i32 {
     match z.owner {
         Some(Planet::Saturn) => 4, // the wall holds longer
@@ -979,23 +1270,6 @@ fn altitude_deg(ra: f64, dec: f64, lat: f64, lon: f64, ts: Timestamp) -> f64 {
 /// A star must clear this altitude over your horizon before you may engage it.
 const MIN_ALT_DEG: f64 = 10.0;
 
-/// The suit favored in a given zone right now. One world Ascendant (stored in
-/// season_degree) sets the rising sign; the 12 signs rotate through the 11 zones
-/// (`zone_sign = rising_sign + zone_id`), so each zone carries its own weather and
-/// a contest is decided by the contested zone's element.
-fn zone_favored_suit(ctx: &ReducerContext, zone_id: u8) -> Suit {
-    let deg = ctx
-        .db
-        .game_config()
-        .id()
-        .find(&0)
-        .map(|c| c.season_degree)
-        .unwrap_or(0);
-    let rising_sign = (deg / 30) % 12;
-    let zone_sign = ((rising_sign + zone_id as u16) % 12) as u8;
-    chart::sign_element(zone_sign)
-}
-
 /// The suits a faction currently holds a zodiac seal in: the elements of the signs
 /// sitting in the zones it owns right now. The sky rotates, so the set shifts —
 /// holding a zone while its sign is up grants that element's mastery, and the
@@ -1028,8 +1302,8 @@ fn sealed_suits(ctx: &ReducerContext, faction: Planet) -> Vec<Suit> {
 fn advance_round_clock(ctx: &ReducerContext) {
     if let Some(mut cfg) = ctx.db.game_config().id().find(&0) {
         let deg = (ascendant_deg(ctx.timestamp).floor() as i64).rem_euclid(360) as u16;
-        if deg != cfg.season_degree {
-            cfg.season_degree = deg;
+        if deg != cfg.ascendant_degree {
+            cfg.ascendant_degree = deg;
             ctx.db.game_config().id().update(cfg);
         }
     }

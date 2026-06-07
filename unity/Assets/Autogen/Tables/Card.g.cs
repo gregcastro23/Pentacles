@@ -50,6 +50,8 @@ namespace SpacetimeDB.Types
         public global::SpacetimeDB.Col<Card, Planet> SourceBody { get; }
         public global::SpacetimeDB.Col<Card, bool> Inverted { get; }
         public global::SpacetimeDB.Col<Card, bool> IsTrump { get; }
+        public global::SpacetimeDB.Col<Card, byte> Level { get; }
+        public global::SpacetimeDB.Col<Card, SpacetimeDB.Timestamp> MintedAt { get; }
 
         public CardCols(string tableName)
         {
@@ -64,6 +66,8 @@ namespace SpacetimeDB.Types
             SourceBody = new global::SpacetimeDB.Col<Card, Planet>(tableName, "source_body");
             Inverted = new global::SpacetimeDB.Col<Card, bool>(tableName, "inverted");
             IsTrump = new global::SpacetimeDB.Col<Card, bool>(tableName, "is_trump");
+            Level = new global::SpacetimeDB.Col<Card, byte>(tableName, "level");
+            MintedAt = new global::SpacetimeDB.Col<Card, SpacetimeDB.Timestamp>(tableName, "minted_at");
         }
     }
 

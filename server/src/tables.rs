@@ -135,6 +135,20 @@ pub struct Ephemeris {
 
 // ── Coordination ──────────────────────────────────────────────────────────
 
+#[spacetimedb::table(name = battle, public)]
+#[derive(Clone)]
+pub struct Battle {
+    #[primary_key]
+    #[auto_inc]
+    pub battle_id: u64,
+    pub star_id: u32,
+    pub attacker: Identity,
+    pub won: bool,
+    pub attacker_score: u32,
+    pub defense_rating: u32,
+    pub created_at: Timestamp,
+}
+
 /// Singleton (id = 0). Captures the module owner for authz + the season marker.
 #[spacetimedb::table(name = game_config, public)]
 #[derive(Clone)]
@@ -143,6 +157,7 @@ pub struct GameConfig {
     pub id: u8,
     pub owner: Identity,
     pub season_degree: u16,   // the Great Wheel ingress marker, 0..359
+    pub ascendant_degree: u16, // live world ascendant clock, 0..359
     pub seeded: bool,
 }
 

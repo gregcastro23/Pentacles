@@ -35,7 +35,7 @@ async function pushOnce(): Promise<void> {
     const zone = zoneForEclipticLon(eclLon);
     try {
       await run("spacetime", [
-        "call", DB, "push_ephemeris",
+        "call", DB, "push_ephemeris", "--",
         String(idx), ra.toFixed(5), dec.toFixed(5), String(zone),
       ]);
       console.log(`✦ ${BODIES[idx].padEnd(8)} RA ${ra.toFixed(2)}°  Dec ${dec.toFixed(2)}°  → zone ${zone}`);

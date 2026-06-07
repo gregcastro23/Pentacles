@@ -1,184 +1,254 @@
-// Pentacles — the Oracle's Claude companion service.
+// Pentacles — Claude Oracle Companion Service.
 //
-// The heuristic Oracle (client-side) handles all tactics for free. THIS service
-// is the chat/teaching half: it watches `oracle_request` for unanswered
-// questions, asks Claude, and writes the reply back through the owner-gated
-// `answer_oracle` reducer (which also populates the shared answer cache).
+// Periodically polls SpacetimeDB for unanswered Oracle requests,
+// calls the Anthropic API (tiering claude-haiku-4-5 for rules/lore and
+// claude-sonnet-4-6 for strategy with prompt caching enabled),
+// and pushes the answers back via the owner-gated `answer_oracle` reducer.
 //
-// Like the ephemeris feeder, it shells out to the `spacetime` CLI, so it
-// authenticates as your logged-in module owner — no token plumbing. It only ever
-// sees the derived context summary the client attached (faction, dominant suit,
-// seals, zone counts) — never birth data.
+// Usage:
+//   export ANTHROPIC_API_KEY="sk-ant-..."
+//   bun run oracle-service.ts
 //
-//   ANTHROPIC_API_KEY=sk-ant-... bun run oracle-service.ts
-//
-// Env: SPACETIMEDB_DB (default cookingwithcastrollc), ORACLE_POLL_MS (3000),
-//      ANTHROPIC_API_KEY (required).
-//
-// Tiering (your spec): cacheable rules/lore questions → Haiku 4.5 (short, cheap);
-// live strategy questions → Sonnet 4.6. The system prompt is prompt-cached so the
-// rules context is near-free on repeat calls.
+// Environment options:
+//   SPACETIMEDB_DB (default: cookingwithcastrollc)
+//   POLL_INTERVAL_MS (default: 3000)
 
-import Anthropic from "@anthropic-ai/sdk";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import Anthropic from "@anthropic-ai/sdk";
 
 const run = promisify(execFile);
 
+if (!process.env.ANTHROPIC_API_KEY) {
+  console.error("Error: ANTHROPIC_API_KEY environment variable is not set.");
+  console.error("Usage: ANTHROPIC_API_KEY=sk-ant-... bun run oracle-service.ts");
+  process.exit(1);
+}
+
 const DB = process.env.SPACETIMEDB_DB ?? "cookingwithcastrollc";
-const POLL_MS = Number(process.env.ORACLE_POLL_MS ?? "3000");
+const POLL_INTERVAL_MS = Number(process.env.POLL_INTERVAL_MS ?? "3000");
 
-const SHORT_MODEL = "claude-haiku-4-5";    // rules/lore, short
-const STRATEGY_MODEL = "claude-sonnet-4-6"; // live strategy
+const anthropic = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY,
+});
 
-const client = new Anthropic(); // reads ANTHROPIC_API_KEY from the environment
+// Rich system prompt outlining the game GDD guidelines for accurate Oracle responses.
+// This is prompt-cached to minimize costs.
+const SYSTEM_PROMPT = `You are the Oracle, the ancient celestial guide in the location-based AR MMO "Pentacles".
+You are helping a player with their queries about the game's mechanics, lore, and strategic situations.
 
-// Stable persona + rules digest — kept byte-identical so it caches across calls.
-const SYSTEM = `You are "the Oracle", the in-world astrologer-advisor of Pentacles, an
-augmented-reality territory game played against the real night sky. Speak in a wry,
-warm, encouraging oracle voice — brief (2-4 sentences), concrete, never flowery
-filler. You ADVISE; the player always casts. Never invent rules; if unsure, say so.
+Here is the authoritative lore and mechanics reference for Pentacles:
 
-You are given only a derived summary of the player's situation (faction, the suit
-their deck leans on, their zodiac seals, how many zones they hold) — never their
-birth data. Address them as a seeker.
+1. THE CELESTIAL PENTACLE & ZONES
+The sky is divided into 11 contested zones:
+- 5 Arc-Houses (Zones 0-4): Large segments resting on the horizon. Contains the bulk of stars. Always accessible.
+- 5 Spires (Zones 5-9): Star tips. High strategic value. Locked until adjacent Arc-Houses are owned. Spire S requires Arc-House S-5 or (S-5+4) mod 5.
+- 1 Crown (Zone 10): The central pentagon at the zenith. The keystone. Requires owning at least 2 Spires. Owning it buffs all adjacent contests.
 
-The rules you teach and reason from:
-- The sky is the board: eleven zones (five Houses, five Spires, one Crown). Each
-  carries a zodiac sign that rotates in real time.
-- Suits are elemental — Cups/Water, Swords/Air, Pentacles/Earth, Wands/Fire — and
-  do NOT counter each other. The sign rising over a zone favors its element's suit
-  (x1.35) and weakens the opposite (x0.75). This "weather" sweeps the zodiac live,
-  so where and WHEN you fight matters more than the cards.
-- Hold a zone while a sign sits in it and you master that element — a "zodiac
-  seal": your cards of that suit fight x1.15 everywhere, until the wheel moves on.
-- Each zone is a single tug-of-war meter; winning battles there pushes it your way
-  and eventually flips the zone to your faction. Held zones slowly decay.
-- Stars are the prizes. A star must be risen past ten degrees over the player's
-  real horizon before they can strike it; brighter stars resist harder but pull
-  their zone further when taken.
-- Every card is minted from a moment in the sky — the player's natal chart for
-  starters, the live sky at the instant of a win for the rest — so no two of the
-  same card are alike. Copies of a card can be fused to level it up (diminishing
-  returns to a ceiling), and cards can be traded between players (both confirm).
+2. TEN PLANETARY FACTIONS & DOCTRINES
+- Sun (☉): Sovereignty. Wands bias. Bonus capture rate when Sun is above horizon. Hero: The Sun (XIX).
+- Moon (☽): Tides. Cups bias. Slowed zone decay during lunar night. Hero: The High Priestess (II).
+- Mercury (☿): Cunning. Swords bias. Reduced cooldowns; acts first in duels. Hero: The Magician (I).
+- Venus (♀): Harmony. Cups bias. Shares partial control points with allies in adjacent zones. Hero: The Empress (III).
+- Mars (♂): War. Wands bias. Highest base attack, poor defense. Hero: The Tower (XVI).
+- Jupiter (♃): Expansion. Wands bias. Contests buff adjacent zones. Hero: Wheel of Fortune (X).
+- Saturn (♄): Dominion. Pentacles bias. Strongest defense; hardest zones to retake. Hero: The World (XXI).
+- Uranus (♅): Chaos. Swords bias. Random-effect cards; can swap zone contest states. Hero: The Fool (0).
+- Neptune (♆): Illusion. Cups bias. Invisible zone fortification. Hero: The Hanged Man (XII).
+- Pluto (♇): Transformation. Swords bias. Attrition; converts destroyed cards into temporary power. Hero: Judgement (XX).
 
-Give the single most useful thing for THIS seeker now. If they ask about rules,
-teach plainly. If they ask what to do, weigh their suit, seals, and the live
-weather, and point them somewhere.`;
+3. TAROT COMBAT & SUIT TRIANGLE
+Combat is played with 40-card decks composed of Minor Arcana suits and Major Arcana heroes:
+- Cups (Water): Healing, shields, defense, health. Outside the RPS triangle (support).
+- Swords (Air): Burst damage, silences, attack power. Beats Pentacles.
+- Pentacles (Earth): Armor, taunts, defense. Beats Wands.
+- Wands (Fire): Damage-over-time, haste, speed/cooldown. Beats Swords.
+Suit RPS damage multiplier: ×1.5 advantage, ×0.66 disadvantage.
 
-interface Req {
-  request_id: string;
-  question: string;
-  context: string;
-  cacheable: boolean;
-}
+4. ROTATING WEATHER (THE GREAT WHEEL)
+Each zone rotates through zodiac signs and elements based on its local sidereal time and meridian hour angle.
+A zone's active element favors its matching suit: ×1.35 power; opposite suit is penalized at ×0.75.
 
-function toBool(v: unknown): boolean {
-  return v === true || v === "true" || v === 1 || v === "1";
-}
+5. PLANET TRANSIT BUFF
+Planets move through alt-azimuth zones in real time. If a faction's planet transits the combat zone, all their cards receive a +30% stats buff.
 
-function normalizeRow(r: any): Req | null {
-  // `spacetime sql --json` may return row objects, or positional arrays matching
-  // the SELECT order (request_id, question, context, cacheable). Handle both.
-  if (Array.isArray(r)) {
-    return { request_id: String(r[0]), question: String(r[1] ?? ""), context: String(r[2] ?? ""), cacheable: toBool(r[3]) };
-  }
-  if (r && typeof r === "object") {
-    const id = r.request_id ?? r.RequestId ?? r.requestId;
-    if (id === undefined) return null;
-    return { request_id: String(id), question: String(r.question ?? ""), context: String(r.context ?? ""), cacheable: toBool(r.cacheable) };
-  }
-  return null;
-}
+6. CARD LEVELING & TRADE
+- Duplicate cards are fused (combined) to level up (Lv badges, power ceiling limit of ×1.5).
+- Cards can be traded via confirmed two-way proposals.
 
-function parseRows(stdout: string): Req[] {
-  const trimmed = stdout.trim();
-  if (!trimmed) return [];
-  let data: any;
-  try {
-    data = JSON.parse(trimmed);
-  } catch {
-    throw new Error(
-      "Expected JSON from `spacetime sql`. Ensure your CLI emits JSON (this service runs it with --json); got: " +
-        trimmed.slice(0, 160),
-    );
-  }
-  // Possible shapes: [{rows:[...], schema:...}] | {rows:[...]} | [rowObj, ...]
-  let rows: any[];
-  if (Array.isArray(data)) {
-    rows = data.length && data[0] && Array.isArray(data[0].rows) ? data.flatMap((d: any) => d.rows) : data;
-  } else if (data && Array.isArray(data.rows)) {
-    rows = data.rows;
-  } else {
-    rows = [];
-  }
-  return rows.map(normalizeRow).filter((r): r is Req => r !== null);
-}
+When responding:
+- Stay in character as the celestial, mysterious, yet highly tactical Oracle.
+- Be accurate about the game's mechanics and lore.
+- Keep answers concise and directly useful to the player.
+- Reference the user's specific context (their faction, owned zones, current planetary transits) to provide tailored strategy.`;
 
-async function pending(): Promise<Req[]> {
-  const query =
-    "SELECT request_id, question, context, cacheable FROM oracle_request WHERE answered = false";
-  const { stdout } = await run("spacetime", ["sql", "--json", DB, query], { encoding: "utf8" });
-  return parseRows(stdout);
-}
-
-async function reply(id: string, text: string, model: string): Promise<void> {
-  // execFile (not a shell) passes `text` as a single argv element, so quotes and
-  // newlines in the reply need no escaping.
-  await run("spacetime", ["call", DB, "answer_oracle", id, text, model]);
-}
-
-async function ask(req: Req): Promise<{ text: string; model: string }> {
-  const model = req.cacheable ? SHORT_MODEL : STRATEGY_MODEL;
-  const resp = await client.messages.create({
-    model,
-    max_tokens: model === SHORT_MODEL ? 400 : 700,
-    system: [{ type: "text", text: SYSTEM, cache_control: { type: "ephemeral" } }],
-    messages: [
-      { role: "user", content: `Seeker's situation: ${req.context}\n\nTheir question: ${req.question}` },
-    ],
+// Parser for the plaintext fixed-width table format outputted by SpacetimeDB CLI's `spacetime sql` command.
+function parseTable(output: string): Array<Record<string, string>> {
+  const lines = output.split('\n').map(l => l.trimEnd());
+  // Find separator line (containing only dashes and pluses after trimming)
+  const separatorIndex = lines.findIndex(l => {
+    const trimmed = l.trim();
+    return trimmed.length > 0 && /^[-\+]+$/.test(trimmed);
   });
-  const text = resp.content
-    .filter((b): b is Anthropic.TextBlock => b.type === "text")
-    .map((b) => b.text)
-    .join("")
-    .trim();
-  return { text: text || "The sky is clouded just now, seeker — ask me again in a moment.", model };
-}
-
-async function tick(): Promise<void> {
-  let reqs: Req[];
-  try {
-    reqs = await pending();
-  } catch (e) {
-    console.error(`read failed: ${(e as Error).message.split("\n")[0]}`);
-    return;
-  }
-  for (const req of reqs) {
-    try {
-      const { text, model } = await ask(req);
-      await reply(req.request_id, text, model);
-      console.log(`✦ #${req.request_id} answered via ${model}`);
-    } catch (e) {
-      console.error(`✗ #${req.request_id}: ${(e as Error).message.split("\n")[0]}`);
+  if (separatorIndex === -1) return [];
+  const separatorLine = lines[separatorIndex];
+  
+  // Find column boundaries using '+'
+  const boundaries: number[] = [];
+  for (let i = 0; i < separatorLine.length; i++) {
+    if (separatorLine[i] === '+') {
+      boundaries.push(i);
     }
   }
+  
+  const headerLine = lines[separatorIndex - 1];
+  if (!headerLine) return [];
+  
+  const colRanges: { start: number; end: number }[] = [];
+  let start = 0;
+  for (const b of boundaries) {
+    colRanges.push({ start, end: b });
+    start = b + 1;
+  }
+  colRanges.push({ start, end: headerLine.length });
+  
+  const headers = colRanges.map(r => headerLine.substring(r.start, r.end).trim());
+  
+  const rows: Array<Record<string, string>> = [];
+  for (let i = separatorIndex + 1; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line.trim()) continue;
+    
+    const row: Record<string, string> = {};
+    colRanges.forEach((r, idx) => {
+      const header = headers[idx];
+      const val = line.substring(r.start, r.end).trim();
+      row[header] = val;
+    });
+    rows.push(row);
+  }
+  return rows;
 }
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+// Strips double quotes from SpacetimeDB SQL string values and decodes escaped content
+function parseValue(val: string): string {
+  const trimmed = val.trim();
+  if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+    try {
+      return JSON.parse(trimmed);
+    } catch {
+      return trimmed.slice(1, -1);
+    }
+  }
+  return trimmed;
+}
+
+async function processRequest(row: Record<string, string>): Promise<void> {
+  const rawId = parseValue(row.request_id);
+  const question = parseValue(row.question);
+  const context = parseValue(row.context);
+  const isCacheable = parseValue(row.cacheable) === "true";
+  
+  const requestId = Number(rawId);
+  if (isNaN(requestId)) {
+    console.error(`[Oracle] Skipping invalid request ID: ${rawId}`);
+    return;
+  }
+
+  const modelId = isCacheable ? "claude-haiku-4-5" : "claude-sonnet-4-6";
+  const modelTier = isCacheable ? "haiku" : "sonnet";
+
+  console.log(`\n[Oracle] Processing request #${requestId}...`);
+  console.log(`  Question: "${question}"`);
+  console.log(`  Model: ${modelId} (${isCacheable ? "cacheable rules/lore" : "live strategy"})`);
+
+  try {
+    const response = await anthropic.messages.create({
+      model: modelId,
+      max_tokens: 1024,
+      system: [
+        {
+          type: "text",
+          text: SYSTEM_PROMPT,
+          cache_control: { type: "ephemeral" },
+        },
+      ],
+      messages: [
+        {
+          role: "user",
+          content: `Context:\n${context}\n\nQuestion:\n${question}`,
+        },
+      ],
+    });
+
+    const replyText = response.content[0].type === "text" ? response.content[0].text : "";
+    if (!replyText) {
+      console.warn(`[Oracle] Empty response generated for request #${requestId}`);
+      return;
+    }
+
+    console.log(`[Oracle] Reply generated successfully.`);
+    if (response.usage) {
+      console.log(`  Tokens: ${response.usage.input_tokens} input, ${response.usage.output_tokens} output`);
+      if (response.usage.cache_creation_input_tokens) {
+        console.log(`  ✦ Cache created: ${response.usage.cache_creation_input_tokens} tokens`);
+      }
+      if (response.usage.cache_read_input_tokens) {
+        console.log(`  ✦ Cache read: ${response.usage.cache_read_input_tokens} tokens`);
+      }
+    }
+
+    // Submit the reply back to SpacetimeDB
+    console.log(`[Oracle] Pushing reply back to SpacetimeDB...`);
+    await run("spacetime", [
+      "call",
+      DB,
+      "answer_oracle",
+      "--",
+      String(requestId),
+      replyText,
+      modelTier,
+    ]);
+    console.log(`[Oracle] Request #${requestId} successfully answered.`);
+  } catch (err) {
+    console.error(`[Oracle] Error processing request #${requestId}:`, err);
+  }
+}
+
+async function checkPendingRequests(): Promise<void> {
+  try {
+    const { stdout } = await run("spacetime", [
+      "sql",
+      DB,
+      "SELECT request_id, question, context, cacheable FROM oracle_request WHERE answered = false",
+    ]);
+
+    const rows = parseTable(stdout);
+    if (rows.length === 0) return;
+
+    console.log(`[Oracle] Found ${rows.length} pending request(s).`);
+    for (const row of rows) {
+      await processRequest(row);
+    }
+  } catch (err) {
+    console.error("[Oracle] Error checking pending requests:", (err as Error).message.split("\n")[0]);
+  }
+}
 
 async function main(): Promise<void> {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    console.error("Set ANTHROPIC_API_KEY to run the Oracle service.");
-    process.exit(1);
-  }
-  console.log(`Pentacles Oracle service → ${DB} (poll ${POLL_MS}ms; Haiku rules / Sonnet strategy)`);
-  // Sequential loop: finish each batch before polling again, so no request is
-  // picked up twice (answer_oracle is idempotent server-side regardless).
-  for (;;) {
-    await tick();
-    await sleep(POLL_MS);
-  }
+  console.log(`Pentacles Claude companion service starting.`);
+  console.log(`  Database: ${DB}`);
+  console.log(`  Polling interval: ${POLL_INTERVAL_MS}ms`);
+  console.log(`  API Key active: Yes`);
+  console.log(`Press Ctrl+C to terminate.\n`);
+
+  // Start check loop
+  const runLoop = async () => {
+    await checkPendingRequests();
+    setTimeout(runLoop, POLL_INTERVAL_MS);
+  };
+  
+  runLoop();
 }
 
 main();

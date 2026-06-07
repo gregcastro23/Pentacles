@@ -108,8 +108,7 @@ public class CelestialPentacleConn : MonoBehaviour
     // Binding appears after `spacetime generate` for the new set_location reducer.
     public void SetLocation(double lat, double lon) => Conn.Reducers.SetLocation(lat, lon);
 
-    // Move a card between loadouts (Active capped at 8). Binding appears after
-    // `spacetime generate` for the new set_loadout reducer.
+    // Move a card between loadouts (Active capped at 10, Defense capped at 8).
     public void SetLoadout(ulong cardId, Loadout loadout) => Conn.Reducers.SetLoadout(cardId, loadout);
 
     // Fuse two copies of the same card; the kept one levels up (diminishing

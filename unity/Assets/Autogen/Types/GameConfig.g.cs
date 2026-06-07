@@ -19,6 +19,8 @@ namespace SpacetimeDB.Types
         public SpacetimeDB.Identity Owner;
         [DataMember(Name = "season_degree")]
         public ushort SeasonDegree;
+        [DataMember(Name = "ascendant_degree")]
+        public ushort AscendantDegree;
         [DataMember(Name = "seeded")]
         public bool Seeded;
 
@@ -26,12 +28,14 @@ namespace SpacetimeDB.Types
             byte Id,
             SpacetimeDB.Identity Owner,
             ushort SeasonDegree,
+            ushort AscendantDegree,
             bool Seeded
         )
         {
             this.Id = Id;
             this.Owner = Owner;
             this.SeasonDegree = SeasonDegree;
+            this.AscendantDegree = AscendantDegree;
             this.Seeded = Seeded;
         }
 
