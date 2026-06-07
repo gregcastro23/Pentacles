@@ -1,0 +1,494 @@
+//! Reducers — the only writers. Clients call these; they validate and mutate
+//! transactionally, so the map is cheat-resistant by construction.
+
+use crate::types::*;
+use crate::{chart, combat};
+use crate::tables::*;
+use spacetimedb::{reducer, Identity, ReducerContext, ScheduleAt, Table};
+use std::time::Duration;
+
+const FLIP_THRESHOLD: i32 = 600;
+
+// ── Lifecycle ─────────────────────────────────────────────────────────────
+
+/// Runs once on first publish (and after a clear). `ctx.sender` is the owner.
+#[reducer(init)]
+pub fn init(ctx: &ReducerContext) {
+    if ctx.db.game_config().id().find(&0).is_none() {
+        ctx.db.game_config().insert(GameConfig {
+            id: 0,
+            owner: ctx.sender,
+            season_degree: 0,
+            seeded: false,
+        });
+    }
+
+    // Seed the eleven zones: 0-4 houses, 5-9 spires, 10 crown.
+    for z in 0u8..11 {
+        if ctx.db.zone().zone_id().find(&z).is_none() {
+            let kind = if z < 5 {
+                ZoneKind::House
+            } else if z < 10 {
+                ZoneKind::Spire
+            } else {
+                ZoneKind::Crown
+            };
+            ctx.db.zone().insert(Zone {
+                zone_id: z,
+                kind,
+                owner: None,
+                control: 0,
+                updated_at: ctx.timestamp,
+            });
+        }
+    }
+
+    seed_demo_stars(ctx);
+
+    // Drive the persistent sky: tick every 10 seconds.
+    ctx.db.sky_tick_timer().insert(SkyTickTimer {
+        scheduled_id: 0,
+        scheduled_at: ScheduleAt::Interval(Duration::from_secs(10).into()),
+    });
+
+    if let Some(mut cfg) = ctx.db.game_config().id().find(&0) {
+        cfg.seeded = true;
+        ctx.db.game_config().id().update(cfg);
+    }
+    log::info!("Pentacles module initialised");
+}
+
+// ── Onboarding ────────────────────────────────────────────────────────────
+
+/// Commit the chart, validate the chosen faction, mint the deck, join the war.
+#[reducer]
+pub fn create_player(
+    ctx: &ReducerContext,
+    handle: String,
+    chart: NatalChart,
+    faction: Planet,
+) -> Result<(), String> {
+    // The chosen faction must be one of the chart's top-3 dignity scores.
+    let scores = chart::faction_scores(&chart);
+    let mut ranked: Vec<(usize, f32)> = scores.iter().copied().enumerate().collect();
+    ranked.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+    let top3: Vec<usize> = ranked.iter().take(3).map(|(i, _)| *i).collect();
+    if !top3.contains(&faction.idx()) {
+        return Err("faction not in your chart's top-3 dignities".into());
+    }
+
+    // Server owns identity — never trust a client-supplied one.
+    let chart = NatalChart { identity: ctx.sender, ..chart };
+    if ctx.db.natal_chart().identity().find(&ctx.sender).is_some() {
+        ctx.db.natal_chart().identity().update(chart.clone());
+    } else {
+        ctx.db.natal_chart().insert(chart.clone());
+    }
+
+    let asc_sign = ((chart.ascendant / 1800) % 12) as u8;
+    let chart_ruler = chart::sign_ruler(asc_sign);
+    let (deck_seed, _n) = chart::mint_deck(ctx, ctx.sender, &chart, faction, chart_ruler);
+
+    let player = Player {
+        identity: ctx.sender,
+        handle,
+        faction,
+        deck_seed,
+        created_at: ctx.timestamp,
+        last_active: ctx.timestamp,
+    };
+    if ctx.db.player().identity().find(&ctx.sender).is_some() {
+        ctx.db.player().identity().update(player);
+    } else {
+        ctx.db.player().insert(player);
+    }
+    Ok(())
+}
+
+// ── Combat ────────────────────────────────────────────────────────────────
+
+/// Re-simulate a star duel from the log + both decks; on a win, flip the star
+/// and move its zone's control meter.
+#[reducer]
+pub fn resolve_star_battle(
+    ctx: &ReducerContext,
+    hip_id: u32,
+    log: BattleLog,
+) -> Result<(), String> {
+    let player = ctx
+        .db
+        .player()
+        .identity()
+        .find(&ctx.sender)
+        .ok_or_else(|| "register first".to_string())?;
+    let mut star = ctx
+        .db
+        .star_node()
+        .hip_id()
+        .find(&hip_id)
+        .ok_or_else(|| "no such star".to_string())?;
+
+    // Gather the attacker's played cards (validate ownership).
+    let mut attacker: Vec<combat::CardStat> = Vec::new();
+    for cid in &log.plays {
+        if let Some(c) = ctx.db.card().card_id().find(cid) {
+            if c.owner == ctx.sender {
+                attacker.push(combat::CardStat {
+                    suit: c.suit,
+                    attack: c.attack,
+                    health: c.health,
+                    armour: c.armour,
+                });
+            }
+        }
+    }
+    if attacker.is_empty() {
+        return Err("no valid cards played".into());
+    }
+
+    let defender = match star.held_by {
+        Some(holder) => sentinel_for(ctx, holder),
+        None => neutral_garrison(&star),
+    };
+
+    let (won, margin) = combat::resolve_star(&attacker, &defender);
+    if won {
+        let prev = star.held_by;
+        star.held_by = Some(player.faction);
+        ctx.db.star_node().hip_id().update(star.clone());
+        apply_control(
+            ctx,
+            star.region_hint,
+            player.faction,
+            combat::control_delta(star.magnitude, margin),
+        );
+        let _ = prev;
+    }
+
+    let mut player = player;
+    player.last_active = ctx.timestamp;
+    ctx.db.player().identity().update(player);
+    Ok(())
+}
+
+/// Queue for a live duel in a zone; pairs with anyone already waiting to spawn
+/// a real 3-lane Duel both clients then drive.
+#[reducer]
+pub fn enqueue_duel(ctx: &ReducerContext, zone_id: u8) -> Result<(), String> {
+    let me = ctx
+        .db
+        .player()
+        .identity()
+        .find(&ctx.sender)
+        .ok_or_else(|| "register first".to_string())?;
+
+    let waiting = ctx
+        .db
+        .duel_queue()
+        .iter()
+        .find(|t| t.zone_id == zone_id && t.seeker != ctx.sender);
+
+    match waiting {
+        Some(t) => {
+            let opp = ctx
+                .db
+                .player()
+                .identity()
+                .find(&t.seeker)
+                .ok_or_else(|| "opponent vanished".to_string())?;
+            ctx.db.duel_queue().ticket_id().delete(&t.ticket_id);
+            ctx.db.duel().insert(Duel {
+                duel_id: 0,
+                zone_id,
+                player_a: t.seeker,
+                player_b: ctx.sender,
+                faction_a: opp.faction,
+                faction_b: me.faction,
+                a_cards: vec![0, 0, 0],
+                b_cards: vec![0, 0, 0],
+                a_committed: false,
+                b_committed: false,
+                state: DuelState::Active,
+                lanes_a: 0,
+                lanes_b: 0,
+                winner: None,
+                created_at: ctx.timestamp,
+                updated_at: ctx.timestamp,
+            });
+        }
+        None => {
+            let dup = ctx
+                .db
+                .duel_queue()
+                .iter()
+                .any(|t| t.zone_id == zone_id && t.seeker == ctx.sender);
+            if !dup {
+                ctx.db.duel_queue().insert(DuelQueue {
+                    ticket_id: 0,
+                    zone_id,
+                    seeker: ctx.sender,
+                    enqueued_at: ctx.timestamp,
+                });
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Commit your three lane cards (one per lane). When both sides are in, resolve.
+#[reducer]
+pub fn commit_duel(
+    ctx: &ReducerContext,
+    duel_id: u64,
+    lane0: u64,
+    lane1: u64,
+    lane2: u64,
+) -> Result<(), String> {
+    let mut duel = ctx
+        .db
+        .duel()
+        .duel_id()
+        .find(&duel_id)
+        .ok_or_else(|| "no such duel".to_string())?;
+    if duel.state != DuelState::Active {
+        return Err("duel already resolved".into());
+    }
+    let is_a = duel.player_a == ctx.sender;
+    let is_b = duel.player_b == ctx.sender;
+    if !is_a && !is_b {
+        return Err("not your duel".into());
+    }
+    for cid in [lane0, lane1, lane2] {
+        let c = ctx
+            .db
+            .card()
+            .card_id()
+            .find(&cid)
+            .ok_or_else(|| "card not found".to_string())?;
+        if c.owner != ctx.sender {
+            return Err("not your card".into());
+        }
+    }
+    if is_a {
+        duel.a_cards = vec![lane0, lane1, lane2];
+        duel.a_committed = true;
+    } else {
+        duel.b_cards = vec![lane0, lane1, lane2];
+        duel.b_committed = true;
+    }
+    duel.updated_at = ctx.timestamp;
+    if duel.a_committed && duel.b_committed {
+        resolve_duel(ctx, &mut duel);
+    }
+    ctx.db.duel().duel_id().update(duel);
+    Ok(())
+}
+
+/// Lane-by-lane (suit-triangle scaled); best-of-3 wins and shifts the zone.
+fn resolve_duel(ctx: &ReducerContext, duel: &mut Duel) {
+    let mut a = 0u8;
+    let mut b = 0u8;
+    for lane in 0..3usize {
+        let ca = ctx.db.card().card_id().find(&duel.a_cards[lane]);
+        let cb = ctx.db.card().card_id().find(&duel.b_cards[lane]);
+        if let (Some(x), Some(y)) = (ca, cb) {
+            if lane_power(&x, &y) >= lane_power(&y, &x) { a += 1; } else { b += 1; }
+        }
+    }
+    duel.lanes_a = a;
+    duel.lanes_b = b;
+    duel.state = DuelState::Resolved;
+    let (winner, faction) = if a >= b {
+        (duel.player_a, duel.faction_a)
+    } else {
+        (duel.player_b, duel.faction_b)
+    };
+    duel.winner = Some(winner);
+    apply_control(ctx, duel.zone_id, faction, 150 + a.max(b) as i32 * 60);
+}
+
+fn lane_power(att: &Card, def: &Card) -> f32 {
+    let s = att.attack as f32 + att.health as f32 * 0.5 + att.armour as f32 * 0.4;
+    s * combat::suit_multiplier(att.suit, def.suit)
+}
+
+// ── Scheduled & owner feeds ───────────────────────────────────────────────
+
+/// Fires on the schedule: decays held zones and lets unmanned factions raid.
+#[reducer]
+pub fn tick_sky(ctx: &ReducerContext, _timer: SkyTickTimer) {
+    for mut z in ctx.db.zone().iter() {
+        if z.control > 0 {
+            z.control = (z.control - decay_rate(&z)).max(0);
+            if z.control == 0 {
+                z.owner = None;
+            }
+            z.updated_at = ctx.timestamp;
+            ctx.db.zone().zone_id().update(z);
+        }
+    }
+    bot_raid(ctx);
+}
+
+/// Owner-gated real-ephemeris feed. A trusted off-module job computes precise
+/// positions (Swiss-Ephemeris-grade) and pushes them here.
+#[reducer]
+pub fn push_ephemeris(
+    ctx: &ReducerContext,
+    body_idx: u8,
+    ra: f64,
+    dec: f64,
+    transiting_zone: u8,
+) -> Result<(), String> {
+    let cfg = ctx
+        .db
+        .game_config()
+        .id()
+        .find(&0)
+        .ok_or_else(|| "not initialised".to_string())?;
+    if ctx.sender != cfg.owner {
+        return Err("owner-only reducer".into());
+    }
+    let body = Planet::from_idx(body_idx);
+    let row = Ephemeris { body, ra, dec, transiting_zone, tick: ctx.timestamp };
+    if ctx.db.ephemeris().body().find(&body).is_some() {
+        ctx.db.ephemeris().body().update(row);
+    } else {
+        ctx.db.ephemeris().insert(row);
+    }
+    Ok(())
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────
+
+fn decay_rate(z: &Zone) -> i32 {
+    match z.owner {
+        Some(Planet::Saturn) => 4, // the wall holds longer
+        _ => 8,
+    }
+}
+
+/// Single-meter tug-of-war: positive `control` = the current `owner`'s hold.
+fn apply_control(ctx: &ReducerContext, zone_id: u8, attacker: Planet, delta: i32) {
+    if let Some(mut z) = ctx.db.zone().zone_id().find(&zone_id) {
+        match z.owner {
+            None => {
+                z.owner = Some(attacker);
+                z.control = delta.clamp(0, 1000);
+            }
+            Some(o) if o == attacker => {
+                z.control = (z.control + delta).clamp(0, 1000);
+            }
+            Some(_) => {
+                z.control -= delta;
+                if z.control <= 0 {
+                    z.owner = Some(attacker);
+                    z.control = (-z.control).clamp(0, FLIP_THRESHOLD);
+                }
+            }
+        }
+        z.updated_at = ctx.timestamp;
+        ctx.db.zone().zone_id().update(z);
+    }
+}
+
+/// Collect up to 8 Defense-loadout cards from members of the holding faction.
+fn sentinel_for(ctx: &ReducerContext, holder: Planet) -> Vec<combat::CardStat> {
+    let mut out = Vec::new();
+    for slot in ctx.db.deck_slot().iter() {
+        if slot.loadout != Loadout::Defense {
+            continue;
+        }
+        if let Some(owner) = ctx.db.player().identity().find(&slot.owner) {
+            if owner.faction != holder {
+                continue;
+            }
+            if let Some(c) = ctx.db.card().card_id().find(&slot.card_id) {
+                out.push(combat::CardStat {
+                    suit: c.suit,
+                    attack: c.attack,
+                    health: c.health,
+                    armour: c.armour,
+                });
+                if out.len() >= 8 {
+                    break;
+                }
+            }
+        }
+    }
+    if out.is_empty() {
+        // No human sentinel — fall back to a token guardian scaled to the planet.
+        out.push(combat::CardStat { suit: holder.biased_suit(), attack: 18, health: 30, armour: 10 });
+    }
+    out
+}
+
+/// A neutral star's baseline guardian, tougher for brighter stars.
+fn neutral_garrison(star: &StarNode) -> Vec<combat::CardStat> {
+    let w = combat::node_weight(star.magnitude);
+    let base = (10.0 + w * 6.0) as u16;
+    vec![
+        combat::CardStat { suit: Suit::Pentacles, attack: base / 2, health: base * 2, armour: base },
+        combat::CardStat { suit: Suit::Cups, attack: base / 2, health: base * 2, armour: base / 2 },
+    ]
+}
+
+/// Keep the war alive: any faction with zero human players raids one star in
+/// the zone its planet is transiting.
+fn bot_raid(ctx: &ReducerContext) {
+    let mut counts = [0u32; 10];
+    for p in ctx.db.player().iter() {
+        counts[p.faction.idx()] += 1;
+    }
+    let mut raids = 0;
+    for fac in ALL_PLANETS {
+        if raids >= 2 {
+            break;
+        }
+        if counts[fac.idx()] != 0 {
+            continue;
+        }
+        if let Some(eph) = ctx.db.ephemeris().body().find(&fac) {
+            let target = ctx
+                .db
+                .star_node()
+                .iter()
+                .find(|s| s.region_hint == eph.transiting_zone && s.held_by != Some(fac));
+            if let Some(mut s) = target {
+                s.held_by = Some(fac);
+                let zone = s.region_hint;
+                ctx.db.star_node().hip_id().update(s);
+                apply_control(ctx, zone, fac, 60);
+                raids += 1;
+            }
+        }
+    }
+}
+
+/// A few bright naked-eye stars as starting objectives (real catalogue loads
+/// via `push`/CLI later). region_hint spreads them across the eleven zones.
+fn seed_demo_stars(ctx: &ReducerContext) {
+    let stars: [(u32, &str, f64, f64, f32, u8); 8] = [
+        (32349, "Sirius", 101.287, -16.716, -1.46, 0),
+        (30438, "Canopus", 95.988, -52.696, -0.74, 1),
+        (69673, "Arcturus", 213.915, 19.182, -0.05, 2),
+        (91262, "Vega", 279.234, 38.784, 0.03, 3),
+        (24608, "Capella", 79.172, 45.998, 0.08, 4),
+        (24436, "Rigel", 78.634, -8.202, 0.13, 5),
+        (37279, "Procyon", 114.825, 5.225, 0.34, 6),
+        (11767, "Polaris", 37.954, 89.264, 1.98, 10),
+    ];
+    for (hip_id, name, ra, dec, magnitude, region_hint) in stars {
+        if ctx.db.star_node().hip_id().find(&hip_id).is_none() {
+            ctx.db.star_node().insert(StarNode {
+                hip_id,
+                name: name.to_string(),
+                ra,
+                dec,
+                magnitude,
+                held_by: None,
+                region_hint,
+            });
+        }
+    }
+}

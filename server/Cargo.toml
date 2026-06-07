@@ -1,0 +1,19 @@
+[package]
+name = "pentacles-server"
+version = "0.1.0"
+edition = "2021"
+
+# SpacetimeDB modules compile to a WebAssembly system module.
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+# Bump to match your installed `spacetime` CLI (`spacetime --version`).
+# Easiest path: run `spacetime init --lang rust pentacles-server` to get a
+# Cargo.toml pinned to your CLI, then drop these `src/*.rs` files in.
+spacetimedb = "1.0"
+log = "0.4"
+
+[profile.release]
+opt-level = "s"
+lto = true

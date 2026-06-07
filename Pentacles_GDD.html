@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pentacles — Game Design Document</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Space+Grotesk:wght@400;500;600;700&family=Spectral:ital,wght@0,400;0,500;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="pentacles.css">
+</head>
+<body>
+
+<div id="starfield"><canvas id="stars-c"></canvas></div>
+
+<div class="page">
+
+  <!-- ===================== HERO ===================== -->
+  <header class="hero">
+    <div class="hero-meta">Game Design Document &nbsp;·&nbsp; v0.9 &nbsp;·&nbsp; June 2026 &nbsp;·&nbsp; Confidential</div>
+    <h1>Pentacles</h1>
+    <p class="tag">Claim the night sky.</p>
+    <p class="desc">A location-based AR MMO where your birth chart decides your allegiance, the Tarot is your arsenal, and the visible heavens are the contested map.</p>
+    <div class="hero-orn"><span></span><span class="o">✦&nbsp;✶&nbsp;✦</span><span></span></div>
+    <div class="hero-scroll">Scroll to descend ↓</div>
+  </header>
+
+  <div class="shell">
+
+    <!-- ===================== TOC ===================== -->
+    <aside class="toc">
+      <div class="toc-brand"><span class="glyph">✦</span> Pentacles</div>
+      <div class="toc-sub">GDD &amp; Architecture</div>
+      <nav id="toc-nav">
+        <a href="#overview"><span class="n">00</span> Overview</a>
+        <a href="#pillars"><span class="n">01</span> Design Pillars</a>
+        <a href="#onboarding"><span class="n">02</span> The Natal Chart</a>
+        <a href="#factions"><span class="n">03</span> Ten Factions</a>
+        <a href="#decks"><span class="n">04</span> Deck Generation</a>
+        <a href="#pentacle"><span class="n">05</span> Celestial Pentacle</a>
+        <a href="#combat"><span class="n">06</span> Tarot Combat</a>
+        <a href="#zones"><span class="n">07</span> Zone Control</a>
+        <a href="#ar"><span class="n">08</span> AR &amp; Ephemeris</a>
+        <a href="#backend"><span class="n">09</span> SpacetimeDB</a>
+        <a href="#loop"><span class="n">10</span> Core Loop</a>
+        <a href="#roadmap"><span class="n">11</span> Roadmap</a>
+      </nav>
+      <div class="toc-foot">RENDER · Unity 6 · AR Foundation<br>BACKEND · /server · Rust + SpacetimeDB</div>
+    </aside>
+
+    <!-- ===================== MAIN ===================== -->
+    <main class="main">
+
+      <!-- 00 OVERVIEW -->
+      <section class="block" id="overview">
+        <div class="block-head reveal">
+          <p class="eyebrow">00 — Overview</p>
+          <h2>A persistent war for the <em>visible heavens</em>.</h2>
+        </div>
+        <p class="lead reveal dropcap">Pentacles is a real-time, location-based AR MMO. Players are sorted into <strong>ten planetary factions</strong> drawn from their real birth chart, granted a <strong>Tarot deck</strong> procedurally seeded by the exact degrees and minutes of their natal planets, and sent to battle for control of the night sky — which the game overlays with a single, sky-spanning <strong>Pentacle</strong> divided into eleven capturable zones.</p>
+        <div class="grid-3 reveal" style="margin-top:40px">
+          <div class="panel">
+            <h4>Genre</h4>
+            <p class="note">Location-based AR · Persistent MMO · Collectible-deck tactics · Territory control</p>
+          </div>
+          <div class="panel">
+            <h4>The Hook</h4>
+            <p class="note">The map is not invented — it is the literal sky above you, and the front line moves as the planets do, in real time.</p>
+          </div>
+          <div class="panel">
+            <h4>Session Shape</h4>
+            <p class="note">5–15 min skirmishes outdoors at night; async siege &amp; deck-tuning anywhere, any time of day.</p>
+          </div>
+        </div>
+        <div class="callout reveal">
+          <div class="label">North Star</div>
+          <p>“Look up, point your phone, and fight for the constellation you were born under.”</p>
+        </div>
+      </section>
+
+      <!-- 01 PILLARS -->
+      <section class="block" id="pillars">
+        <div class="block-head reveal">
+          <p class="eyebrow">01 — Design Pillars</p>
+          <h2>Four commitments that govern <em>every</em> decision.</h2>
+        </div>
+        <div class="grid-4 reveal">
+          <div class="pillar">
+            <div class="num">I</div>
+            <h4>The Sky Is Sacred</h4>
+            <p>The map is real and shared. Two players in the same city see the same zones, the same owners, the same stars — only the angle differs.</p>
+          </div>
+          <div class="pillar">
+            <div class="num">II</div>
+            <h4>Identity Is Earned</h4>
+            <p>Your faction and deck come from <em>you</em> — a real chart, not a class menu. No two starting decks are mechanically identical.</p>
+          </div>
+          <div class="pillar">
+            <div class="num">III</div>
+            <h4>Time Is A Mechanic</h4>
+            <p>Real ephemeris drives ownership pressure. Your planet transiting a zone is a tangible, exploitable advantage.</p>
+          </div>
+          <div class="pillar">
+            <div class="num">IV</div>
+            <h4>Always Playable</h4>
+            <p>Cloud, daylight, indoors — a simulated sky falls back onto the ceiling so the game never asks for a clear night to function.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 02 ONBOARDING -->
+      <section class="block" id="onboarding">
+        <div class="block-head reveal">
+          <p class="eyebrow">02 — Onboarding</p>
+          <h2>Character creation <em>is</em> the natal chart.</h2>
+        </div>
+        <p class="lead reveal">There is no class select. The player supplies three facts; the game computes a real astrological chart and uses its geometry to assign a faction and forge a deck.</p>
+
+        <div class="spec reveal" style="margin-top:36px">
+          <div class="row"><div class="k">Input</div><div class="v"><p><strong>Birth date</strong>, <strong>birth location</strong> (geocoded to lat/long), and <strong>birth time</strong>. If time is unknown, it defaults to <span class="mono">12:00</span> local noon and the player is flagged <em>solar-chart</em> (Houses are suppressed, see below).</p></div></div>
+          <div class="row"><div class="k">Processing</div><div class="v"><p>A Swiss-Ephemeris-grade calculation resolves the positions of all ten bodies to the arc-minute, plus the Ascendant and Midheaven. This runs <strong>client-side once</strong> at creation and the resolved chart is committed to the server as immutable player data.</p></div></div>
+          <div class="row"><div class="k">Faction Assignment</div><div class="v"><p>The engine scores the chart against each planet using a weighted <strong>dignity vector</strong>: chart ruler (Ascendant lord) ×3, Sun &amp; Moon sign rulers ×2, stellium &amp; angular planets ×1.5, plus essential dignity (rulership / exaltation) bonuses.</p><p>The top three scoring planets are surfaced as a <strong>choice</strong> — the player commits to one, preserving agency while keeping the result grounded in their real chart.</p></div></div>
+          <div class="row"><div class="k">Output</div><div class="v"><p>An immutable <span class="mono">NatalChart</span> record, a chosen <span class="mono">Faction</span>, and a deterministic <strong>deck seed</strong> derived from the chart's exact placements.</p></div></div>
+        </div>
+        <p class="note reveal" style="margin-top:24px">Design intent: the three-way choice converts a deterministic algorithm into a <em>meaningful identity moment</em>, and sidesteps the “I don't want to be a Saturn” churn risk of pure assignment — while keeping every option astrologically true to the player.</p>
+      </section>
+
+      <!-- 03 FACTIONS -->
+      <section class="block" id="factions">
+        <div class="block-head reveal">
+          <p class="eyebrow">03 — The Ten Factions</p>
+          <h2>Each planet is a faction with a <em>doctrine</em>.</h2>
+        </div>
+        <p class="lead reveal">Faction identity is more than a banner — each planet biases deck generation toward a suit and grants a passive that shapes how its players fight and hold ground.</p>
+        <div class="grid-3 reveal" style="margin-top:36px">
+          <div class="faction"><div class="bar" style="background:var(--sun)"></div><span class="sigil" style="color:var(--sun)">☉</span><div class="pname">Sun</div><div class="prole">Sovereignty · Wands</div><p class="pdesc">Vanguard aggressors. Bonus capture rate when their planet is above the horizon.</p></div>
+          <div class="faction"><div class="bar" style="background:var(--moon)"></div><span class="sigil" style="color:var(--moon)">☽</span><div class="pname">Moon</div><div class="prole">Tides · Cups</div><p class="pdesc">Sustain &amp; reinforcement. Decay of held zones slows during the lunar night.</p></div>
+          <div class="faction"><div class="bar" style="background:var(--mercury)"></div><span class="sigil" style="color:var(--mercury)">☿</span><div class="pname">Mercury</div><div class="prole">Cunning · Swords</div><p class="pdesc">Tempo &amp; card draw. Reduced cooldowns; first to act in synchronous duels.</p></div>
+          <div class="faction"><div class="bar" style="background:var(--venus)"></div><span class="sigil" style="color:var(--venus)">♀</span><div class="pname">Venus</div><div class="prole">Harmony · Cups</div><p class="pdesc">Alliance play. Shares partial control points with allied factions in adjacent zones.</p></div>
+          <div class="faction"><div class="bar" style="background:var(--mars)"></div><span class="sigil" style="color:var(--mars)">♂</span><div class="pname">Mars</div><div class="prole">War · Wands</div><p class="pdesc">Raw damage. Highest base attack; penalised on defense — built to siege, not sit.</p></div>
+          <div class="faction"><div class="bar" style="background:var(--jupiter)"></div><span class="sigil" style="color:var(--jupiter)">♃</span><div class="pname">Jupiter</div><div class="prole">Expansion · Wands</div><p class="pdesc">Snowball. Each held zone buffs adjacent contests — momentum is its whole game.</p></div>
+          <div class="faction"><div class="bar" style="background:var(--saturn)"></div><span class="sigil" style="color:var(--saturn)">♄</span><div class="pname">Saturn</div><div class="prole">Dominion · Pentacles</div><p class="pdesc">The wall. Strongest defensive decks; captured Saturn zones are the hardest to retake.</p></div>
+          <div class="faction"><div class="bar" style="background:var(--uranus)"></div><span class="sigil" style="color:var(--uranus)">♅</span><div class="pname">Uranus</div><div class="prole">Disruption · Swords</div><p class="pdesc">Chaos. Random-effect cards and the ability to swap two zones' contested states.</p></div>
+          <div class="faction"><div class="bar" style="background:var(--neptune)"></div><span class="sigil" style="color:var(--neptune)">♆</span><div class="pname">Neptune</div><div class="prole">Illusion · Cups</div><p class="pdesc">Stealth. Can fortify a zone invisibly; attackers learn its strength only mid-battle.</p></div>
+          <div class="faction"><div class="bar" style="background:var(--pluto)"></div><span class="sigil" style="color:var(--pluto)">♇</span><div class="pname">Pluto</div><div class="prole">Transformation · Swords</div><p class="pdesc">Attrition. Converts destroyed enemy cards into temporary power. Thrives in long sieges.</p></div>
+        </div>
+      </section>
+
+      <!-- 04 DECKS -->
+      <section class="block" id="decks">
+        <div class="block-head reveal">
+          <p class="eyebrow">04 — Deck Generation</p>
+          <h2>Your chart, dealt as <em>cards</em>.</h2>
+        </div>
+        <p class="lead reveal">A starting deck of 40 cards spans the four Minor Arcana suits. Suit balance, card identities, and per-card stats are all derived deterministically from the chart's exact placements — same chart, same deck, every time.</p>
+
+        <div class="grid-4 reveal" style="margin-top:36px">
+          <div class="suit"><div class="suit-top"><div class="suit-mark" style="color:var(--cups)">♥</div><div><div class="suit-name" style="color:var(--cups)">Cups</div><div class="suit-el">Water · Restore</div></div></div><p>Healing, shields, and zone-decay reduction. The suit of holding ground.</p><div class="suit-stat"><span>Drawn from</span><span>Water signs</span></div><div class="suit-stat"><span>Governs</span><span>Card health</span></div></div>
+          <div class="suit"><div class="suit-top"><div class="suit-mark" style="color:var(--swords)">♠</div><div><div class="suit-name" style="color:var(--swords)">Swords</div><div class="suit-el">Air · Strike</div></div></div><p>Burst damage, silences, and tempo control. The suit of breaking lines.</p><div class="suit-stat"><span>Drawn from</span><span>Air signs</span></div><div class="suit-stat"><span>Governs</span><span>Attack power</span></div></div>
+          <div class="suit"><div class="suit-top"><div class="suit-mark" style="color:var(--pentacles)">♦</div><div><div class="suit-name" style="color:var(--pentacles)">Pentacles</div><div class="suit-el">Earth · Endure</div></div></div><p>Armour, taunts, and resource generation. The suit of fortification.</p><div class="suit-stat"><span>Drawn from</span><span>Earth signs</span></div><div class="suit-stat"><span>Governs</span><span>Defense / armour</span></div></div>
+          <div class="suit"><div class="suit-top"><div class="suit-mark" style="color:var(--wands)">♣</div><div><div class="suit-name" style="color:var(--wands)">Wands</div><div class="suit-el">Fire · Ignite</div></div></div><p>Damage-over-time, haste, and reach. The suit of relentless pressure.</p><div class="suit-stat"><span>Drawn from</span><span>Fire signs</span></div><div class="suit-stat"><span>Governs</span><span>Speed / cooldown</span></div></div>
+        </div>
+
+        <h3 class="reveal" style="margin-top:56px">What the degrees &amp; minutes dictate</h3>
+        <p class="reveal">Each natal planet contributes cards to the suit of its sign's element. The body's exact position is decomposed into card statistics — turning astronomy into a stat sheet.</p>
+
+        <div class="grid-2 reveal" style="margin-top:24px; align-items:start">
+          <table class="data">
+            <thead><tr><th>Chart metric</th><th>Maps to</th></tr></thead>
+            <tbody>
+              <tr><td><strong>Sign element</strong></td><td>Which <em>suit</em> the card belongs to</td></tr>
+              <tr><td><strong>Degree (0–29°)</strong></td><td>Card <em>rank / power tier</em> — higher degree, rarer card</td></tr>
+              <tr><td><strong>Minute (0–59′)</strong></td><td>Fine stat roll — the “sub-stat” spread within the tier</td></tr>
+              <tr><td><strong>Planet dignity</strong></td><td>Quality multiplier (exalted = +, fall = −)</td></tr>
+              <tr><td><strong>Aspects</strong></td><td>Card <em>synergies</em> — trine/sextile = combo links</td></tr>
+              <tr><td><strong>Retrograde</strong></td><td>Inverted card — defensive variant of the same effect</td></tr>
+            </tbody>
+          </table>
+          <div class="panel">
+            <h4 style="color:var(--gold-bright)">Worked example</h4>
+            <p class="note" style="margin-bottom:16px">Mars at <span class="mono gold">14° Aries 47′</span>, dignified by rulership.</p>
+            <div class="statline"><span class="sn">Suit</span><div class="track"><div class="fill" style="width:100%;background:var(--wands)"></div></div><span class="sv">Wands</span></div>
+            <div class="statline"><span class="sn">Power tier</span><div class="track"><div class="fill" style="width:48%"></div></div><span class="sv">14/29</span></div>
+            <div class="statline"><span class="sn">Sub-roll</span><div class="track"><div class="fill" style="width:79%"></div></div><span class="sv">47/59</span></div>
+            <div class="statline"><span class="sn">Dignity ×</span><div class="track"><div class="fill" style="width:90%"></div></div><span class="sv">1.4×</span></div>
+            <p class="note" style="margin-top:14px">→ <strong style="color:var(--wands)">Knight of Wands</strong>, high attack &amp; haste, elevated by the rulership multiplier.</p>
+          </div>
+        </div>
+        <p class="note reveal" style="margin-top:24px">Court cards (Page–King) are reserved for the chart's <strong>angular &amp; ruling</strong> planets; the remaining bodies fill the pip cards (Ace–10). This guarantees every deck has exactly one signature card tied to its owner's chart ruler.</p>
+
+        <h3 class="reveal" style="margin-top:56px">The Major Arcana — one hero per faction</h3>
+        <p class="reveal">Beyond the Minor-Arcana pips, every deck is granted a single <strong>Major Arcana hero card</strong> — the trump that astrology already attributes to your faction's planet. It's your deck's keystone: high stat floor, a signature ability, one copy only. We use the standard <em>Golden Dawn planetary attributions</em> (yours to override).</p>
+        <table class="data reveal" style="margin-top:18px">
+          <thead><tr><th>Faction</th><th>Hero trump</th><th>Arcana</th><th>Hero fantasy</th></tr></thead>
+          <tbody>
+            <tr><td style="color:var(--sun)"><strong>☉ Sun</strong></td><td>The Sun</td><td>XIX</td><td>Radiant overrun — empowers the whole board</td></tr>
+            <tr><td style="color:var(--moon)"><strong>☽ Moon</strong></td><td>The High Priestess</td><td>II</td><td>Hidden reserves — sustain &amp; concealment</td></tr>
+            <tr><td style="color:var(--mercury)"><strong>☿ Mercury</strong></td><td>The Magician</td><td>I</td><td>Tempo &amp; trickery — extra plays</td></tr>
+            <tr><td style="color:var(--venus)"><strong>♀ Venus</strong></td><td>The Empress</td><td>III</td><td>Growth &amp; alliance — buffs allies</td></tr>
+            <tr><td style="color:var(--mars)"><strong>♂ Mars</strong></td><td>The Tower</td><td>XVI</td><td>Cataclysm — burst that shatters defences</td></tr>
+            <tr><td style="color:var(--jupiter)"><strong>♃ Jupiter</strong></td><td>Wheel of Fortune</td><td>X</td><td>Snowball — escalating swing each turn</td></tr>
+            <tr><td style="color:var(--saturn)"><strong>♄ Saturn</strong></td><td>The World</td><td>XXI</td><td>Dominion — near-unbreakable hold</td></tr>
+            <tr><td style="color:var(--uranus)"><strong>♅ Uranus</strong></td><td>The Fool</td><td>0</td><td>Chaos — high-variance disruption</td></tr>
+            <tr><td style="color:var(--neptune)"><strong>♆ Neptune</strong></td><td>The Hanged Man</td><td>XII</td><td>Reversal — turns enemy strength inward</td></tr>
+            <tr><td style="color:var(--pluto)"><strong>♇ Pluto</strong></td><td>Judgement</td><td>XX</td><td>Resurrection — reclaims destroyed cards</td></tr>
+          </tbody>
+        </table>
+        <p class="note reveal" style="margin-top:16px">Encoded in the backend as <span class="mono">Planet::hero_trump()</span> → minted as the deck's one <span class="mono">is_trump</span> card. Room to grow: the remaining 12 Major Arcana (the zodiacal &amp; elemental trumps) are reserved for a future <em>seasonal reward</em> track tied to the 360° wheel.</p>
+      </section>
+
+      <!-- 05 PENTACLE -->
+      <section class="block" id="pentacle">
+        <div class="block-head reveal">
+          <p class="eyebrow">05 — The Celestial Pentacle</p>
+          <h2>The sky, divided into <em>eleven</em> contested zones.</h2>
+        </div>
+        <p class="lead reveal">A single Pentacle is projected across the celestial hemisphere from horizon to horizon. A pentagram inscribed in an outer circle partitions the visible sky into eleven capturable territories. Every real, visible star falls into exactly one zone and becomes a node within it.</p>
+
+        <div class="figure reveal" style="margin-top:40px">
+          <div>
+            <svg viewBox="0 0 600 600" role="img" aria-label="The Celestial Pentacle: eleven-zone grid">
+              <defs>
+                <radialGradient id="halo" cx="50%" cy="42%" r="60%">
+                  <stop offset="0%" stop-color="#16203a"/>
+                  <stop offset="100%" stop-color="#070910"/>
+                </radialGradient>
+              </defs>
+              <circle cx="300" cy="300" r="250" fill="url(#halo)"/>
+
+              <!-- 5 LARGE arc zones (segment between two tips, valley + circle arc) -->
+              <g stroke="var(--gold)" stroke-width="1" stroke-opacity="0.55">
+                <path class="zone-large" d="M300,50 L356.1,222.8 L537.8,222.8 A250,250 0 0,0 300,50 Z"/>
+                <path class="zone-large" d="M537.8,222.8 L390.8,329.5 L447,502.3 A250,250 0 0,0 537.8,222.8 Z"/>
+                <path class="zone-large" d="M447,502.3 L300,395.5 L153,502.3 A250,250 0 0,0 447,502.3 Z"/>
+                <path class="zone-large" d="M153,502.3 L209.2,329.5 L62.2,222.8 A250,250 0 0,0 153,502.3 Z"/>
+                <path class="zone-large" d="M62.2,222.8 L243.9,222.8 L300,50 A250,250 0 0,0 62.2,222.8 Z"/>
+              </g>
+
+              <!-- 5 SMALL star-tip triangles -->
+              <g stroke="var(--gold-bright)" stroke-width="1" stroke-opacity="0.75">
+                <path class="zone-tip" d="M300,50 L243.9,222.8 L356.1,222.8 Z"/>
+                <path class="zone-tip" d="M537.8,222.8 L356.1,222.8 L390.8,329.5 Z"/>
+                <path class="zone-tip" d="M447,502.3 L390.8,329.5 L300,395.5 Z"/>
+                <path class="zone-tip" d="M153,502.3 L300,395.5 L209.2,329.5 Z"/>
+                <path class="zone-tip" d="M62.2,222.8 L209.2,329.5 L243.9,222.8 Z"/>
+              </g>
+
+              <!-- central pentagon -->
+              <path class="zone-core" d="M356.1,222.8 L390.8,329.5 L300,395.5 L209.2,329.5 L243.9,222.8 Z"
+                    fill="rgba(216,180,106,0.17)" stroke="var(--gold-bright)" stroke-width="1.4"/>
+
+              <circle cx="300" cy="300" r="250" fill="none" stroke="var(--gold)" stroke-width="1.6" stroke-opacity="0.8"/>
+
+              <!-- tip & valley node markers -->
+              <g fill="var(--gold-bright)">
+                <circle cx="300" cy="50" r="3.2"/><circle cx="537.8" cy="222.8" r="3.2"/>
+                <circle cx="447" cy="502.3" r="3.2"/><circle cx="153" cy="502.3" r="3.2"/>
+                <circle cx="62.2" cy="222.8" r="3.2"/>
+              </g>
+              <g id="svg-stars"></g>
+
+              <text x="300" y="306" text-anchor="middle" fill="var(--gold-bright)" font-family="Space Grotesk" font-size="13" letter-spacing="2">CROWN</text>
+            </svg>
+            <p class="fig-cap">Fig. 1 — The eleven zones: 5 arc-houses, 5 spires, 1 crown</p>
+          </div>
+          <div class="legend">
+            <div class="li"><div class="sw" style="background:rgba(216,180,106,0.18)"></div><div><div class="lt">5 × Arc-Houses</div><div class="ld">Large three-sided zones, one curved edge resting on the horizon circle. The bulk territory and most stars.</div></div></div>
+            <div class="li"><div class="sw" style="background:rgba(241,219,161,0.4)"></div><div><div class="lt">5 × Spires</div><div class="ld">The star's points — small triangles. Few stars, high strategic value as chokepoints between houses.</div></div></div>
+            <div class="li"><div class="sw" style="background:rgba(216,180,106,0.6)"></div><div><div class="lt">1 × Crown</div><div class="ld">The central pentagon at the zenith. The keystone zone — owning it buffs every adjacent contest.</div></div></div>
+            <div class="li" style="border:none"><div class="sw" style="background:transparent;border-color:transparent"></div><div class="ld" style="font-size:13px">Adjacency (shared edges) defines the strategic graph — see §07.</div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 06 COMBAT -->
+      <section class="block" id="combat">
+        <div class="block-head reveal">
+          <p class="eyebrow">06 — Tarot Combat</p>
+          <h2>How the battles are actually <em>fought</em>.</h2>
+        </div>
+        <p class="lead reveal">We're carrying <em>three</em> candidate combat models into prototyping rather than committing blind. All three share the same decks, the same suit triangle, and the same authoritative resolver on the backend — so <span class="gold">CombatModel</span> is a season-level switch we can A/B without a client rebuild. What changes is the texture of the duel.</p>
+
+        <div class="grid-3 reveal" style="margin-top:36px">
+          <div class="suit">
+            <div class="suit-top"><div class="suit-mark" style="color:var(--wands)">A</div><div><div class="suit-name" style="font-size:23px">Lane Skirmish</div><div class="suit-el">Real-time · Hybrid</div></div></div>
+            <p>A fast 3-lane board; cards resolve on a shared tick. Runs <strong>live</strong> when two players contest a zone at once, or against the holder's stored <strong>Sentinel</strong> deck when they don't.</p>
+            <div class="suit-stat"><span>Skill expression</span><span>High</span></div>
+            <div class="suit-stat"><span>Always-on solo</span><span>Yes (async)</span></div>
+            <div class="suit-stat"><span>Best for</span><span>Twitch &amp; tempo</span></div>
+          </div>
+          <div class="suit">
+            <div class="suit-top"><div class="suit-mark" style="color:var(--cups)">B</div><div><div class="suit-name" style="font-size:23px">Spread Duel</div><div class="suit-el">Turn-based · Positional</div></div></div>
+            <p>Cards are laid into a <strong>Tarot spread</strong> — past / present / future positions grant real bonuses. Slower, more cerebral, deeply on-theme. Async-first, so it never needs both players online.</p>
+            <div class="suit-stat"><span>Skill expression</span><span>Deck &amp; placement</span></div>
+            <div class="suit-stat"><span>Always-on solo</span><span>Native</span></div>
+            <div class="suit-stat"><span>Best for</span><span>Theme &amp; depth</span></div>
+          </div>
+          <div class="suit">
+            <div class="suit-top"><div class="suit-mark" style="color:var(--pentacles)">C</div><div><div class="suit-name" style="font-size:23px">Auto-Siege</div><div class="suit-el">Auto-resolve · Tune</div></div></div>
+            <p>You <strong>build, don't pilot</strong>: tune the deck pre-battle, then it auto-resolves from composition and the suit triangle. Lowest friction, scales to mass simultaneous sieges across the whole sky.</p>
+            <div class="suit-stat"><span>Skill expression</span><span>Pre-battle</span></div>
+            <div class="suit-stat"><span>Always-on solo</span><span>Native</span></div>
+            <div class="suit-stat"><span>Best for</span><span>Scale &amp; casual</span></div>
+          </div>
+        </div>
+        <p class="note reveal" style="margin-top:18px"><strong>Leaning:</strong> ship <em>Auto-Siege</em> first (it's the resolver we already wrote, and de-risks the economy), layer <em>Lane Skirmish</em> for live contests, and trial <em>Spread Duel</em> as a seasonal mode. The backend's <span class="mono">resolve()</span> already serves all three.</p>
+
+        <h3 class="reveal" style="margin-top:56px">The suit triangle</h3>
+        <p class="reveal">Whichever model is active, suits form a directed advantage cycle with one cross-cutting support axis. An attack into a suit it beats lands at <span class="gold">×1.5</span>; into a suit that beats it, <span class="gold">×0.66</span>.</p>
+        <div class="rps reveal">
+          <div class="rel"><b style="color:var(--wands)">Wands</b><span class="arrow">→ burns →</span><b style="color:var(--swords)">Swords</b></div>
+          <div class="rel"><b style="color:var(--swords)">Swords</b><span class="arrow">→ cuts →</span><b style="color:var(--pentacles)">Pentacles</b></div>
+          <div class="rel"><b style="color:var(--pentacles)">Pentacles</b><span class="arrow">→ smothers →</span><b style="color:var(--wands)">Wands</b></div>
+          <div class="rel"><b style="color:var(--cups)">Cups</b><span class="arrow">⇄ floods ⇄</span><b style="color:var(--text)">all</b></div>
+        </div>
+        <p class="note reveal" style="margin-top:14px">Fire–Air–Earth form the rock-paper-scissors core. <strong>Cups (Water)</strong> sits outside it as a pure support axis: it never has type advantage but heals and extends the others — so decks balance an aggressive triangle against a Cups sustain backbone.</p>
+
+        <h3 class="reveal" style="margin-top:52px">Stat derivation — chart → card</h3>
+        <table class="data reveal" style="margin-top:16px">
+          <thead><tr><th>Stat</th><th>Driven by</th><th>Suit that governs it</th><th>Feel</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Health</strong></td><td>Minute of placement + Cups weight</td><td style="color:var(--cups)">Cups</td><td>How long a card survives the lane</td></tr>
+            <tr><td><strong>Attack</strong></td><td>Degree tier × dignity multiplier</td><td style="color:var(--swords)">Swords</td><td>Damage dealt on resolve</td></tr>
+            <tr><td><strong>Armour</strong></td><td>Fixed-sign emphasis in chart</td><td style="color:var(--pentacles)">Pentacles</td><td>Flat damage reduction</td></tr>
+            <tr><td><strong>Cooldown / Speed</strong></td><td>Cardinal-sign emphasis + Wands weight</td><td style="color:var(--wands)">Wands</td><td>How often the card can act</td></tr>
+            <tr><td><strong>Synergy slots</strong></td><td>Aspect count to other natal bodies</td><td>—</td><td>Combo potential</td></tr>
+          </tbody>
+        </table>
+        <div class="callout reveal">
+          <div class="label">Victory in a duel</div>
+          <p>Reduce the opponent's Sentinel (or live avatar) to zero before your draw pile empties — banking control points equal to your surviving board strength.</p>
+        </div>
+      </section>
+
+      <!-- 07 ZONES -->
+      <section class="block" id="zones">
+        <div class="block-head reveal">
+          <p class="eyebrow">07 — Zone Control &amp; Win Conditions</p>
+          <h2>Tug-of-war over zones, fought at the <em>stars</em>.</h2>
+        </div>
+        <p class="lead reveal">A zone is too large to “win” outright. Instead each zone holds a <strong>control meter</strong> (−1000 … +1000) and a scatter of star-nodes. You don't capture the zone directly — you capture its stars, and the stars move the meter.</p>
+
+        <div class="grid-3 reveal" style="margin-top:36px">
+          <div class="panel"><h4>1 · Battle a star</h4><p class="note">Each visible star is a capturable node. Tap it, fight the duel (live or async). Brighter stars (lower magnitude) are weighted nodes worth more control.</p></div>
+          <div class="panel"><h4>2 · Shift the meter</h4><p class="note">A won star adds its weight to your faction's tally in that zone and subtracts from the current holder. The meter is the sum of all node allegiances.</p></div>
+          <div class="panel"><h4>3 · Flip &amp; hold</h4><p class="note">Cross the threshold and the zone flips to your faction. Held zones <em>decay</em> over time, so territory must be actively defended, not parked.</p></div>
+        </div>
+
+        <div class="spec reveal" style="margin-top:40px">
+          <div class="row"><div class="k">Star weighting</div><div class="v"><p>Node value scales with apparent magnitude — a 1st-magnitude star (e.g. Vega, Sirius) is worth many times a faint one, creating natural “objective” stars players rally around.</p></div></div>
+          <div class="row"><div class="k">Decay</div><div class="v"><p>Uncontested control bleeds toward neutral at a fixed rate, modified by faction passives (Saturn slow, Moon nightly slow). This prevents permanent lockout and keeps the map fluid.</p></div></div>
+          <div class="row"><div class="k">The Great Wheel</div><div class="v"><p>A season is one full revolution of the <strong>360° zodiac</strong>. An <em>Ingress Marker</em> advances a degree at a time across the wheel; each <strong>30° crossing</strong> (a sign ingress) fires a mid-season event that re-weights a region of the sky. Completing all 360° resolves the season.</p></div></div>
+          <div class="row"><div class="k">Transit bonus</div><div class="v"><p>When a faction's real planet is currently transiting a zone, every capture there is amplified — the live sky is a rotating buff that no one controls.</p></div></div>
+          <div class="row"><div class="k">Win conditions</div><div class="v"><p><strong>Zone:</strong> hold the control meter past threshold. <strong>Crown:</strong> the central pentagon is the keystone — its owner buffs all adjacent contests. <strong>Season:</strong> when the Marker completes the 360° wheel, the faction holding the most weighted zones is crowned and the map soft-resets — winners keep a head-start edge, never a locked board.</p></div></div>
+        </div>
+      </section>
+
+      <!-- 08 AR -->
+      <section class="block" id="ar">
+        <div class="block-head reveal">
+          <p class="eyebrow">08 — AR &amp; Real-Time Ephemeris</p>
+          <h2>Anchoring a fixed grid to a <em>turning</em> sky.</h2>
+        </div>
+        <p class="lead reveal">The hardest technical question: the stars move, the planets move, the player turns — but the Pentacle must feel like a stable, shared structure. The answer is a two-frame system.</p>
+
+        <div class="grid-2 reveal" style="margin-top:36px; align-items:start">
+          <div class="panel stack-gap">
+            <div>
+              <h4 style="color:var(--gold-bright)">The Pentacle is fixed to the horizon, not the stars</h4>
+              <p class="note">The grid is anchored in the <strong>local horizontal (alt-azimuth) frame</strong>: outer circle = horizon, Crown = zenith, one spire locked to true North. It does <em>not</em> rotate with the Earth. This means the same physical patch of sky over your city is always the same zone — essential for a shared, capturable map.</p>
+            </div>
+            <div>
+              <h4 style="color:var(--gold-bright)">The stars &amp; planets move through it</h4>
+              <p class="note">Stars and planets are placed in the <strong>equatorial frame</strong> (RA/Dec) and projected into the horizontal frame per the player's lat/long and current time. So nodes <em>drift</em> across zone boundaries through the night — a star can change which zone it belongs to, and planets transit zones in real time, exactly as the design demands.</p>
+            </div>
+          </div>
+          <div>
+            <h3>Pose pipeline</h3>
+            <table class="data">
+              <thead><tr><th>Source</th><th>Provides</th></tr></thead>
+              <tbody>
+                <tr><td><strong>GPS</strong></td><td>Observer lat / long / altitude</td></tr>
+                <tr><td><strong>Device clock</strong></td><td>UTC → local sidereal time</td></tr>
+                <tr><td><strong>Magnetometer</strong></td><td>True-north heading (azimuth)</td></tr>
+                <tr><td><strong>Gyro + accel</strong></td><td>Device tilt / where it's aimed</td></tr>
+                <tr><td><strong>AR tracking</strong></td><td>Drift-corrected 6-DoF stabilisation</td></tr>
+              </tbody>
+            </table>
+            <p class="note" style="margin-top:16px">The client computes a horizontal-frame ray from the device pose, intersects it with the Pentacle to know which zone is centred, and ray-hits star-nodes for selection. Heavy ephemeris is precomputed; the device only interpolates.</p>
+          </div>
+        </div>
+
+        <h3 class="reveal" style="margin-top:52px">Why Unity is the render target</h3>
+        <p class="reveal">For a celestial AR renderer with thousands of star points, real planetary bodies, and a fallback indoor projection, <strong>Unity 6 with AR Foundation</strong> is the recommended stack — with SpacetimeDB reached over its Rust/C# SDK.</p>
+        <div class="grid-4 reveal" style="margin-top:20px">
+          <div class="pillar"><h4 style="color:var(--gold-bright)">Unity + AR Foundation</h4><p>One codebase over ARKit &amp; ARCore. Mature plane detection for the indoor ceiling-projection fallback; GPU instancing for the full star catalogue.</p></div>
+          <div class="pillar"><h4 style="color:var(--gold-bright)">SpacetimeDB C# SDK</h4><p>Subscribe to map &amp; battle tables; call reducers directly from Unity. State syncs as a live local cache — ideal for an authoritative MMO map.</p></div>
+          <div class="pillar"><h4 style="color:var(--gold-bright)">Why not WebXR</h4><p>Sensor fusion, sky-scale rendering, and AR plane mapping are too heavy and inconsistent on mobile WebXR today. Keep web for a read-only spectator map.</p></div>
+          <div class="pillar"><h4 style="color:var(--gold-bright)">Why not Unreal</h4><p>Unreal renders beautifully but its mobile-AR + lightweight-MMO tooling is thinner; Unity's AR Foundation + asset ecosystem ships this faster.</p></div>
+        </div>
+        <p class="note reveal" style="margin-top:22px"><strong>Render-the-stars note:</strong> load a real star catalogue (Hipparcos / Yale Bright Star, ~9k naked-eye stars) as a single instanced point cloud; planets are individual billboards placed from the ephemeris. Both live in the equatorial frame and are transformed into Unity world-space each frame by the horizontal-frame matrix — this is the piece you prototype first in Unity.</p>
+      </section>
+
+      <!-- 09 BACKEND -->
+      <section class="block" id="backend">
+        <div class="block-head reveal">
+          <p class="eyebrow">09 — SpacetimeDB Backend</p>
+          <h2>Authoritative state in <em>Rust</em>.</h2>
+        </div>
+        <p class="lead reveal">SpacetimeDB holds the entire game as a single, live, transactional database. Tables are the state; reducers are the only way to mutate it. The map, every player, every deck, and every in-flight battle live here — clients subscribe and react.</p>
+        <div class="callout reveal">
+          <div class="label">Now shipped as real code</div>
+          <p>The full module lives in <span class="mono" style="font-style:normal">/server</span> — a buildable Rust crate: <span class="mono" style="font-style:normal">types · tables · chart · combat · reducers</span>. The snippets below are excerpts; the crate is the source of truth.</p>
+        </div>
+
+        <h3 class="reveal" style="margin-top:44px">Core tables</h3>
+        <div class="code reveal">
+          <div class="code-head"><span class="dot"></span><span class="dot"></span><span class="dot"></span>SCHEMA · PLAYERS &amp; CHARTS<span class="fname">tables.rs</span></div>
+<pre><span class="c">// ── Identity &amp; natal chart ─────────────────────────────</span>
+<span class="at">#[spacetimedb::table(name = player, public)]</span>
+<span class="kw">pub struct</span> <span class="ty">Player</span> {
+    <span class="at">#[primary_key]</span>
+    identity:      <span class="ty">Identity</span>,          <span class="c">// SpacetimeDB auth id</span>
+    handle:        <span class="ty">String</span>,
+    faction:       <span class="ty">Planet</span>,            <span class="c">// chosen faction enum</span>
+    deck_seed:     <span class="ty">u64</span>,               <span class="c">// deterministic deck key</span>
+    created_at:    <span class="ty">Timestamp</span>,
+    last_active:   <span class="ty">Timestamp</span>,
+}
+
+<span class="at">#[spacetimedb::table(name = natal_chart)]</span>   <span class="c">// private to owner</span>
+<span class="kw">pub struct</span> <span class="ty">NatalChart</span> {
+    <span class="at">#[primary_key]</span>
+    identity:      <span class="ty">Identity</span>,
+    birth_unix:    <span class="ty">i64</span>,               <span class="c">// resolved birth instant (UTC)</span>
+    birth_lat:     <span class="ty">f64</span>,
+    birth_lon:     <span class="ty">f64</span>,
+    time_known:    <span class="ty">bool</span>,              <span class="c">// false ⇒ solar chart, noon default</span>
+    <span class="c">// 10 bodies, each packed as degree*60+minute within sign (0..16200)</span>
+    placements:    <span class="ty">Vec</span>&lt;<span class="ty">Placement</span>&gt;,
+    ascendant:     <span class="ty">u16</span>,
+    midheaven:     <span class="ty">u16</span>,
+}
+
+<span class="kw">pub struct</span> <span class="ty">Placement</span> {
+    body:          <span class="ty">Planet</span>,
+    sign:          <span class="ty">u8</span>,                <span class="c">// 0..11</span>
+    arc_minutes:   <span class="ty">u16</span>,               <span class="c">// 0..1799 within sign</span>
+    retrograde:    <span class="ty">bool</span>,
+    dignity:       <span class="ty">i8</span>,                <span class="c">// −5 fall .. +5 rulership</span>
+}
+
+<span class="kw">pub enum</span> <span class="ty">Planet</span> { Sun, Moon, Mercury, Venus, Mars,
+                  Jupiter, Saturn, Uranus, Neptune, Pluto }</pre>
+        </div>
+
+        <div class="code reveal">
+          <div class="code-head"><span class="dot"></span><span class="dot"></span><span class="dot"></span>SCHEMA · CARDS &amp; INVENTORY<span class="fname">tables.rs</span></div>
+<pre><span class="at">#[spacetimedb::table(name = card)]</span>
+<span class="kw">pub struct</span> <span class="ty">Card</span> {
+    <span class="at">#[primary_key] #[auto_inc]</span>
+    card_id:       <span class="ty">u64</span>,
+    owner:         <span class="ty">Identity</span>,
+    suit:          <span class="ty">Suit</span>,              <span class="c">// Cups | Swords | Pentacles | Wands</span>
+    rank:          <span class="ty">u8</span>,                <span class="c">// 1..14 (Ace..King)</span>
+    health:        <span class="ty">u16</span>,
+    attack:        <span class="ty">u16</span>,
+    armour:        <span class="ty">u16</span>,
+    cooldown_ms:   <span class="ty">u16</span>,
+    source_body:   <span class="ty">Planet</span>,            <span class="c">// which placement minted it</span>
+    inverted:      <span class="ty">bool</span>,              <span class="c">// from a retrograde body</span>
+}
+
+<span class="at">#[spacetimedb::table(name = deck_slot)]</span>
+<span class="kw">pub struct</span> <span class="ty">DeckSlot</span> {
+    <span class="at">#[primary_key] #[auto_inc]</span> slot_id: <span class="ty">u64</span>,
+    owner:    <span class="ty">Identity</span>,
+    card_id:  <span class="ty">u64</span>,
+    loadout:  <span class="ty">Loadout</span>,           <span class="c">// Active | Defense (Sentinel) | Bench</span>
+}
+
+<span class="kw">pub enum</span> <span class="ty">Suit</span> { Cups, Swords, Pentacles, Wands }</pre>
+        </div>
+
+        <div class="code reveal">
+          <div class="code-head"><span class="dot"></span><span class="dot"></span><span class="dot"></span>SCHEMA · GLOBAL MAP STATE<span class="fname">tables.rs</span></div>
+<pre><span class="c">// ── The eleven Pentacle zones ──────────────────────────</span>
+<span class="at">#[spacetimedb::table(name = zone, public)]</span>
+<span class="kw">pub struct</span> <span class="ty">Zone</span> {
+    <span class="at">#[primary_key]</span>
+    zone_id:       <span class="ty">u8</span>,                <span class="c">// 0..10 (5 house, 5 spire, 1 crown)</span>
+    kind:          <span class="ty">ZoneKind</span>,
+    owner:         <span class="ty">Option</span>&lt;<span class="ty">Planet</span>&gt;,    <span class="c">// None = neutral</span>
+    control:       <span class="ty">i32</span>,               <span class="c">// −1000 .. +1000 tug-of-war meter</span>
+    updated_at:    <span class="ty">Timestamp</span>,
+}
+
+<span class="at">#[spacetimedb::table(name = star_node, public)]</span>
+<span class="kw">pub struct</span> <span class="ty">StarNode</span> {
+    <span class="at">#[primary_key]</span> hip_id: <span class="ty">u32</span>,    <span class="c">// Hipparcos catalogue id</span>
+    ra:            <span class="ty">f64</span>,               <span class="c">// equatorial — projected client-side</span>
+    dec:           <span class="ty">f64</span>,
+    magnitude:     <span class="ty">f32</span>,               <span class="c">// → node weight</span>
+    held_by:       <span class="ty">Option</span>&lt;<span class="ty">Planet</span>&gt;,
+    region_hint:   <span class="ty">u8</span>,                <span class="c">// cached current zone at server tick</span>
+}
+
+<span class="c">// Real-time ephemeris — one row per body, ticked server-side</span>
+<span class="at">#[spacetimedb::table(name = ephemeris, public)]</span>
+<span class="kw">pub struct</span> <span class="ty">Ephemeris</span> {
+    <span class="at">#[primary_key]</span> body: <span class="ty">Planet</span>,
+    ra:  <span class="ty">f64</span>,
+    dec: <span class="ty">f64</span>,
+    transiting_zone: <span class="ty">u8</span>,           <span class="c">// drives the transit buff</span>
+    tick: <span class="ty">Timestamp</span>,
+}</pre>
+        </div>
+
+        <h3 class="reveal" style="margin-top:44px">Reducers — the only writers</h3>
+        <div class="code reveal">
+          <div class="code-head"><span class="dot"></span><span class="dot"></span><span class="dot"></span>REDUCERS<span class="fname">reducers.rs</span></div>
+<pre><span class="c">// Onboarding: commit chart, roll deck, join faction</span>
+<span class="at">#[spacetimedb::reducer]</span>
+<span class="kw">fn</span> <span class="fn">create_player</span>(ctx: &amp;<span class="ty">ReducerContext</span>, chart: <span class="ty">NatalChart</span>, faction: <span class="ty">Planet</span>) {
+    <span class="c">// validate faction ∈ top-3 dignity scores, persist chart,</span>
+    <span class="c">// derive deck_seed, mint Cards from placements …</span>
+}
+
+<span class="c">// Resolve a star battle — authoritative, server-trusted</span>
+<span class="at">#[spacetimedb::reducer]</span>
+<span class="kw">fn</span> <span class="fn">resolve_star_battle</span>(ctx: &amp;<span class="ty">ReducerContext</span>, hip_id: <span class="ty">u32</span>, log: <span class="ty">BattleLog</span>) {
+    <span class="c">// re-simulate the duel from the log + both decks,</span>
+    <span class="c">// apply suit multipliers, update StarNode.held_by,</span>
+    <span class="c">// add weighted control to Zone, re-evaluate owner flip</span>
+}
+
+<span class="c">// Scheduled: advance ephemeris &amp; decay control</span>
+<span class="at">#[spacetimedb::reducer]</span>
+<span class="kw">fn</span> <span class="fn">tick_sky</span>(ctx: &amp;<span class="ty">ReducerContext</span>, _t: <span class="ty">ScheduledTime</span>) {
+    <span class="c">// recompute each body's RA/Dec + transiting_zone,</span>
+    <span class="c">// bleed every Zone.control toward 0 by faction-modified rate</span>
+}
+
+<span class="c">// Live PvP: pair two contesters into a synchronous duel</span>
+<span class="at">#[spacetimedb::reducer]</span>
+<span class="kw">fn</span> <span class="fn">enqueue_duel</span>(ctx: &amp;<span class="ty">ReducerContext</span>, zone_id: <span class="ty">u8</span>) { <span class="c">/* matchmake */</span> }</pre>
+        </div>
+        <p class="note reveal" style="margin-top:20px">Public tables (<span class="mono">zone</span>, <span class="mono">star_node</span>, <span class="mono">ephemeris</span>) stream to every client as the live map. <span class="mono">natal_chart</span> stays private. Clients <em>never</em> write state — they call reducers, which validate and mutate transactionally, so the map is cheat-resistant by construction.</p>
+      </section>
+
+      <!-- 10 LOOP -->
+      <section class="block" id="loop">
+        <div class="block-head reveal">
+          <p class="eyebrow">10 — Core Loop</p>
+          <h2>One session, end to end.</h2>
+        </div>
+        <div class="flow reveal">
+          <div class="step"><div class="si">01</div><h4>Look Up</h4><p>Raise the device; AR resolves your pose and renders the Pentacle over the real sky (or your ceiling).</p></div>
+          <div class="step"><div class="si">02</div><h4>Read the Map</h4><p>See zone owners, your faction's front line, and where your planet is transiting right now.</p></div>
+          <div class="step"><div class="si">03</div><h4>Pick a Star</h4><p>Tap a contested node — a bright objective star or a quiet flank.</p></div>
+          <div class="step"><div class="si">04</div><h4>Duel</h4><p>Fight live or against the owner's Sentinel deck; suits &amp; chart stats decide it.</p></div>
+          <div class="step"><div class="si">05</div><h4>Shift &amp; Hold</h4><p>Move the zone meter, bank control, set your own defense — then chase the next star.</p></div>
+        </div>
+      </section>
+
+      <!-- 11 ROADMAP -->
+      <section class="block" id="roadmap">
+        <div class="block-head reveal">
+          <p class="eyebrow">11 — Roadmap</p>
+          <h2>Sequencing the build.</h2>
+        </div>
+        <table class="data reveal">
+          <thead><tr><th>Phase</th><th>Goal</th><th>Proves</th></tr></thead>
+          <tbody>
+            <tr><td><strong>P0 · Sky Prototype</strong></td><td>Unity star-field + Pentacle anchored to horizon frame; ephemeris transform</td><td>The hardest tech: a stable, shared, turning sky</td></tr>
+            <tr><td><strong>P1 · Identity</strong></td><td>Chart calc, faction scoring, deterministic deck minting (SpacetimeDB)</td><td>“My chart became my deck” moment</td></tr>
+            <tr><td><strong>P2 · Combat Core</strong></td><td>Async Sentinel duels, suit triangle, star→zone control loop</td><td>The minute-to-minute game is fun</td></tr>
+            <tr><td><strong>P3 · Live &amp; Seasons</strong></td><td>Synchronous duels, decay, transit buffs, ingress-tied seasons</td><td>The persistent MMO meta holds players</td></tr>
+            <tr><td><strong>P4 · Fallback &amp; Polish</strong></td><td>Indoor ceiling projection, spectator web map, social/alliance layer</td><td>Always-playable, always-shareable</td></tr>
+          </tbody>
+        </table>
+        <div class="callout reveal" style="margin-top:40px">
+          <div class="label">Biggest risk to de-risk first</div>
+          <p>The horizon-anchored Pentacle with a real ephemeris drifting through it. Build P0 in Unity before anything else — everything else is a known quantity.</p>
+        </div>
+        <p class="note reveal" style="margin-top:30px; text-align:center; letter-spacing:0.1em">✦ &nbsp; END OF DOCUMENT &nbsp; ✦<br><span style="color:var(--ghost)">Pentacles GDD v0.9 — for internal review</span></p>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<script>
+// ---- Star field (background) ----
+(function () {
+  const c = document.getElementById('stars-c');
+  const ctx = c.getContext('2d');
+  let w, h, stars = [];
+  function size() {
+    w = c.width = window.innerWidth * devicePixelRatio;
+    h = c.height = window.innerHeight * devicePixelRatio;
+    const n = Math.min(420, Math.floor((w * h) / 9000));
+    stars = Array.from({ length: n }, () => ({
+      x: Math.random() * w, y: Math.random() * h,
+      r: Math.random() * 1.3 * devicePixelRatio + 0.2,
+      a: Math.random() * 0.6 + 0.2,
+      tw: Math.random() * 0.02 + 0.004,
+      ph: Math.random() * Math.PI * 2
+    }));
+  }
+  function draw(t) {
+    ctx.clearRect(0, 0, w, h);
+    for (const s of stars) {
+      const a = s.a * (0.6 + 0.4 * Math.sin(t * s.tw + s.ph));
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(232,225,205,' + a + ')';
+      ctx.fill();
+    }
+    requestAnimationFrame(draw);
+  }
+  size();
+  window.addEventListener('resize', size);
+  requestAnimationFrame(draw);
+})();
+
+// ---- Scatter stars inside the Pentacle SVG ----
+(function () {
+  const g = document.getElementById('svg-stars');
+  if (!g) return;
+  const cx = 300, cy = 300, R = 248;
+  let out = '';
+  for (let i = 0; i < 90; i++) {
+    const ang = Math.random() * Math.PI * 2;
+    const rad = Math.sqrt(Math.random()) * R;
+    const x = cx + Math.cos(ang) * rad;
+    const y = cy + Math.sin(ang) * rad;
+    const r = Math.random() * 1.6 + 0.4;
+    const o = (Math.random() * 0.5 + 0.25).toFixed(2);
+    out += '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="' + r.toFixed(1) + '" fill="#e8e1cd" opacity="' + o + '"/>';
+  }
+  g.innerHTML = out;
+})();
+
+// ---- Scroll-spy TOC ----
+(function () {
+  const links = [...document.querySelectorAll('#toc-nav a')];
+  const map = new Map(links.map(a => [a.getAttribute('href').slice(1), a]));
+  const obs = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        links.forEach(l => l.classList.remove('active'));
+        const a = map.get(e.target.id);
+        if (a) a.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-45% 0px -50% 0px', threshold: 0 });
+  document.querySelectorAll('section.block').forEach(s => obs.observe(s));
+})();
+
+// ---- Reveal on scroll ----
+(function () {
+  const obs = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); obs.unobserve(e.target); } });
+  }, { rootMargin: '0px 0px -8% 0px', threshold: 0.05 });
+  document.querySelectorAll('.reveal').forEach(el => obs.observe(el));
+})();
+</script>
+
+</body>
+</html>

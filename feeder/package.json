@@ -1,0 +1,10 @@
+{
+  "name": "pentacles-ephemeris-feeder",
+  "private": true,
+  "type": "module",
+  "description": "Pushes real planetary positions into SpacetimeDB via push_ephemeris",
+  "scripts": {
+    "feed": "bun run push-ephemeris.ts",
+    "once": "bun run push-ephemeris.ts --once"
+  }
+}

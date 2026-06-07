@@ -1,0 +1,102 @@
+// Pentacles — Unity ↔ SpacetimeDB connection manager.
+//
+// Generate the bindings this file needs from the module dir:
+//   cd ../server && spacetime generate --lang csharp \
+//       --out-dir ../unity/Assets/Autogen
+//
+// That emits `DbConnection`, `Reducers`, table row types (Player, Zone,
+// StarNode, Card …) and the value types (NatalChart, Placement, Planet,
+// Suit, BattleLog) under the `SpacetimeDB.Types` namespace.
+//
+// Attach to a bootstrap GameObject in your first scene.
+
+using System.Collections.Generic;
+using SpacetimeDB;
+using SpacetimeDB.Types;
+using UnityEngine;
+
+public class CelestialPentacleConn : MonoBehaviour
+{
+    const string HOST = "wss://maincloud.spacetimedb.com";
+    const string DB_NAME = "cookingwithcastrollc";
+    const string TOKEN_KEY = "stdb.token";
+
+    public static CelestialPentacleConn Instance { get; private set; }
+    public DbConnection Conn { get; private set; }
+    public Identity LocalIdentity { get; private set; }
+    public bool IsConnected { get; private set; }
+
+    void Awake()
+    {
+        Instance = this;
+        DontDestroyOnLoad(gameObject);
+    }
+
+    void Start()
+    {
+        var builder = DbConnection.Builder()
+            .WithUri(HOST)
+            .WithModuleName(DB_NAME)
+            .OnConnect(HandleConnect)
+            .OnConnectError(HandleConnectError)
+            .OnDisconnect(HandleDisconnect);
+
+        var token = PlayerPrefs.GetString(TOKEN_KEY, "");
+        if (!string.IsNullOrEmpty(token))
+            builder = builder.WithToken(token);
+
+        Conn = builder.Build();
+    }
+
+    // CRITICAL: advance the connection every frame, or no updates/callbacks arrive.
+    void Update() => Conn?.FrameTick();
+
+    void HandleConnect(DbConnection conn, Identity identity, string token)
+    {
+        LocalIdentity = identity;
+        IsConnected = true;
+        PlayerPrefs.SetString(TOKEN_KEY, token);
+        Debug.Log($"[STDB] Connected as {identity}");
+
+        // The whole sky is public state — subscribe and let it cache locally.
+        conn.SubscriptionBuilder()
+            .OnApplied(_ => Debug.Log("[STDB] Sky state applied"))
+            .SubscribeToAllTables();
+
+        // React to the live war.
+        conn.Db.StarNode.OnUpdate += (_, oldS, newS) =>
+        {
+            if (!Equals(oldS.HeldBy, newS.HeldBy))
+                SkyRenderer.Instance?.OnStarCaptured(newS);
+        };
+        conn.Db.Zone.OnUpdate += (_, _, zone) => SkyRenderer.Instance?.OnZoneChanged(zone);
+        conn.Db.Card.OnInsert += (_, card) => DeckUI.Instance?.OnCardGranted(card);
+    }
+
+    void HandleConnectError(System.Exception e) =>
+        Debug.LogError($"[STDB] Connect error: {e.Message}");
+
+    void HandleDisconnect(DbConnection _, System.Exception e)
+    {
+        IsConnected = false;
+        Debug.LogWarning($"[STDB] Disconnected: {e?.Message}");
+    }
+
+    // ----- Reducer calls (names are PascalCase of the Rust reducer fns) -----
+
+    // The chart is computed client-side from real birth input, then committed.
+    public void CreatePlayer(string handle, NatalChart chart, Planet faction) =>
+        Conn.Reducers.CreatePlayer(handle, chart, faction);
+
+    public void AttackStar(uint hipId, List<ulong> playedCardIds) =>
+        Conn.Reducers.ResolveStarBattle(hipId, new BattleLog
+        {
+            Model = CombatModel.AutoSiege,
+            Plays = playedCardIds,
+        });
+
+    public void EnqueueDuel(byte zoneId) => Conn.Reducers.EnqueueDuel(zoneId);
+
+    public void CommitDuel(ulong duelId, ulong lane0, ulong lane1, ulong lane2) =>
+        Conn.Reducers.CommitDuel(duelId, lane0, lane1, lane2);
+}
