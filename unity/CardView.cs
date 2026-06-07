@@ -12,6 +12,7 @@ public class CardView : MonoBehaviour
 
     Image _bg;
     Action<ulong> _onClick;
+    float _suppressClickUntil;
 
     static readonly string[] SuitGlyph = { "♥", "♠", "♦", "♣" };          // Cups, Swords, Pentacles, Wands
     static readonly string[] SuitName = { "Cups", "Swords", "Pentacles", "Wands" };
@@ -21,10 +22,18 @@ public class CardView : MonoBehaviour
         new(0.45f, 0.67f, 0.42f), new(0.86f, 0.48f, 0.28f),
     };
 
-    public static CardView Build(Transform parent, Card c, Action<ulong> onClick)
+    /// Plain card (no loadout chip) — used by the duel hand, which is Active-only.
+    public static CardView Build(Transform parent, Card c, Action<ulong> onClick) =>
+        Build(parent, c, Loadout.Active, onClick, null);
+
+    /// Full card. When `onLoadout` is non-null a loadout chip is shown — tapping it
+    /// cycles the card's loadout (Active → Defense → Bench).
+    public static CardView Build(Transform parent, Card c, Loadout loadout,
+        Action<ulong> onClick, Action<ulong> onLoadout)
     {
         var go = new GameObject($"card:{c.CardId}",
-            typeof(RectTransform), typeof(Image), typeof(Button), typeof(LayoutElement), typeof(VerticalLayoutGroup));
+            typeof(RectTransform), typeof(Image), typeof(Button), typeof(LayoutElement),
+            typeof(VerticalLayoutGroup), typeof(CanvasGroup));
         go.transform.SetParent(parent, false);
 
         var view = go.AddComponent<CardView>();
@@ -44,15 +53,55 @@ public class CardView : MonoBehaviour
         int suit = (int)c.Suit;
         var sc = SuitColor[suit];
         UIKit.Label(go.transform, SuitGlyph[suit], 30, FontStyle.Bold, sc);
-        UIKit.Label(go.transform, RankName(c.Rank) + (c.IsTrump ? "  ✦" : ""), 14, FontStyle.Bold,
+        // Trumps show their Major-Arcana name (rank holds the arcana index); pips/courts
+        // show their rank name.
+        string rankLabel = c.IsTrump ? CombatPreview.MajorName(c.Rank) : RankName(c.Rank);
+        UIKit.Label(go.transform, rankLabel + (c.IsTrump ? "  ✦" : ""), c.IsTrump ? 12 : 14, FontStyle.Bold,
             c.IsTrump ? new Color(0.95f, 0.86f, 0.63f) : Color.white);
         UIKit.Label(go.transform, SuitName[suit] + (c.Inverted ? " (rev)" : ""), 10, FontStyle.Italic, sc);
         UIKit.Label(go.transform, $"ATK {c.Attack}   HP {c.Health}\nARM {c.Armour}", 11, FontStyle.Normal);
+        // A leveled card (fused from copies) shows its tier; the level scales its
+        // power in every siege & duel. Binding `c.Level` appears after generate.
+        if (c.Level > 1)
+            UIKit.Label(go.transform, $"✦ Lv {c.Level}", 11, FontStyle.Bold, new Color(0.95f, 0.86f, 0.63f));
 
-        go.GetComponent<Button>().onClick.AddListener(() => view._onClick?.Invoke(view.CardId));
+        if (onLoadout != null)
+        {
+            var lb = UIKit.Button(go.transform, LoadoutLabel(loadout),
+                () => onLoadout.Invoke(c.CardId), 10, LoadoutTint(loadout));
+            var lle = lb.GetComponent<LayoutElement>();
+            lle.minHeight = lle.preferredHeight = 26;
+        }
+
+        // Bench cards read as dimmed; Active/Defense at full strength.
+        go.GetComponent<CanvasGroup>().alpha = loadout == Loadout.Bench ? 0.55f : 1f;
+
+        go.GetComponent<Button>().onClick.AddListener(() =>
+        {
+            if (Time.unscaledTime < view._suppressClickUntil) return; // swallow the click after a long-press
+            view._onClick?.Invoke(view.CardId);
+        });
+        // Long-press a card to read what it is, with an Oracle escalation.
+        LongPress.Attach(go, () =>
+        {
+            view._suppressClickUntil = Time.unscaledTime + 0.5f;
+            Tooltip.ShowForCard(c);
+        });
         view.SetSelected(false);
         return view;
     }
+
+    static string LoadoutLabel(Loadout l) => l switch
+    {
+        Loadout.Active => "Active", Loadout.Defense => "Defense", _ => "Bench",
+    };
+
+    static Color LoadoutTint(Loadout l) => l switch
+    {
+        Loadout.Active => new Color(0.85f, 0.71f, 0.42f, 0.30f),  // gold
+        Loadout.Defense => new Color(0.40f, 0.60f, 0.82f, 0.30f), // blue
+        _ => new Color(0.45f, 0.45f, 0.50f, 0.25f),               // gray (Bench)
+    };
 
     public void SetSelected(bool s)
     {

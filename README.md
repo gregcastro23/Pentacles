@@ -20,14 +20,13 @@ Pentacles/
 │   ├── SkyMath.cs                  # ecliptic ↔ equatorial ↔ horizontal ↔ world
 │   ├── PentacleGrid.cs             # the eleven-zone geometry (horizon-anchored)
 │   ├── SkyRenderer.cs              # P0 AR renderer: stars + Pentacle + tap-to-attack
-│   ├── DeckUI.cs                   # minimal hand stub
 │   ├── FactionData.cs              # faction glyphs/colours/doctrines (GDD §03)
 │   ├── OnboardingController.cs     # birth → TopFactions → CreatePlayer (flow logic)
 │   ├── OnboardingUI.cs             # drop-in birth-form + faction-select screen
 │   ├── UIKit.cs                    # shared programmatic-uGUI helpers
 │   ├── CardView.cs                 # one Tarot card widget
 │   ├── CombatPreview.cs            # client-side strike-power estimate
-│   ├── DeckPanel.cs                # live hand strip + card selection
+│   ├── DeckPanel.cs                # live hand strip + selection + card-granted toast
 │   ├── BattlePanel.cs              # star-target overlay: strike + result
 │   └── DuelPanel.cs                # live PvP "Lane Skirmish" duel
 └── feeder/                     # real-ephemeris cron (Bun)
@@ -95,6 +94,28 @@ Drop the `unity/*.cs` scripts into your Unity (AR Foundation) project. Wiring:
   duel for its zone; when a second player queues the same zone the server spawns
   a `duel`, both phones open this panel, assign one card per lane, and
   `commit_duel` resolves best-of-3 to swing the zone.
+- **`Oracle`** on the AR rig — the in-world advisor. It surfaces cadence-capped
+  nudges (a planet entering a favorable zone, the weather turning to your suit, a
+  held zone slipping, a fresh reachable target) as toasts, with a Mute toggle —
+  pure client-side heuristics, no service required. The top-right "✦ Oracle"
+  button opens:
+- **`OraclePanel`** + **`OracleLore`** on the AR rig — tips + chat + codex. An
+  instant heuristic tip, a free-text chat with Claude (a question → `ask_oracle`
+  with a derived context summary, never birth data; the reply streams back via
+  `oracle_reply`), and the browsable "Book of the Sky". Tips + codex work offline;
+  chat needs the companion service running to answer.
+- **`Tutorial`** on the AR rig — an Oracle-narrated first-run walkthrough (the
+  board → your chart-deck → the rotating weather → your first strike), shown once
+  and replayable from the codex. **`LongPress`** + **`Tooltip`** add contextual
+  help: long-press a card to read what it is, with an "Ask the Oracle ›"
+  escalation to chat. (Both work on any uGUI element — wire zones/stars the same.)
+- **`CollectionPanel`** on the AR rig — a "✦ Cards" launcher opens your whole
+  collection; tap a card then a matching copy to **fuse** them (`combine_cards`),
+  leveling it up. Card widgets show a card's `✦ Lv`. A "Trade ⇄" button opens:
+- **`TradePanel`** on the AR rig — confirmed two-way trades. See your open trades
+  (you give / you get) with Confirm + Cancel, or propose one: pick a partner,
+  stake some of your cards and tap some of theirs (cards are public), and
+  `propose_trade`; the swap commits only when both sides confirm.
 
 ### 3 · Run the ephemeris feeder
 
@@ -108,17 +129,39 @@ It computes all ten bodies and calls `push_ephemeris` through the `spacetime`
 CLI, so it authenticates as your owner identity (the reducer is owner-gated). No
 token plumbing.
 
+### 4 · Run the Oracle service (Claude chat)
+
+```bash
+cd feeder
+bun add @anthropic-ai/sdk                        # once
+ANTHROPIC_API_KEY=sk-ant-... bun run oracle-service.ts
+```
+
+It polls `oracle_request` for unanswered questions, asks Claude (Haiku 4.5 for
+cacheable rules/lore, Sonnet 4.6 for live strategy; the rules system prompt is
+prompt-cached), and writes the reply back through the owner-gated `answer_oracle`
+— same `spacetime`-CLI owner auth as the feeder. It sees only the derived context
+summary the client attached, never birth data. The heuristic Oracle, tips, codex,
+and tutorial all work without it; this powers only the free-text chat.
+
 ## How the pieces map to the GDD
 
 | GDD section | Where it lives |
 | --- | --- |
 | §02 Natal chart → faction | `unity/ChartCalculator.cs` + server `chart::faction_scores` (top-3 dignity check) |
-| §04 Deck generation | `chart::mint_deck` — degree→rank, minute→health, dignity×, court/trump |
+| §04 Deck generation | `chart::mint_deck` — decan→pip (cardinal 2–4 / fixed 5–7 / mutable 8–10), chart-ruler→Ace, angular/ruling→court by dignity, plus each planet's Major trump; stats from degree/minute/dignity |
 | §05 Eleven zones | `unity/PentacleGrid.cs` (geometry) + server `init` (5 houses / 5 spires / 1 crown) |
-| §06 Suit triangle | `combat::suit_multiplier` (Wands→Swords→Pentacles, Cups support) |
+| §06 Suits (environmental) | `combat::element_weather` — a zone's element favors its suit (×1.35 / opposite ×0.75); no card-vs-card counters |
+| Round weather (the Great Wheel) | `tick_sky` → `advance_round_clock` advances the world Ascendant (NYC) in `game_config.season_degree`; `zone_favored_suit` rotates the 12 signs through the 11 zones so each carries its own live element |
 | §07 Star → zone tug-of-war | `resolve_star_battle` + `apply_control` (signed meter, flip at ±600) |
 | §08 AR & ephemeris | `unity/SkyMath.cs` + `SkyRenderer.cs` (P0) · `feeder/` + `push_ephemeris` |
+| GPS engagement | `unity/GpsService.cs` (single GPS authority, with editor fallback) → `set_location` (private `player_location`); `resolve_star_battle` gates on `altitude_deg ≥ 10°`. `SkyRenderer` dims the 0–10° band and `BattlePanel` disables Strike with the reason, so the AR view matches the gate |
+| Deck curation | `set_loadout` (Active capped at 8) via a per-card loadout chip in `DeckPanel`/`CardView` (Active → Defense → Bench); `create_player` is idempotent — re-registering clears the old deck before re-minting |
+| Zodiac seals (territory) | `sealed_suits` — a faction masters the elements of the signs sitting in the zones it holds; its cards of those suits fight at `combat::SEAL_BONUS` (×1.15) in sieges & duels. Derived from zone ownership + the rotating sky, so it shifts as the wheel turns |
+| Card individuality & economy | Every `card` is a unique instance: starter cards are minted from your natal placements (`mint_deck`), and **any capture mints a fresh card from the live sky at that instant** (`chart::mint_from_sky` — its source body is the most-dignified transiting planet; its arc-minute is the literal second of minting). Copies of the same card **combine** to `level` up with gentle-plateau diminishing returns (`combat::level_mult`, ×1.0→×1.5 ceiling, applied in every siege & duel); cards move between players by **confirmed two-way trades** (`propose_trade` / `confirm_trade` / `cancel_trade`, both sides stake & re-validated at commit) |
 | Bots (always-on war) | `tick_sky` → `bot_raid` for unmanned factions |
+| Oracle (advisor) | client-side heuristic `OracleAdvisor` + `Oracle` — proactive nudges (Toast, cadence-capped + mutable) on transits / favorable weather / a slipping zone / a fresh target, and an on-demand tip. In-world oracle voice; reads only public tables + your local chart |
+| Oracle (chat agent) | `ask_oracle` (per-player cooldown; instant answer from `oracle_cache` on a repeat rules question, else queued) → a `feeder/`-style companion service reads `oracle_request`, asks Claude (tiered Haiku/Sonnet), and returns it via owner-gated `answer_oracle` → `oracle_reply` (caching generic answers for everyone). Only a derived chart/state summary is sent — never birth data. Built end-to-end: `feeder/oracle-service.ts` is the companion service (tiered Haiku/Sonnet, prompt-cached) |
 
 ## Notes & accuracy
 

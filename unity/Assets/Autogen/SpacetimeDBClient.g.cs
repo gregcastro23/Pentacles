@@ -27,14 +27,19 @@ namespace SpacetimeDB.Types
     {
         public RemoteTables(DbConnection conn)
         {
+            AddTable(Battle = new(conn));
             AddTable(Card = new(conn));
             AddTable(DeckSlot = new(conn));
             AddTable(Duel = new(conn));
             AddTable(DuelQueue = new(conn));
             AddTable(Ephemeris = new(conn));
             AddTable(GameConfig = new(conn));
+            AddTable(OracleCache = new(conn));
+            AddTable(OracleReply = new(conn));
+            AddTable(OracleRequest = new(conn));
             AddTable(Player = new(conn));
             AddTable(StarNode = new(conn));
+            AddTable(Trade = new(conn));
             AddTable(Zone = new(conn));
         }
     }
@@ -518,14 +523,19 @@ namespace SpacetimeDB.Types
 
         internal static string[] AllTablesSqlQueries() => new string[]
         {
+            new QueryBuilder().From.Battle().ToSql(),
             new QueryBuilder().From.Card().ToSql(),
             new QueryBuilder().From.DeckSlot().ToSql(),
             new QueryBuilder().From.Duel().ToSql(),
             new QueryBuilder().From.DuelQueue().ToSql(),
             new QueryBuilder().From.Ephemeris().ToSql(),
             new QueryBuilder().From.GameConfig().ToSql(),
+            new QueryBuilder().From.OracleCache().ToSql(),
+            new QueryBuilder().From.OracleReply().ToSql(),
+            new QueryBuilder().From.OracleRequest().ToSql(),
             new QueryBuilder().From.Player().ToSql(),
             new QueryBuilder().From.StarNode().ToSql(),
+            new QueryBuilder().From.Trade().ToSql(),
             new QueryBuilder().From.Zone().ToSql(),
         }
         ;
@@ -533,14 +543,19 @@ namespace SpacetimeDB.Types
 
     public sealed class From
     {
+        public global::SpacetimeDB.Table<Battle, BattleCols, BattleIxCols> Battle() => new("battle", new BattleCols("battle"), new BattleIxCols("battle"));
         public global::SpacetimeDB.Table<Card, CardCols, CardIxCols> Card() => new("card", new CardCols("card"), new CardIxCols("card"));
         public global::SpacetimeDB.Table<DeckSlot, DeckSlotCols, DeckSlotIxCols> DeckSlot() => new("deck_slot", new DeckSlotCols("deck_slot"), new DeckSlotIxCols("deck_slot"));
         public global::SpacetimeDB.Table<Duel, DuelCols, DuelIxCols> Duel() => new("duel", new DuelCols("duel"), new DuelIxCols("duel"));
         public global::SpacetimeDB.Table<DuelQueue, DuelQueueCols, DuelQueueIxCols> DuelQueue() => new("duel_queue", new DuelQueueCols("duel_queue"), new DuelQueueIxCols("duel_queue"));
         public global::SpacetimeDB.Table<Ephemeris, EphemerisCols, EphemerisIxCols> Ephemeris() => new("ephemeris", new EphemerisCols("ephemeris"), new EphemerisIxCols("ephemeris"));
         public global::SpacetimeDB.Table<GameConfig, GameConfigCols, GameConfigIxCols> GameConfig() => new("game_config", new GameConfigCols("game_config"), new GameConfigIxCols("game_config"));
+        public global::SpacetimeDB.Table<OracleCache, OracleCacheCols, OracleCacheIxCols> OracleCache() => new("oracle_cache", new OracleCacheCols("oracle_cache"), new OracleCacheIxCols("oracle_cache"));
+        public global::SpacetimeDB.Table<OracleReply, OracleReplyCols, OracleReplyIxCols> OracleReply() => new("oracle_reply", new OracleReplyCols("oracle_reply"), new OracleReplyIxCols("oracle_reply"));
+        public global::SpacetimeDB.Table<OracleRequest, OracleRequestCols, OracleRequestIxCols> OracleRequest() => new("oracle_request", new OracleRequestCols("oracle_request"), new OracleRequestIxCols("oracle_request"));
         public global::SpacetimeDB.Table<Player, PlayerCols, PlayerIxCols> Player() => new("player", new PlayerCols("player"), new PlayerIxCols("player"));
         public global::SpacetimeDB.Table<StarNode, StarNodeCols, StarNodeIxCols> StarNode() => new("star_node", new StarNodeCols("star_node"), new StarNodeIxCols("star_node"));
+        public global::SpacetimeDB.Table<Trade, TradeCols, TradeIxCols> Trade() => new("trade", new TradeCols("trade"), new TradeIxCols("trade"));
         public global::SpacetimeDB.Table<Zone, ZoneCols, ZoneIxCols> Zone() => new("zone", new ZoneCols("zone"), new ZoneIxCols("zone"));
     }
 
@@ -622,11 +637,20 @@ namespace SpacetimeDB.Types
         {
             var eventContext = (ReducerEventContext)context;
             return reducer switch {
+                Reducer.AnswerOracle args => Reducers.InvokeAnswerOracle(eventContext, args),
+                Reducer.AskOracle args => Reducers.InvokeAskOracle(eventContext, args),
+                Reducer.CancelTrade args => Reducers.InvokeCancelTrade(eventContext, args),
+                Reducer.ClaimDuelTimeout args => Reducers.InvokeClaimDuelTimeout(eventContext, args),
+                Reducer.CombineCards args => Reducers.InvokeCombineCards(eventContext, args),
                 Reducer.CommitDuel args => Reducers.InvokeCommitDuel(eventContext, args),
+                Reducer.ConfirmTrade args => Reducers.InvokeConfirmTrade(eventContext, args),
                 Reducer.CreatePlayer args => Reducers.InvokeCreatePlayer(eventContext, args),
                 Reducer.EnqueueDuel args => Reducers.InvokeEnqueueDuel(eventContext, args),
+                Reducer.ProposeTrade args => Reducers.InvokeProposeTrade(eventContext, args),
                 Reducer.PushEphemeris args => Reducers.InvokePushEphemeris(eventContext, args),
                 Reducer.ResolveStarBattle args => Reducers.InvokeResolveStarBattle(eventContext, args),
+                Reducer.SetLoadout args => Reducers.InvokeSetLoadout(eventContext, args),
+                Reducer.SetLocation args => Reducers.InvokeSetLocation(eventContext, args),
                 _ => throw new ArgumentOutOfRangeException("Reducer", $"Unknown reducer {reducer}")
             };
         }

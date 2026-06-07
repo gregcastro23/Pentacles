@@ -65,26 +65,62 @@ fn deck_seed(placements: &[Placement]) -> u64 {
     h
 }
 
-/// (health, attack, armour, cooldown_ms, rank) from one placement.
-fn card_stats(p: &Placement, suit: Suit) -> (u16, u16, u16, u16, u8) {
+/// (health, attack, armour, cooldown_ms) from one placement. Stats come from the
+/// birth degree/minute/dignity; the flat per-suit perks are gone (a suit's edge
+/// is environmental now). Rank is decided separately by the decan/tarot rules.
+fn card_stats(p: &Placement) -> (u16, u16, u16, u16) {
     let degree = p.degree() as u16; // 0..29
     let minute = p.minute() as u16; // 0..59
     let dignity_mult = 1.0 + p.dignity as f32 * 0.08; // 0.6 .. 1.4
 
-    let health = 12 + minute * 28 / 59 + if suit == Suit::Cups { 10 } else { 0 };
-    let attack = ((6 + degree) as f32 * dignity_mult) as u16
-        + if suit == Suit::Swords { 6 } else { 0 };
-    let armour = 4
-        + if is_fixed(p.sign) { 8 } else { 0 }
-        + if suit == Suit::Pentacles { 6 } else { 0 };
-    let cooldown = (3000_i32
-        - if is_cardinal(p.sign) { 800 } else { 0 }
-        - if suit == Suit::Wands { 600 } else { 0 }
-        - degree as i32 * 20)
+    let health = 12 + minute * 28 / 59;
+    let attack = ((6 + degree) as f32 * dignity_mult) as u16;
+    let armour = 4 + if is_fixed(p.sign) { 8 } else { 0 };
+    let cooldown = (3000_i32 - if is_cardinal(p.sign) { 800 } else { 0 } - degree as i32 * 20)
         .clamp(800, 3000) as u16;
-    let rank = (1 + degree * 13 / 29) as u8; // 1..14
-    (health, attack, armour, cooldown, rank)
+    (health, attack, armour, cooldown)
 }
+
+/// Decan index (0,1,2) within a sign: 0–9° · 10–19° · 20–29°.
+fn decan(degree: u8) -> u8 { (degree / 10).min(2) }
+
+/// Minor pip number for a sign+degree (Golden Dawn decans): cardinal signs run
+/// 2–4, fixed 5–7, mutable 8–10, indexed by decan.
+fn pip_rank(sign: u8, degree: u8) -> u8 {
+    let base = if is_cardinal(sign) { 2 } else if is_fixed(sign) { 5 } else { 8 };
+    base + decan(degree)
+}
+
+/// Court (Page 11 / Knight 12 / Queen 13 / King 14) for an elevated body, by the
+/// strength of its dignity.
+fn court_for_dignity(dignity: i8) -> u8 {
+    match dignity {
+        d if d >= 5 => 14, // King — rulership
+        d if d >= 3 => 13, // Queen — exaltation
+        d if d >= 1 => 12, // Knight — mild dignity
+        _ => 11,           // Page — peregrine / debilitated but angular
+    }
+}
+
+/// Major-Arcana index (0..21) attributed to each planet — the deck's trumps.
+fn planet_major(p: Planet) -> u8 {
+    match p {
+        Planet::Sun => 19,     // The Sun
+        Planet::Moon => 18,    // The Moon
+        Planet::Mercury => 1,  // The Magician
+        Planet::Venus => 3,    // The Empress
+        Planet::Mars => 16,    // The Tower
+        Planet::Jupiter => 10, // Wheel of Fortune
+        Planet::Saturn => 21,  // The World
+        Planet::Uranus => 0,   // The Fool
+        Planet::Neptune => 12, // The Hanged Man
+        Planet::Pluto => 20,   // Judgement
+    }
+}
+
+/// Trumps sit a tier above the pips (tunable). Stats still derive from the
+/// placement; this is the only rank-driven scaling, reserved for Majors.
+const TRUMP_MULT: f32 = 1.5;
 
 /// Weighted dignity vector → a score per planet (index by `Planet::idx`).
 pub fn faction_scores(chart: &NatalChart) -> [f32; 10] {
@@ -111,29 +147,38 @@ pub fn faction_scores(chart: &NatalChart) -> [f32; 10] {
 }
 
 /// Mint the starting deck from the chart; returns (deck_seed, card_count).
+///
+/// Each placement yields two cards: a Minor (its decan pip — or an Ace for the
+/// chart ruler, or a court for angular & sign-ruling bodies) and the placement's
+/// planetary Major trump. Minor suit = the sign's element; Major suit = the
+/// planet's. Stats come from the placement; the flat per-suit perks are gone.
 pub fn mint_deck(
     ctx: &ReducerContext,
     owner: Identity,
     chart: &NatalChart,
-    faction: Planet,
     chart_ruler: Planet,
 ) -> (u64, usize) {
     let seed = deck_seed(&chart.placements);
     let mut active = 0u32;
+    let mut count = 0usize;
 
     for p in &chart.placements {
-        let suit = sign_element(p.sign);
-        let (health, attack, armour, cooldown_ms, mut rank) = card_stats(p, suit);
+        let (health, attack, armour, cooldown_ms) = card_stats(p);
 
-        // Court cards (Page–King = 11..14) are reserved for angular & ruling bodies.
-        if angular(p, chart) || p.body == chart_ruler {
-            rank = 11 + (rank % 4);
-        }
+        // Minor rank: the chart ruler mints the Ace; angular or sign-ruling bodies
+        // are elevated to a court by dignity; everyone else is their decan pip.
+        let rank = if p.body == chart_ruler {
+            1 // Ace of the sign's element-suit
+        } else if angular(p, chart) || sign_ruler(p.sign) == p.body {
+            court_for_dignity(p.dignity)
+        } else {
+            pip_rank(p.sign, p.degree())
+        };
 
-        let card = ctx.db.card().insert(Card {
+        let minor = ctx.db.card().insert(Card {
             card_id: 0,
             owner,
-            suit,
+            suit: sign_element(p.sign),
             rank,
             health,
             attack,
@@ -142,32 +187,112 @@ pub fn mint_deck(
             source_body: p.body,
             inverted: p.retrograde,
             is_trump: false,
+            level: 1,
+            minted_at: ctx.timestamp,
         });
+        mint_slot(ctx, owner, minor.card_id, &mut active);
+        count += 1;
 
-        let loadout = if active < 8 { active += 1; Loadout::Active } else { Loadout::Bench };
-        ctx.db.deck_slot().insert(DeckSlot { slot_id: 0, owner, card_id: card.card_id, loadout });
+        // Every placement also mints its planet's Major trump — suited by planet,
+        // weather-bound, a tier above the pips.
+        let major = ctx.db.card().insert(Card {
+            card_id: 0,
+            owner,
+            suit: p.body.biased_suit(),
+            rank: planet_major(p.body), // arcana index 0..21; is_trump disambiguates
+            health: (health as f32 * TRUMP_MULT) as u16,
+            attack: (attack as f32 * TRUMP_MULT) as u16,
+            armour: (armour as f32 * TRUMP_MULT) as u16,
+            cooldown_ms,
+            source_body: p.body,
+            inverted: p.retrograde,
+            is_trump: true,
+            level: 1,
+            minted_at: ctx.timestamp,
+        });
+        mint_slot(ctx, owner, major.card_id, &mut active);
+        count += 1;
     }
 
-    // The single Major-Arcana hero trump, attributed to the faction's planet.
-    let hero = ctx.db.card().insert(Card {
+    (seed, count)
+}
+
+/// First 8 cards land in the Active loadout, the rest on the Bench.
+fn mint_slot(ctx: &ReducerContext, owner: Identity, card_id: u64, active: &mut u32) {
+    let loadout = if *active < 8 { *active += 1; Loadout::Active } else { Loadout::Bench };
+    ctx.db.deck_slot().insert(DeckSlot { slot_id: 0, owner, card_id, loadout });
+}
+
+/// Light essential dignity of a body in a sign, from rulership alone. (The full
+/// natal dignity is computed client-side; this lean version serves sky-minting.)
+/// Ruler +5, detriment — the ruler of the opposite sign — -5, else peregrine 0.
+fn sky_dignity(body: Planet, sign: u8) -> i8 {
+    if sign_ruler(sign) == body {
+        5
+    } else if sign_ruler((sign + 6) % 12) == body {
+        -5
+    } else {
+        0
+    }
+}
+
+/// Mint one card from the live sky at this instant — a card with its own natal
+/// moment, granted to the victor of a capture. Its source body is the planet now
+/// most dignified in the sky; stats and rank follow the starter-deck rules, with
+/// the arc-minute taken from the very second of minting so no two moments mint
+/// alike. Lands on the Bench. Returns the new card_id, or None if the sky has not
+/// been seeded yet (no ephemeris).
+pub fn mint_from_sky(ctx: &ReducerContext, owner: Identity) -> Option<u64> {
+    let cfg = ctx.db.game_config().id().find(&0u8)?;
+    let rising = ((cfg.season_degree / 30) % 12) as u8;
+    let degree_in_sign = (cfg.season_degree % 30) as u8; // 0..29
+
+    // The card's source: the transiting planet now strongest in its zone-sign.
+    let mut best: Option<(Planet, u8, i8)> = None;
+    for e in ctx.db.ephemeris().iter() {
+        let sign = (rising + e.transiting_zone) % 12;
+        let dig = sky_dignity(e.body, sign);
+        let better = match best {
+            Some((_, _, bd)) => dig > bd,
+            None => true,
+        };
+        if better {
+            best = Some((e.body, sign, dig));
+        }
+    }
+    let (body, sign, dignity) = best?;
+
+    // The minute-of-arc is the literal second of birth.
+    let second = (ctx.timestamp.to_micros_since_unix_epoch() / 1_000_000).rem_euclid(60) as u16;
+    let p = Placement {
+        body,
+        sign,
+        arc_minutes: degree_in_sign as u16 * 60 + second,
+        retrograde: false,
+        dignity,
+    };
+    let (health, attack, armour, cooldown_ms) = card_stats(&p);
+
+    let card = ctx.db.card().insert(Card {
         card_id: 0,
         owner,
-        suit: faction.biased_suit(),
-        rank: 14,
-        health: 60,
-        attack: 40,
-        armour: 20,
-        cooldown_ms: 1500,
-        source_body: faction,
+        suit: sign_element(sign),
+        rank: pip_rank(sign, p.degree()),
+        health,
+        attack,
+        armour,
+        cooldown_ms,
+        source_body: body,
         inverted: false,
-        is_trump: true,
+        is_trump: false,
+        level: 1,
+        minted_at: ctx.timestamp,
     });
     ctx.db.deck_slot().insert(DeckSlot {
         slot_id: 0,
         owner,
-        card_id: hero.card_id,
-        loadout: Loadout::Active,
+        card_id: card.card_id,
+        loadout: Loadout::Bench,
     });
-
-    (seed, chart.placements.len() + 1)
+    Some(card.card_id)
 }

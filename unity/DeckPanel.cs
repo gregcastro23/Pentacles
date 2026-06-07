@@ -63,7 +63,10 @@ public class DeckPanel : MonoBehaviour
 
         conn.Conn.Db.Card.OnInsert += (_, __) => _dirty = true;
         conn.Conn.Db.Card.OnUpdate += (_, __, ___) => _dirty = true;
+        conn.Conn.Db.Card.OnDelete += (_, __) => _dirty = true;
         conn.Conn.Db.DeckSlot.OnInsert += (_, __) => _dirty = true;
+        conn.Conn.Db.DeckSlot.OnUpdate += (_, __, ___) => _dirty = true;
+        conn.Conn.Db.DeckSlot.OnDelete += (_, __) => _dirty = true;
     }
 
     void Refresh(CelestialPentacleConn conn)
@@ -81,7 +84,7 @@ public class DeckPanel : MonoBehaviour
         {
             var c = conn.Conn.Db.Card.CardId.Find(s.CardId);
             if (c == null) continue;
-            var v = CardView.Build(_content, c, Toggle);
+            var v = CardView.Build(_content, c, s.Loadout, Toggle, CycleLoadout);
             v.SetSelected(_selected.Contains(c.CardId));
             _views[c.CardId] = v;
         }
@@ -91,6 +94,42 @@ public class DeckPanel : MonoBehaviour
     {
         if (!_selected.Remove(id)) _selected.Add(id);
         if (_views.TryGetValue(id, out var v)) v.SetSelected(_selected.Contains(id));
+    }
+
+    /// Cycle a card's loadout: Active → Defense → Bench → Active. The server caps
+    /// Active at 8, so we refuse to overfill it here (it enforces it authoritatively).
+    void CycleLoadout(ulong id)
+    {
+        var conn = CelestialPentacleConn.Instance;
+        if (conn == null || !conn.IsConnected) return;
+
+        DeckSlot slot = null;
+        foreach (var s in conn.Conn.Db.DeckSlot.Iter())
+            if (s.Owner.Equals(conn.LocalIdentity) && s.CardId == id) { slot = s; break; }
+        if (slot == null) return;
+
+        var next = slot.Loadout switch
+        {
+            Loadout.Active => Loadout.Defense,
+            Loadout.Defense => Loadout.Bench,
+            _ => Loadout.Active,
+        };
+        if (next == Loadout.Active && ActiveCount(conn) >= 8)
+        {
+            Toast.Show("Active is full (8) — bench a card before fielding another.");
+            return;
+        }
+        conn.SetLoadout(id, next);
+        // The strip re-renders when the slot update echoes back (DeckSlot.OnUpdate).
+    }
+
+    static int ActiveCount(CelestialPentacleConn conn)
+    {
+        int n = 0;
+        var me = conn.LocalIdentity;
+        foreach (var s in conn.Conn.Db.DeckSlot.Iter())
+            if (s.Owner.Equals(me) && s.Loadout == Loadout.Active) n++;
+        return n;
     }
 
     /// Cards to play in a strike: the current selection, or all Active if none picked.
@@ -109,4 +148,11 @@ public class DeckPanel : MonoBehaviour
         _selected.Clear();
         foreach (var v in _views.Values) v.SetSelected(false);
     }
+
+    /// Card-granted feedback, folded in from the retired DeckUI stub. The strip
+    /// itself re-renders via the Card.OnInsert handler wired in Build(); this is
+    /// just the toast announcing the new card.
+    public void OnCardGranted(Card card) =>
+        Debug.Log($"[Deck] +{(card.IsTrump ? "TRUMP " : "")}{card.Suit} rank {card.Rank} " +
+                  $"(atk {card.Attack} / hp {card.Health})");
 }

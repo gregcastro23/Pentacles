@@ -29,6 +29,10 @@ pub enum CombatModel { LaneSkirmish, SpreadDuel, AutoSiege }
 #[derive(SpacetimeType, Clone, Copy, PartialEq, Eq, Debug)]
 pub enum DuelState { Active, Resolved }
 
+/// Lifecycle of a two-sided card trade.
+#[derive(SpacetimeType, Clone, Copy, PartialEq, Eq, Debug)]
+pub enum TradeState { Open, Committed, Cancelled }
+
 /// One natal placement, packed to the arc-minute.
 #[derive(SpacetimeType, Clone, Debug)]
 pub struct Placement {

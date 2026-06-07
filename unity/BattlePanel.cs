@@ -16,7 +16,7 @@ public class BattlePanel : MonoBehaviour
 
     GameObject _canvas, _panel;
     Text _title, _info, _result;
-    Button _attack;
+    Button _attack, _duel;
     uint _targetHip;
     byte _targetZone;
     bool _awaiting;
@@ -54,8 +54,41 @@ public class BattlePanel : MonoBehaviour
         hl.spacing = 10; hl.childForceExpandWidth = hl.childControlWidth = true;
         row.GetComponent<LayoutElement>().minHeight = 48;
         _attack = UIKit.Button(row.transform, "Strike", OnAttack, 18, new Color(0.84f, 0.32f, 0.32f, 0.32f));
-        UIKit.Button(row.transform, "⚔ Duel", OnQueueDuel, 16, new Color(0.40f, 0.46f, 0.82f, 0.32f));
+        _duel = UIKit.Button(row.transform, "⚔ Duel", OnQueueDuel, 16, new Color(0.40f, 0.46f, 0.82f, 0.32f));
         UIKit.Button(row.transform, "Cancel", Hide, 16);
+    }
+
+    public static bool FactionOwnsZone(CelestialPentacleConn conn, Planet faction, byte zoneId)
+    {
+        var zone = conn.Conn.Db.Zone.ZoneId.Find(zoneId);
+        return zone != null && zone.Owner.HasValue && zone.Owner.Value == faction;
+    }
+
+    public static bool CanAccessZone(CelestialPentacleConn conn, Planet faction, byte zoneId)
+    {
+        if (zoneId < 5)
+        {
+            return true;
+        }
+        else if (zoneId < 10)
+        {
+            int spireIdx = zoneId - 5;
+            byte houseA = (byte)spireIdx;
+            byte houseB = (byte)((spireIdx + 4) % 5);
+            return FactionOwnsZone(conn, faction, houseA) || FactionOwnsZone(conn, faction, houseB);
+        }
+        else
+        {
+            int ownedSpires = 0;
+            for (byte spireId = 5; spireId < 10; spireId++)
+            {
+                if (FactionOwnsZone(conn, faction, spireId))
+                {
+                    ownedSpires++;
+                }
+            }
+            return ownedSpires >= 2;
+        }
     }
 
     public void OpenFor(StarNode star)
@@ -64,12 +97,52 @@ public class BattlePanel : MonoBehaviour
         var conn = CelestialPentacleConn.Instance;
         var cards = GatherCards(conn);
         string holder = star.HeldBy.HasValue ? FactionData.Names[(int)star.HeldBy.Value] : "uncontrolled";
-        int power = CombatPreview.StrikePower(cards, star.HeldBy);
+        var me = conn.Conn.Db.Player.Identity.Find(conn.LocalIdentity);
+        var seals = me != null ? CombatPreview.SealedSuits(conn, me.Faction) : null;
+        int power = CombatPreview.StrikePower(cards, CombatPreview.FavoredSuitForZone(conn, _targetZone), seals);
+
+        bool hasAccess = true;
+        string lockWarning = "";
+        if (me == null)
+        {
+            hasAccess = false;
+            lockWarning = "<color=red>Not registered yet! Please choose a faction first.</color>\n\n";
+        }
+        else if (!CanAccessZone(conn, me.Faction, _targetZone))
+        {
+            hasAccess = false;
+            if (_targetZone >= 5 && _targetZone < 10)
+            {
+                int spireIdx = _targetZone - 5;
+                int hA = spireIdx;
+                int hB = (spireIdx + 4) % 5;
+                lockWarning = $"<color=red>Zone Locked! Capture House {hA} or House {hB} first.</color>\n\n";
+            }
+            else if (_targetZone == 10)
+            {
+                lockWarning = "<color=red>Crown Locked! Capture at least 2 Spires first.</color>\n\n";
+            }
+        }
+
+        // Honor the server's horizon gate: you can only strike a star risen past the
+        // engage altitude. No GpsService in the scene → let the server be authoritative.
+        bool gpsActive = GpsService.Instance != null;
+        double alt = GpsService.Altitude(star.Ra, star.Dec);
+        bool engageable = !gpsActive || (!double.IsNaN(alt) && alt >= GpsService.MinEngageAltDeg);
+        string horizon = engageable ? ""
+            : double.IsNaN(alt)
+                ? "\n⚠ Waiting for a GPS fix — can't engage yet."
+                : $"\n⚠ {star.Name} is only {alt:0}° above your horizon — needs {GpsService.MinEngageAltDeg:0}° to strike.";
 
         _title.text = $"✦ {star.Name}";
-        _info.text = $"Held by: {holder}\nYour strike: {cards.Count} card(s) · power ≈ {power}\n" +
-                     "Tap cards in your hand to choose the strike.";
-        _attack.interactable = cards.Count > 0;
+        _info.text = lockWarning +
+                     $"Zone: {(_targetZone < 5 ? "House " + _targetZone : (_targetZone < 10 ? "Spire " + _targetZone : "Crown"))}\n" +
+                     $"Held by: {holder}\nSky: {CombatPreview.SkyWeatherForZone(conn, _targetZone)}\n" +
+                     $"Your strike: {cards.Count} card(s) · power ≈ {power}\n" +
+                     "Tap cards in your hand to choose the strike." + horizon;
+        
+        _attack.interactable = hasAccess && engageable && (cards.Count > 0);
+        _duel.interactable = hasAccess;
         _canvas.SetActive(true);
     }
 

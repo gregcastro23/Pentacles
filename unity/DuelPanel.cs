@@ -57,7 +57,8 @@ public class DuelPanel : MonoBehaviour
         int myF = (int)(_amA ? d.FactionA : d.FactionB);
         int opF = (int)(_amA ? d.FactionB : d.FactionA);
         _title.text = $"⚔ Live Duel — Zone {d.ZoneId}";
-        _vs.text = $"{FactionData.Glyphs[myF]} {FactionData.Names[myF]}   vs   {FactionData.Glyphs[opF]} {FactionData.Names[opF]}";
+        _vs.text = $"{FactionData.Glyphs[myF]} {FactionData.Names[myF]}   vs   {FactionData.Glyphs[opF]} {FactionData.Names[opF]}\n"
+                 + $"Sky: {CombatPreview.SkyWeather(CelestialPentacleConn.Instance, d.ZoneId)}";
         _status.text = "Assign one card to each lane, then commit.";
         _status.color = Color.white;
 
@@ -114,6 +115,17 @@ public class DuelPanel : MonoBehaviour
         _status.text = "Committed — waiting for your opponent…";
         _status.color = new Color(0.7f, 0.8f, 1f);
         _commit.interactable = false;
+    }
+
+    // Opponent gone quiet? Claim the zone. The server enforces the grace window
+    // and only awards a side that actually committed; the resolved Duel row then
+    // flows back through OnDuel → ShowResult.
+    void OnClaimTimeout()
+    {
+        if (_duelId == 0) return;
+        CelestialPentacleConn.Instance.ClaimDuelTimeout(_duelId);
+        _status.text = "Claiming the zone — valid once your opponent's grace lapses…";
+        _status.color = new Color(0.85f, 0.78f, 0.5f);
     }
 
     void ShowResult(Duel d)
@@ -183,6 +195,7 @@ public class DuelPanel : MonoBehaviour
         hl.spacing = 10; hl.childForceExpandWidth = hl.childControlWidth = true;
         row.GetComponent<LayoutElement>().minHeight = 48;
         _commit = UIKit.Button(row.transform, "Commit Lanes", OnCommit, 18, new Color(0.40f, 0.46f, 0.82f, 0.34f));
+        UIKit.Button(row.transform, "Claim (AFK)", OnClaimTimeout, 14, new Color(0.62f, 0.48f, 0.22f, 0.34f));
         UIKit.Button(row.transform, "Close", () => _canvas.SetActive(false), 16);
 
         _canvas.SetActive(false);

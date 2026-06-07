@@ -13,6 +13,7 @@ using System;
 using System.Collections.Generic;
 using SpacetimeDB.Types;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class SkyRenderer : MonoBehaviour
 {
@@ -46,11 +47,28 @@ public class SkyRenderer : MonoBehaviour
     readonly Dictionary<byte, LineRenderer> _zones = new();
     bool _gridBuilt;
 
+    /// How many stars are currently risen past the engage altitude (strikeable now).
+    public int InReachCount { get; private set; }
+    Text _hud;
+
     void Awake() { Instance = this; if (origin == null) origin = transform; }
 
     void Start()
     {
-        if (Input.location.isEnabledByUser) Input.location.Start();
+        // GpsService is the GPS authority when present; only self-manage as a fallback.
+        if (GpsService.Instance == null && Input.location.isEnabledByUser) Input.location.Start();
+        BuildHud();
+    }
+
+    void BuildHud()
+    {
+        var canvas = UIKit.Canvas("SkyHudCanvas", 40);
+        _hud = UIKit.Label(canvas.transform, "✦ scanning the sky…", 24, FontStyle.Bold,
+            new Color(0.95f, 0.90f, 0.80f), TextAnchor.UpperLeft);
+        var rt = (RectTransform)_hud.transform;
+        rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0f, 1f);
+        rt.anchoredPosition = new Vector2(28, -28);
+        rt.sizeDelta = new Vector2(620, 36);
     }
 
     void Update()
@@ -58,7 +76,11 @@ public class SkyRenderer : MonoBehaviour
         var conn = CelestialPentacleConn.Instance;
         if (conn == null || !conn.IsConnected) return;
 
-        if (Input.location.status == LocationServiceStatus.Running)
+        if (GpsService.TryLocation(out double glat, out double glon))
+        {
+            latitude = glat; longitude = glon;
+        }
+        else if (Input.location.status == LocationServiceStatus.Running)
         {
             latitude = Input.location.lastData.latitude;
             longitude = Input.location.lastData.longitude;
@@ -76,6 +98,7 @@ public class SkyRenderer : MonoBehaviour
 
     void RefreshStars(CelestialPentacleConn conn, double lst)
     {
+        int inReach = 0;
         foreach (var s in conn.Conn.Db.StarNode.Iter())
         {
             if (!_stars.TryGetValue(s.HipId, out var tr))
@@ -87,8 +110,18 @@ public class SkyRenderer : MonoBehaviour
             bool up = alt > 0;
             tr.gameObject.SetActive(up);
             if (up) tr.position = origin.position + SkyMath.HorizontalToWorld(alt, az) * skyRadius;
-            Tint(tr, s.HeldBy);
+            // Risen past the engage altitude → full colour and strikeable; merely above
+            // the horizon → dimmed (visible, but the server won't let you strike it yet).
+            bool engageable = up && alt >= GpsService.MinEngageAltDeg;
+            if (engageable) inReach++;
+            Tint(tr, s.HeldBy, engageable);
         }
+
+        InReachCount = inReach;
+        if (_hud != null)
+            _hud.text = inReach > 0
+                ? $"✦ {inReach} star{(inReach == 1 ? "" : "s")} overhead — tap to strike"
+                : "✦ no stars high enough yet — wait for one to rise";
     }
 
     Transform CreateStar(StarNode s)
@@ -102,10 +135,12 @@ public class SkyRenderer : MonoBehaviour
         return go.transform;
     }
 
-    void Tint(Transform tr, Planet? heldBy)
+    void Tint(Transform tr, Planet? heldBy, bool engageable)
     {
         var rend = tr.GetComponent<Renderer>();
-        if (rend != null) rend.material.color = heldBy.HasValue ? FactionColor[(int)heldBy.Value] : Color.white;
+        if (rend == null) return;
+        Color c = heldBy.HasValue ? FactionColor[(int)heldBy.Value] : Color.white;
+        rend.material.color = engageable ? c : c * 0.3f;
     }
 
     // ── Pentacle overlay ──────────────────────────────────────────────────
@@ -139,7 +174,7 @@ public class SkyRenderer : MonoBehaviour
 
     public void OnStarCaptured(StarNode s)
     {
-        if (_stars.TryGetValue(s.HipId, out var tr)) Tint(tr, s.HeldBy);
+        if (_stars.TryGetValue(s.HipId, out var tr)) Tint(tr, s.HeldBy, GpsService.Engageable(s.Ra, s.Dec));
     }
 
     public void OnZoneChanged(Zone zone)
