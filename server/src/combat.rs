@@ -91,3 +91,64 @@ pub fn control_delta(magnitude: f32, margin: f32) -> i32 {
 pub fn level_mult(level: u8) -> f32 {
     1.0 + 0.5 * (1.0 - 0.6_f32.powi(level.max(1) as i32 - 1))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn approx(a: f32, b: f32) {
+        assert!((a - b).abs() < 1e-3, "{a} is not ~ {b}");
+    }
+
+    #[test]
+    fn level_mult_floor_then_plateaus_under_a_hard_ceiling() {
+        // L1 is the freshly-minted baseline; the documented early anchors hold.
+        approx(level_mult(0), 1.0);
+        approx(level_mult(1), 1.0);
+        approx(level_mult(2), 1.20);
+        approx(level_mult(3), 1.32);
+        // The bonus never exceeds +50%, at any possible level (it reaches the
+        // ceiling exactly only once the f32 power underflows — never above it).
+        for lvl in 0u8..=255 {
+            let m = level_mult(lvl);
+            assert!((1.0..=1.5).contains(&m), "level {lvl} -> {m} escaped [1.0, 1.5]");
+        }
+        assert!(level_mult(255) >= 1.499, "the ceiling should be all but reached");
+    }
+
+    #[test]
+    fn level_mult_is_strictly_monotonic_in_the_playable_range() {
+        let mut prev = level_mult(1);
+        for lvl in 2u8..=20 {
+            let m = level_mult(lvl);
+            assert!(m > prev, "level {lvl} ({m}) did not exceed previous ({prev})");
+            prev = m;
+        }
+    }
+
+    #[test]
+    fn weather_lifts_its_suit_and_suppresses_the_opposite() {
+        approx(element_weather(Suit::Wands, Suit::Wands), 1.35); // favored
+        approx(element_weather(Suit::Cups, Suit::Wands), 0.75); // Water opposes Fire
+        approx(element_weather(Suit::Wands, Suit::Cups), 0.75);
+        approx(element_weather(Suit::Swords, Suit::Pentacles), 0.75); // Air opposes Earth
+        approx(element_weather(Suit::Pentacles, Suit::Swords), 0.75);
+        approx(element_weather(Suit::Swords, Suit::Wands), 1.0); // perpendicular — untouched
+        approx(element_weather(Suit::Pentacles, Suit::Wands), 1.0);
+    }
+
+    #[test]
+    fn node_weight_rewards_brightness_above_a_floor() {
+        assert!(node_weight(-1.5) > node_weight(1.0)); // Sirius outweighs a 1st-mag star
+        approx(node_weight(1.0), 5.5);
+        approx(node_weight(6.5), 0.4); // faint floor
+        approx(node_weight(12.0), 0.4); // never below it
+    }
+
+    #[test]
+    fn control_delta_scales_with_brightness_and_clamps_the_margin_bonus() {
+        assert_eq!(control_delta(1.0, 0.0), 220); // 5.5 * 40, no margin bonus
+        assert!(control_delta(1.0, 1000.0) > control_delta(1.0, 0.0)); // a bigger win helps
+        assert!(control_delta(1.0, 1e9) <= 2 * 220); // but the bonus is capped to the base
+    }
+}
