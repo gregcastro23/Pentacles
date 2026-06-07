@@ -4,10 +4,13 @@
 use crate::types::*;
 use crate::{chart, combat};
 use crate::tables::*;
-use spacetimedb::{reducer, ReducerContext, ScheduleAt, Table, Timestamp};
+use spacetimedb::{reducer, Identity, ReducerContext, ScheduleAt, Table, Timestamp};
 use std::time::Duration;
 
 const FLIP_THRESHOLD: i32 = 600;
+/// A card stops gaining from combines past this level — the bonus is already near
+/// its +50% ceiling, so further copies would barely move it.
+const MAX_CARD_LEVEL: u8 = 6;
 /// A live duel stalls if an opponent never commits. After this grace window the
 /// committed side may `claim_duel_timeout`, and the `tick_sky` sweep auto-resolves
 /// it regardless so the board never holds a zombie duel.
@@ -200,6 +203,178 @@ pub fn set_loadout(ctx: &ReducerContext, card_id: u64, loadout: Loadout) -> Resu
     Ok(())
 }
 
+// ── Collection: combine & trade ─────────────────────────────────────────────
+
+/// A card's combat snapshot, scaled by its combine level.
+fn stat_of(c: &Card) -> combat::CardStat {
+    let m = combat::level_mult(c.level);
+    combat::CardStat {
+        suit: c.suit,
+        attack: (c.attack as f32 * m) as u16,
+        health: (c.health as f32 * m) as u16,
+        armour: (c.armour as f32 * m) as u16,
+    }
+}
+
+/// Fuse two copies of the same card (same suit, rank, and trump-ness). The kept
+/// card levels up — keeping its own minted identity — and the consumed copy is
+/// spent. Gains follow a gentle plateau, so combining has diminishing returns.
+#[reducer]
+pub fn combine_cards(ctx: &ReducerContext, keep_id: u64, consume_id: u64) -> Result<(), String> {
+    if keep_id == consume_id {
+        return Err("pick two different cards".into());
+    }
+    let mut keep = ctx.db.card().card_id().find(&keep_id).ok_or("no such card")?;
+    let consume = ctx.db.card().card_id().find(&consume_id).ok_or("no such card")?;
+    if keep.owner != ctx.sender || consume.owner != ctx.sender {
+        return Err("you can only combine your own cards".into());
+    }
+    if keep.suit != consume.suit || keep.rank != consume.rank || keep.is_trump != consume.is_trump {
+        return Err("those aren't the same card".into());
+    }
+    if keep.level >= MAX_CARD_LEVEL {
+        return Err("this card is already at its peak".into());
+    }
+    keep.level += 1;
+    ctx.db.card().card_id().update(keep);
+    // Spend the consumed copy and free its deck slot.
+    ctx.db.card().card_id().delete(&consume_id);
+    let dead: Vec<u64> = ctx
+        .db
+        .deck_slot()
+        .iter()
+        .filter(|s| s.card_id == consume_id)
+        .map(|s| s.slot_id)
+        .collect();
+    for sid in dead {
+        ctx.db.deck_slot().slot_id().delete(&sid);
+    }
+    Ok(())
+}
+
+/// Open a two-sided trade: stake your `offer` and name the `request` you want from
+/// `partner`. Proposing is your confirmation; the partner confirms to commit.
+#[reducer]
+pub fn propose_trade(
+    ctx: &ReducerContext,
+    partner: Identity,
+    offer: Vec<u64>,
+    request: Vec<u64>,
+) -> Result<(), String> {
+    if partner == ctx.sender {
+        return Err("you can't trade with yourself".into());
+    }
+    if offer.is_empty() && request.is_empty() {
+        return Err("a trade needs at least one card".into());
+    }
+    for cid in &offer {
+        let c = ctx.db.card().card_id().find(cid).ok_or("you offered a card that doesn't exist")?;
+        if c.owner != ctx.sender {
+            return Err("you can only offer your own cards".into());
+        }
+    }
+    for cid in &request {
+        let c = ctx.db.card().card_id().find(cid).ok_or("you asked for a card that doesn't exist")?;
+        if c.owner != partner {
+            return Err("the partner doesn't own a card you asked for".into());
+        }
+    }
+    ctx.db.trade().insert(Trade {
+        trade_id: 0,
+        proposer: ctx.sender,
+        partner,
+        offer,
+        request,
+        proposer_ok: true,
+        partner_ok: false,
+        state: TradeState::Open,
+        created_at: ctx.timestamp,
+        updated_at: ctx.timestamp,
+    });
+    Ok(())
+}
+
+/// Confirm an open trade. The proposer already confirmed by proposing; once the
+/// partner confirms, ownership swaps (re-validated first) and the trade commits.
+#[reducer]
+pub fn confirm_trade(ctx: &ReducerContext, trade_id: u64) -> Result<(), String> {
+    let mut t = ctx.db.trade().trade_id().find(&trade_id).ok_or("no such trade")?;
+    if t.state != TradeState::Open {
+        return Err("this trade is already closed".into());
+    }
+    if ctx.sender == t.proposer {
+        t.proposer_ok = true;
+    } else if ctx.sender == t.partner {
+        t.partner_ok = true;
+    } else {
+        return Err("this trade isn't yours".into());
+    }
+    t.updated_at = ctx.timestamp;
+
+    if t.proposer_ok && t.partner_ok {
+        // Re-check ownership at the moment of commit — a staked card may have moved.
+        for cid in &t.offer {
+            let c = ctx.db.card().card_id().find(cid).ok_or("an offered card has gone")?;
+            if c.owner != t.proposer {
+                return Err("the proposer no longer holds a staked card".into());
+            }
+        }
+        for cid in &t.request {
+            let c = ctx.db.card().card_id().find(cid).ok_or("a requested card has gone")?;
+            if c.owner != t.partner {
+                return Err("the partner no longer holds a staked card".into());
+            }
+        }
+        reassign(ctx, &t.offer, t.partner);
+        reassign(ctx, &t.request, t.proposer);
+        t.state = TradeState::Committed;
+    }
+    ctx.db.trade().trade_id().update(t);
+    Ok(())
+}
+
+/// Either party may call off an open trade.
+#[reducer]
+pub fn cancel_trade(ctx: &ReducerContext, trade_id: u64) -> Result<(), String> {
+    let mut t = ctx.db.trade().trade_id().find(&trade_id).ok_or("no such trade")?;
+    if ctx.sender != t.proposer && ctx.sender != t.partner {
+        return Err("this trade isn't yours".into());
+    }
+    if t.state == TradeState::Open {
+        t.state = TradeState::Cancelled;
+        t.updated_at = ctx.timestamp;
+        ctx.db.trade().trade_id().update(t);
+    }
+    Ok(())
+}
+
+/// Move a set of cards to a new owner, clearing their old deck slots and landing
+/// each on the recipient's Bench.
+fn reassign(ctx: &ReducerContext, cards: &[u64], to: Identity) {
+    for &cid in cards {
+        if let Some(mut c) = ctx.db.card().card_id().find(&cid) {
+            c.owner = to;
+            ctx.db.card().card_id().update(c);
+        }
+        let dead: Vec<u64> = ctx
+            .db
+            .deck_slot()
+            .iter()
+            .filter(|s| s.card_id == cid)
+            .map(|s| s.slot_id)
+            .collect();
+        for sid in dead {
+            ctx.db.deck_slot().slot_id().delete(&sid);
+        }
+        ctx.db.deck_slot().insert(DeckSlot {
+            slot_id: 0,
+            owner: to,
+            card_id: cid,
+            loadout: Loadout::Bench,
+        });
+    }
+}
+
 // ── Combat ────────────────────────────────────────────────────────────────
 
 /// Re-simulate a star duel from the log + both decks; on a win, flip the star
@@ -244,12 +419,7 @@ pub fn resolve_star_battle(
     for cid in &log.plays {
         if let Some(c) = ctx.db.card().card_id().find(cid) {
             if c.owner == ctx.sender {
-                attacker.push(combat::CardStat {
-                    suit: c.suit,
-                    attack: c.attack,
-                    health: c.health,
-                    armour: c.armour,
-                });
+                attacker.push(stat_of(&c));
             }
         }
     }
@@ -277,6 +447,8 @@ pub fn resolve_star_battle(
             player.faction,
             combat::control_delta(star.magnitude, margin),
         );
+        // The sky grants the victor a card of this very moment.
+        let _ = chart::mint_from_sky(ctx, ctx.sender);
         let _ = prev;
     }
 
@@ -423,12 +595,13 @@ fn resolve_duel(ctx: &ReducerContext, duel: &mut Duel) {
     };
     duel.winner = Some(winner);
     apply_control(ctx, duel.zone_id, faction, 150 + a.max(b) as i32 * 60);
+    let _ = chart::mint_from_sky(ctx, winner);
 }
 
 fn lane_power(att: &Card, favored: Suit, sealed: &[Suit]) -> f32 {
     let s = att.attack as f32 + att.health as f32 * 0.5 + att.armour as f32 * 0.4;
     let seal = if sealed.contains(&att.suit) { combat::SEAL_BONUS } else { 1.0 };
-    s * combat::element_weather(att.suit, favored) * seal
+    s * combat::level_mult(att.level) * combat::element_weather(att.suit, favored) * seal
 }
 
 /// Claim a stalled duel: if your opponent never committed within the grace
@@ -510,6 +683,7 @@ fn award_walkover(ctx: &ReducerContext, duel: &mut Duel, a_wins: bool) -> bool {
     duel.state = DuelState::Resolved;
     duel.updated_at = ctx.timestamp;
     apply_control(ctx, duel.zone_id, faction, DUEL_WALKOVER);
+    let _ = chart::mint_from_sky(ctx, winner);
     true
 }
 
@@ -735,12 +909,7 @@ fn sentinel_for(ctx: &ReducerContext, holder: Planet) -> Vec<combat::CardStat> {
                 continue;
             }
             if let Some(c) = ctx.db.card().card_id().find(&slot.card_id) {
-                out.push(combat::CardStat {
-                    suit: c.suit,
-                    attack: c.attack,
-                    health: c.health,
-                    armour: c.armour,
-                });
+                out.push(stat_of(&c));
                 if out.len() >= 8 {
                     break;
                 }

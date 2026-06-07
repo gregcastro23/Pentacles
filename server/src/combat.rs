@@ -84,3 +84,10 @@ pub fn control_delta(magnitude: f32, margin: f32) -> i32 {
     let bonus = (margin * 0.1).clamp(0.0, base);
     (base + bonus) as i32
 }
+
+/// Gentle-plateau bonus from combining copies of a card: big early gains that
+/// taper to a hard +50% ceiling, so a leveled card is stronger but never runaway.
+/// L1 ×1.00, L2 ≈ ×1.20, L3 ≈ ×1.32, L4 ≈ ×1.39 … → ×1.50.
+pub fn level_mult(level: u8) -> f32 {
+    1.0 + 0.5 * (1.0 - 0.6_f32.powi(level.max(1) as i32 - 1))
+}

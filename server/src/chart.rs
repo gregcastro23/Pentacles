@@ -187,6 +187,8 @@ pub fn mint_deck(
             source_body: p.body,
             inverted: p.retrograde,
             is_trump: false,
+            level: 1,
+            minted_at: ctx.timestamp,
         });
         mint_slot(ctx, owner, minor.card_id, &mut active);
         count += 1;
@@ -205,6 +207,8 @@ pub fn mint_deck(
             source_body: p.body,
             inverted: p.retrograde,
             is_trump: true,
+            level: 1,
+            minted_at: ctx.timestamp,
         });
         mint_slot(ctx, owner, major.card_id, &mut active);
         count += 1;
@@ -217,4 +221,78 @@ pub fn mint_deck(
 fn mint_slot(ctx: &ReducerContext, owner: Identity, card_id: u64, active: &mut u32) {
     let loadout = if *active < 8 { *active += 1; Loadout::Active } else { Loadout::Bench };
     ctx.db.deck_slot().insert(DeckSlot { slot_id: 0, owner, card_id, loadout });
+}
+
+/// Light essential dignity of a body in a sign, from rulership alone. (The full
+/// natal dignity is computed client-side; this lean version serves sky-minting.)
+/// Ruler +5, detriment — the ruler of the opposite sign — -5, else peregrine 0.
+fn sky_dignity(body: Planet, sign: u8) -> i8 {
+    if sign_ruler(sign) == body {
+        5
+    } else if sign_ruler((sign + 6) % 12) == body {
+        -5
+    } else {
+        0
+    }
+}
+
+/// Mint one card from the live sky at this instant — a card with its own natal
+/// moment, granted to the victor of a capture. Its source body is the planet now
+/// most dignified in the sky; stats and rank follow the starter-deck rules, with
+/// the arc-minute taken from the very second of minting so no two moments mint
+/// alike. Lands on the Bench. Returns the new card_id, or None if the sky has not
+/// been seeded yet (no ephemeris).
+pub fn mint_from_sky(ctx: &ReducerContext, owner: Identity) -> Option<u64> {
+    let cfg = ctx.db.game_config().id().find(&0u8)?;
+    let rising = ((cfg.season_degree / 30) % 12) as u8;
+    let degree_in_sign = (cfg.season_degree % 30) as u8; // 0..29
+
+    // The card's source: the transiting planet now strongest in its zone-sign.
+    let mut best: Option<(Planet, u8, i8)> = None;
+    for e in ctx.db.ephemeris().iter() {
+        let sign = (rising + e.transiting_zone) % 12;
+        let dig = sky_dignity(e.body, sign);
+        let better = match best {
+            Some((_, _, bd)) => dig > bd,
+            None => true,
+        };
+        if better {
+            best = Some((e.body, sign, dig));
+        }
+    }
+    let (body, sign, dignity) = best?;
+
+    // The minute-of-arc is the literal second of birth.
+    let second = (ctx.timestamp.to_micros_since_unix_epoch() / 1_000_000).rem_euclid(60) as u16;
+    let p = Placement {
+        body,
+        sign,
+        arc_minutes: degree_in_sign as u16 * 60 + second,
+        retrograde: false,
+        dignity,
+    };
+    let (health, attack, armour, cooldown_ms) = card_stats(&p);
+
+    let card = ctx.db.card().insert(Card {
+        card_id: 0,
+        owner,
+        suit: sign_element(sign),
+        rank: pip_rank(sign, p.degree()),
+        health,
+        attack,
+        armour,
+        cooldown_ms,
+        source_body: body,
+        inverted: false,
+        is_trump: false,
+        level: 1,
+        minted_at: ctx.timestamp,
+    });
+    ctx.db.deck_slot().insert(DeckSlot {
+        slot_id: 0,
+        owner,
+        card_id: card.card_id,
+        loadout: Loadout::Bench,
+    });
+    Some(card.card_id)
 }

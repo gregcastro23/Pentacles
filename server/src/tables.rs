@@ -61,6 +61,8 @@ pub struct Card {
     pub source_body: Planet, // which placement minted it
     pub inverted: bool,      // from a retrograde body
     pub is_trump: bool,      // a planetary Major-Arcana trump (rank = arcana index)
+    pub level: u8,            // combine level; 1 = freshly minted (gentle-plateau bonus)
+    pub minted_at: Timestamp, // the sky-moment this card came into being
 }
 
 #[spacetimedb::table(name = deck_slot, public)]
@@ -72,6 +74,25 @@ pub struct DeckSlot {
     pub owner: Identity,
     pub card_id: u64,
     pub loadout: Loadout,
+}
+
+/// A two-sided card trade: both parties stake card_ids and must confirm before
+/// ownership swaps. Public so both clients can watch it resolve.
+#[spacetimedb::table(name = trade, public)]
+#[derive(Clone)]
+pub struct Trade {
+    #[primary_key]
+    #[auto_inc]
+    pub trade_id: u64,
+    pub proposer: Identity,
+    pub partner: Identity,
+    pub offer: Vec<u64>,      // proposer's staked card_ids
+    pub request: Vec<u64>,    // partner's staked card_ids
+    pub proposer_ok: bool,
+    pub partner_ok: bool,
+    pub state: TradeState,
+    pub created_at: Timestamp,
+    pub updated_at: Timestamp,
 }
 
 // ── Global map state ──────────────────────────────────────────────────────
