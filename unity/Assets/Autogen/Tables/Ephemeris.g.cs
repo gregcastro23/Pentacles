@@ -44,6 +44,7 @@ namespace SpacetimeDB.Types
         public global::SpacetimeDB.Col<Ephemeris, double> Dec { get; }
         public global::SpacetimeDB.Col<Ephemeris, byte> TransitingZone { get; }
         public global::SpacetimeDB.Col<Ephemeris, SpacetimeDB.Timestamp> Tick { get; }
+        public global::SpacetimeDB.Col<Ephemeris, bool> Retrograde { get; }
 
         public EphemerisCols(string tableName)
         {
@@ -52,6 +53,7 @@ namespace SpacetimeDB.Types
             Dec = new global::SpacetimeDB.Col<Ephemeris, double>(tableName, "dec");
             TransitingZone = new global::SpacetimeDB.Col<Ephemeris, byte>(tableName, "transiting_zone");
             Tick = new global::SpacetimeDB.Col<Ephemeris, SpacetimeDB.Timestamp>(tableName, "tick");
+            Retrograde = new global::SpacetimeDB.Col<Ephemeris, bool>(tableName, "retrograde");
         }
     }
 

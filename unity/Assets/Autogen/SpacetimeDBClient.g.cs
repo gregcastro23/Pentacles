@@ -38,8 +38,10 @@ namespace SpacetimeDB.Types
             AddTable(OracleReply = new(conn));
             AddTable(OracleRequest = new(conn));
             AddTable(Player = new(conn));
+            AddTable(RoundState = new(conn));
             AddTable(StarNode = new(conn));
             AddTable(Trade = new(conn));
+            AddTable(WordDuel = new(conn));
             AddTable(Zone = new(conn));
         }
     }
@@ -534,8 +536,10 @@ namespace SpacetimeDB.Types
             new QueryBuilder().From.OracleReply().ToSql(),
             new QueryBuilder().From.OracleRequest().ToSql(),
             new QueryBuilder().From.Player().ToSql(),
+            new QueryBuilder().From.RoundState().ToSql(),
             new QueryBuilder().From.StarNode().ToSql(),
             new QueryBuilder().From.Trade().ToSql(),
+            new QueryBuilder().From.WordDuel().ToSql(),
             new QueryBuilder().From.Zone().ToSql(),
         }
         ;
@@ -554,8 +558,10 @@ namespace SpacetimeDB.Types
         public global::SpacetimeDB.Table<OracleReply, OracleReplyCols, OracleReplyIxCols> OracleReply() => new("oracle_reply", new OracleReplyCols("oracle_reply"), new OracleReplyIxCols("oracle_reply"));
         public global::SpacetimeDB.Table<OracleRequest, OracleRequestCols, OracleRequestIxCols> OracleRequest() => new("oracle_request", new OracleRequestCols("oracle_request"), new OracleRequestIxCols("oracle_request"));
         public global::SpacetimeDB.Table<Player, PlayerCols, PlayerIxCols> Player() => new("player", new PlayerCols("player"), new PlayerIxCols("player"));
+        public global::SpacetimeDB.Table<RoundState, RoundStateCols, RoundStateIxCols> RoundState() => new("round_state", new RoundStateCols("round_state"), new RoundStateIxCols("round_state"));
         public global::SpacetimeDB.Table<StarNode, StarNodeCols, StarNodeIxCols> StarNode() => new("star_node", new StarNodeCols("star_node"), new StarNodeIxCols("star_node"));
         public global::SpacetimeDB.Table<Trade, TradeCols, TradeIxCols> Trade() => new("trade", new TradeCols("trade"), new TradeIxCols("trade"));
+        public global::SpacetimeDB.Table<WordDuel, WordDuelCols, WordDuelIxCols> WordDuel() => new("word_duel", new WordDuelCols("word_duel"), new WordDuelIxCols("word_duel"));
         public global::SpacetimeDB.Table<Zone, ZoneCols, ZoneIxCols> Zone() => new("zone", new ZoneCols("zone"), new ZoneIxCols("zone"));
     }
 
@@ -640,6 +646,7 @@ namespace SpacetimeDB.Types
                 Reducer.AnswerOracle args => Reducers.InvokeAnswerOracle(eventContext, args),
                 Reducer.AskOracle args => Reducers.InvokeAskOracle(eventContext, args),
                 Reducer.CancelTrade args => Reducers.InvokeCancelTrade(eventContext, args),
+                Reducer.CastWord args => Reducers.InvokeCastWord(eventContext, args),
                 Reducer.ClaimDuelTimeout args => Reducers.InvokeClaimDuelTimeout(eventContext, args),
                 Reducer.CombineCards args => Reducers.InvokeCombineCards(eventContext, args),
                 Reducer.CommitDuel args => Reducers.InvokeCommitDuel(eventContext, args),

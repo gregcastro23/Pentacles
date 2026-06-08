@@ -26,9 +26,19 @@ namespace SpacetimeDB.Types
 
             public readonly CardIdUniqueIndex CardId;
 
+            public sealed class OwnerIndex : BTreeIndexBase<SpacetimeDB.Identity>
+            {
+                protected override SpacetimeDB.Identity GetKey(Card row) => row.Owner;
+
+                public OwnerIndex(CardHandle table) : base(table) { }
+            }
+
+            public readonly OwnerIndex Owner;
+
             internal CardHandle(DbConnection conn) : base(conn)
             {
                 CardId = new(this);
+                Owner = new(this);
             }
 
             protected override object GetPrimaryKey(Card row) => row.CardId;
@@ -52,6 +62,7 @@ namespace SpacetimeDB.Types
         public global::SpacetimeDB.Col<Card, bool> IsTrump { get; }
         public global::SpacetimeDB.Col<Card, byte> Level { get; }
         public global::SpacetimeDB.Col<Card, SpacetimeDB.Timestamp> MintedAt { get; }
+        public global::SpacetimeDB.Col<Card, byte> Letter { get; }
 
         public CardCols(string tableName)
         {
@@ -68,16 +79,19 @@ namespace SpacetimeDB.Types
             IsTrump = new global::SpacetimeDB.Col<Card, bool>(tableName, "is_trump");
             Level = new global::SpacetimeDB.Col<Card, byte>(tableName, "level");
             MintedAt = new global::SpacetimeDB.Col<Card, SpacetimeDB.Timestamp>(tableName, "minted_at");
+            Letter = new global::SpacetimeDB.Col<Card, byte>(tableName, "letter");
         }
     }
 
     public sealed class CardIxCols
     {
         public global::SpacetimeDB.IxCol<Card, ulong> CardId { get; }
+        public global::SpacetimeDB.IxCol<Card, SpacetimeDB.Identity> Owner { get; }
 
         public CardIxCols(string tableName)
         {
             CardId = new global::SpacetimeDB.IxCol<Card, ulong>(tableName, "card_id");
+            Owner = new global::SpacetimeDB.IxCol<Card, SpacetimeDB.Identity>(tableName, "owner");
         }
     }
 }

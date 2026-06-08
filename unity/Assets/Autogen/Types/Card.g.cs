@@ -39,6 +39,8 @@ namespace SpacetimeDB.Types
         public byte Level;
         [DataMember(Name = "minted_at")]
         public SpacetimeDB.Timestamp MintedAt;
+        [DataMember(Name = "letter")]
+        public byte Letter;
 
         public Card(
             ulong CardId,
@@ -53,7 +55,8 @@ namespace SpacetimeDB.Types
             bool Inverted,
             bool IsTrump,
             byte Level,
-            SpacetimeDB.Timestamp MintedAt
+            SpacetimeDB.Timestamp MintedAt,
+            byte Letter
         )
         {
             this.CardId = CardId;
@@ -69,6 +72,7 @@ namespace SpacetimeDB.Types
             this.IsTrump = IsTrump;
             this.Level = Level;
             this.MintedAt = MintedAt;
+            this.Letter = Letter;
         }
 
         public Card()

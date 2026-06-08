@@ -17,6 +17,24 @@ namespace SpacetimeDB.Types
         {
             protected override string RemoteTableName => "trade";
 
+            public sealed class PartnerIndex : BTreeIndexBase<SpacetimeDB.Identity>
+            {
+                protected override SpacetimeDB.Identity GetKey(Trade row) => row.Partner;
+
+                public PartnerIndex(TradeHandle table) : base(table) { }
+            }
+
+            public readonly PartnerIndex Partner;
+
+            public sealed class ProposerIndex : BTreeIndexBase<SpacetimeDB.Identity>
+            {
+                protected override SpacetimeDB.Identity GetKey(Trade row) => row.Proposer;
+
+                public ProposerIndex(TradeHandle table) : base(table) { }
+            }
+
+            public readonly ProposerIndex Proposer;
+
             public sealed class TradeIdUniqueIndex : UniqueIndexBase<ulong>
             {
                 protected override ulong GetKey(Trade row) => row.TradeId;
@@ -28,6 +46,8 @@ namespace SpacetimeDB.Types
 
             internal TradeHandle(DbConnection conn) : base(conn)
             {
+                Partner = new(this);
+                Proposer = new(this);
                 TradeId = new(this);
             }
 
@@ -68,10 +88,14 @@ namespace SpacetimeDB.Types
     public sealed class TradeIxCols
     {
         public global::SpacetimeDB.IxCol<Trade, ulong> TradeId { get; }
+        public global::SpacetimeDB.IxCol<Trade, SpacetimeDB.Identity> Proposer { get; }
+        public global::SpacetimeDB.IxCol<Trade, SpacetimeDB.Identity> Partner { get; }
 
         public TradeIxCols(string tableName)
         {
             TradeId = new global::SpacetimeDB.IxCol<Trade, ulong>(tableName, "trade_id");
+            Proposer = new global::SpacetimeDB.IxCol<Trade, SpacetimeDB.Identity>(tableName, "proposer");
+            Partner = new global::SpacetimeDB.IxCol<Trade, SpacetimeDB.Identity>(tableName, "partner");
         }
     }
 }

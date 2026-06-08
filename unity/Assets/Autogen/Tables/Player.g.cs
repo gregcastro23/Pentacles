@@ -45,6 +45,8 @@ namespace SpacetimeDB.Types
         public global::SpacetimeDB.Col<Player, ulong> DeckSeed { get; }
         public global::SpacetimeDB.Col<Player, SpacetimeDB.Timestamp> CreatedAt { get; }
         public global::SpacetimeDB.Col<Player, SpacetimeDB.Timestamp> LastActive { get; }
+        public global::SpacetimeDB.Col<Player, ulong> Tokens { get; }
+        public global::SpacetimeDB.Col<Player, uint> WordWins { get; }
 
         public PlayerCols(string tableName)
         {
@@ -54,6 +56,8 @@ namespace SpacetimeDB.Types
             DeckSeed = new global::SpacetimeDB.Col<Player, ulong>(tableName, "deck_seed");
             CreatedAt = new global::SpacetimeDB.Col<Player, SpacetimeDB.Timestamp>(tableName, "created_at");
             LastActive = new global::SpacetimeDB.Col<Player, SpacetimeDB.Timestamp>(tableName, "last_active");
+            Tokens = new global::SpacetimeDB.Col<Player, ulong>(tableName, "tokens");
+            WordWins = new global::SpacetimeDB.Col<Player, uint>(tableName, "word_wins");
         }
     }
 
