@@ -21,7 +21,7 @@ pub struct Player {
     #[default(0u64)]
     pub tokens: u64,
     /// Word duels won (vs a planetary agent) — the ladder.
-    #[default(0)]
+    #[default(0u32)]
     pub word_wins: u32,
 }
 
@@ -86,7 +86,7 @@ pub struct Card {
     /// The card's Scrabble letter (ASCII 'A'..'Z'), drawn from the 98-tile bag by id.
     /// Your collection's letters are your rack in Word Duels. 0 = unlettered (legacy
     /// rows minted before the Lettered Arcana; they simply contribute no tiles).
-    #[default(0)]
+    #[default(0u8)]
     pub letter: u8,
 }
 
