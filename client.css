@@ -671,3 +671,79 @@ body {
     width: 100%;
   }
 }
+
+/* ---- Word Duels of the Spheres (the Lettered Arcana) ---- */
+.log-line.win { color: #f5df9a; font-weight: bold; }
+.log-line.loss { color: var(--dim); }
+
+.word-rack {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-height: 34px;
+  align-items: center;
+}
+.word-tile {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  height: 34px;
+  padding: 0 6px;
+  background: linear-gradient(150deg, #2a2438, #16121f);
+  border: 1px solid var(--gold-deep);
+  border-radius: 4px;
+  color: var(--gold-bright);
+  font-family: var(--display, serif);
+  font-weight: bold;
+  font-size: 16px;
+  cursor: pointer;
+  user-select: none;
+  transition: transform 0.08s, border-color 0.08s;
+}
+.word-tile:hover {
+  transform: translateY(-2px);
+  border-color: var(--gold-bright);
+}
+.word-tile sub {
+  font-size: 8px;
+  color: var(--gold);
+  margin-left: 1px;
+  align-self: flex-end;
+  margin-bottom: 3px;
+}
+.word-tile i {
+  font-size: 8px;
+  color: var(--dim);
+  font-style: normal;
+  margin-left: 3px;
+}
+.word-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: rgba(6, 8, 14, 0.85);
+  border: 1px solid var(--gold-deep);
+  border-radius: 4px;
+  color: var(--gold-bright);
+  font-family: var(--mono);
+  font-size: 16px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  padding: 10px 12px;
+}
+.word-input:focus {
+  outline: none;
+  border-color: var(--gold-bright);
+}
+.word-select {
+  width: 100%;
+  box-sizing: border-box;
+  background: rgba(6, 8, 14, 0.85);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--gold-bright);
+  font-family: var(--mono);
+  font-size: 13px;
+  padding: 8px 10px;
+}

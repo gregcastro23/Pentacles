@@ -108,6 +108,103 @@ function sealMultiplier(suit, sealedSuits) {
   return sealedSuits.has(suit) ? 1.15 : 1.0;
 }
 
+// ---- THE LETTERED ARCANA: WORD ENGINE ----
+// A JS mirror of the server's words.rs (ported from clockworklabs/scrabblebot), so the
+// web client plays the same game offline. When the web client is wired to the live
+// SpacetimeDB module, castWord() should call the `cast_word` reducer instead.
+
+const LETTER_VALUES = { // standard Scrabble tile values
+  A:1,B:3,C:3,D:2,E:1,F:4,G:2,H:4,I:1,J:8,K:5,L:1,M:3,N:1,
+  O:1,P:3,Q:10,R:1,S:1,T:1,U:1,V:4,W:4,X:8,Y:4,Z:10
+};
+// The 98-tile Scrabble bag (no blanks): [letter, count], summing to 98.
+const LETTER_BAG = [
+  ["A",9],["B",2],["C",2],["D",4],["E",12],["F",2],["G",3],["H",2],["I",9],
+  ["J",1],["K",1],["L",4],["M",2],["N",6],["O",8],["P",2],["Q",1],["R",6],
+  ["S",4],["T",6],["U",4],["V",2],["W",2],["X",1],["Y",2],["Z",1]
+];
+const BAG_TOTAL = 98;
+
+// A card's letter, drawn from the bag by its id — matches server words::letter_for.
+function letterFor(cardId) {
+  let n = ((cardId % BAG_TOTAL) + BAG_TOTAL) % BAG_TOTAL;
+  for (const [ch, count] of LETTER_BAG) {
+    if (n < count) return ch;
+    n -= count;
+  }
+  return "E";
+}
+
+// Reward length multiplier: 1.0x (<=3) rising to 3.0x (>=7), matching scrabblebot.
+function lengthMult(len) {
+  if (len <= 3) return 1.0;
+  if (len === 4) return 1.5;
+  if (len === 5) return 2.0;
+  if (len === 6) return 2.5;
+  return 3.0;
+}
+
+function baseScore(word) {
+  let s = 0;
+  for (const ch of word.toUpperCase()) s += LETTER_VALUES[ch] || 0;
+  return s;
+}
+
+function wordScore(word) {
+  return Math.round(baseScore(word) * lengthMult(word.length));
+}
+
+function letterCounts(word) {
+  const c = {};
+  for (const ch of word.toUpperCase()) c[ch] = (c[ch] || 0) + 1;
+  return c;
+}
+
+// Can the available letter counts spell the word? (multiset containment)
+function canSpell(word, have) {
+  const need = letterCounts(word);
+  return Object.keys(need).every(ch => (have[ch] || 0) >= need[ch]);
+}
+
+// The Codex — loaded once from the shared wordlist.txt (also embedded server-side).
+let WORD_SET = null;
+let WORD_LIST = [];
+async function loadCodex() {
+  if (WORD_SET) return WORD_SET;
+  try {
+    const res = await fetch("wordlist.txt");
+    const text = await res.text();
+    WORD_LIST = text.split(/\r?\n/).map(w => w.trim().toUpperCase()).filter(w => w.length >= 2);
+    WORD_SET = new Set(WORD_LIST);
+  } catch (e) {
+    console.error("Failed to load the Codex (wordlist.txt)", e);
+    WORD_SET = new Set();
+  }
+  return WORD_SET;
+}
+
+function isValidWord(word) {
+  const w = (word || "").trim().toUpperCase();
+  return w.length >= 2 && /^[A-Z]+$/.test(w) && WORD_SET !== null && WORD_SET.has(w);
+}
+
+// The greedy longest playable word from a letter multiset — the scrabblebot chooseWord
+// strategy, used by the planetary-agent opponent. Ties broken by higher base value.
+function bestWord(have) {
+  let best = null;
+  let bestLen = 0;
+  let bestVal = 0;
+  for (const w of WORD_LIST) {
+    if (w.length < bestLen) continue;
+    if (!canSpell(w, have)) continue;
+    const v = baseScore(w);
+    if (w.length > bestLen || (w.length === bestLen && v > bestVal)) {
+      best = w; bestLen = w.length; bestVal = v;
+    }
+  }
+  return best;
+}
+
 // ---- WEB AUDIO SYNTHESIZER ENGINE ----
 class CosmicSynth {
   constructor() {
@@ -322,6 +419,7 @@ class GameState {
     this.selectedZone = null;
     this.leaderboard = [];
     this.seasonDegree = 0;
+    this.wordDuels = []; // recent Word Duels of the Spheres (most-recent first)
   }
 
   load() {
@@ -358,6 +456,15 @@ class GameState {
           this.map = data.map;
           this.leaderboard = data.leaderboard;
           this.seasonDegree = data.seasonDegree || 0;
+          this.wordDuels = data.wordDuels || [];
+          // Lettered Arcana migration: older saves predate letters/tokens.
+          if (this.player) {
+            if (typeof this.player.tokens !== "number") this.player.tokens = 0;
+            if (typeof this.player.word_wins !== "number") this.player.word_wins = 0;
+          }
+          (this.collection || []).forEach(c => {
+            if (!c.letter) c.letter = letterFor(c.card_id);
+          });
           return true;
         } catch (e) {
           console.error("Failed parsing profile state", e);
@@ -379,7 +486,8 @@ class GameState {
       deck: this.deck,
       map: this.map,
       leaderboard: this.leaderboard,
-      seasonDegree: this.seasonDegree
+      seasonDegree: this.seasonDegree,
+      wordDuels: this.wordDuels
     };
     
     localStorage.setItem(`pentacles_save_${activeHandle}`, JSON.stringify(data));
@@ -494,7 +602,9 @@ class GameState {
       handle,
       faction,
       chart,
-      deck_seed: Math.floor(Math.random() * 1000000)
+      deck_seed: Math.floor(Math.random() * 1000000),
+      tokens: 0,     // Word Duel reward currency (the Lettered Arcana)
+      word_wins: 0
     };
 
     // Mint starting deck
@@ -589,7 +699,8 @@ class GameState {
       is_trump: isTrump,
       level: 1,
       title: title,
-      sign_idx: signIdx
+      sign_idx: signIdx,
+      letter: letterFor(cardId) // the card's Scrabble tile — your rack for Word Duels
     };
   }
 
@@ -648,6 +759,69 @@ class GameState {
 
     this.save();
     synth.playFuse();
+  }
+
+  // ---- Word Duels of the Spheres ----
+
+  // Your rack: the letters across your whole collection (mirrors server player_letters).
+  playerLetters() {
+    const have = {};
+    for (const c of this.collection) {
+      const l = (c.letter || "").toUpperCase();
+      if (l >= "A" && l <= "Z") have[l] = (have[l] || 0) + 1;
+    }
+    return have;
+  }
+
+  // A planetary agent's rack: AGENT_RACK_SIZE tiles drawn deterministically from the
+  // sky (faction + the rotating season), mirroring the server's agent_letters seam.
+  agentLetters(opponentIdx) {
+    const RACK = 7;
+    let s = (opponentIdx + 1) * 2654435761 + this.seasonDegree * 40503 + 0x9e3779b9;
+    s = s >>> 0;
+    const have = {};
+    for (let i = 0; i < RACK; i++) {
+      // xorshift32 → a fresh tile each draw
+      s ^= s << 13; s >>>= 0;
+      s ^= s >> 17;
+      s ^= s << 5; s >>>= 0;
+      const l = letterFor(s);
+      have[l] = (have[l] || 0) + 1;
+    }
+    return have;
+  }
+
+  // Cast a Word of Power against a planetary agent. Returns a result object, or
+  // {error} if the cast is rejected. Mirrors the server cast_word reducer.
+  castWord(word, opponentIdx) {
+    if (!this.player) return { error: "Register a Seeker first." };
+    const w = (word || "").trim().toUpperCase();
+    if (w.length < 2) return { error: "A Word of Power needs at least two letters." };
+    if (!/^[A-Z]+$/.test(w)) return { error: "Letters only." };
+    if (WORD_SET === null) return { error: "The Codex is still opening — try again in a moment." };
+    if (!isValidWord(w)) return { error: `"${w}" is not in the Codex.` };
+    if (!canSpell(w, this.playerLetters())) return { error: "Your Arcana don't hold those letters." };
+
+    const playerScore = wordScore(w);
+    const agentWord = bestWord(this.agentLetters(opponentIdx)) || "";
+    const agentScore = agentWord ? wordScore(agentWord) : 0;
+    const won = playerScore >= agentScore;
+    const tokens = playerScore * 50 + (won ? 500 : 0);
+
+    this.player.tokens = (this.player.tokens || 0) + tokens;
+    if (won) this.player.word_wins = (this.player.word_wins || 0) + 1;
+
+    const result = {
+      opponent: opponentIdx,
+      playerWord: w, playerScore,
+      agentWord, agentScore,
+      won, tokens,
+      at: Date.now()
+    };
+    this.wordDuels.unshift(result);
+    if (this.wordDuels.length > 20) this.wordDuels.length = 20;
+    this.save();
+    return result;
   }
 
   recalculateLeaderboard() {
