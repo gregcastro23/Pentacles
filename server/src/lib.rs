@@ -17,6 +17,7 @@ mod combat;
 mod reducers;
 mod tables;
 mod types;
+mod words;
 
 pub use tables::*;
 pub use types::*;

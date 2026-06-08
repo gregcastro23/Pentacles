@@ -17,6 +17,12 @@ pub struct Player {
     pub deck_seed: u64,
     pub created_at: Timestamp,
     pub last_active: Timestamp,
+    /// Tokens won in Word Duels of the Spheres (the Lettered-Arcana reward currency).
+    #[default(0)]
+    pub tokens: u64,
+    /// Word duels won (vs a planetary agent) — the ladder.
+    #[default(0)]
+    pub word_wins: u32,
 }
 
 #[spacetimedb::table(name = natal_chart)] // private to owner (not public)
@@ -64,7 +70,8 @@ pub struct Card {
     #[primary_key]
     #[auto_inc]
     pub card_id: u64,
-    pub owner: Identity, // add `#[index(btree)]` for scale; we iterate for now
+    #[index(btree)]
+    pub owner: Identity, // indexed: per-player lookups are O(player's cards), not O(all cards)
     pub suit: Suit,
     pub rank: u8,        // Minor: 1..14 (Ace..King); trump: the arcana index 0..21
     pub health: u16,
@@ -76,6 +83,11 @@ pub struct Card {
     pub is_trump: bool,      // a planetary Major-Arcana trump (rank = arcana index)
     pub level: u8,            // combine level; 1 = freshly minted (gentle-plateau bonus)
     pub minted_at: Timestamp, // the sky-moment this card came into being
+    /// The card's Scrabble letter (ASCII 'A'..'Z'), drawn from the 98-tile bag by id.
+    /// Your collection's letters are your rack in Word Duels. 0 = unlettered (legacy
+    /// rows minted before the Lettered Arcana; they simply contribute no tiles).
+    #[default(0)]
+    pub letter: u8,
 }
 
 #[spacetimedb::table(name = deck_slot, public)]
@@ -84,7 +96,9 @@ pub struct DeckSlot {
     #[primary_key]
     #[auto_inc]
     pub slot_id: u64,
+    #[index(btree)]
     pub owner: Identity,
+    #[index(btree)]
     pub card_id: u64,
     pub loadout: Loadout,
 }
@@ -97,7 +111,9 @@ pub struct Trade {
     #[primary_key]
     #[auto_inc]
     pub trade_id: u64,
+    #[index(btree)]
     pub proposer: Identity,
+    #[index(btree)]
     pub partner: Identity,
     pub offer: Vec<u64>,      // proposer's staked card_ids
     pub request: Vec<u64>,    // partner's staked card_ids
@@ -264,6 +280,40 @@ pub struct OracleRate {
     pub identity: Identity,
     pub last_at: Timestamp,
     pub count: u32,
+}
+
+// ── Word Duels of the Spheres (the Lettered Arcana) ─────────────────────────
+
+/// A completed word duel: the player's Word of Power vs a planetary agent's best
+/// word, the token reward, and the verdict. Public so clients can show the result
+/// and a token/word-win ladder.
+#[spacetimedb::table(name = word_duel, public)]
+#[derive(Clone)]
+pub struct WordDuel {
+    #[primary_key]
+    #[auto_inc]
+    pub duel_id: u64,
+    #[index(btree)]
+    pub player: Identity,
+    pub opponent: Planet,     // the planetary agent the player challenged
+    pub player_word: String,
+    pub player_score: u32,
+    pub agent_word: String,   // the agent's best word (empty if its rack made none)
+    pub agent_score: u32,
+    pub won: bool,            // player_score >= agent_score
+    pub tokens_awarded: u64,
+    pub created_at: Timestamp,
+}
+
+/// Per-player word-duel rate state, backing the duel cooldown (private). Stops token
+/// farming by re-casting the same word in a tight loop.
+#[spacetimedb::table(name = word_rate)]
+#[derive(Clone)]
+pub struct WordRate {
+    #[primary_key]
+    pub identity: Identity,
+    pub last_at: Timestamp,
+    pub plays: u32,
 }
 
 // ── The Ascendant clock (per-round re-draft) ────────────────────────────────

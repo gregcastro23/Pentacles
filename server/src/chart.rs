@@ -213,7 +213,7 @@ pub fn mint_deck(
             pip_rank(p.sign, p.degree())
         };
 
-        let minor = ctx.db.card().insert(Card {
+        let mut minor = ctx.db.card().insert(Card {
             card_id: 0,
             owner,
             suit: sign_element(p.sign),
@@ -227,13 +227,17 @@ pub fn mint_deck(
             is_trump: false,
             level: 1,
             minted_at: ctx.timestamp,
+            letter: 0,
         });
-        mint_slot(ctx, owner, minor.card_id, &mut active);
+        let minor_id = minor.card_id;
+        minor.letter = crate::words::letter_for(minor_id);
+        ctx.db.card().card_id().update(minor);
+        mint_slot(ctx, owner, minor_id, &mut active);
         count += 1;
 
         // Every placement also mints its planet's Major trump — suited by planet,
         // weather-bound, a tier above the pips.
-        let major = ctx.db.card().insert(Card {
+        let mut major = ctx.db.card().insert(Card {
             card_id: 0,
             owner,
             suit: p.body.biased_suit(),
@@ -247,8 +251,12 @@ pub fn mint_deck(
             is_trump: true,
             level: 1,
             minted_at: ctx.timestamp,
+            letter: 0,
         });
-        mint_slot(ctx, owner, major.card_id, &mut active);
+        let major_id = major.card_id;
+        major.letter = crate::words::letter_for(major_id);
+        ctx.db.card().card_id().update(major);
+        mint_slot(ctx, owner, major_id, &mut active);
         count += 1;
     }
 

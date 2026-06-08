@@ -154,8 +154,9 @@
     <!-- RIGHT SIDEBAR: INVENTORY, FUSION & DUELS LOGS -->
     <aside class="sidebar right">
       <div class="tab-headers">
-        <button class="tab-btn active" onclick="switchTab('tab-collection')">Cards (Fusion)</button>
-        <button class="tab-btn" onclick="switchTab('tab-duel')">Duel Console</button>
+        <button class="tab-btn active" data-tab="tab-collection" onclick="switchTab('tab-collection')">Cards</button>
+        <button class="tab-btn" data-tab="tab-duel" onclick="switchTab('tab-duel')">Siege</button>
+        <button class="tab-btn" data-tab="tab-word" onclick="switchTab('tab-word')">✦ Words</button>
       </div>
       
       <div class="sidebar-content" style="padding-top:0">
@@ -187,6 +188,37 @@
             <h4 class="title-orn">Combat Log</h4>
             <div id="combat-log-console" class="battle-console">
               <span class="log-line system">Waiting for target selection...</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Word Duels of the Spheres (the Lettered Arcana) -->
+        <div id="tab-word" class="tab-pane">
+          <div class="panel" style="display:flex; flex-direction:column; gap:10px;">
+            <div style="display:flex; justify-content:space-between; align-items:baseline;">
+              <h4 style="font-size:12px; color:var(--gold-bright);">Word Duel of the Spheres</h4>
+              <span id="word-token-balance" style="font-size:13px; color:var(--gold-bright); font-weight:bold;">✦ 0</span>
+            </div>
+            <p style="font-size:11px; color:var(--dim); margin:0;">Spell a Word of Power from the letters on your Arcana. A planetary agent answers with its best word — match or beat it for massive tokens.</p>
+
+            <div>
+              <div style="font-size:10px; color:var(--dim); text-transform:uppercase; letter-spacing:1px; margin-bottom:5px;">Your Rack</div>
+              <div id="word-rack" class="word-rack"></div>
+            </div>
+
+            <label style="font-size:10px; color:var(--dim); text-transform:uppercase; letter-spacing:1px;">Challenge a Planetary Agent</label>
+            <select id="word-opponent" class="word-select"></select>
+
+            <input id="word-input" class="word-input" type="text" maxlength="15" placeholder="Spell a word…" autocomplete="off" spellcheck="false" oninput="onWordInput()" onkeydown="if(event.key==='Enter'){event.preventDefault();castWordOfPower();}" />
+            <div id="word-preview" style="font-size:11px; color:var(--dim); min-height:14px;"></div>
+            <button id="word-cast-btn" class="btn" style="width:100%;" onclick="castWordOfPower()">Cast Word of Power ✦</button>
+            <div id="word-result" style="font-size:12px; min-height:16px; line-height:1.4;"></div>
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:8px; flex:1; min-height:0;">
+            <h4 class="title-orn">Duel Log</h4>
+            <div id="word-log-console" class="battle-console">
+              <span class="log-line system">No words cast yet. Spell your first Word of Power…</span>
             </div>
           </div>
         </div>
@@ -342,12 +374,13 @@
 
     // App Navigation tabs
     function switchTab(tabId) {
-      document.querySelectorAll(".tab-btn").forEach((btn, idx) => {
-        btn.classList.toggle("active", (idx === 0 && tabId === 'tab-collection') || (idx === 1 && tabId === 'tab-duel'));
+      document.querySelectorAll(".tab-btn[data-tab]").forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.tab === tabId);
       });
-      document.querySelectorAll(".tab-pane").forEach(pane => {
+      document.querySelectorAll(".sidebar-content > .tab-pane").forEach(pane => {
         pane.classList.toggle("active", pane.id === tabId);
       });
+      if (tabId === 'tab-word') renderWordDuel();
       synth.playClick();
     }
 
@@ -813,6 +846,9 @@
         <span style="font-size: 10px; color: ${PLANET_COLORS[fIdx]}; letter-spacing: 0.05em; text-transform: uppercase;">
           Faction: ${PLANET_GLYPHS[fIdx]} ${PLANET_NAMES[fIdx]}
         </span>
+        <span style="font-size: 10px; color: var(--gold); letter-spacing: 0.05em;">
+          ✦ ${(state.player.tokens || 0).toLocaleString()} tokens · ${state.player.word_wins || 0} word wins
+        </span>
       `;
     }
 
@@ -959,10 +995,90 @@
       renderStarsNodes();
       renderCollection();
       renderUserBanner();
+      renderWordDuel();
+    }
+
+    // ---- WORD DUELS OF THE SPHERES (the Lettered Arcana) ----
+    function renderWordDuel() {
+      if (!state.player) return;
+      document.getElementById("word-token-balance").innerText = "✦ " + (state.player.tokens || 0).toLocaleString();
+
+      const have = state.playerLetters();
+      const rackEl = document.getElementById("word-rack");
+      const letters = Object.keys(have).sort();
+      rackEl.innerHTML = letters.length === 0
+        ? `<span style="font-size:11px;color:var(--dim)">No lettered Arcana yet — win matches to draw tiles.</span>`
+        : letters.map(l => {
+            const val = LETTER_VALUES[l] || 0;
+            const count = have[l];
+            return `<span class="word-tile" onclick="appendLetter('${l}')"><b>${l}</b><sub>${val}</sub>${count > 1 ? `<i>×${count}</i>` : ""}</span>`;
+          }).join("");
+
+      const sel = document.getElementById("word-opponent");
+      if (!sel.options.length) {
+        sel.innerHTML = PLANET_NAMES.map((n, i) => `<option value="${i}">${PLANET_GLYPHS[i]} ${n}</option>`).join("");
+      }
+
+      const log = document.getElementById("word-log-console");
+      log.innerHTML = state.wordDuels.length === 0
+        ? `<span class="log-line system">No words cast yet. Spell your first Word of Power…</span>`
+        : state.wordDuels.map(d => {
+            const opp = PLANET_GLYPHS[d.opponent] + " " + PLANET_NAMES[d.opponent];
+            return `<span class="log-line ${d.won ? "win" : "loss"}">${d.won ? "✦" : "✗"} <b>${d.playerWord}</b> (${d.playerScore}) vs ${opp} ${d.agentWord || "—"} (${d.agentScore}) → +${d.tokens} ✦</span>`;
+          }).join("");
+
+      onWordInput();
+    }
+
+    function appendLetter(l) {
+      const inp = document.getElementById("word-input");
+      inp.value = (inp.value + l).toUpperCase();
+      onWordInput();
+      inp.focus();
+    }
+
+    function onWordInput() {
+      const w = (document.getElementById("word-input").value || "").trim().toUpperCase();
+      const prev = document.getElementById("word-preview");
+      if (!w) { prev.innerText = ""; return; }
+      const spellable = canSpell(w, state.playerLetters());
+      const valid = isValidWord(w);
+      let msg = `${w.length} letters · ${wordScore(w)} pts`;
+      if (!spellable) msg += " · ✗ missing letters";
+      else if (WORD_SET === null) msg += " · opening Codex…";
+      else if (!valid) msg += " · ✗ not in Codex";
+      else msg += " · ✓ ready";
+      prev.style.color = (spellable && valid) ? "var(--gold-bright)" : "var(--dim)";
+      prev.innerText = msg;
+    }
+
+    function castWordOfPower() {
+      if (!state.player) return;
+      const inp = document.getElementById("word-input");
+      const opp = parseInt(document.getElementById("word-opponent").value || "0", 10);
+      const res = state.castWord(inp.value, opp);
+      const out = document.getElementById("word-result");
+      if (res.error) {
+        out.style.color = "#e88a8a";
+        out.innerText = "✗ " + res.error;
+        synth.playClick();
+        return;
+      }
+      out.style.color = res.won ? "var(--gold-bright)" : "var(--dim)";
+      out.innerHTML = res.won
+        ? `✦ <b>Victory!</b> ${res.playerWord} (${res.playerScore}) bested ${PLANET_NAMES[opp]}'s ${res.agentWord || "—"} (${res.agentScore}). <b>+${res.tokens}</b> tokens!`
+        : `${PLANET_NAMES[opp]} answered <b>${res.agentWord || "—"}</b> (${res.agentScore}) to your ${res.playerWord} (${res.playerScore}). +${res.tokens} tokens.`;
+      inp.value = "";
+      if (res.won) synth.playFanfare(); else synth.playClick();
+      renderWordDuel();
+      renderUserBanner();
     }
 
     // Init Page setup
     document.addEventListener("DOMContentLoaded", () => {
+      // Open the Codex (shared wordlist.txt) for Word Duels; re-render when it lands.
+      loadCodex().then(() => { if (state.player) renderWordDuel(); });
+
       const loaded = state.load();
       if (loaded && state.player) {
         // Load direct to board

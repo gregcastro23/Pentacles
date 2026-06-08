@@ -3,7 +3,7 @@
 
 use crate::tables::*;
 use crate::types::*;
-use crate::{chart, combat};
+use crate::{chart, combat, words};
 use spacetimedb::{reducer, Identity, ReducerContext, ScheduleAt, Table, Timestamp};
 use std::time::Duration;
 
@@ -45,6 +45,17 @@ const ROUND_BAND_SIZE: usize = 25;
 /// A single resolution pass never settles (and so never mints) more than one
 /// collection's worth of rounds — offline catch-up tops the deck up, never floods it.
 const MAX_CATCHUP_ROUNDS: u64 = COLLECTION_CAP as u64;
+/// Retention windows for the append-only tables the janitor prunes (see `prune_stale`).
+/// SpacetimeDB bills on live state size and every public row streams to clients, so
+/// transient history is bounded: a week of battle logs, a day of answered Oracle Q&A.
+/// `oracle_cache` is never pruned — it's the asset we want to keep.
+const BATTLE_TTL_SECS: i64 = 7 * 24 * 3600;
+const ORACLE_TTL_SECS: i64 = 24 * 3600;
+/// Word Duels of the Spheres: pace duels and size the (massive) token reward.
+const WORD_DUEL_COOLDOWN_SECS: i64 = 20;
+const TOKEN_PER_POINT: u64 = 50; // word_score × this is the base token reward
+const BEAT_AGENT_BONUS: u64 = 500; // matching/beating the planetary agent's best word
+const AGENT_RACK_SIZE: usize = 7; // tiles the agent draws — a standard Scrabble rack
 
 // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -146,8 +157,8 @@ pub fn create_player(
     let old_slots: Vec<u64> = ctx
         .db
         .deck_slot()
-        .iter()
-        .filter(|s| s.owner == ctx.sender)
+        .owner()
+        .filter(&ctx.sender)
         .map(|s| s.slot_id)
         .collect();
     for sid in old_slots {
@@ -158,6 +169,14 @@ pub fn create_player(
     let chart_ruler = chart::sign_ruler(asc_sign);
     let (deck_seed, _n) = chart::mint_deck(ctx, ctx.sender, &chart, chart_ruler);
 
+    // Re-registration re-mints the deck but must never wipe the token wallet / ladder.
+    let (tokens, word_wins) = ctx
+        .db
+        .player()
+        .identity()
+        .find(&ctx.sender)
+        .map(|p| (p.tokens, p.word_wins))
+        .unwrap_or((0, 0));
     let player = Player {
         identity: ctx.sender,
         handle,
@@ -165,6 +184,8 @@ pub fn create_player(
         deck_seed,
         created_at: ctx.timestamp,
         last_active: ctx.timestamp,
+        tokens,
+        word_wins,
     };
     if ctx.db.player().identity().find(&ctx.sender).is_some() {
         ctx.db.player().identity().update(player);
@@ -227,8 +248,9 @@ pub fn set_loadout(ctx: &ReducerContext, card_id: u64, loadout: Loadout) -> Resu
     let mut slot = ctx
         .db
         .deck_slot()
-        .iter()
-        .find(|s| s.card_id == card_id && s.owner == ctx.sender)
+        .card_id()
+        .filter(&card_id)
+        .find(|s| s.owner == ctx.sender)
         .ok_or_else(|| "card slot not found or not owned by you".to_string())?;
 
     if slot.loadout == loadout {
@@ -240,8 +262,9 @@ pub fn set_loadout(ctx: &ReducerContext, card_id: u64, loadout: Loadout) -> Resu
             let active_count = ctx
                 .db
                 .deck_slot()
-                .iter()
-                .filter(|s| s.owner == ctx.sender && s.loadout == Loadout::Active)
+                .owner()
+                .filter(&ctx.sender)
+                .filter(|s| s.loadout == Loadout::Active)
                 .count();
             if active_count >= ACTIVE_LIMIT {
                 return Err(format!("cannot have more than {ACTIVE_LIMIT} active cards"));
@@ -251,8 +274,9 @@ pub fn set_loadout(ctx: &ReducerContext, card_id: u64, loadout: Loadout) -> Resu
             let defense_count = ctx
                 .db
                 .deck_slot()
-                .iter()
-                .filter(|s| s.owner == ctx.sender && s.loadout == Loadout::Defense)
+                .owner()
+                .filter(&ctx.sender)
+                .filter(|s| s.loadout == Loadout::Defense)
                 .count();
             if defense_count >= DEFENSE_LIMIT {
                 return Err(format!(
@@ -317,8 +341,8 @@ pub fn combine_cards(ctx: &ReducerContext, keep_id: u64, consume_id: u64) -> Res
     let dead: Vec<u64> = ctx
         .db
         .deck_slot()
-        .iter()
-        .filter(|s| s.card_id == consume_id)
+        .card_id()
+        .filter(&consume_id)
         .map(|s| s.slot_id)
         .collect();
     for sid in dead {
@@ -467,8 +491,8 @@ fn reassign(ctx: &ReducerContext, cards: &[u64], to: Identity) {
         let dead: Vec<u64> = ctx
             .db
             .deck_slot()
-            .iter()
-            .filter(|s| s.card_id == cid)
+            .card_id()
+            .filter(&cid)
             .map(|s| s.slot_id)
             .collect();
         for sid in dead {
@@ -993,6 +1017,38 @@ fn elapsed_secs(later: Timestamp, earlier: Timestamp) -> i64 {
     (micros / 1_000_000).max(0)
 }
 
+/// Bound the append-only history tables. `battle` and answered `oracle_request` /
+/// `oracle_reply` rows are transient telemetry; past their TTL they only cost storage
+/// and subscription bandwidth. One global pass per `tick_sky` — linear in the *retained*
+/// window (which the prune itself keeps bounded), not the quadratic per-player scan #1
+/// removed. `oracle_cache` is never touched — it's the asset we want to keep.
+fn prune_stale(ctx: &ReducerContext) {
+    let now = ctx.timestamp;
+    let stale_battles: Vec<u64> = ctx
+        .db
+        .battle()
+        .iter()
+        .filter(|b| elapsed_secs(now, b.created_at) > BATTLE_TTL_SECS)
+        .map(|b| b.battle_id)
+        .collect();
+    for id in stale_battles {
+        ctx.db.battle().battle_id().delete(&id);
+    }
+
+    let stale_reqs: Vec<u64> = ctx
+        .db
+        .oracle_request()
+        .iter()
+        // never drop a question still awaiting the companion service
+        .filter(|r| r.answered && elapsed_secs(now, r.created_at) > ORACLE_TTL_SECS)
+        .map(|r| r.request_id)
+        .collect();
+    for id in stale_reqs {
+        ctx.db.oracle_request().request_id().delete(&id);
+        ctx.db.oracle_reply().request_id().delete(&id);
+    }
+}
+
 fn has_duplicates(ids: &[u64]) -> bool {
     for i in 0..ids.len() {
         for j in (i + 1)..ids.len() {
@@ -1007,8 +1063,9 @@ fn has_duplicates(ids: &[u64]) -> bool {
 fn has_loadout(ctx: &ReducerContext, owner: Identity, card_id: u64, loadout: Loadout) -> bool {
     ctx.db
         .deck_slot()
-        .iter()
-        .any(|s| s.owner == owner && s.card_id == card_id && s.loadout == loadout)
+        .card_id()
+        .filter(&card_id)
+        .any(|s| s.owner == owner && s.loadout == loadout)
 }
 
 // ── Scheduled & owner feeds ───────────────────────────────────────────────
@@ -1107,6 +1164,7 @@ pub fn tick_sky(ctx: &ReducerContext, _timer: SkyTickTimer) {
     }
 
     sweep_stale_duels(ctx); // B — auto-resolve abandoned duels
+    prune_stale(ctx); // C — bound the append-only history tables
     bot_raid(ctx);
 }
 
@@ -1190,7 +1248,7 @@ fn sky_challenge(deck_size: usize) -> f32 {
 
 /// Number of cards a player owns (their whole collection, across all loadouts).
 fn deck_size(ctx: &ReducerContext, owner: Identity) -> usize {
-    ctx.db.card().iter().filter(|c| c.owner == owner).count()
+    ctx.db.card().owner().filter(&owner).count()
 }
 
 /// Tally a fought battle into the player's current round (a win drives success).
@@ -1227,7 +1285,7 @@ fn retrograde_flags(ctx: &ReducerContext) -> [bool; 10] {
 /// can be clamped strictly below the keystone. None if they hold no trump.
 fn hero_ceiling(ctx: &ReducerContext, owner: Identity) -> Option<(u16, u16, u16)> {
     let mut best: Option<(u16, u16, u16)> = None;
-    for c in ctx.db.card().iter().filter(|c| c.owner == owner && c.is_trump) {
+    for c in ctx.db.card().owner().filter(&owner).filter(|c| c.is_trump) {
         best = Some(match best {
             Some((a, h, ar)) => (a.max(c.attack), h.max(c.health), ar.max(c.armour)),
             None => (c.attack, c.health, c.armour),
@@ -1251,8 +1309,9 @@ fn active_deck_power(ctx: &ReducerContext, owner: Identity) -> f32 {
     for slot in ctx
         .db
         .deck_slot()
-        .iter()
-        .filter(|s| s.owner == owner && s.loadout == Loadout::Active)
+        .owner()
+        .filter(&owner)
+        .filter(|s| s.loadout == Loadout::Active)
     {
         if let Some(c) = ctx.db.card().card_id().find(&slot.card_id) {
             let s = stat_of(&c);
@@ -1283,8 +1342,9 @@ fn draft_one(ctx: &ReducerContext, owner: Identity, chart_row: &NatalChart, roun
         let candidates: Vec<(u64, f32)> = ctx
             .db
             .deck_slot()
-            .iter()
-            .filter(|s| s.owner == owner && s.loadout == Loadout::Bench)
+            .owner()
+            .filter(&owner)
+            .filter(|s| s.loadout == Loadout::Bench)
             .filter_map(|s| ctx.db.card().card_id().find(&s.card_id))
             .filter(|c| !c.is_trump)
             .map(|c| {
@@ -1308,8 +1368,8 @@ fn delete_card_and_slots(ctx: &ReducerContext, card_id: u64) {
     let dead: Vec<u64> = ctx
         .db
         .deck_slot()
-        .iter()
-        .filter(|s| s.card_id == card_id)
+        .card_id()
+        .filter(&card_id)
         .map(|s| s.slot_id)
         .collect();
     for sid in dead {
@@ -1319,7 +1379,7 @@ fn delete_card_and_slots(ctx: &ReducerContext, card_id: u64) {
 
 /// Write a drafted card to the bench.
 fn write_draft(ctx: &ReducerContext, owner: Identity, spec: &chart::DraftSpec) {
-    let card = ctx.db.card().insert(Card {
+    let mut card = ctx.db.card().insert(Card {
         card_id: 0,
         owner,
         suit: spec.suit,
@@ -1333,11 +1393,15 @@ fn write_draft(ctx: &ReducerContext, owner: Identity, spec: &chart::DraftSpec) {
         is_trump: false,
         level: 1,
         minted_at: ctx.timestamp,
+        letter: 0,
     });
+    let card_id = card.card_id;
+    card.letter = crate::words::letter_for(card_id); // a letter accrues every match
+    ctx.db.card().card_id().update(card);
     ctx.db.deck_slot().insert(DeckSlot {
         slot_id: 0,
         owner,
-        card_id: card.card_id,
+        card_id,
         loadout: Loadout::Bench,
     });
 }
@@ -1580,7 +1644,10 @@ pub fn answer_oracle(
         created_at: ctx.timestamp,
     });
 
-    if cacheable {
+    // Only a genuine answer seeds the shared cache — never a fallback the companion
+    // service wrote because the question errored/was refused (`model == "error"`),
+    // which would otherwise pin that fallback as everyone's answer to the question.
+    if cacheable && model != "error" {
         let entry = OracleCache {
             qhash,
             question,
@@ -1594,6 +1661,142 @@ pub fn answer_oracle(
             ctx.db.oracle_cache().insert(entry);
         }
     }
+    Ok(())
+}
+
+// ── Word Duels of the Spheres (the Lettered Arcana) ─────────────────────────
+
+/// Tally the letters across a player's whole collection — their rack. Index-backed by
+/// `card.owner`, so it's O(this player's cards). Unlettered legacy cards (letter 0)
+/// contribute nothing.
+fn player_letters(ctx: &ReducerContext, owner: Identity) -> [u8; 26] {
+    let mut have = [0u8; 26];
+    for c in ctx.db.card().owner().filter(&owner) {
+        if c.letter.is_ascii_uppercase() {
+            let i = (c.letter - b'A') as usize;
+            have[i] = have[i].saturating_add(1);
+        }
+    }
+    have
+}
+
+/// A planetary agent's rack for a duel: `AGENT_RACK_SIZE` tiles drawn deterministically
+/// from the live sky, so the same tick poses the same challenge. Seeded by the agent's
+/// faction, the zone its planet is transiting, and the world Ascendant — the hand shifts
+/// as the heavens turn. (Seam: a future planetary-agents service can swap this for a
+/// richer, model-driven hand without touching the duel reducer.)
+fn agent_letters(ctx: &ReducerContext, agent: Planet) -> [u8; 26] {
+    let zone = ctx
+        .db
+        .ephemeris()
+        .body()
+        .find(&agent)
+        .map(|e| e.transiting_zone as u64)
+        .unwrap_or(0);
+    let season = ctx
+        .db
+        .game_config()
+        .id()
+        .find(&0)
+        .map(|c| c.ascendant_degree as u64)
+        .unwrap_or(0);
+    let mut s = (agent.idx() as u64)
+        .wrapping_add(zone << 8)
+        .wrapping_add(season << 16)
+        .wrapping_add(0x9E37_79B9_7F4A_7C15); // odd splitmix constant so seed 0 isn't degenerate
+    let mut have = [0u8; 26];
+    for _ in 0..AGENT_RACK_SIZE {
+        // xorshift64 step → a fresh tile each draw
+        s ^= s << 13;
+        s ^= s >> 7;
+        s ^= s << 17;
+        let l = words::letter_for(s);
+        have[(l - b'A') as usize] += 1;
+    }
+    have
+}
+
+/// Cast a Word of Power in a duel against a planetary agent. The word must be a real
+/// word in the Codex, spellable from the letters across your collection; the agent
+/// answers with its best word from a sky-seeded rack. Beat (or match) it to win the
+/// big bonus — and either way the word itself pays tokens. Cooldown-paced so the
+/// wallet can't be farmed by re-casting in a tight loop.
+#[reducer]
+pub fn cast_word(ctx: &ReducerContext, word: String, opponent: Planet) -> Result<(), String> {
+    let player = ctx
+        .db
+        .player()
+        .identity()
+        .find(&ctx.sender)
+        .ok_or("register a Seeker first")?;
+
+    let w = word.trim().to_ascii_uppercase();
+    if w.len() < 2 {
+        return Err("a Word of Power needs at least two letters".into());
+    }
+    if !w.bytes().all(|b| b.is_ascii_uppercase()) {
+        return Err("a Word of Power is letters only".into());
+    }
+    if !words::is_valid(&w) {
+        return Err("that word is not in the Codex".into());
+    }
+
+    // Per-player cooldown — a rejected cast above never starts the clock.
+    if let Some(rate) = ctx.db.word_rate().identity().find(&ctx.sender) {
+        if elapsed_secs(ctx.timestamp, rate.last_at) < WORD_DUEL_COOLDOWN_SECS {
+            return Err("the spheres still echo your last word — wait a moment".into());
+        }
+    }
+
+    // You must hold the letters across your lettered Arcana.
+    let have = player_letters(ctx, ctx.sender);
+    if !words::can_spell(&w, &have) {
+        return Err("your Arcana don't hold the letters for that word".into());
+    }
+
+    // Start/refresh the cooldown only now the cast is valid.
+    if let Some(mut rate) = ctx.db.word_rate().identity().find(&ctx.sender) {
+        rate.last_at = ctx.timestamp;
+        rate.plays += 1;
+        ctx.db.word_rate().identity().update(rate);
+    } else {
+        ctx.db.word_rate().insert(WordRate {
+            identity: ctx.sender,
+            last_at: ctx.timestamp,
+            plays: 1,
+        });
+    }
+
+    let player_score = words::word_score(&w);
+
+    // The planetary agent answers with the best word its sky-seeded rack can form.
+    let agent_rack = agent_letters(ctx, opponent);
+    let agent_word = words::best_word(&agent_rack).unwrap_or("");
+    let agent_score = words::word_score(agent_word);
+
+    let won = player_score >= agent_score;
+    let tokens = player_score as u64 * TOKEN_PER_POINT + if won { BEAT_AGENT_BONUS } else { 0 };
+
+    let mut p = player;
+    p.tokens = p.tokens.saturating_add(tokens);
+    if won {
+        p.word_wins += 1;
+    }
+    p.last_active = ctx.timestamp;
+    ctx.db.player().identity().update(p);
+
+    ctx.db.word_duel().insert(WordDuel {
+        duel_id: 0,
+        player: ctx.sender,
+        opponent,
+        player_word: w,
+        player_score,
+        agent_word: agent_word.to_string(),
+        agent_score,
+        won,
+        tokens_awarded: tokens,
+        created_at: ctx.timestamp,
+    });
     Ok(())
 }
 

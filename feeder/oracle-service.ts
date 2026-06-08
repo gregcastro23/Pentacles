@@ -30,7 +30,23 @@ const POLL_INTERVAL_MS = Number(process.env.POLL_INTERVAL_MS ?? "3000");
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
+  // The SDK retries transient failures (429 / 5xx / connection) with exponential
+  // backoff. Bumped from the default 2 so a brief overload doesn't surface as a
+  // failed answer. Non-retryable errors (400 / auth / refusal) are handled in
+  // processRequest so a bad question is never re-sent to Claude in a loop.
+  maxRetries: 4,
 });
+
+// Shown to the player when a question can't be answered (refusal, malformed input,
+// or a persistent API error). Writing it *closes* the request so the poller stops
+// re-sending it — leaving it unanswered would re-bill Claude every poll forever.
+const ORACLE_FALLBACK =
+  "The Oracle's vision is clouded for now — rephrase your question and seek again.";
+
+// Push an answer back through the owner-gated reducer (same CLI owner auth as the feeder).
+async function answerOracle(requestId: number, text: string, modelTier: string): Promise<void> {
+  await run("spacetime", ["call", DB, "answer_oracle", "--", String(requestId), text, modelTier]);
+}
 
 // Rich system prompt outlining the game GDD guidelines for accurate Oracle responses.
 // This is prompt-cached to minimize costs.
@@ -169,31 +185,33 @@ async function processRequest(row: Record<string, string>): Promise<void> {
   console.log(`  Model: ${modelId} (${isCacheable ? "cacheable rules/lore" : "live strategy"})`);
 
   try {
-    const response = await anthropic.messages.create({
-      model: modelId,
-      max_tokens: 1024,
-      system: [
-        {
-          type: "text",
-          text: SYSTEM_PROMPT,
-          cache_control: { type: "ephemeral" },
-        },
-      ],
-      messages: [
-        {
-          role: "user",
-          content: `Context:\n${context}\n\nQuestion:\n${question}`,
-        },
-      ],
-    });
+    const response = await anthropic.messages.create(
+      {
+        model: modelId,
+        max_tokens: 1024,
+        system: [
+          {
+            type: "text",
+            text: SYSTEM_PROMPT,
+            // Caches the rules/lore prefix. NOTE: the minimum cacheable prefix is
+            // 4096 tokens on Haiku 4.5 (2048 on Sonnet 4.6); SYSTEM_PROMPT is only
+            // ~1.5–2K tokens, so caching may not engage on the Haiku tier. Watch the
+            // usage logs below — if cache_read_input_tokens stays 0 across repeats,
+            // the prefix is under the minimum and this marker is a no-op (harmless,
+            // but don't count on the saving). Grow the cached prefix to benefit.
+            cache_control: { type: "ephemeral" },
+          },
+        ],
+        messages: [
+          {
+            role: "user",
+            content: `Context:\n${context}\n\nQuestion:\n${question}`,
+          },
+        ],
+      },
+      { timeout: 30_000 }, // one wedged call can't stall the whole poll loop
+    );
 
-    const replyText = response.content[0].type === "text" ? response.content[0].text : "";
-    if (!replyText) {
-      console.warn(`[Oracle] Empty response generated for request #${requestId}`);
-      return;
-    }
-
-    console.log(`[Oracle] Reply generated successfully.`);
     if (response.usage) {
       console.log(`  Tokens: ${response.usage.input_tokens} input, ${response.usage.output_tokens} output`);
       if (response.usage.cache_creation_input_tokens) {
@@ -204,20 +222,41 @@ async function processRequest(row: Record<string, string>): Promise<void> {
       }
     }
 
-    // Submit the reply back to SpacetimeDB
-    console.log(`[Oracle] Pushing reply back to SpacetimeDB...`);
-    await run("spacetime", [
-      "call",
-      DB,
-      "answer_oracle",
-      "--",
-      String(requestId),
-      replyText,
-      modelTier,
-    ]);
+    // Iterate content blocks — never index [0]. With adaptive thinking enabled the
+    // first block can be a `thinking` block, which would silently blank the reply.
+    const replyText = response.content.find((b) => b.type === "text")?.text ?? "";
+    if (!replyText) {
+      // No text block (e.g. a refusal). Close the request with a fallback so it
+      // isn't re-sent to Claude on every subsequent poll.
+      console.warn(
+        `[Oracle] No text for #${requestId} (stop_reason=${response.stop_reason}); closing with fallback.`,
+      );
+      await answerOracle(requestId, ORACLE_FALLBACK, "error");
+      return;
+    }
+
+    console.log(`[Oracle] Reply generated; pushing to SpacetimeDB...`);
+    await answerOracle(requestId, replyText, modelTier);
     console.log(`[Oracle] Request #${requestId} successfully answered.`);
   } catch (err) {
-    console.error(`[Oracle] Error processing request #${requestId}:`, err);
+    // Transient — the SDK already retried with backoff. Leave the request
+    // unanswered so the next poll picks it up; don't burn a fallback on a blip.
+    if (
+      err instanceof Anthropic.RateLimitError ||
+      err instanceof Anthropic.InternalServerError ||
+      err instanceof Anthropic.APIConnectionError
+    ) {
+      console.warn(`[Oracle] Transient error on #${requestId} (${(err as Error).name}); will retry next poll.`);
+      return;
+    }
+    // Non-retryable (400 / auth / refusal / bad input): close it with a fallback so
+    // we never re-bill Claude for a question that will deterministically fail.
+    console.error(`[Oracle] Non-retryable error on #${requestId}:`, err);
+    try {
+      await answerOracle(requestId, ORACLE_FALLBACK, "error");
+    } catch (pushErr) {
+      console.error(`[Oracle] Failed to close #${requestId} after error:`, pushErr);
+    }
   }
 }
 
