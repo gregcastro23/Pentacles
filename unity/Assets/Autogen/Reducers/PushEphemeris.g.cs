@@ -12,12 +12,12 @@ namespace SpacetimeDB.Types
 {
     public sealed partial class RemoteReducers : RemoteBase
     {
-        public delegate void PushEphemerisHandler(ReducerEventContext ctx, byte bodyIdx, double ra, double dec, byte transitingZone);
+        public delegate void PushEphemerisHandler(ReducerEventContext ctx, byte bodyIdx, double ra, double dec, byte transitingZone, bool retrograde);
         public event PushEphemerisHandler? OnPushEphemeris;
 
-        public void PushEphemeris(byte bodyIdx, double ra, double dec, byte transitingZone)
+        public void PushEphemeris(byte bodyIdx, double ra, double dec, byte transitingZone, bool retrograde)
         {
-            conn.InternalCallReducer(new Reducer.PushEphemeris(bodyIdx, ra, dec, transitingZone));
+            conn.InternalCallReducer(new Reducer.PushEphemeris(bodyIdx, ra, dec, transitingZone, retrograde));
         }
 
         public bool InvokePushEphemeris(ReducerEventContext ctx, Reducer.PushEphemeris args)
@@ -39,7 +39,8 @@ namespace SpacetimeDB.Types
                 args.BodyIdx,
                 args.Ra,
                 args.Dec,
-                args.TransitingZone
+                args.TransitingZone,
+                args.Retrograde
             );
             return true;
         }
@@ -59,18 +60,22 @@ namespace SpacetimeDB.Types
             public double Dec;
             [DataMember(Name = "transiting_zone")]
             public byte TransitingZone;
+            [DataMember(Name = "retrograde")]
+            public bool Retrograde;
 
             public PushEphemeris(
                 byte BodyIdx,
                 double Ra,
                 double Dec,
-                byte TransitingZone
+                byte TransitingZone,
+                bool Retrograde
             )
             {
                 this.BodyIdx = BodyIdx;
                 this.Ra = Ra;
                 this.Dec = Dec;
                 this.TransitingZone = TransitingZone;
+                this.Retrograde = Retrograde;
             }
 
             public PushEphemeris()

@@ -18,7 +18,7 @@ pub struct Player {
     pub created_at: Timestamp,
     pub last_active: Timestamp,
     /// Tokens won in Word Duels of the Spheres (the Lettered-Arcana reward currency).
-    #[default(0)]
+    #[default(0u64)]
     pub tokens: u64,
     /// Word duels won (vs a planetary agent) — the ladder.
     #[default(0)]
@@ -159,8 +159,10 @@ pub struct Ephemeris {
     pub ra: f64,
     pub dec: f64,
     pub transiting_zone: u8,  // drives the transit capture buff
-    pub retrograde: bool,     // moving retrograde in the live sky → inverts a drafted card
     pub tick: Timestamp,
+    /// moving retrograde in the live sky → inverts a drafted card
+    #[default(false)]
+    pub retrograde: bool,
 }
 
 // ── Coordination ──────────────────────────────────────────────────────────

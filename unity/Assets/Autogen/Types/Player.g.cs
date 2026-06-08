@@ -25,6 +25,10 @@ namespace SpacetimeDB.Types
         public SpacetimeDB.Timestamp CreatedAt;
         [DataMember(Name = "last_active")]
         public SpacetimeDB.Timestamp LastActive;
+        [DataMember(Name = "tokens")]
+        public ulong Tokens;
+        [DataMember(Name = "word_wins")]
+        public uint WordWins;
 
         public Player(
             SpacetimeDB.Identity Identity,
@@ -32,7 +36,9 @@ namespace SpacetimeDB.Types
             Planet Faction,
             ulong DeckSeed,
             SpacetimeDB.Timestamp CreatedAt,
-            SpacetimeDB.Timestamp LastActive
+            SpacetimeDB.Timestamp LastActive,
+            ulong Tokens,
+            uint WordWins
         )
         {
             this.Identity = Identity;
@@ -41,6 +47,8 @@ namespace SpacetimeDB.Types
             this.DeckSeed = DeckSeed;
             this.CreatedAt = CreatedAt;
             this.LastActive = LastActive;
+            this.Tokens = Tokens;
+            this.WordWins = WordWins;
         }
 
         public Player()

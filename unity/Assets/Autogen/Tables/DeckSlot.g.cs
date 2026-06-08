@@ -17,6 +17,24 @@ namespace SpacetimeDB.Types
         {
             protected override string RemoteTableName => "deck_slot";
 
+            public sealed class CardIdIndex : BTreeIndexBase<ulong>
+            {
+                protected override ulong GetKey(DeckSlot row) => row.CardId;
+
+                public CardIdIndex(DeckSlotHandle table) : base(table) { }
+            }
+
+            public readonly CardIdIndex CardId;
+
+            public sealed class OwnerIndex : BTreeIndexBase<SpacetimeDB.Identity>
+            {
+                protected override SpacetimeDB.Identity GetKey(DeckSlot row) => row.Owner;
+
+                public OwnerIndex(DeckSlotHandle table) : base(table) { }
+            }
+
+            public readonly OwnerIndex Owner;
+
             public sealed class SlotIdUniqueIndex : UniqueIndexBase<ulong>
             {
                 protected override ulong GetKey(DeckSlot row) => row.SlotId;
@@ -28,6 +46,8 @@ namespace SpacetimeDB.Types
 
             internal DeckSlotHandle(DbConnection conn) : base(conn)
             {
+                CardId = new(this);
+                Owner = new(this);
                 SlotId = new(this);
             }
 
@@ -56,10 +76,14 @@ namespace SpacetimeDB.Types
     public sealed class DeckSlotIxCols
     {
         public global::SpacetimeDB.IxCol<DeckSlot, ulong> SlotId { get; }
+        public global::SpacetimeDB.IxCol<DeckSlot, SpacetimeDB.Identity> Owner { get; }
+        public global::SpacetimeDB.IxCol<DeckSlot, ulong> CardId { get; }
 
         public DeckSlotIxCols(string tableName)
         {
             SlotId = new global::SpacetimeDB.IxCol<DeckSlot, ulong>(tableName, "slot_id");
+            Owner = new global::SpacetimeDB.IxCol<DeckSlot, SpacetimeDB.Identity>(tableName, "owner");
+            CardId = new global::SpacetimeDB.IxCol<DeckSlot, ulong>(tableName, "card_id");
         }
     }
 }

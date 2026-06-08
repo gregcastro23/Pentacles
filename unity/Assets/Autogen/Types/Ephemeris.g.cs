@@ -23,13 +23,16 @@ namespace SpacetimeDB.Types
         public byte TransitingZone;
         [DataMember(Name = "tick")]
         public SpacetimeDB.Timestamp Tick;
+        [DataMember(Name = "retrograde")]
+        public bool Retrograde;
 
         public Ephemeris(
             Planet Body,
             double Ra,
             double Dec,
             byte TransitingZone,
-            SpacetimeDB.Timestamp Tick
+            SpacetimeDB.Timestamp Tick,
+            bool Retrograde
         )
         {
             this.Body = Body;
@@ -37,6 +40,7 @@ namespace SpacetimeDB.Types
             this.Dec = Dec;
             this.TransitingZone = TransitingZone;
             this.Tick = Tick;
+            this.Retrograde = Retrograde;
         }
 
         public Ephemeris()
