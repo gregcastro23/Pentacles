@@ -3,7 +3,7 @@
 
 use crate::tables::*;
 use crate::types::*;
-use crate::{chart, combat};
+use crate::{chart, combat, words};
 use spacetimedb::{reducer, Identity, ReducerContext, ScheduleAt, Table, Timestamp};
 use std::time::Duration;
 
@@ -51,6 +51,11 @@ const MAX_CATCHUP_ROUNDS: u64 = COLLECTION_CAP as u64;
 /// `oracle_cache` is never pruned — it's the asset we want to keep.
 const BATTLE_TTL_SECS: i64 = 7 * 24 * 3600;
 const ORACLE_TTL_SECS: i64 = 24 * 3600;
+/// Word Duels of the Spheres: pace duels and size the (massive) token reward.
+const WORD_DUEL_COOLDOWN_SECS: i64 = 20;
+const TOKEN_PER_POINT: u64 = 50; // word_score × this is the base token reward
+const BEAT_AGENT_BONUS: u64 = 500; // matching/beating the planetary agent's best word
+const AGENT_RACK_SIZE: usize = 7; // tiles the agent draws — a standard Scrabble rack
 
 // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -164,6 +169,14 @@ pub fn create_player(
     let chart_ruler = chart::sign_ruler(asc_sign);
     let (deck_seed, _n) = chart::mint_deck(ctx, ctx.sender, &chart, chart_ruler);
 
+    // Re-registration re-mints the deck but must never wipe the token wallet / ladder.
+    let (tokens, word_wins) = ctx
+        .db
+        .player()
+        .identity()
+        .find(&ctx.sender)
+        .map(|p| (p.tokens, p.word_wins))
+        .unwrap_or((0, 0));
     let player = Player {
         identity: ctx.sender,
         handle,
@@ -171,6 +184,8 @@ pub fn create_player(
         deck_seed,
         created_at: ctx.timestamp,
         last_active: ctx.timestamp,
+        tokens,
+        word_wins,
     };
     if ctx.db.player().identity().find(&ctx.sender).is_some() {
         ctx.db.player().identity().update(player);
@@ -1364,7 +1379,7 @@ fn delete_card_and_slots(ctx: &ReducerContext, card_id: u64) {
 
 /// Write a drafted card to the bench.
 fn write_draft(ctx: &ReducerContext, owner: Identity, spec: &chart::DraftSpec) {
-    let card = ctx.db.card().insert(Card {
+    let mut card = ctx.db.card().insert(Card {
         card_id: 0,
         owner,
         suit: spec.suit,
@@ -1378,11 +1393,15 @@ fn write_draft(ctx: &ReducerContext, owner: Identity, spec: &chart::DraftSpec) {
         is_trump: false,
         level: 1,
         minted_at: ctx.timestamp,
+        letter: 0,
     });
+    let card_id = card.card_id;
+    card.letter = crate::words::letter_for(card_id); // a letter accrues every match
+    ctx.db.card().card_id().update(card);
     ctx.db.deck_slot().insert(DeckSlot {
         slot_id: 0,
         owner,
-        card_id: card.card_id,
+        card_id,
         loadout: Loadout::Bench,
     });
 }
@@ -1642,6 +1661,142 @@ pub fn answer_oracle(
             ctx.db.oracle_cache().insert(entry);
         }
     }
+    Ok(())
+}
+
+// ── Word Duels of the Spheres (the Lettered Arcana) ─────────────────────────
+
+/// Tally the letters across a player's whole collection — their rack. Index-backed by
+/// `card.owner`, so it's O(this player's cards). Unlettered legacy cards (letter 0)
+/// contribute nothing.
+fn player_letters(ctx: &ReducerContext, owner: Identity) -> [u8; 26] {
+    let mut have = [0u8; 26];
+    for c in ctx.db.card().owner().filter(&owner) {
+        if c.letter.is_ascii_uppercase() {
+            let i = (c.letter - b'A') as usize;
+            have[i] = have[i].saturating_add(1);
+        }
+    }
+    have
+}
+
+/// A planetary agent's rack for a duel: `AGENT_RACK_SIZE` tiles drawn deterministically
+/// from the live sky, so the same tick poses the same challenge. Seeded by the agent's
+/// faction, the zone its planet is transiting, and the world Ascendant — the hand shifts
+/// as the heavens turn. (Seam: a future planetary-agents service can swap this for a
+/// richer, model-driven hand without touching the duel reducer.)
+fn agent_letters(ctx: &ReducerContext, agent: Planet) -> [u8; 26] {
+    let zone = ctx
+        .db
+        .ephemeris()
+        .body()
+        .find(&agent)
+        .map(|e| e.transiting_zone as u64)
+        .unwrap_or(0);
+    let season = ctx
+        .db
+        .game_config()
+        .id()
+        .find(&0)
+        .map(|c| c.ascendant_degree as u64)
+        .unwrap_or(0);
+    let mut s = (agent.idx() as u64)
+        .wrapping_add(zone << 8)
+        .wrapping_add(season << 16)
+        .wrapping_add(0x9E37_79B9_7F4A_7C15); // odd splitmix constant so seed 0 isn't degenerate
+    let mut have = [0u8; 26];
+    for _ in 0..AGENT_RACK_SIZE {
+        // xorshift64 step → a fresh tile each draw
+        s ^= s << 13;
+        s ^= s >> 7;
+        s ^= s << 17;
+        let l = words::letter_for(s);
+        have[(l - b'A') as usize] += 1;
+    }
+    have
+}
+
+/// Cast a Word of Power in a duel against a planetary agent. The word must be a real
+/// word in the Codex, spellable from the letters across your collection; the agent
+/// answers with its best word from a sky-seeded rack. Beat (or match) it to win the
+/// big bonus — and either way the word itself pays tokens. Cooldown-paced so the
+/// wallet can't be farmed by re-casting in a tight loop.
+#[reducer]
+pub fn cast_word(ctx: &ReducerContext, word: String, opponent: Planet) -> Result<(), String> {
+    let player = ctx
+        .db
+        .player()
+        .identity()
+        .find(&ctx.sender)
+        .ok_or("register a Seeker first")?;
+
+    let w = word.trim().to_ascii_uppercase();
+    if w.len() < 2 {
+        return Err("a Word of Power needs at least two letters".into());
+    }
+    if !w.bytes().all(|b| b.is_ascii_uppercase()) {
+        return Err("a Word of Power is letters only".into());
+    }
+    if !words::is_valid(&w) {
+        return Err("that word is not in the Codex".into());
+    }
+
+    // Per-player cooldown — a rejected cast above never starts the clock.
+    if let Some(rate) = ctx.db.word_rate().identity().find(&ctx.sender) {
+        if elapsed_secs(ctx.timestamp, rate.last_at) < WORD_DUEL_COOLDOWN_SECS {
+            return Err("the spheres still echo your last word — wait a moment".into());
+        }
+    }
+
+    // You must hold the letters across your lettered Arcana.
+    let have = player_letters(ctx, ctx.sender);
+    if !words::can_spell(&w, &have) {
+        return Err("your Arcana don't hold the letters for that word".into());
+    }
+
+    // Start/refresh the cooldown only now the cast is valid.
+    if let Some(mut rate) = ctx.db.word_rate().identity().find(&ctx.sender) {
+        rate.last_at = ctx.timestamp;
+        rate.plays += 1;
+        ctx.db.word_rate().identity().update(rate);
+    } else {
+        ctx.db.word_rate().insert(WordRate {
+            identity: ctx.sender,
+            last_at: ctx.timestamp,
+            plays: 1,
+        });
+    }
+
+    let player_score = words::word_score(&w);
+
+    // The planetary agent answers with the best word its sky-seeded rack can form.
+    let agent_rack = agent_letters(ctx, opponent);
+    let agent_word = words::best_word(&agent_rack).unwrap_or("");
+    let agent_score = words::word_score(agent_word);
+
+    let won = player_score >= agent_score;
+    let tokens = player_score as u64 * TOKEN_PER_POINT + if won { BEAT_AGENT_BONUS } else { 0 };
+
+    let mut p = player;
+    p.tokens = p.tokens.saturating_add(tokens);
+    if won {
+        p.word_wins += 1;
+    }
+    p.last_active = ctx.timestamp;
+    ctx.db.player().identity().update(p);
+
+    ctx.db.word_duel().insert(WordDuel {
+        duel_id: 0,
+        player: ctx.sender,
+        opponent,
+        player_word: w,
+        player_score,
+        agent_word: agent_word.to_string(),
+        agent_score,
+        won,
+        tokens_awarded: tokens,
+        created_at: ctx.timestamp,
+    });
     Ok(())
 }
 
