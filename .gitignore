@@ -10,6 +10,7 @@ Thumbs.db
 # Node / Bun
 node_modules/
 bun.lockb
+bun.lock
 .npm/
 
 # Rust (SpacetimeDB server target)

@@ -64,7 +64,8 @@ pub struct Card {
     #[primary_key]
     #[auto_inc]
     pub card_id: u64,
-    pub owner: Identity, // add `#[index(btree)]` for scale; we iterate for now
+    #[index(btree)]
+    pub owner: Identity, // indexed: per-player lookups are O(player's cards), not O(all cards)
     pub suit: Suit,
     pub rank: u8,        // Minor: 1..14 (Ace..King); trump: the arcana index 0..21
     pub health: u16,
@@ -84,7 +85,9 @@ pub struct DeckSlot {
     #[primary_key]
     #[auto_inc]
     pub slot_id: u64,
+    #[index(btree)]
     pub owner: Identity,
+    #[index(btree)]
     pub card_id: u64,
     pub loadout: Loadout,
 }
@@ -97,7 +100,9 @@ pub struct Trade {
     #[primary_key]
     #[auto_inc]
     pub trade_id: u64,
+    #[index(btree)]
     pub proposer: Identity,
+    #[index(btree)]
     pub partner: Identity,
     pub offer: Vec<u64>,      // proposer's staked card_ids
     pub request: Vec<u64>,    // partner's staked card_ids

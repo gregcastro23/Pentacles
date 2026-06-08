@@ -45,6 +45,12 @@ const ROUND_BAND_SIZE: usize = 25;
 /// A single resolution pass never settles (and so never mints) more than one
 /// collection's worth of rounds — offline catch-up tops the deck up, never floods it.
 const MAX_CATCHUP_ROUNDS: u64 = COLLECTION_CAP as u64;
+/// Retention windows for the append-only tables the janitor prunes (see `prune_stale`).
+/// SpacetimeDB bills on live state size and every public row streams to clients, so
+/// transient history is bounded: a week of battle logs, a day of answered Oracle Q&A.
+/// `oracle_cache` is never pruned — it's the asset we want to keep.
+const BATTLE_TTL_SECS: i64 = 7 * 24 * 3600;
+const ORACLE_TTL_SECS: i64 = 24 * 3600;
 
 // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -146,8 +152,8 @@ pub fn create_player(
     let old_slots: Vec<u64> = ctx
         .db
         .deck_slot()
-        .iter()
-        .filter(|s| s.owner == ctx.sender)
+        .owner()
+        .filter(&ctx.sender)
         .map(|s| s.slot_id)
         .collect();
     for sid in old_slots {
@@ -227,8 +233,9 @@ pub fn set_loadout(ctx: &ReducerContext, card_id: u64, loadout: Loadout) -> Resu
     let mut slot = ctx
         .db
         .deck_slot()
-        .iter()
-        .find(|s| s.card_id == card_id && s.owner == ctx.sender)
+        .card_id()
+        .filter(&card_id)
+        .find(|s| s.owner == ctx.sender)
         .ok_or_else(|| "card slot not found or not owned by you".to_string())?;
 
     if slot.loadout == loadout {
@@ -240,8 +247,9 @@ pub fn set_loadout(ctx: &ReducerContext, card_id: u64, loadout: Loadout) -> Resu
             let active_count = ctx
                 .db
                 .deck_slot()
-                .iter()
-                .filter(|s| s.owner == ctx.sender && s.loadout == Loadout::Active)
+                .owner()
+                .filter(&ctx.sender)
+                .filter(|s| s.loadout == Loadout::Active)
                 .count();
             if active_count >= ACTIVE_LIMIT {
                 return Err(format!("cannot have more than {ACTIVE_LIMIT} active cards"));
@@ -251,8 +259,9 @@ pub fn set_loadout(ctx: &ReducerContext, card_id: u64, loadout: Loadout) -> Resu
             let defense_count = ctx
                 .db
                 .deck_slot()
-                .iter()
-                .filter(|s| s.owner == ctx.sender && s.loadout == Loadout::Defense)
+                .owner()
+                .filter(&ctx.sender)
+                .filter(|s| s.loadout == Loadout::Defense)
                 .count();
             if defense_count >= DEFENSE_LIMIT {
                 return Err(format!(
@@ -317,8 +326,8 @@ pub fn combine_cards(ctx: &ReducerContext, keep_id: u64, consume_id: u64) -> Res
     let dead: Vec<u64> = ctx
         .db
         .deck_slot()
-        .iter()
-        .filter(|s| s.card_id == consume_id)
+        .card_id()
+        .filter(&consume_id)
         .map(|s| s.slot_id)
         .collect();
     for sid in dead {
@@ -467,8 +476,8 @@ fn reassign(ctx: &ReducerContext, cards: &[u64], to: Identity) {
         let dead: Vec<u64> = ctx
             .db
             .deck_slot()
-            .iter()
-            .filter(|s| s.card_id == cid)
+            .card_id()
+            .filter(&cid)
             .map(|s| s.slot_id)
             .collect();
         for sid in dead {
@@ -993,6 +1002,38 @@ fn elapsed_secs(later: Timestamp, earlier: Timestamp) -> i64 {
     (micros / 1_000_000).max(0)
 }
 
+/// Bound the append-only history tables. `battle` and answered `oracle_request` /
+/// `oracle_reply` rows are transient telemetry; past their TTL they only cost storage
+/// and subscription bandwidth. One global pass per `tick_sky` — linear in the *retained*
+/// window (which the prune itself keeps bounded), not the quadratic per-player scan #1
+/// removed. `oracle_cache` is never touched — it's the asset we want to keep.
+fn prune_stale(ctx: &ReducerContext) {
+    let now = ctx.timestamp;
+    let stale_battles: Vec<u64> = ctx
+        .db
+        .battle()
+        .iter()
+        .filter(|b| elapsed_secs(now, b.created_at) > BATTLE_TTL_SECS)
+        .map(|b| b.battle_id)
+        .collect();
+    for id in stale_battles {
+        ctx.db.battle().battle_id().delete(&id);
+    }
+
+    let stale_reqs: Vec<u64> = ctx
+        .db
+        .oracle_request()
+        .iter()
+        // never drop a question still awaiting the companion service
+        .filter(|r| r.answered && elapsed_secs(now, r.created_at) > ORACLE_TTL_SECS)
+        .map(|r| r.request_id)
+        .collect();
+    for id in stale_reqs {
+        ctx.db.oracle_request().request_id().delete(&id);
+        ctx.db.oracle_reply().request_id().delete(&id);
+    }
+}
+
 fn has_duplicates(ids: &[u64]) -> bool {
     for i in 0..ids.len() {
         for j in (i + 1)..ids.len() {
@@ -1007,8 +1048,9 @@ fn has_duplicates(ids: &[u64]) -> bool {
 fn has_loadout(ctx: &ReducerContext, owner: Identity, card_id: u64, loadout: Loadout) -> bool {
     ctx.db
         .deck_slot()
-        .iter()
-        .any(|s| s.owner == owner && s.card_id == card_id && s.loadout == loadout)
+        .card_id()
+        .filter(&card_id)
+        .any(|s| s.owner == owner && s.loadout == loadout)
 }
 
 // ── Scheduled & owner feeds ───────────────────────────────────────────────
@@ -1107,6 +1149,7 @@ pub fn tick_sky(ctx: &ReducerContext, _timer: SkyTickTimer) {
     }
 
     sweep_stale_duels(ctx); // B — auto-resolve abandoned duels
+    prune_stale(ctx); // C — bound the append-only history tables
     bot_raid(ctx);
 }
 
@@ -1190,7 +1233,7 @@ fn sky_challenge(deck_size: usize) -> f32 {
 
 /// Number of cards a player owns (their whole collection, across all loadouts).
 fn deck_size(ctx: &ReducerContext, owner: Identity) -> usize {
-    ctx.db.card().iter().filter(|c| c.owner == owner).count()
+    ctx.db.card().owner().filter(&owner).count()
 }
 
 /// Tally a fought battle into the player's current round (a win drives success).
@@ -1227,7 +1270,7 @@ fn retrograde_flags(ctx: &ReducerContext) -> [bool; 10] {
 /// can be clamped strictly below the keystone. None if they hold no trump.
 fn hero_ceiling(ctx: &ReducerContext, owner: Identity) -> Option<(u16, u16, u16)> {
     let mut best: Option<(u16, u16, u16)> = None;
-    for c in ctx.db.card().iter().filter(|c| c.owner == owner && c.is_trump) {
+    for c in ctx.db.card().owner().filter(&owner).filter(|c| c.is_trump) {
         best = Some(match best {
             Some((a, h, ar)) => (a.max(c.attack), h.max(c.health), ar.max(c.armour)),
             None => (c.attack, c.health, c.armour),
@@ -1251,8 +1294,9 @@ fn active_deck_power(ctx: &ReducerContext, owner: Identity) -> f32 {
     for slot in ctx
         .db
         .deck_slot()
-        .iter()
-        .filter(|s| s.owner == owner && s.loadout == Loadout::Active)
+        .owner()
+        .filter(&owner)
+        .filter(|s| s.loadout == Loadout::Active)
     {
         if let Some(c) = ctx.db.card().card_id().find(&slot.card_id) {
             let s = stat_of(&c);
@@ -1283,8 +1327,9 @@ fn draft_one(ctx: &ReducerContext, owner: Identity, chart_row: &NatalChart, roun
         let candidates: Vec<(u64, f32)> = ctx
             .db
             .deck_slot()
-            .iter()
-            .filter(|s| s.owner == owner && s.loadout == Loadout::Bench)
+            .owner()
+            .filter(&owner)
+            .filter(|s| s.loadout == Loadout::Bench)
             .filter_map(|s| ctx.db.card().card_id().find(&s.card_id))
             .filter(|c| !c.is_trump)
             .map(|c| {
@@ -1308,8 +1353,8 @@ fn delete_card_and_slots(ctx: &ReducerContext, card_id: u64) {
     let dead: Vec<u64> = ctx
         .db
         .deck_slot()
-        .iter()
-        .filter(|s| s.card_id == card_id)
+        .card_id()
+        .filter(&card_id)
         .map(|s| s.slot_id)
         .collect();
     for sid in dead {
@@ -1580,7 +1625,10 @@ pub fn answer_oracle(
         created_at: ctx.timestamp,
     });
 
-    if cacheable {
+    // Only a genuine answer seeds the shared cache — never a fallback the companion
+    // service wrote because the question errored/was refused (`model == "error"`),
+    // which would otherwise pin that fallback as everyone's answer to the question.
+    if cacheable && model != "error" {
         let entry = OracleCache {
             qhash,
             question,
