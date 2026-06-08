@@ -6,6 +6,11 @@ Your real birth chart decides your planetary faction, the Tarot is your arsenal,
 and the visible heavens are the contested map: a sky-spanning Pentacle of eleven
 capturable zones, fought over star-by-star.
 
+> **Post-hackathon:** see [`docs/MORNING_AFTER.md`](docs/MORNING_AFTER.md) — a field guide for
+> hardening the SpacetimeDB integration, the Claude/AI calls, and the database situation, grounded
+> in the code as it shipped (indexing, deployable owner-token auth, fail-safe Oracle calls, prompt-
+> cache verification, and wiring the web client to the live module).
+
 ```
 Pentacles/
 ├── Pentacles_GDD.html          # the Game Design Document — open in a browser
