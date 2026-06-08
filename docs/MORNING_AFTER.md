@@ -1,10 +1,29 @@
 # The Morning After — Pentacles Hackathon Wrap-Up
 
-*A field guide for hardening our SpacetimeDB integration, our Claude/AI calls, and our
-database situation — written against the code as it actually shipped.*
+*A field guide for hardening our SpacetimeDB integration, our AI calls, and our database
+situation — written against the code as it actually shipped, and updated 2026-06-08 with the
+cross-project plan we set with **planetary-agents**.*
 
-**Status:** post-hackathon retrospective + roadmap · **Module:** `cookingwithcastrollc` (maincloud)
-· **Date:** 2026-06-08
+**Status:** post-hackathon retrospective + live cross-project roadmap · **Module:**
+`cookingwithcastrollc` (maincloud) · **Date:** 2026-06-08
+
+### Where we are now (read this first)
+
+Two projects, two roles: **Pentacles** is *the game*; **planetary-agents** (`agents.alchm.kitchen`)
+is *the brain*. (A third sibling, **scrabblebot**, is a separate sealed-bid tile *auction* game — its
+bidding/`decideBid` mechanics are **not** part of Pentacles; don't conflate them.)
+
+As of **2026-06-08** the planetary-agents side of the Word Duel opponent **is built and tested**: a
+free-chain, in-character word picker that drops into the `agent_letters` seam and returns the word a
+planet would actually play, with a one-line rationale in its voice. The next concrete step **on this
+repo** is wiring it in — `duel_challenge` + `answer_duel` + `feeder/duel-service.ts`, reusing the
+Oracle companion pattern verbatim ([4.8](#48-the-planetary-agents-word-duel-brain-the-agent_letters-seam)).
+
+**Cost rule for both projects (this corrects the old "default to Opus" guidance):** **free chain
+first** — Groq (Llama-70B for the sharp work, 8B-instant for the rest) → Cerebras → Gemini — for
+runtime / in-character / high-volume features. Reserve Anthropic/Opus for development and genuinely
+hard reasoning, chosen per-feature on a measured sample, never by habit. The Word Duel brain is the
+reference implementation of this rule.
 
 ---
 
@@ -21,6 +40,9 @@ Ranked by impact ÷ effort. Each links to its section.
 | 5 | **Wire the web client to the live module** via the SpacetimeDB TS SDK | Today `client.js` is a *separate localStorage game* that never talks to `cookingwithcastrollc`. Unity and the web play different universes. | L | [2.3](#23-one-truth-two-clients-the-web-client-gap) |
 | 6 | **Replace `spacetime sql` + text-table parsing with an SDK subscription** in the Oracle service | We poll the CLI every 3s and parse fixed-width ASCII tables. Brittle and laggy; the SDK gives reactive inserts. | M | [4.1](#41-stop-polling-the-cli-subscribe-instead) |
 | 7 | **Prune unbounded tables** (`oracle_request`, `oracle_reply`, `battle`) | They grow forever. SpacetimeDB bills on state size. | M | [3.2](#32-bound-the-tables-that-grow-forever) |
+| 8 | **Wire the planetary-agents Word Duel brain** (`duel_challenge` + `answer_duel` + `feeder/duel-service.ts`) | The PA brain is built & tested; this turns the deterministic greedy opponent into a real in-character planet. Reuses the Oracle pattern, so it's mostly a copy. | M | [4.8](#48-the-planetary-agents-word-duel-brain-the-agent_letters-seam) |
+
+**▶ When you wake up:** the Word-Duel thread is the active one — start at **#8 / [4.8](#48-the-planetary-agents-word-duel-brain-the-agent_letters-seam)** (the PA side is done; this repo's wiring is next). The #1–#7 hardening items still stand and can interleave; #1 (indexes) is the cheapest durable win.
 
 ---
 
@@ -390,13 +412,18 @@ the request. Never `new Anthropic({ apiKey })` in client-side JS.
   `oracle_rate` row with a rolling count) before opening the chat to the public.
 - **No moderation / no token budget per user.** For a public launch, add a daily token budget and
   consider a lightweight moderation pass on free-text questions.
-- **Model choice:** the Haiku/Sonnet split is a sound *cost* decision for short in-character chat —
-  keep it. For genuinely hard strategy you could promote the "smart" tier to **`claude-opus-4-8`**;
-  measure quality vs. cost on a sample first. For **new** AI features in any of our projects, the
-  default is `claude-opus-4-8` with adaptive thinking — drop down to Sonnet/Haiku deliberately, for
-  cost, not by habit.
+- **Model choice — free chain first (corrected 2026-06-08).** New in-character / runtime AI features
+  across our projects default to the **free chain** (Groq Llama-70B for the sharp work, 8B-instant for
+  the rest → Cerebras → Gemini), **not** Anthropic. The planetary-agents Word Duel brain
+  ([4.8](#48-the-planetary-agents-word-duel-brain-the-agent_letters-seam)) is the reference
+  implementation and proves the pattern: a structured, constrained choice (pick one of N candidates +
+  one sentence) is well within a free 70B model, and an always-valid deterministic fallback removes the
+  quality risk. Reserve Anthropic/Opus for development and genuinely hard reasoning, decided per-feature
+  on a measured sample — never as the default by habit. The Oracle's current Haiku/Sonnet split is a
+  reasonable cost choice for short chat; when you next touch it, evaluate moving it onto the free chain
+  to match this rule.
 
-### 4.7 Model-ID hygiene (applies to every project)
+### 4.7 Model-ID hygiene (when you *do* use Anthropic — dev, hard reasoning, the Oracle)
 
 - Use the **exact** alias strings, no date suffixes: `claude-opus-4-8`, `claude-sonnet-4-6`,
   `claude-haiku-4-5`. (We're clean here — keep it that way.)
@@ -405,6 +432,46 @@ the request. Never `new Anthropic({ apiKey })` in client-side JS.
   budget.
 - Pin the SDK and re-check model availability from the Models API rather than hardcoding assumptions
   about context windows / pricing.
+
+### 4.8 The planetary-agents Word Duel brain (the `agent_letters` seam)
+
+Today the Word Duel opponent is deterministic: `agent_letters(ctx, opponent)` in `server/src/reducers.rs`
+seeds a sky-locked rack and `words::best_word` plays the greedy longest word. The code comment there
+marks it as the seam for a "richer, model-driven hand." **As of 2026-06-08, the planetary-agents side
+of that seam exists** (Iteration 1):
+
+```
+POST https://api.agents.alchm.kitchen/api/agents/word-duel        (and a local desktop surface)
+{ planet, rack, candidates: ({word,score} | string)[], context? }
+→ { success, planet, move: { word, rationale, score, source }, timestamp }
+```
+
+It returns the word a planet would play **in character** (Mars strikes short and high-value, Jupiter
+reaches longest, Mercury maximizes), with a one-line rationale in the planet's voice. Key facts that
+shape *our* side of the wiring:
+
+- **Thin brain — we own the dictionary.** PA holds no wordlist. We send the legal `candidates`
+  (we already compute them: `words::best_word` becomes "rank the legal set"). PA chooses + voices.
+  Scoring is byte-compatible with `words.rs` (`CAT=5, STAR=6, SPELL=14`), so `score` agrees.
+- **Free chain, fail-safe.** PA runs on Groq (no Anthropic spend) and *always* returns a legal move —
+  it races the model against a ~2.5s deadline and falls back to the top-ranked candidate. So a slow or
+  down brain degrades to today's greedy behavior, never a stuck duel. (This is exactly the §5.5
+  fail-safe pattern, enforced on the other side of the wire.)
+
+**What to build here — reuse the Oracle pattern verbatim ([2.4](#24-the-trusted-side-service-pattern-and-how-to-deploy-it)).**
+A reducer cannot make HTTP calls, so don't try to call PA from `cast_word`. Instead:
+
+1. **`duel_challenge` table** — asker identity, opponent planet, sky-seed index, `answered` flag
+   (mirror `oracle_request`). When a player opts into a model-driven opponent, enqueue a row.
+2. **`answer_duel` reducer (owner-gated)** — posts the AI move (`word`, `rationale`, `score`) into
+   `word_duel` and closes the challenge (mirror `answer_oracle`).
+3. **`feeder/duel-service.ts` companion** — a near-copy of `feeder/oracle-service.ts`: poll
+   `duel_challenge WHERE answered=false`, compute the legal candidates for the seeded rack, `POST` to
+   the PA endpoint, then `spacetime call … answer_duel`. Same owner-token auth ([2.4](#24-the-trusted-side-service-pattern-and-how-to-deploy-it)),
+   same prune plan ([3.2](#32-bound-the-tables-that-grow-forever)).
+
+This keeps `cast_word` deterministic and offline-capable (greedy default), and lets a player escalate
+to a real planetary agent without touching the duel reducer — precisely the seam the README promised.
 
 ---
 
@@ -438,10 +505,15 @@ Distilled from the above — the parts that aren't Pentacles-specific:
 - **Next (M):** owner token + deployable workers (#4) · SDK subscription for the Oracle (#6) ·
   table pruning (#7) · server-side `cacheable` decision.
 - **Then (L):** put the web client on the live module (#5) · web Oracle · Batch-API lore pre-warm ·
-  public-launch cost/safety caps.
+  public-launch cost/safety caps · wire the planetary-agents Word Duel brain at the `agent_letters`
+  seam ([4.8](#48-the-planetary-agents-word-duel-brain-the-agent_letters-seam): `duel_challenge` +
+  `answer_duel` + `feeder/duel-service.ts`).
 
 ---
 
-*Generated as a hackathon retrospective. Everything here is grounded in the code at
-`server/`, `feeder/`, and `client.js` as of this branch — file/line references point at the real
-thing, not aspirations.*
+*Began as a hackathon retrospective; updated 2026-06-08 into a live cross-project briefing after the
+planetary-agents Word Duel session. The Pentacles items are grounded in the code at `server/`,
+`feeder/`, and `client.js` as of this branch; §4.8 and the "Where we are now" lead reflect the
+planetary-agents brain that is built and tested in that repo (see its
+`docs/planetary-agents-word-duel-spec.md` §6). File/line references point at the real thing, not
+aspirations.*
