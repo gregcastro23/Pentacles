@@ -12,9 +12,21 @@
 
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { bodyEquatorial, geocentricEclipticLon, julianDay } from "./ephemeris.ts";
 
 const run = promisify(execFile);
+
+function getSpacetimeCli(): string {
+  if (process.env.SPACETIMEDB_CLI) return process.env.SPACETIMEDB_CLI;
+  if (process.env.HOME) {
+    const localBin = join(process.env.HOME, ".local", "bin", "spacetime");
+    if (existsSync(localBin)) return localBin;
+  }
+  return "spacetime";
+}
+const SPACETIMEDB_CLI = getSpacetimeCli();
 
 const DB = process.env.SPACETIMEDB_DB ?? "cookingwithcastrollc";
 const INTERVAL_MIN = Number(process.env.FEED_INTERVAL_MIN ?? "15");
@@ -46,7 +58,7 @@ async function pushOnce(): Promise<void> {
     const zone = zoneForEclipticLon(eclLon);
     const retro = isRetrograde(idx, jd);
     try {
-      await run("spacetime", [
+      await run(SPACETIMEDB_CLI, [
         "call", DB, "push_ephemeris", "--",
         String(idx), ra.toFixed(5), dec.toFixed(5), String(zone), String(retro),
       ]);
@@ -66,3 +78,4 @@ async function main(): Promise<void> {
 }
 
 main();
+

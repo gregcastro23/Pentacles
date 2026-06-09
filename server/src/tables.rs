@@ -305,6 +305,8 @@ pub struct WordDuel {
     pub won: bool,            // player_score >= agent_score
     pub tokens_awarded: u64,
     pub created_at: Timestamp,
+    #[default(None::<String>)]
+    pub agent_rationale: Option<String>, // characterful explanation
 }
 
 /// Per-player word-duel rate state, backing the duel cooldown (private). Stops token
@@ -316,6 +318,22 @@ pub struct WordRate {
     pub identity: Identity,
     pub last_at: Timestamp,
     pub plays: u32,
+}
+
+#[spacetimedb::table(name = duel_challenge, public)]
+#[derive(Clone)]
+pub struct DuelChallenge {
+    #[primary_key]
+    #[auto_inc]
+    pub challenge_id: u64,
+    pub player: Identity,
+    pub opponent: Planet,
+    pub player_word: String,
+    pub player_score: u32,
+    pub agent_rack: String,  // e.g. "AEIONRS"
+    pub candidates: String,  // JSON string array of valid words
+    pub answered: bool,
+    pub created_at: Timestamp,
 }
 
 // ── The Ascendant clock (per-round re-draft) ────────────────────────────────

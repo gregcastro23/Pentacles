@@ -6,7 +6,8 @@
   "scripts": {
     "feed": "bun run push-ephemeris.ts",
     "once": "bun run push-ephemeris.ts --once",
-    "oracle": "bun run oracle-service.ts"
+    "oracle": "bun run oracle-service.ts",
+    "duel": "bun run duel-service.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "latest"

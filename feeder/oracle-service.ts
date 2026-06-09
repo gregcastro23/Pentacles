@@ -15,9 +15,21 @@
 
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import Anthropic from "@anthropic-ai/sdk";
 
 const run = promisify(execFile);
+
+function getSpacetimeCli(): string {
+  if (process.env.SPACETIMEDB_CLI) return process.env.SPACETIMEDB_CLI;
+  if (process.env.HOME) {
+    const localBin = join(process.env.HOME, ".local", "bin", "spacetime");
+    if (existsSync(localBin)) return localBin;
+  }
+  return "spacetime";
+}
+const SPACETIMEDB_CLI = getSpacetimeCli();
 
 if (!process.env.ANTHROPIC_API_KEY) {
   console.error("Error: ANTHROPIC_API_KEY environment variable is not set.");
@@ -45,7 +57,7 @@ const ORACLE_FALLBACK =
 
 // Push an answer back through the owner-gated reducer (same CLI owner auth as the feeder).
 async function answerOracle(requestId: number, text: string, modelTier: string): Promise<void> {
-  await run("spacetime", ["call", DB, "answer_oracle", "--", String(requestId), text, modelTier]);
+  await run(SPACETIMEDB_CLI, ["call", DB, "answer_oracle", "--", String(requestId), text, modelTier]);
 }
 
 // Rich system prompt outlining the game GDD guidelines for accurate Oracle responses.
@@ -262,7 +274,7 @@ async function processRequest(row: Record<string, string>): Promise<void> {
 
 async function checkPendingRequests(): Promise<void> {
   try {
-    const { stdout } = await run("spacetime", [
+    const { stdout } = await run(SPACETIMEDB_CLI, [
       "sql",
       DB,
       "SELECT request_id, question, context, cacheable FROM oracle_request WHERE answered = false",

@@ -59,6 +59,7 @@ namespace SpacetimeDB.Types
         public global::SpacetimeDB.Col<WordDuel, bool> Won { get; }
         public global::SpacetimeDB.Col<WordDuel, ulong> TokensAwarded { get; }
         public global::SpacetimeDB.Col<WordDuel, SpacetimeDB.Timestamp> CreatedAt { get; }
+        public global::SpacetimeDB.Col<WordDuel, string> AgentRationale { get; }
 
         public WordDuelCols(string tableName)
         {
@@ -72,6 +73,7 @@ namespace SpacetimeDB.Types
             Won = new global::SpacetimeDB.Col<WordDuel, bool>(tableName, "won");
             TokensAwarded = new global::SpacetimeDB.Col<WordDuel, ulong>(tableName, "tokens_awarded");
             CreatedAt = new global::SpacetimeDB.Col<WordDuel, SpacetimeDB.Timestamp>(tableName, "created_at");
+            AgentRationale = new global::SpacetimeDB.Col<WordDuel, string>(tableName, "agent_rationale");
         }
     }
 

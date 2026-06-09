@@ -1723,12 +1723,15 @@ fn agent_letters(ctx: &ReducerContext, agent: Planet) -> [u8; 26] {
 /// wallet can't be farmed by re-casting in a tight loop.
 #[reducer]
 pub fn cast_word(ctx: &ReducerContext, word: String, opponent: Planet) -> Result<(), String> {
-    let player = ctx
+    if ctx
         .db
         .player()
         .identity()
         .find(&ctx.sender)
-        .ok_or("register a Seeker first")?;
+        .is_none()
+    {
+        return Err("register a Seeker first".into());
+    }
 
     let w = word.trim().to_ascii_uppercase();
     if w.len() < 2 {
@@ -1769,32 +1772,38 @@ pub fn cast_word(ctx: &ReducerContext, word: String, opponent: Planet) -> Result
 
     let player_score = words::word_score(&w);
 
-    // The planetary agent answers with the best word its sky-seeded rack can form.
+    // Get the agent's rack and format it as a uppercase letter string.
     let agent_rack = agent_letters(ctx, opponent);
-    let agent_word = words::best_word(&agent_rack).unwrap_or("");
-    let agent_score = words::word_score(agent_word);
-
-    let won = player_score >= agent_score;
-    let tokens = player_score as u64 * TOKEN_PER_POINT + if won { BEAT_AGENT_BONUS } else { 0 };
-
-    let mut p = player;
-    p.tokens = p.tokens.saturating_add(tokens);
-    if won {
-        p.word_wins += 1;
+    let mut rack_str = String::new();
+    for i in 0..26 {
+        for _ in 0..agent_rack[i] {
+            rack_str.push((b'A' + i as u8) as char);
+        }
     }
-    p.last_active = ctx.timestamp;
-    ctx.db.player().identity().update(p);
 
-    ctx.db.word_duel().insert(WordDuel {
-        duel_id: 0,
+    // Precompute legal candidate words and format manually as a JSON array of strings
+    // to avoid extra dependency overhead.
+    let cands = words::legal_candidates(&agent_rack);
+    let mut cands_json = String::from("[");
+    for (idx, c) in cands.iter().enumerate() {
+        if idx > 0 {
+            cands_json.push_str(", ");
+        }
+        cands_json.push('"');
+        cands_json.push_str(c);
+        cands_json.push('"');
+    }
+    cands_json.push(']');
+
+    ctx.db.duel_challenge().insert(DuelChallenge {
+        challenge_id: 0,
         player: ctx.sender,
         opponent,
         player_word: w,
         player_score,
-        agent_word: agent_word.to_string(),
-        agent_score,
-        won,
-        tokens_awarded: tokens,
+        agent_rack: rack_str,
+        candidates: cands_json,
+        answered: false,
         created_at: ctx.timestamp,
     });
     Ok(())
@@ -2152,6 +2161,74 @@ fn seed_bright_stars(ctx: &ReducerContext) {
             });
         }
     }
+}
+
+/// Owner-gated reducer called by the companion worker to close a word duel challenge,
+/// committing the agent's move, comparing scores, awarding tokens, and inserting the final WordDuel record.
+#[reducer]
+pub fn answer_duel(
+    ctx: &ReducerContext,
+    challenge_id: u64,
+    agent_word: String,
+    agent_rationale: String,
+    agent_score: u32,
+) -> Result<(), String> {
+    let cfg = ctx
+        .db
+        .game_config()
+        .id()
+        .find(&0)
+        .ok_or_else(|| "not initialised".to_string())?;
+    if ctx.sender != cfg.owner {
+        return Err("owner-only reducer".into());
+    }
+
+    let mut challenge = ctx
+        .db
+        .duel_challenge()
+        .challenge_id()
+        .find(&challenge_id)
+        .ok_or_else(|| "no such challenge".to_string())?;
+    if challenge.answered {
+        return Ok(()); // idempotent
+    }
+
+    let player = ctx
+        .db
+        .player()
+        .identity()
+        .find(&challenge.player)
+        .ok_or_else(|| "no such player".to_string())?;
+
+    challenge.answered = true;
+    ctx.db.duel_challenge().challenge_id().update(challenge.clone());
+
+    let won = challenge.player_score >= agent_score;
+    let tokens = challenge.player_score as u64 * TOKEN_PER_POINT + if won { BEAT_AGENT_BONUS } else { 0 };
+
+    let mut p = player;
+    p.tokens = p.tokens.saturating_add(tokens);
+    if won {
+        p.word_wins += 1;
+    }
+    p.last_active = ctx.timestamp;
+    ctx.db.player().identity().update(p);
+
+    ctx.db.word_duel().insert(WordDuel {
+        duel_id: 0,
+        player: challenge.player,
+        opponent: challenge.opponent,
+        player_word: challenge.player_word,
+        player_score: challenge.player_score,
+        agent_word,
+        agent_score,
+        agent_rationale: Some(agent_rationale),
+        won,
+        tokens_awarded: tokens,
+        created_at: ctx.timestamp,
+    });
+
+    Ok(())
 }
 
 #[cfg(test)]

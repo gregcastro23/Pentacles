@@ -13,6 +13,7 @@ crate-type = ["cdylib"]
 # Cargo.toml pinned to your CLI, then drop these `src/*.rs` files in.
 spacetimedb = "1.0"
 log = "0.4"
+alchm-astro-core = { path = "../../../planetary_agents-main/alchm-astro-core" }
 
 [profile.release]
 opt-level = "s"

@@ -106,6 +106,24 @@ pub fn best_word(have: &[u8; 26]) -> Option<&'static str> {
         })
 }
 
+/// Returns the top 25 legal words that can be spelled from the rack,
+/// sorted by length and score.
+pub fn legal_candidates(have: &[u8; 26]) -> Vec<&'static str> {
+    let mut words: Vec<&'static str> = dict()
+        .iter()
+        .copied()
+        .filter(|w| can_spell(w, have))
+        .collect();
+    words.sort_by(|a, b| {
+        b.len()
+            .cmp(&a.len())
+            .then_with(|| base_score(b).cmp(&base_score(a)))
+            .then_with(|| a.cmp(b))
+    });
+    words.truncate(25);
+    words
+}
+
 /// The Codex, parsed once from the embedded list into a set of uppercase words.
 fn dict() -> &'static HashSet<&'static str> {
     static D: OnceLock<HashSet<&'static str>> = OnceLock::new();
