@@ -2,6 +2,8 @@
 server/
 unity/
 feeder/
+scripts/
+docs/
 
 # Exclude local environment files and logs
 .git/

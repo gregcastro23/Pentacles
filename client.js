@@ -415,11 +415,67 @@ class GameState {
     this.deck = [];
     this.map = [];
     this.selectedCards = new Set();
-    this.selectedStar = null;
+    this.selectedStarHip = null; // hip id — sky objects are recomputed, ids are stable
     this.selectedZone = null;
     this.leaderboard = [];
     this.seasonDegree = 0;
     this.wordDuels = []; // recent Word Duels of the Spheres (most-recent first)
+
+    // The real sky. `holdings` (hip → faction) is the persistent capture state;
+    // `sky` is the computed view of every catalogue star currently above the
+    // horizon — from the ascendant rising in the east to the edge of the sky —
+    // each projected onto the pentacle disk and grouped into its zone.
+    this.holdings = {};
+    this.observer = { lat: 40.7128, lon: -74.0060 }; // default: the world horizon (NYC)
+    this.sky = [];
+    this.asc = null;        // live ascendant {lambda, sign, degInSign, az}
+    this.planets = [];      // the ten wanderers, riding their own plane (the ecliptic)
+    this.ecliptic = [];     // visible arc(s) of that plane, for the overlay
+    this._contesters = {};  // transient per-star contester cache (hip → faction list)
+  }
+
+  // Recompute the visible sky: every catalogue star above the horizon, its
+  // alt/az for the observer right now, its disk projection, and its pentacle
+  // zone. ~5k stars of trig — comfortably under a millisecond budget per call.
+  recomputeSky() {
+    if (typeof STAR_CATALOG === "undefined") return;
+    const now = new Date();
+    const { lat, lon } = this.observer;
+    const lst = lstDeg(now, lon);
+    const sky = [];
+    for (const [hip, name, ra, dec, mag] of STAR_CATALOG) {
+      const aa = altAzOf(ra, dec, lat, lst);
+      if (aa.alt <= 0) continue; // below the edge of the sky
+      const p = skyProject(aa.alt, aa.az);
+      sky.push({
+        hip_id: hip,
+        name,
+        ra, dec,
+        magnitude: mag,
+        alt: aa.alt,
+        az: aa.az,
+        x: p.x,
+        y: p.y,
+        zone: zoneForAltAz(aa.alt, aa.az),
+        held_by: this.holdings[hip] ?? null,
+        weight: starWeight(mag),
+      });
+    }
+    this.sky = sky;
+    this.asc = ascendantNow(lat, lon, now);
+    // The wanderers live on their own plane: the ecliptic, drawn over the
+    // star field so a planet is never lost among five thousand stars.
+    this.planets = computePlanets(lat, lon, now);
+    this.ecliptic = eclipticSegments(lat, lon, now);
+  }
+
+  starsInZone(zoneId) {
+    return this.sky.filter(s => s.zone === zoneId);
+  }
+
+  getSelectedStar() {
+    if (this.selectedStarHip === null) return null;
+    return this.sky.find(s => s.hip_id === this.selectedStarHip) || null;
   }
 
   load() {
@@ -457,6 +513,8 @@ class GameState {
           this.leaderboard = data.leaderboard;
           this.seasonDegree = data.seasonDegree || 0;
           this.wordDuels = data.wordDuels || [];
+          this.holdings = data.holdings || {};
+          this.observer = data.observer || { lat: 40.7128, lon: -74.0060 };
           // Lettered Arcana migration: older saves predate letters/tokens.
           if (this.player) {
             if (typeof this.player.tokens !== "number") this.player.tokens = 0;
@@ -465,6 +523,10 @@ class GameState {
           (this.collection || []).forEach(c => {
             if (!c.letter) c.letter = letterFor(c.card_id);
           });
+          // Real-sky migration: older saves carried per-zone fake star lists.
+          // The sky is now computed from the shared catalogue; drop the relics.
+          (this.map || []).forEach(z => { delete z.stars; });
+          this.recomputeSky();
           return true;
         } catch (e) {
           console.error("Failed parsing profile state", e);
@@ -487,7 +549,9 @@ class GameState {
       map: this.map,
       leaderboard: this.leaderboard,
       seasonDegree: this.seasonDegree,
-      wordDuels: this.wordDuels
+      wordDuels: this.wordDuels,
+      holdings: this.holdings,
+      observer: this.observer
     };
     
     localStorage.setItem(`pentacles_save_${activeHandle}`, JSON.stringify(data));
@@ -547,13 +611,16 @@ class GameState {
     this.collection = [];
     this.deck = [];
     this.selectedCards.clear();
-    this.selectedStar = null;
+    this.selectedStarHip = null;
     this.selectedZone = null;
+    this.holdings = {};
+    this._contesters = {};
     this.initDefaultMap();
   }
 
   initDefaultMap() {
-    // Inits 11 zones
+    // Inits the 11 zones — pure control records. The stars themselves come from
+    // the shared catalogue and are grouped into zones live (recomputeSky).
     this.map = [];
     const kinds = ["house", "house", "house", "house", "house", "spire", "spire", "spire", "spire", "spire", "crown"];
     for (let i = 0; i < 11; i++) {
@@ -561,40 +628,11 @@ class GameState {
         zone_id: i,
         kind: kinds[i],
         owner: null, // neutral
-        control: 0,  // -1000..1000 tug of war meter
-        stars: this.generateStarsForZone(i)
+        control: 0   // -1000..1000 tug of war meter
       });
     }
     this.recalculateLeaderboard();
-  }
-
-  generateStarsForZone(zoneId) {
-    // Star details: Hipparcos ID equivalent, name, magnitude (magnitude decides weight), owner
-    const starNames = [
-      ["Sirius", "Vega", "Altair", "Procyon", "Fomalhaut"], // Zone 0
-      ["Capella", "Castor", "Pollux", "Aldebaran", "Elnath"], // Zone 1
-      ["Spica", "Arcturus", "Denebola", "Regulus", "Algieba"], // Zone 2
-      ["Antares", "Shaula", "Sabik", "Nunki", "Kaus Australis"], // Zone 3
-      ["Deneb", "Sadr", "Gienah", "Albireo", "Ruchbah"], // Zone 4
-      ["Polaris", "Kochab", "Yildun"], // Zone 5 (Spire)
-      ["Mirfak", "Algol", "Atik"], // Zone 6 (Spire)
-      ["Bellatrix", "Betelgeuse", "Rigel"], // Zone 7 (Spire)
-      ["Acrux", "Mimosa", "Gacrux"], // Zone 8 (Spire)
-      ["Canopus", "Miaplacidus", "Avior"], // Zone 9 (Spire)
-      ["Zenith Star Alpha", "Zenith Star Beta"] // Zone 10 (Crown)
-    ];
-
-    const names = starNames[zoneId] || ["Star A", "Star B"];
-    return names.map((name, idx) => {
-      const mag = (zoneId >= 5 ? 1.5 : 2.5) + (idx * 0.4);
-      return {
-        hip_id: zoneId * 10 + idx,
-        name: name,
-        magnitude: parseFloat(mag.toFixed(2)),
-        held_by: null,
-        weight: Math.round(50 / mag) // lower magnitude = brighter = heavier weight
-      };
-    });
+    this.recomputeSky();
   }
 
   registerPlayer(handle, faction, chart) {
@@ -773,11 +811,16 @@ class GameState {
     return have;
   }
 
-  // A planetary agent's rack: AGENT_RACK_SIZE tiles drawn deterministically from the
-  // sky (faction + the rotating season), mirroring the server's agent_letters seam.
+  // A planetary agent's rack: AGENT_RACK_SIZE tiles drawn deterministically from
+  // the sky, mirroring the server's agent_letters seam. The agent is the planet
+  // at its associated degree — its rack is seeded by its real ecliptic position
+  // (arc-minutes), so the agent you face IS the body overhead right now.
+  // Falls back to the season clock if the ephemeris hasn't computed yet.
   agentLetters(opponentIdx) {
     const RACK = 7;
-    let s = (opponentIdx + 1) * 2654435761 + this.seasonDegree * 40503 + 0x9e3779b9;
+    const p = (this.planets || [])[opponentIdx];
+    const degSeed = p ? Math.floor(p.eclLon * 60) : this.seasonDegree;
+    let s = (opponentIdx + 1) * 2654435761 + degSeed * 40503 + 0x9e3779b9;
     s = s >>> 0;
     const have = {};
     for (let i = 0; i < RACK; i++) {
@@ -842,6 +885,10 @@ class GameState {
     // Advance season clock degree
     this.seasonDegree = (this.seasonDegree + 1) % 360;
 
+    // The sky turns: stars rise in the east (past the ascendant), wheel through
+    // the pentacle zones, and set at the western edge.
+    this.recomputeSky();
+
     // Simulate passive decay in uncontrolled zones
     this.map.forEach(zone => {
       if (zone.control !== 0) {
@@ -851,7 +898,7 @@ class GameState {
         } else {
           zone.control = Math.min(0, zone.control + decayRate);
         }
-        
+
         // If control drops back to 0, ownership becomes neutral
         if (zone.control === 0) {
           zone.owner = null;
@@ -859,19 +906,20 @@ class GameState {
       }
     });
 
-    // Simulate occasional bot attacks on neutral/opposing zones (keeps map alive)
-    if (Math.random() < 0.2) {
-      const randomZone = this.map[Math.floor(Math.random() * this.map.length)];
+    // Simulate occasional bot attacks (keeps map alive): a bot faction grabs a
+    // random star currently overhead and swings that star's zone.
+    if (Math.random() < 0.2 && this.sky.length > 0) {
       const botFaction = Math.floor(Math.random() * 10);
-      
-      // Select random star to capture
-      const randomStar = randomZone.stars[Math.floor(Math.random() * randomZone.stars.length)];
+      const randomStar = this.sky[Math.floor(Math.random() * this.sky.length)];
+      this.holdings[randomStar.hip_id] = botFaction;
       randomStar.held_by = botFaction;
-      
-      // Shift zone control meter
-      const delta = (botFaction === this.player?.faction) ? 100 : -100;
+      const randomZone = this.map[randomStar.zone];
+
+      // Shift zone control meter by the star's brightness weight
+      const swing = starControlDelta(randomStar.magnitude, 0);
+      const delta = (botFaction === this.player?.faction) ? swing : -swing;
       randomZone.control = Math.max(-1000, Math.min(1000, randomZone.control + delta));
-      
+
       // Update zone ownership if crosses threshold (+600 for player's faction, -600 for bots)
       if (randomZone.control >= 600) {
         randomZone.owner = this.player?.faction;
@@ -880,8 +928,58 @@ class GameState {
       }
     }
 
+    // Stars that set below the horizon release their transient garrisons.
+    const visible = new Set(this.sky.map(s => s.hip_id));
+    for (const hip of Object.keys(this._contesters)) {
+      if (!visible.has(Number(hip))) delete this._contesters[hip];
+    }
+
     this.recalculateLeaderboard();
     this.save();
+  }
+
+  // ---- Victory spoils: a won siege makes the star yield an Arcana ----
+  //
+  // The star's zone decides the suit (its favored sign's element), the star's
+  // sky position decides the pip rank, and its brightness scales the stats. The
+  // card carries a Letter like every mint — your rack grows as you conquer.
+  // Mirrors the server's draft economy (pips only, never courts/trumps), capped
+  // at COLLECTION_CAP with weakest-bench replacement.
+  draftVictoryCard(star, zone) {
+    const COLLECTION_CAP = 100;
+    const signIdx = zone.zone_id % 12;
+    const degree = Math.floor(star.az % 30);
+    const minute = Math.floor((star.alt * 60) % 60);
+    const card = this.createCard(
+      this.player.faction, false, degree, minute, 0, false,
+      pipRank(signIdx, degree), signIdx
+    );
+    // Brighter stars yield stronger spoils (Sirius ≈ ×1.45, a mag-6 spark ≈ ×1.02).
+    const shine = 1.0 + starWeight(star.magnitude) * 0.055;
+    card.attack = Math.max(1, Math.round(card.attack * shine));
+    card.health = Math.max(1, Math.round(card.health * shine));
+
+    if (this.collection.length >= COLLECTION_CAP) {
+      // Replace only the weakest bench card, and only if the spoils are stronger.
+      const benchSlots = this.deck.filter(d => d.loadout === "bench");
+      let weakest = null;
+      benchSlots.forEach(slot => {
+        const c = this.collection.find(cc => cc.card_id === slot.card_id);
+        if (c && !c.is_trump) {
+          const power = c.attack + c.health / 2 + c.armour;
+          if (!weakest || power < weakest.power) weakest = { card: c, power };
+        }
+      });
+      const newPower = card.attack + card.health / 2 + card.armour;
+      if (!weakest || newPower <= weakest.power) return null; // nothing culled — no mint
+      this.collection = this.collection.filter(c => c.card_id !== weakest.card.card_id);
+      this.deck = this.deck.filter(d => d.card_id !== weakest.card.card_id);
+    }
+
+    this.collection.push(card);
+    this.deck.push({ card_id: card.card_id, loadout: "bench" });
+    this.save();
+    return card;
   }
 }
 
@@ -889,8 +987,11 @@ const state = new GameState();
 
 // ---- AUTO-SIEGE COMBAT RESOLVER ----
 // ---- MULTI-FACTION BATTLE HELPERS & RESOLVER ----
+// Contesters are cached per star (by hip id, in state._contesters) so the
+// preview and the resolved battle agree; the cache entry is cleared after the
+// battle, and when the star sets below the horizon.
 function getStarContesters(zone, star) {
-  if (!star.contesters) {
+  if (!state._contesters[star.hip_id]) {
     const contesters = new Set();
     // 1. Add player faction
     if (state.player) {
@@ -910,9 +1011,9 @@ function getStarContesters(zone, star) {
       const randomFaction = Math.floor(Math.random() * 10);
       contesters.add(randomFaction);
     }
-    star.contesters = Array.from(contesters);
+    state._contesters[star.hip_id] = Array.from(contesters);
   }
-  return star.contesters;
+  return state._contesters[star.hip_id];
 }
 
 // ---- AUTO-SIEGE COMBAT RESOLVER ----

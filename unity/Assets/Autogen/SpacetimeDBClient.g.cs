@@ -31,6 +31,7 @@ namespace SpacetimeDB.Types
             AddTable(Card = new(conn));
             AddTable(DeckSlot = new(conn));
             AddTable(Duel = new(conn));
+            AddTable(DuelChallenge = new(conn));
             AddTable(DuelQueue = new(conn));
             AddTable(Ephemeris = new(conn));
             AddTable(GameConfig = new(conn));
@@ -529,6 +530,7 @@ namespace SpacetimeDB.Types
             new QueryBuilder().From.Card().ToSql(),
             new QueryBuilder().From.DeckSlot().ToSql(),
             new QueryBuilder().From.Duel().ToSql(),
+            new QueryBuilder().From.DuelChallenge().ToSql(),
             new QueryBuilder().From.DuelQueue().ToSql(),
             new QueryBuilder().From.Ephemeris().ToSql(),
             new QueryBuilder().From.GameConfig().ToSql(),
@@ -551,6 +553,7 @@ namespace SpacetimeDB.Types
         public global::SpacetimeDB.Table<Card, CardCols, CardIxCols> Card() => new("card", new CardCols("card"), new CardIxCols("card"));
         public global::SpacetimeDB.Table<DeckSlot, DeckSlotCols, DeckSlotIxCols> DeckSlot() => new("deck_slot", new DeckSlotCols("deck_slot"), new DeckSlotIxCols("deck_slot"));
         public global::SpacetimeDB.Table<Duel, DuelCols, DuelIxCols> Duel() => new("duel", new DuelCols("duel"), new DuelIxCols("duel"));
+        public global::SpacetimeDB.Table<DuelChallenge, DuelChallengeCols, DuelChallengeIxCols> DuelChallenge() => new("duel_challenge", new DuelChallengeCols("duel_challenge"), new DuelChallengeIxCols("duel_challenge"));
         public global::SpacetimeDB.Table<DuelQueue, DuelQueueCols, DuelQueueIxCols> DuelQueue() => new("duel_queue", new DuelQueueCols("duel_queue"), new DuelQueueIxCols("duel_queue"));
         public global::SpacetimeDB.Table<Ephemeris, EphemerisCols, EphemerisIxCols> Ephemeris() => new("ephemeris", new EphemerisCols("ephemeris"), new EphemerisIxCols("ephemeris"));
         public global::SpacetimeDB.Table<GameConfig, GameConfigCols, GameConfigIxCols> GameConfig() => new("game_config", new GameConfigCols("game_config"), new GameConfigIxCols("game_config"));
@@ -643,6 +646,7 @@ namespace SpacetimeDB.Types
         {
             var eventContext = (ReducerEventContext)context;
             return reducer switch {
+                Reducer.AnswerDuel args => Reducers.InvokeAnswerDuel(eventContext, args),
                 Reducer.AnswerOracle args => Reducers.InvokeAnswerOracle(eventContext, args),
                 Reducer.AskOracle args => Reducers.InvokeAskOracle(eventContext, args),
                 Reducer.CancelTrade args => Reducers.InvokeCancelTrade(eventContext, args),

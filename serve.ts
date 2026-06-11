@@ -1,7 +1,8 @@
 import { join } from "path";
 
 const root = import.meta.dir;
-const port = 8080;
+// Port: $PORT, or a CLI arg (`bun serve.ts 8090`), else 8080.
+const port = Number(process.env.PORT || Bun.argv[2] || 8080);
 
 console.log(`Starting static server at http://localhost:${port}`);
 console.log(`Serving files from: ${root}`);

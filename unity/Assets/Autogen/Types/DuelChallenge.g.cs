@@ -11,10 +11,10 @@ namespace SpacetimeDB.Types
 {
     [SpacetimeDB.Type]
     [DataContract]
-    public sealed partial class WordDuel
+    public sealed partial class DuelChallenge
     {
-        [DataMember(Name = "duel_id")]
-        public ulong DuelId;
+        [DataMember(Name = "challenge_id")]
+        public ulong ChallengeId;
         [DataMember(Name = "player")]
         public SpacetimeDB.Identity Player;
         [DataMember(Name = "opponent")]
@@ -23,50 +23,43 @@ namespace SpacetimeDB.Types
         public string PlayerWord;
         [DataMember(Name = "player_score")]
         public uint PlayerScore;
-        [DataMember(Name = "agent_word")]
-        public string AgentWord;
-        [DataMember(Name = "agent_score")]
-        public uint AgentScore;
-        [DataMember(Name = "won")]
-        public bool Won;
-        [DataMember(Name = "tokens_awarded")]
-        public ulong TokensAwarded;
+        [DataMember(Name = "agent_rack")]
+        public string AgentRack;
+        [DataMember(Name = "candidates")]
+        public string Candidates;
+        [DataMember(Name = "answered")]
+        public bool Answered;
         [DataMember(Name = "created_at")]
         public SpacetimeDB.Timestamp CreatedAt;
-        [DataMember(Name = "agent_rationale")]
-        public string? AgentRationale;
 
-        public WordDuel(
-            ulong DuelId,
+        public DuelChallenge(
+            ulong ChallengeId,
             SpacetimeDB.Identity Player,
             Planet Opponent,
             string PlayerWord,
             uint PlayerScore,
-            string AgentWord,
-            uint AgentScore,
-            bool Won,
-            ulong TokensAwarded,
-            SpacetimeDB.Timestamp CreatedAt,
-            string? AgentRationale
+            string AgentRack,
+            string Candidates,
+            bool Answered,
+            SpacetimeDB.Timestamp CreatedAt
         )
         {
-            this.DuelId = DuelId;
+            this.ChallengeId = ChallengeId;
             this.Player = Player;
             this.Opponent = Opponent;
             this.PlayerWord = PlayerWord;
             this.PlayerScore = PlayerScore;
-            this.AgentWord = AgentWord;
-            this.AgentScore = AgentScore;
-            this.Won = Won;
-            this.TokensAwarded = TokensAwarded;
+            this.AgentRack = AgentRack;
+            this.Candidates = Candidates;
+            this.Answered = Answered;
             this.CreatedAt = CreatedAt;
-            this.AgentRationale = AgentRationale;
         }
 
-        public WordDuel()
+        public DuelChallenge()
         {
             this.PlayerWord = "";
-            this.AgentWord = "";
+            this.AgentRack = "";
+            this.Candidates = "";
         }
     }
 }

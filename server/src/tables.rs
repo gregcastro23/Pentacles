@@ -191,6 +191,12 @@ pub struct GameConfig {
     pub season_degree: u16,   // the Great Wheel ingress marker, 0..359
     pub ascendant_degree: u16, // live world ascendant clock, 0..359
     pub seeded: bool,
+    /// How far into `catalog::STARS` seeding has progressed. `init` seeds the
+    /// brightest batch; `tick_sky` backfills the rest of the naked-eye sky in
+    /// gentle batches (and an already-published module catches up the same way
+    /// after an upgrade — `#[default]` keeps the publish non-destructive).
+    #[default(0u32)]
+    pub star_seed_cursor: u32,
 }
 
 /// Live-PvP matchmaking intents, drained by `enqueue_duel`.
@@ -305,6 +311,8 @@ pub struct WordDuel {
     pub won: bool,            // player_score >= agent_score
     pub tokens_awarded: u64,
     pub created_at: Timestamp,
+    #[default(None::<String>)]
+    pub agent_rationale: Option<String>, // characterful explanation
 }
 
 /// Per-player word-duel rate state, backing the duel cooldown (private). Stops token
@@ -316,6 +324,22 @@ pub struct WordRate {
     pub identity: Identity,
     pub last_at: Timestamp,
     pub plays: u32,
+}
+
+#[spacetimedb::table(name = duel_challenge, public)]
+#[derive(Clone)]
+pub struct DuelChallenge {
+    #[primary_key]
+    #[auto_inc]
+    pub challenge_id: u64,
+    pub player: Identity,
+    pub opponent: Planet,
+    pub player_word: String,
+    pub player_score: u32,
+    pub agent_rack: String,  // e.g. "AEIONRS"
+    pub candidates: String,  // JSON string array of valid words
+    pub answered: bool,
+    pub created_at: Timestamp,
 }
 
 // ── The Ascendant clock (per-round re-draft) ────────────────────────────────

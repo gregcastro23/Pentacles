@@ -16,9 +16,13 @@ Pentacles/
 ├── Pentacles_GDD.html          # the Game Design Document — open in a browser
 ├── pentacles.css               # GDD stylesheet
 ├── README.md
+├── star-catalog.js             # the real sky: 5,041 naked-eye stars (web client copy)
+├── sky.js                      # web client celestial math + pentacle partition
+├── scripts/
+│   └── make_catalog.py         # regenerates both star catalogues from HYG
 ├── server/                     # SpacetimeDB module — Rust (authoritative state)
 │   ├── Cargo.toml
-│   └── src/{lib,types,tables,chart,combat,reducers}.rs
+│   └── src/{lib,types,tables,chart,combat,reducers,catalog}.rs
 ├── unity/                      # Unity client
 │   ├── CelestialPentacleConn.cs    # connection + reducer calls + FrameTick
 │   ├── ChartCalculator.cs          # birth input → NatalChart (placements/asc/MC)
@@ -46,7 +50,9 @@ A standalone, lightweight 2D/AR-toggleable Web Client is now available in the pr
 
 ### Key Features:
 *   **Onboarding & Placements**: Enter date/time/location data to calculate chart placements, evaluate recommended factions by dignity score, and deterministically mint your starting deck of 40 cards.
-*   **Interactive SVG Pentacle Map**: A high-performance SVG rendering of the Celestial Pentacle (the 11-zone grid) featuring clean, intersecting star lines and dynamic star nodes.
+*   **The Real Sky, Fully Mapped**: Every naked-eye star (5,041 to magnitude 6.0, from the HYG catalogue) above your observer's horizon is computed live — alt/az from your lat/lon and the sidereal clock — and projected onto the Pentacle disk (zenith at the centre, the horizon at the rim). The pentagram partitions the visible hemisphere into the 11 zones, so every star from the rising **Ascendant** (marked live on the rim, with a compass rose) to the edge of the sky belongs to exactly one zone. The sky drifts through the zones in real time; stars below the 10° engagement band render dimmed and unstrikeable, mirroring the server gate.
+*   **The Wanderers — Planetary Agents in the Same Sky**: The ten bodies (real geocentric positions, the same low-precision ephemeris as `feeder/ephemeris.ts`) share the stars' plane — one projection, one disk — but at honest scale: they are far **closer** than any star, so they render much larger (faction-coloured glyph medallions with halos vs pinprick stars, which stay small until hovered and bloom under the cursor). Each planet is the **planetary agent of its associated degree** — the same agents from the `planetary-agents` project that answer in Word Duels. Its rack is seeded by its real ecliptic position, its tooltip gives sign/degree/altitude/transiting zone, and tapping its medallion opens the ✦ Words tab with that agent targeted. The dashed ecliptic is the road the agents walk.
+*   **Victory Spoils**: A won siege makes the conquered star yield a fresh Arcana — suit from the star's zone, pip rank from its sky position, stats scaled by its brightness, and a Scrabble **Letter** for your Word-Duel rack (capped at 100 cards with weakest-bench replacement, like the server economy).
 *   **Multi-Faction Auto-Siege Combat**: Star battles support up to all 10 factions contesting a single star simultaneously. Turn order is driven by card speeds, and bot cards automatically focus-fire on the strongest remaining faction.
 *   **Astral Sign In & Profiles**: Switch between different Seeker profiles, discard characters, or export/import base64-encoded Astral Keys to transfer saves across browsers and devices.
 *   **Web Audio Synth Engine**: Creates sound effects and music entirely inside the browser's native audio engine (no heavy audio files to load):
@@ -92,8 +98,22 @@ cd server
 #   spacetime init --lang rust .     # then keep these src/*.rs files
 spacetime login                      # you're already logged in as the owner
 spacetime build
-spacetime publish cookingwithcastrollc   # runs `init` (seeds 11 zones + 8 stars)
+spacetime publish cookingwithcastrollc   # runs `init` (seeds 11 zones + the brightest stars)
 spacetime logs cookingwithcastrollc -f
+```
+
+**The full sky seeds itself.** `init` plants the brightest 512 stars immediately;
+`tick_sky` then backfills the rest of the embedded naked-eye catalogue
+(`server/src/catalog.rs` — **5,041 stars to magnitude 6.0**, generated from the
+HYG database) a batch per 10-second tick, so the whole sky is in within ~3
+minutes. An already-published module catches up the same way after an upgrade —
+the `star_seed_cursor` on `game_config` tracks progress and existing captures
+are never touched. To regenerate the catalogue (both the Rust and web copies):
+
+```bash
+curl -sL -o /tmp/hygdata.csv \
+  https://raw.githubusercontent.com/astronexus/HYG-Database/main/hyg/CURRENT/hygdata_v41.csv
+python3 scripts/make_catalog.py /tmp/hygdata.csv
 ```
 
 The Rust module is compile-tested against the generated bindings in this repo;
@@ -196,7 +216,7 @@ and tutorial all work without it; this powers only the free-text chat.
 | §06 Suits (environmental) | `combat::element_weather` — a zone's element favors its suit (×1.35 / opposite ×0.75); no card-vs-card counters |
 | Round weather (the Great Wheel) | `tick_sky` → `advance_round_clock` advances the world Ascendant (NYC) in `game_config.season_degree`; `zone_favored_suit` rotates the 12 signs through the 11 zones so each carries its own live element |
 | §07 Star → zone tug-of-war | `resolve_star_battle` + `apply_control` (signed meter, flip at ±600) |
-| §08 AR & ephemeris | `unity/SkyMath.cs` + `SkyRenderer.cs` · `feeder/` + `push_ephemeris` |
+| §08 AR & ephemeris | `unity/SkyMath.cs` + `SkyRenderer.cs` · `feeder/` + `push_ephemeris` · the full naked-eye star catalogue `server/src/catalog.rs` (5,041 stars, HYG-derived, regenerate with `scripts/make_catalog.py`), mirrored to the web client as `star-catalog.js` + `sky.js` |
 | GPS engagement | `unity/GpsService.cs` (single GPS authority, with editor fallback) → `set_location` (private `player_location`); `resolve_star_battle` gates on `altitude_deg ≥ 10°`. `SkyRenderer` dims the 0–10° band and `BattlePanel` disables Strike with the reason, so the AR view matches the gate |
 | Deck curation | `set_loadout` (Active capped at 8) via a per-card loadout chip in `DeckPanel`/`CardView` (Active → Defense → Bench); `create_player` is idempotent — re-registering clears the old deck before re-minting |
 | Zodiac seals (territory) | `sealed_suits` — a faction masters the elements of the signs sitting in the zones it holds; its cards of those suits fight at `combat::SEAL_BONUS` (×1.15) in sieges & duels. Derived from zone ownership + the rotating sky, so it shifts as the wheel turns |
