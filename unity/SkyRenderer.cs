@@ -28,6 +28,10 @@ public class SkyRenderer : MonoBehaviour
     public float skyRadius = 20f;     // distance to place sky nodes
     public GameObject starPrefab;     // null → a small sphere is created
     public Material zoneLineMaterial; // for the Pentacle outline LineRenderers
+    /// The full naked-eye catalogue (~5k rows to mag 6.0) lives in the module;
+    /// instantiate AR nodes only down to this magnitude so mobile framerate
+    /// holds (5.0 ≈ 1,600 stars). Raise it on capable hardware for the full sky.
+    public float maxRenderMagnitude = 5.0f;
 
     static readonly Color[] FactionColor = {
         new(1.00f, 0.78f, 0.36f), // Sun
@@ -43,7 +47,20 @@ public class SkyRenderer : MonoBehaviour
     };
     static readonly Color Neutral = new(0.55f, 0.55f, 0.62f);
 
-    readonly Dictionary<uint, Transform> _stars = new();
+    /// Per-star render state. The renderer + last tint are cached so a frame
+    /// only writes a material colour when a star's owner/engageability actually
+    /// changed — with a thousand-plus stars overhead that's the difference
+    /// between a hot loop and a quiet one.
+    class StarVis
+    {
+        public Transform Tr;
+        public Renderer Rend;
+        public Planet? TintHeld;
+        public bool TintEngageable = true;
+        public bool TintValid;
+    }
+
+    readonly Dictionary<uint, StarVis> _stars = new();
     readonly Dictionary<byte, LineRenderer> _zones = new();
     bool _gridBuilt;
 
@@ -101,20 +118,25 @@ public class SkyRenderer : MonoBehaviour
         int inReach = 0;
         foreach (var s in conn.Conn.Db.StarNode.Iter())
         {
-            if (!_stars.TryGetValue(s.HipId, out var tr))
+            // The module holds the whole naked-eye sky; only instantiate nodes
+            // down to the render cap (fainter stars stay data-only).
+            if (s.Magnitude > maxRenderMagnitude) continue;
+
+            if (!_stars.TryGetValue(s.HipId, out var vis))
             {
-                tr = CreateStar(s);
-                _stars[s.HipId] = tr;
+                vis = CreateStar(s);
+                _stars[s.HipId] = vis;
             }
             SkyMath.EquatorialToHorizontal(s.Ra, s.Dec, latitude, lst, out double alt, out double az);
             bool up = alt > 0;
-            tr.gameObject.SetActive(up);
-            if (up) tr.position = origin.position + SkyMath.HorizontalToWorld(alt, az) * skyRadius;
+            if (vis.Tr.gameObject.activeSelf != up) vis.Tr.gameObject.SetActive(up);
+            if (!up) continue;
+            vis.Tr.position = origin.position + SkyMath.HorizontalToWorld(alt, az) * skyRadius;
             // Risen past the engage altitude → full colour and strikeable; merely above
             // the horizon → dimmed (visible, but the server won't let you strike it yet).
-            bool engageable = up && alt >= GpsService.MinEngageAltDeg;
+            bool engageable = alt >= GpsService.MinEngageAltDeg;
             if (engageable) inReach++;
-            Tint(tr, s.HeldBy, engageable);
+            Tint(vis, s.HeldBy, engageable);
         }
 
         InReachCount = inReach;
@@ -124,23 +146,27 @@ public class SkyRenderer : MonoBehaviour
                 : "✦ no stars high enough yet — wait for one to rise";
     }
 
-    Transform CreateStar(StarNode s)
+    StarVis CreateStar(StarNode s)
     {
         var go = starPrefab != null
             ? Instantiate(starPrefab)
             : GameObject.CreatePrimitive(PrimitiveType.Sphere);
         go.name = $"star:{s.Name}";
-        float size = Mathf.Lerp(0.45f, 0.12f, Mathf.InverseLerp(-1.5f, 4f, s.Magnitude));
+        float size = Mathf.Lerp(0.45f, 0.08f, Mathf.InverseLerp(-1.5f, 6f, s.Magnitude));
         go.transform.localScale = Vector3.one * size;
-        return go.transform;
+        return new StarVis { Tr = go.transform, Rend = go.GetComponent<Renderer>() };
     }
 
-    void Tint(Transform tr, Planet? heldBy, bool engageable)
+    static void Tint(StarVis vis, Planet? heldBy, bool engageable)
     {
-        var rend = tr.GetComponent<Renderer>();
-        if (rend == null) return;
+        if (vis.Rend == null) return;
+        // Only touch the material when the state actually changed.
+        if (vis.TintValid && Nullable.Equals(vis.TintHeld, heldBy) && vis.TintEngageable == engageable) return;
+        vis.TintHeld = heldBy;
+        vis.TintEngageable = engageable;
+        vis.TintValid = true;
         Color c = heldBy.HasValue ? FactionColor[(int)heldBy.Value] : Color.white;
-        rend.material.color = engageable ? c : c * 0.3f;
+        vis.Rend.material.color = engageable ? c : c * 0.3f;
     }
 
     // ── Pentacle overlay ──────────────────────────────────────────────────
@@ -174,7 +200,7 @@ public class SkyRenderer : MonoBehaviour
 
     public void OnStarCaptured(StarNode s)
     {
-        if (_stars.TryGetValue(s.HipId, out var tr)) Tint(tr, s.HeldBy, GpsService.Engageable(s.Ra, s.Dec));
+        if (_stars.TryGetValue(s.HipId, out var vis)) Tint(vis, s.HeldBy, GpsService.Engageable(s.Ra, s.Dec));
     }
 
     public void OnZoneChanged(Zone zone)
@@ -248,8 +274,9 @@ public class SkyRenderer : MonoBehaviour
         uint best = 0; float bestDot = 0.985f;
         foreach (var kv in _stars)
         {
-            if (!kv.Value.gameObject.activeSelf) continue;
-            float d = Vector3.Dot(ray.direction, (kv.Value.position - ray.origin).normalized);
+            var tr = kv.Value.Tr;
+            if (!tr.gameObject.activeSelf) continue;
+            float d = Vector3.Dot(ray.direction, (tr.position - ray.origin).normalized);
             if (d > bestDot) { bestDot = d; best = kv.Key; }
         }
         return best;

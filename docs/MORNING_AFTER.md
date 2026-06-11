@@ -280,6 +280,15 @@ fn prune(ctx: &ReducerContext) {
 
 ### 3.3 Other DB notes
 
+- **The sky is now the full naked-eye catalogue (2026-06-11).** `star_node` holds **5,041 stars**
+  (HYG-derived, mag ≤ 6.0, embedded in `server/src/catalog.rs`), seeded by `init` (brightest 512)
+  + a `tick_sky` backfill batch per tick, cursor on `game_config.star_seed_cursor` (defaulted, so
+  the publish was non-destructive). State-size math should assume ~5k public `star_node` rows
+  (~400 KB) streaming to every subscriber; `recompute_star_zones` now touches 5k rows per tick
+  (reads — writes only on zone crossings, ~6 rows/tick). The web client carries the same
+  catalogue (`star-catalog.js` + `sky.js`) and maps the whole visible hemisphere from the
+  ascendant to the horizon rim.
+
 - **`oracle_cache` is the crown jewel** — it's the only table you want to *grow*. Pre-warm it (see
   [4.4](#44-pre-warm-the-lore-cache-with-the-batch-api)) and never prune it.
 - **Consider a `card_id` btree on `deck_slot.card_id`** — `combine_cards`, `set_loadout`, and the

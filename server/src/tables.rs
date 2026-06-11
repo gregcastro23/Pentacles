@@ -191,6 +191,12 @@ pub struct GameConfig {
     pub season_degree: u16,   // the Great Wheel ingress marker, 0..359
     pub ascendant_degree: u16, // live world ascendant clock, 0..359
     pub seeded: bool,
+    /// How far into `catalog::STARS` seeding has progressed. `init` seeds the
+    /// brightest batch; `tick_sky` backfills the rest of the naked-eye sky in
+    /// gentle batches (and an already-published module catches up the same way
+    /// after an upgrade — `#[default]` keeps the publish non-destructive).
+    #[default(0u32)]
+    pub star_seed_cursor: u32,
 }
 
 /// Live-PvP matchmaking intents, drained by `enqueue_duel`.

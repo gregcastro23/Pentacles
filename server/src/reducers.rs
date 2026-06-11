@@ -3,7 +3,7 @@
 
 use crate::tables::*;
 use crate::types::*;
-use crate::{chart, combat, words};
+use crate::{catalog, chart, combat, words};
 use spacetimedb::{reducer, Identity, ReducerContext, ScheduleAt, Table, Timestamp};
 use std::time::Duration;
 
@@ -56,6 +56,12 @@ const WORD_DUEL_COOLDOWN_SECS: i64 = 20;
 const TOKEN_PER_POINT: u64 = 50; // word_score × this is the base token reward
 const BEAT_AGENT_BONUS: u64 = 500; // matching/beating the planetary agent's best word
 const AGENT_RACK_SIZE: usize = 7; // tiles the agent draws — a standard Scrabble rack
+/// Star-catalogue seeding: `init` plants the brightest stars immediately so the
+/// sky is never empty, then `tick_sky` backfills the rest of the naked-eye
+/// catalogue (all ~5k stars to magnitude 6.0) a batch per tick. At 10s/tick the
+/// whole sky is in within ~3 minutes of first publish or upgrade.
+const INIT_SEED_STARS: usize = 512;
+const SEED_BATCH_PER_TICK: usize = 256;
 
 // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -69,6 +75,7 @@ pub fn init(ctx: &ReducerContext) {
             season_degree: 0,
             ascendant_degree: 0,
             seeded: false,
+            star_seed_cursor: 0,
         });
     }
 
@@ -92,7 +99,9 @@ pub fn init(ctx: &ReducerContext) {
         }
     }
 
-    seed_bright_stars(ctx);
+    // Plant the brightest stars immediately so the sky is never empty;
+    // tick_sky backfills the rest of the naked-eye catalogue batch by batch.
+    let cursor = seed_star_batch(ctx, 0, INIT_SEED_STARS);
 
     // Drive the persistent sky: tick every 10 seconds.
     ctx.db.sky_tick_timer().insert(SkyTickTimer {
@@ -102,6 +111,7 @@ pub fn init(ctx: &ReducerContext) {
 
     if let Some(mut cfg) = ctx.db.game_config().id().find(&0) {
         cfg.seeded = true;
+        cfg.star_seed_cursor = cursor;
         ctx.db.game_config().id().update(cfg);
     }
     log::info!("Pentacles module initialised");
@@ -1147,6 +1157,14 @@ pub fn tick_sky(ctx: &ReducerContext, _timer: SkyTickTimer) {
             );
         }
 
+        // Backfill the naked-eye star catalogue a batch per tick until the whole
+        // sky is in. This is also how an already-published module picks up a
+        // bigger catalogue after an upgrade — no manual call needed.
+        if (cfg.star_seed_cursor as usize) < catalog::STARS.len() {
+            cfg.star_seed_cursor =
+                seed_star_batch(ctx, cfg.star_seed_cursor as usize, SEED_BATCH_PER_TICK);
+        }
+
         ctx.db.game_config().id().update(cfg);
     }
 
@@ -2135,20 +2153,21 @@ fn bot_raid(ctx: &ReducerContext) {
     }
 }
 
-/// Bright naked-eye stars as starting objectives. `region_hint` spreads them
-/// across the eleven zones until the first scheduled sky tick recomputes it.
-fn seed_bright_stars(ctx: &ReducerContext) {
-    let stars: [(u32, &str, f64, f64, f32, u8); 8] = [
-        (32349, "Sirius", 101.287, -16.716, -1.46, 0),
-        (30438, "Canopus", 95.988, -52.696, -0.74, 1),
-        (69673, "Arcturus", 213.915, 19.182, -0.05, 2),
-        (91262, "Vega", 279.234, 38.784, 0.03, 3),
-        (24608, "Capella", 79.172, 45.998, 0.08, 4),
-        (24436, "Rigel", 78.634, -8.202, 0.13, 5),
-        (37279, "Procyon", 114.825, 5.225, 0.34, 6),
-        (11767, "Polaris", 37.954, 89.264, 1.98, 10),
-    ];
-    for (hip_id, name, ra, dec, magnitude, region_hint) in stars {
+/// Seed a slice of the embedded star catalogue (`catalog::STARS`, the full
+/// naked-eye sky to magnitude 6.0, sorted brightest-first) into `star_node`.
+/// Idempotent — existing rows (and their `held_by`) are left untouched, so the
+/// backfill can run over a live, contested sky. `region_hint` is computed from
+/// the catalogue position and the current sidereal time, the same canonical
+/// bucketing `recompute_star_zones` maintains from then on.
+///
+/// Returns the cursor after this batch (`min(start + count, catalogue len)`).
+fn seed_star_batch(ctx: &ReducerContext, start: usize, count: usize) -> u32 {
+    let end = (start + count).min(catalog::STARS.len());
+    if start >= end {
+        return catalog::STARS.len() as u32;
+    }
+    let gmst = gmst_deg(ctx.timestamp);
+    for &(hip_id, name, ra, dec, magnitude) in &catalog::STARS[start..end] {
         if ctx.db.star_node().hip_id().find(&hip_id).is_none() {
             ctx.db.star_node().insert(StarNode {
                 hip_id,
@@ -2157,10 +2176,14 @@ fn seed_bright_stars(ctx: &ReducerContext) {
                 dec,
                 magnitude,
                 held_by: None,
-                region_hint,
+                region_hint: zone_for_lon(gmst - ra),
             });
         }
     }
+    if end == catalog::STARS.len() {
+        log::info!("star catalogue fully seeded: {} stars", end);
+    }
+    end as u32
 }
 
 /// Owner-gated reducer called by the companion worker to close a word duel challenge,

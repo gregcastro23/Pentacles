@@ -40,6 +40,18 @@
             <input type="text" id="ob-loc" class="form-input" placeholder="e.g. New York, US" value="New York, US">
           </div>
         </div>
+        <div class="form-row" style="align-items: flex-end;">
+          <div class="form-group">
+            <label>Observer Latitude</label>
+            <input type="number" id="ob-lat" class="form-input" step="0.0001" min="-90" max="90" value="40.7128">
+          </div>
+          <div class="form-group">
+            <label>Longitude (east +)</label>
+            <input type="number" id="ob-lon" class="form-input" step="0.0001" min="-180" max="180" value="-74.0060">
+          </div>
+          <button class="btn" style="white-space:nowrap; height:38px;" onclick="useMyLocation()" title="Anchor the live star map to where you stand">📍 Locate</button>
+        </div>
+        <p style="font-size:11px; color:var(--dim); margin:-6px 0 0;">The observer anchors the live sky: every naked-eye star above your horizon — from the ascendant to the edge of the sky — is mapped into the Pentacle.</p>
         <button class="btn" style="margin-top: 10px;" onclick="calculateNatalOnboarding()">✦ Calculate Placements</button>
       </div>
 
@@ -92,6 +104,7 @@
         <div id="player-banner" style="display:flex; flex-direction:column; text-shadow:0 2px 4px #000; pointer-events:auto;">
           <!-- Loaded dynamically -->
         </div>
+        <div id="sky-status" style="align-self:center; font-size:11px; color:var(--gold-bright); text-shadow:0 2px 4px #000; letter-spacing:0.04em; pointer-events:none;"></div>
         <div class="hud-btn-group">
           <button class="btn" onclick="toggleSound()">🔊 Sound: ON</button>
           <button class="btn" onclick="toggleARMode()">📹 Toggle AR Mode</button>
@@ -136,6 +149,8 @@
 
           <!-- Dynamic overlay layer for Star Nodes -->
           <g id="stars-nodes-g"></g>
+          <!-- Compass rose + the live Ascendant marker on the horizon rim -->
+          <g id="sky-chrome-g" pointer-events="none"></g>
         </svg>
       </div>
 
@@ -271,6 +286,8 @@
     </div>
   </div>
 
+  <script src="star-catalog.js"></script>
+  <script src="sky.js"></script>
   <script src="client.js"></script>
   <script>
     // ---- WEB CLIENT UI RENDERING BINDINGS ----
@@ -311,6 +328,19 @@
       requestAnimationFrame(draw);
     })();
 
+    // Geolocation → observer inputs (anchors the live star map to where you stand)
+    function useMyLocation() {
+      if (!navigator.geolocation) { alert("Geolocation is not available in this browser."); return; }
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          document.getElementById("ob-lat").value = pos.coords.latitude.toFixed(4);
+          document.getElementById("ob-lon").value = pos.coords.longitude.toFixed(4);
+          synth.playSelect();
+        },
+        err => alert("Could not read your location (" + err.message + ") — enter lat/lon manually.")
+      );
+    }
+
     // Onboarding Calculation
     function calculateNatalOnboarding() {
       const handle = document.getElementById("ob-handle").value.trim();
@@ -319,7 +349,18 @@
       const loc = document.getElementById("ob-loc").value;
 
       if (!handle) { alert("Enter a seeker name!"); return; }
-      
+
+      // Anchor the live sky to the observer before the map first renders.
+      const lat = parseFloat(document.getElementById("ob-lat").value);
+      const lon = parseFloat(document.getElementById("ob-lon").value);
+      if (Number.isFinite(lat) && Number.isFinite(lon)) {
+        state.observer = {
+          lat: Math.max(-90, Math.min(90, lat)),
+          lon: Math.max(-180, Math.min(180, lon))
+        };
+      }
+      state.recomputeSky();
+
       // Calculate deterministic local placements.
       const chart = deriveLocalNatalChart(`${date} ${time} ${loc}`);
       const picks = scoreFactions(chart);
@@ -485,12 +526,14 @@
       state.map.forEach(zone => {
         const ownerStr = zone.owner !== null ? `${PLANET_GLYPHS[zone.owner]} ${PLANET_NAMES[zone.owner]}` : "Neutral";
         const zoneName = zone.kind === "house" ? `House ${zone.zone_id}` : (zone.kind === "spire" ? `Spire ${zone.zone_id}` : "Crown Zenith");
-        
+
         // Compute meter fills
         const valPercent = ((zone.control + 1000) / 2000) * 100;
         const fillCol = zone.owner !== null ? PLANET_COLORS[zone.owner] : "#6a6c84";
         const wIdx = (zone.zone_id + Math.floor(state.seasonDegree / 72)) % weathers.length;
-        
+        const zoneStars = state.starsInZone(zone.zone_id);
+        const heldCount = zoneStars.filter(s => s.held_by !== null).length;
+
         container.innerHTML += `
           <div class="panel" style="padding: 10px; cursor: pointer; border-color: ${state.selectedZone === zone.zone_id ? 'var(--gold-bright)' : 'var(--line)'}" onclick="selectZone(${zone.zone_id})">
             <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:bold;">
@@ -499,6 +542,9 @@
             </div>
             <div style="font-size:10px; color:var(--dim); margin-top:2px;">
               Weather: ${weathers[wIdx]} · Favored Suit: ${SIGN_SUITS[zone.zone_id % 12].toUpperCase()}
+            </div>
+            <div style="font-size:10px; color:var(--dim); margin-top:2px;">
+              ★ ${zoneStars.length} stars overhead${heldCount > 0 ? ` · ${heldCount} claimed` : ""}
             </div>
             <div class="control-meter-bar">
               <div class="control-meter-fill" style="width: ${valPercent}%; background: ${fillCol};"></div>
@@ -511,73 +557,144 @@
     // Select zone click
     function selectZone(zoneId) {
       state.selectedZone = zoneId;
-      state.selectedStar = null;
-      
+      state.selectedStarHip = null;
+
       // Update zone SVG paths selections
       for (let i = 0; i < 11; i++) {
         const el = document.getElementById(`zone-shape-${i}`);
         if (el) el.classList.toggle("selected", i === zoneId);
       }
-      
+
       renderZonesList();
       renderStarsNodes();
       updateCombatPreview();
       synth.playSelect();
     }
 
-    // Render Stars inside SVG Pentacle
+    // Render the real sky inside the SVG Pentacle: every catalogue star above
+    // the horizon, at its true projected position — zenith at the centre, the
+    // horizon (and the rising ascendant) at the rim. Brightness sets size;
+    // stars below the 10° engagement band render dimmed, like the AR client.
     function renderStarsNodes() {
       const container = document.getElementById("stars-nodes-g");
       container.innerHTML = "";
+      const frag = document.createDocumentFragment();
+      const NS = "http://www.w3.org/2000/svg";
 
-      const zonePoints = [
-        [300, 100], [420, 240], [380, 420], [220, 420], [180, 240], // Houses
-        [280, 140], [400, 200], [360, 360], [240, 360], [200, 200], // Spires
-        [300, 280] // Crown
-      ];
+      // Paint dimmest first so the bright stars sit on top.
+      const stars = [...state.sky].sort((a, b) => b.magnitude - a.magnitude);
+      for (const star of stars) {
+        const held = star.held_by !== null;
+        const fillCol = held ? PLANET_COLORS[star.held_by] : "#e8e1cd";
+        const isSelected = state.selectedStarHip === star.hip_id;
+        const inZone = state.selectedZone !== null && star.zone === state.selectedZone;
+        const r = Math.max(0.8, 4.6 - star.magnitude * 0.65);
+        const engageable = star.alt >= MIN_ENGAGE_ALT_DEG;
+        // Faint stars fade; held and zone-selected stars glow brighter.
+        let opacity = Math.max(0.3, Math.min(1, 1.15 - star.magnitude * 0.13));
+        if (held || inZone) opacity = Math.min(1, opacity + 0.25);
+        if (!engageable) opacity *= 0.45; // the 0–10° rim band, visible but out of reach
 
-      state.map.forEach(zone => {
-        const pt = zonePoints[zone.zone_id] || [300, 300];
-        
-        zone.stars.forEach((star, idx) => {
-          // Displace stars slightly so they don't stack
-          const dx = Math.cos(idx * 2) * 22;
-          const dy = Math.sin(idx * 2) * 22;
-          const x = pt[0] + dx;
-          const y = pt[1] + dy;
-          const fillCol = star.held_by !== null ? PLANET_COLORS[star.held_by] : "var(--gold-bright)";
-          const isSelected = state.selectedStar && state.selectedStar.hip_id === star.hip_id;
-          const size = Math.max(3, Math.round(7 - star.magnitude));
+        const circle = document.createElementNS(NS, "circle");
+        circle.setAttribute("cx", star.x.toFixed(1));
+        circle.setAttribute("cy", star.y.toFixed(1));
+        circle.setAttribute("r", (held ? r + 0.8 : r).toFixed(1));
+        circle.setAttribute("fill", fillCol);
+        circle.setAttribute("fill-opacity", opacity.toFixed(2));
+        circle.setAttribute("class", `star-node-dot ${isSelected ? 'selected' : ''}`);
+        circle.style.color = fillCol;
 
-          const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-          circle.setAttribute("cx", x);
-          circle.setAttribute("cy", y);
-          circle.setAttribute("r", size);
-          circle.setAttribute("fill", fillCol);
-          circle.setAttribute("class", `star-node-dot ${isSelected ? 'selected' : ''}`);
-          circle.style.color = fillCol;
-          
-          circle.onclick = (e) => {
-            e.stopPropagation();
-            selectStar(zone.zone_id, star);
-          };
+        const tip = document.createElementNS(NS, "title");
+        const zoneName = star.zone === 10 ? "Crown Zenith" : (star.zone >= 5 ? `Spire ${star.zone}` : `House ${star.zone}`);
+        tip.textContent = `${star.name} · mag ${star.magnitude} · alt ${Math.round(star.alt)}° · ${zoneName}` +
+          (held ? ` · held by ${PLANET_NAMES[star.held_by]}` : "") +
+          (engageable ? "" : " · below the 10° engage band");
+        circle.appendChild(tip);
 
-          container.appendChild(circle);
-        });
+        circle.onclick = (e) => {
+          e.stopPropagation();
+          selectStar(star);
+        };
+
+        frag.appendChild(circle);
+      }
+
+      // Name the brightest beacons currently overhead.
+      for (const star of stars) {
+        if (star.magnitude > 0.8) continue;
+        const label = document.createElementNS(NS, "text");
+        label.setAttribute("x", (star.x + 6).toFixed(1));
+        label.setAttribute("y", (star.y - 5).toFixed(1));
+        label.setAttribute("class", "star-name-label");
+        label.textContent = star.name;
+        frag.appendChild(label);
+      }
+
+      container.appendChild(frag);
+      renderSkyChrome();
+    }
+
+    // Compass rose + the live Ascendant marker on the horizon rim, and the
+    // sky-status HUD line. The ascendant is where the zodiac is rising in the
+    // east right now — the leading edge of the mapped sky.
+    function renderSkyChrome() {
+      const g = document.getElementById("sky-chrome-g");
+      if (!g) return;
+      g.innerHTML = "";
+      const NS = "http://www.w3.org/2000/svg";
+
+      const rimPoint = (azDeg, radius) => {
+        const a = azDeg * Math.PI / 180;
+        return { x: 300 + radius * Math.sin(a), y: 300 - radius * Math.cos(a) };
+      };
+
+      [["N", 0], ["E", 90], ["S", 180], ["W", 270]].forEach(([t, az]) => {
+        const p = rimPoint(az, 264);
+        const el = document.createElementNS(NS, "text");
+        el.setAttribute("x", p.x.toFixed(1));
+        el.setAttribute("y", (p.y + 4).toFixed(1));
+        el.setAttribute("class", "compass-label");
+        el.textContent = t;
+        g.appendChild(el);
       });
+
+      if (state.asc) {
+        const az = state.asc.az;
+        const p1 = rimPoint(az, 240), p2 = rimPoint(az, 258);
+        const tick = document.createElementNS(NS, "line");
+        tick.setAttribute("x1", p1.x.toFixed(1)); tick.setAttribute("y1", p1.y.toFixed(1));
+        tick.setAttribute("x2", p2.x.toFixed(1)); tick.setAttribute("y2", p2.y.toFixed(1));
+        tick.setAttribute("class", "asc-marker-line");
+        g.appendChild(tick);
+
+        const pt = rimPoint(az + (az > 180 ? -8 : 8), 236);
+        const lbl = document.createElementNS(NS, "text");
+        lbl.setAttribute("x", pt.x.toFixed(1));
+        lbl.setAttribute("y", pt.y.toFixed(1));
+        lbl.setAttribute("class", "asc-marker-label");
+        lbl.textContent = `ASC ${SIGN_GLYPHS[state.asc.sign]}`;
+        g.appendChild(lbl);
+      }
+
+      const status = document.getElementById("sky-status");
+      if (status) {
+        const inReach = state.sky.filter(s => s.alt >= MIN_ENGAGE_ALT_DEG).length;
+        const ascStr = state.asc ? ` · ASC ${SIGN_GLYPHS[state.asc.sign]} ${SIGN_NAMES[state.asc.sign]} ${state.asc.degInSign}° rising` : "";
+        status.innerHTML = `✦ ${state.sky.length.toLocaleString()} stars overhead — ${inReach.toLocaleString()} in reach${ascStr}`;
+      }
     }
 
     // Select star click
-    function selectStar(zoneId, star) {
-      state.selectedZone = zoneId;
-      state.selectedStar = star;
-      
+    function selectStar(star) {
+      state.selectedZone = star.zone;
+      state.selectedStarHip = star.hip_id;
+
       // Toggle shapes selections
       for (let i = 0; i < 11; i++) {
         const el = document.getElementById(`zone-shape-${i}`);
-        if (el) el.classList.toggle("selected", i === zoneId);
+        if (el) el.classList.toggle("selected", i === star.zone);
       }
-      
+
       renderZonesList();
       renderStarsNodes();
       updateCombatPreview();
@@ -590,18 +707,19 @@
       const details = document.getElementById("duel-target-details");
       const btn = document.getElementById("strike-btn");
 
-      if (!state.selectedStar) {
+      const star = state.getSelectedStar();
+      if (!star) {
         details.innerHTML = "Select a star in the sky map to coordinate a siege target.";
         btn.setAttribute("disabled", "true");
         return;
       }
 
-      const zone = state.map.find(z => z.zone_id === state.selectedZone);
-      const star = state.selectedStar;
+      const zone = state.map[star.zone];
       const zoneName = zone.kind === "house" ? `House ${zone.zone_id}` : (zone.kind === "spire" ? `Spire ${zone.zone_id}` : "Crown Zenith");
       const ownerStr = star.held_by !== null ? `${PLANET_GLYPHS[star.held_by]} ${PLANET_NAMES[star.held_by]}` : "Neutral";
       const suitSign = SIGN_SUITS[zone.zone_id % 12];
-      
+      const engageable = star.alt >= MIN_ENGAGE_ALT_DEG;
+
       // Get contesters list
       const contesters = getStarContesters(zone, star);
       const contestersNames = contesters.map(id => {
@@ -631,21 +749,24 @@
 
       details.innerHTML = `
         <strong>Target Node:</strong> ${star.name} (${star.magnitude} mag)<br>
+        <strong>Sky Position:</strong> alt ${Math.round(star.alt)}° · az ${Math.round(star.az)}°${engageable ? "" : ` — <span style="color:#e88a8a">below the ${MIN_ENGAGE_ALT_DEG}° engage band; wait for it to climb</span>`}<br>
         <strong>Zone Location:</strong> ${zoneName} (Favored Suit: ${suitSign.toUpperCase()})<br>
         <strong>Current Node Owner:</strong> ${ownerStr}<br>
         <strong>Round Contesters (${contesters.length}):</strong> ${contestersNames}<br>
         <strong>Attack Cards:</strong> ${handCount > 0 ? handCount : 'All Active'} (${totalAtk} Base Power)
       `;
 
-      btn.removeAttribute("disabled");
+      if (engageable) btn.removeAttribute("disabled");
+      else btn.setAttribute("disabled", "true");
     }
 
     // Execute Auto-resolve strike siege
     function initiateSiegeStrike() {
-      if (!state.selectedStar) return;
-      
-      const zone = state.map.find(z => z.zone_id === state.selectedZone);
-      const star = state.selectedStar;
+      const star = state.getSelectedStar();
+      if (!star) return;
+      if (star.alt < MIN_ENGAGE_ALT_DEG) return; // mirror the server's horizon gate
+
+      const zone = state.map[star.zone];
       const zoneElement = SIGN_SUITS[zone.zone_id % 12];
 
       const contesters = getStarContesters(zone, star);
@@ -709,19 +830,32 @@
         } else {
           // Log finished - apply state changes on success
           if (result.winnerFactionId !== null) {
+            state.holdings[star.hip_id] = result.winnerFactionId;
             star.held_by = result.winnerFactionId;
-            
+
+            // The star's brightness sets its pull on the zone meter (server parity:
+            // combat::control_delta — Sirius swings ~5× more than a mag-6 spark).
+            const swing = starControlDelta(star.magnitude, 0);
             const isMyFaction = state.player && result.winnerFactionId === state.player.faction;
             if (isMyFaction) {
-              const delta = 200;
-              zone.control = Math.min(1000, zone.control + delta);
+              zone.control = Math.min(1000, zone.control + swing);
               if (zone.control >= 600) {
                 zone.owner = state.player.faction;
               }
+
+              // Victory spoils: the conquered star yields a fresh Arcana — suit
+              // from its zone, rank from its sky position, a Letter for your rack.
+              const spoils = state.draftVictoryCard(star, zone);
+              if (spoils) {
+                consoleEl.innerHTML += `<div class="log-line victory">★ ${star.name} yields <b>${spoils.title}</b> — ⚔ ${spoils.attack} · ♥ ${spoils.health} · Letter <b>${spoils.letter}</b> joins your rack</div>`;
+              } else {
+                consoleEl.innerHTML += `<div class="log-line system">★ Your collection is at its cap — ${star.name}'s gift dissolves into the aether.</div>`;
+              }
+              consoleEl.scrollTop = consoleEl.scrollHeight;
               synth.playFanfare();
             } else {
               // Shift control away from player or towards winner
-              const delta = 150;
+              const delta = Math.round(swing * 0.75);
               if (zone.owner === state.player.faction) {
                 zone.control = Math.max(-1000, zone.control - delta);
                 if (zone.control <= -200) {
@@ -742,9 +876,9 @@
               }
             }
           }
-          
-          // Clear contesters list on capture so next battle gets fresh random set
-          star.contesters = null;
+
+          // Clear contesters cache on capture so next battle gets a fresh set
+          delete state._contesters[star.hip_id];
 
           state.recalculateLeaderboard();
           state.save();
@@ -1084,14 +1218,22 @@
         // Load direct to board
         document.getElementById("onboarding-overlay").style.display = "none";
         renderAll();
+      } else {
+        // No seeker yet — still chart the live sky behind the onboarding veil.
+        state.recomputeSky();
+        renderStarsNodes();
       }
 
-      // Periodically trigger state tick updates every 15s (decay & bot raids)
+      // Periodically trigger state tick updates every 15s (sky drift, decay & bot raids)
       setInterval(() => {
         if (state.player) {
           state.tick();
           renderLeaderboard();
           renderZonesList();
+          renderStarsNodes();
+          updateCombatPreview();
+        } else {
+          state.recomputeSky();
           renderStarsNodes();
         }
       }, 15000);
