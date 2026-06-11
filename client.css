@@ -165,14 +165,17 @@ body {
   stroke-width: 1.5px;
 }
 
-/* Stars mapping */
+/* Stars mapping — pinpricks that bloom under the cursor */
 .star-node-dot {
   cursor: pointer;
-  transition: r 0.2s, fill 0.2s, filter 0.2s;
+  transition: r 0.15s, fill 0.2s, fill-opacity 0.15s, filter 0.2s;
 }
 .star-node-dot:hover {
-  r: 8px;
-  filter: drop-shadow(0 0 8px currentColor);
+  r: 9px;
+  fill-opacity: 1;
+  stroke: rgba(255, 255, 255, 0.7);
+  stroke-width: 1px;
+  filter: drop-shadow(0 0 10px currentColor);
 }
 .star-node-dot.selected {
   r: 10px;
@@ -199,6 +202,39 @@ body {
   font-weight: 600;
   letter-spacing: 0.1em;
   text-anchor: middle;
+}
+
+/* The wanderers' plane — planets ride the ecliptic above the star field */
+.ecliptic-line {
+  fill: none;
+  stroke: rgba(216, 180, 106, 0.35);
+  stroke-width: 1.2px;
+  stroke-dasharray: 6 5;
+  pointer-events: none;
+}
+.planet-node {
+  cursor: pointer;
+}
+.planet-halo {
+  fill-opacity: 0.18;
+  pointer-events: none;
+  transition: fill-opacity 0.2s;
+}
+.planet-node:hover .planet-halo {
+  fill-opacity: 0.38;
+}
+.planet-disc {
+  fill-opacity: 0.92;
+  stroke: rgba(5, 6, 12, 0.9);
+  stroke-width: 1.5px;
+  filter: drop-shadow(0 0 7px currentColor);
+}
+.planet-glyph {
+  fill: #0a0b14;
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  text-anchor: middle;
+  pointer-events: none;
 }
 
 /* The live Ascendant marker — where the zodiac is rising right now */

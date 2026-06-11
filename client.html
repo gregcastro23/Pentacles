@@ -149,6 +149,9 @@
 
           <!-- Dynamic overlay layer for Star Nodes -->
           <g id="stars-nodes-g"></g>
+          <!-- The wanderers' plane: the ecliptic arc + the ten bodies, rendered
+               above the star field so the planets are never lost in the stars -->
+          <g id="planets-g"></g>
           <!-- Compass rose + the live Ascendant marker on the horizon rim -->
           <g id="sky-chrome-g" pointer-events="none"></g>
         </svg>
@@ -588,7 +591,9 @@
         const fillCol = held ? PLANET_COLORS[star.held_by] : "#e8e1cd";
         const isSelected = state.selectedStarHip === star.hip_id;
         const inZone = state.selectedZone !== null && star.zone === state.selectedZone;
-        const r = Math.max(0.8, 4.6 - star.magnitude * 0.65);
+        // Stars stay small — pinpricks that grow under the cursor (CSS :hover);
+        // the planets get the exaggerated sizes, on their own layer above.
+        const r = Math.max(0.6, Math.min(3.2, 2.6 - star.magnitude * 0.42));
         const engageable = star.alt >= MIN_ENGAGE_ALT_DEG;
         // Faint stars fade; held and zone-selected stars glow brighter.
         let opacity = Math.max(0.3, Math.min(1, 1.15 - star.magnitude * 0.13));
@@ -631,7 +636,77 @@
       }
 
       container.appendChild(frag);
+      renderPlanets();
       renderSkyChrome();
+    }
+
+    // The wanderers, on their own plane. The ecliptic arc is drawn across the
+    // star field and the ten bodies ride it at exaggerated sizes — glyph discs
+    // in faction colours — so a planet always reads at a glance among the
+    // pinprick stars. Tapping a planet selects the zone it is transiting.
+    const PLANET_DISC_R = [13, 11, 8, 9, 9, 10, 10, 8, 8, 7]; // Sun..Pluto, deliberately huge
+    function renderPlanets() {
+      const g = document.getElementById("planets-g");
+      if (!g) return;
+      g.innerHTML = "";
+      const NS = "http://www.w3.org/2000/svg";
+      const frag = document.createDocumentFragment();
+
+      // The plane itself: the visible arc(s) of the ecliptic.
+      for (const seg of state.ecliptic) {
+        if (seg.length < 2) continue;
+        const path = document.createElementNS(NS, "path");
+        path.setAttribute("d", "M" + seg.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" L"));
+        path.setAttribute("class", "ecliptic-line");
+        frag.appendChild(path);
+      }
+
+      for (const p of state.planets) {
+        if (!p.up) continue;
+        const col = PLANET_COLORS[p.body];
+        const zoneName = p.zone === 10 ? "Crown Zenith" : (p.zone >= 5 ? `Spire ${p.zone}` : `House ${p.zone}`);
+
+        const node = document.createElementNS(NS, "g");
+        node.setAttribute("class", "planet-node");
+        node.style.color = col;
+
+        const halo = document.createElementNS(NS, "circle");
+        halo.setAttribute("cx", p.x.toFixed(1));
+        halo.setAttribute("cy", p.y.toFixed(1));
+        halo.setAttribute("r", (PLANET_DISC_R[p.body] + 4).toFixed(1));
+        halo.setAttribute("class", "planet-halo");
+        halo.setAttribute("fill", col);
+        node.appendChild(halo);
+
+        const disc = document.createElementNS(NS, "circle");
+        disc.setAttribute("cx", p.x.toFixed(1));
+        disc.setAttribute("cy", p.y.toFixed(1));
+        disc.setAttribute("r", PLANET_DISC_R[p.body]);
+        disc.setAttribute("class", "planet-disc");
+        disc.setAttribute("fill", col);
+        node.appendChild(disc);
+
+        const glyph = document.createElementNS(NS, "text");
+        glyph.setAttribute("x", p.x.toFixed(1));
+        glyph.setAttribute("y", (p.y + PLANET_DISC_R[p.body] * 0.42).toFixed(1));
+        glyph.setAttribute("class", "planet-glyph");
+        glyph.setAttribute("font-size", Math.round(PLANET_DISC_R[p.body] * 1.25));
+        glyph.textContent = PLANET_GLYPHS[p.body];
+        node.appendChild(glyph);
+
+        const tip = document.createElementNS(NS, "title");
+        tip.textContent = `${PLANET_NAMES[p.body]} · ${SIGN_GLYPHS[p.sign]} ${SIGN_NAMES[p.sign]} ${Math.floor(p.eclLon % 30)}° · alt ${Math.round(p.alt)}° · transiting ${zoneName}`;
+        node.appendChild(tip);
+
+        node.onclick = (e) => {
+          e.stopPropagation();
+          selectZone(p.zone);
+        };
+
+        frag.appendChild(node);
+      }
+
+      g.appendChild(frag);
     }
 
     // Compass rose + the live Ascendant marker on the horizon rim, and the

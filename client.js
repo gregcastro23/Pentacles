@@ -429,6 +429,8 @@ class GameState {
     this.observer = { lat: 40.7128, lon: -74.0060 }; // default: the world horizon (NYC)
     this.sky = [];
     this.asc = null;        // live ascendant {lambda, sign, degInSign, az}
+    this.planets = [];      // the ten wanderers, riding their own plane (the ecliptic)
+    this.ecliptic = [];     // visible arc(s) of that plane, for the overlay
     this._contesters = {};  // transient per-star contester cache (hip → faction list)
   }
 
@@ -461,6 +463,10 @@ class GameState {
     }
     this.sky = sky;
     this.asc = ascendantNow(lat, lon, now);
+    // The wanderers live on their own plane: the ecliptic, drawn over the
+    // star field so a planet is never lost among five thousand stars.
+    this.planets = computePlanets(lat, lon, now);
+    this.ecliptic = eclipticSegments(lat, lon, now);
   }
 
   starsInZone(zoneId) {

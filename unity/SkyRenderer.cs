@@ -33,6 +33,13 @@ public class SkyRenderer : MonoBehaviour
     /// holds (5.0 ≈ 1,600 stars). Raise it on capable hardware for the full sky.
     public float maxRenderMagnitude = 5.0f;
 
+    [Header("Planets (the wanderers)")]
+    /// Planets render on their own plane — a shell slightly inside the star
+    /// sphere — at deliberately exaggerated sizes, so a body never gets lost
+    /// among thousands of pinprick stars.
+    public float planetScale = 1f;
+    const float PlanetShell = 0.94f; // fraction of skyRadius: in front of the stars
+
     static readonly Color[] FactionColor = {
         new(1.00f, 0.78f, 0.36f), // Sun
         new(0.85f, 0.86f, 0.92f), // Moon
@@ -61,8 +68,12 @@ public class SkyRenderer : MonoBehaviour
     }
 
     readonly Dictionary<uint, StarVis> _stars = new();
+    readonly Dictionary<Planet, StarVis> _planets = new();
     readonly Dictionary<byte, LineRenderer> _zones = new();
     bool _gridBuilt;
+
+    // Sun..Pluto sphere sizes — huge next to stars (0.08–0.45) on purpose.
+    static readonly float[] PlanetSize = { 1.6f, 1.4f, 0.9f, 1.1f, 1.1f, 1.3f, 1.2f, 0.9f, 0.9f, 0.8f };
 
     /// How many stars are currently risen past the engage altitude (strikeable now).
     public int InReachCount { get; private set; }
@@ -108,7 +119,34 @@ public class SkyRenderer : MonoBehaviour
 
         if (!_gridBuilt) { BuildPentacle(); _gridBuilt = true; }
         RefreshStars(conn, lst);
+        RefreshPlanets(conn, lst);
         HandleTap(conn, lst);
+    }
+
+    // ── Planets ───────────────────────────────────────────────────────────
+
+    /// The ten wanderers from the live `ephemeris` feed, on the planet shell.
+    /// They are display-only here — taps still pick stars (`PickStar` walks
+    /// `_stars`), so a giant Jupiter never eats a strike meant for a star.
+    void RefreshPlanets(CelestialPentacleConn conn, double lst)
+    {
+        foreach (var e in conn.Conn.Db.Ephemeris.Iter())
+        {
+            if (!_planets.TryGetValue(e.Body, out var vis))
+            {
+                var go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                go.name = $"planet:{e.Body}";
+                go.transform.localScale = Vector3.one * PlanetSize[(int)e.Body] * planetScale;
+                vis = new StarVis { Tr = go.transform, Rend = go.GetComponent<Renderer>() };
+                if (vis.Rend != null) vis.Rend.material.color = FactionColor[(int)e.Body];
+                _planets[e.Body] = vis;
+            }
+            SkyMath.EquatorialToHorizontal(e.Ra, e.Dec, latitude, lst, out double alt, out double az);
+            bool up = alt > 0;
+            if (vis.Tr.gameObject.activeSelf != up) vis.Tr.gameObject.SetActive(up);
+            if (up) vis.Tr.position = origin.position
+                + SkyMath.HorizontalToWorld(alt, az) * (skyRadius * PlanetShell);
+        }
     }
 
     // ── Stars ─────────────────────────────────────────────────────────────

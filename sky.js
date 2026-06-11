@@ -140,6 +140,150 @@ function skyProject(altDeg, azDeg) {
   return { x: SKY_CX + SKY_R * r * Math.sin(a), y: SKY_CY - SKY_R * r * Math.cos(a) };
 }
 
+/* ---- The wanderers: low-precision geocentric ephemeris ----
+   A port of feeder/ephemeris.ts (JPL Keplerian planets + truncated Sun/Moon
+   series, mirroring unity/ChartCalculator.cs). Game-grade: sub-degree for the
+   Sun/planets — plenty to place a body on the disk and in a zone. Bodies ride
+   the ecliptic (β ≈ 0), their own plane drawn across the star field. */
+
+// a(AU) e I(deg) L(deg) ϖ(deg) Ω(deg) — rows: Mercury,Venus,Earth,Mars,Jupiter,Saturn,Uranus,Neptune,Pluto
+const EPH_EL = [
+  [0.38709927, 0.20563593, 7.00497902, 252.2503235, 77.45779628, 48.33076593],
+  [0.72333566, 0.00677672, 3.39467605, 181.9790995, 131.60246718, 76.67984255],
+  [1.00000261, 0.01671123, -0.00001531, 100.46457166, 102.93768193, 0.0],
+  [1.52371034, 0.0933941, 1.84969142, -4.55343205, -23.94362959, 49.55953891],
+  [5.202887, 0.04838624, 1.30439695, 34.39644051, 14.72847983, 100.47390909],
+  [9.53667594, 0.05386179, 2.48599187, 49.95424423, 92.59887831, 113.66242448],
+  [19.18916464, 0.04725744, 0.77263783, 313.23810451, 170.9542763, 74.01692503],
+  [30.06992276, 0.00859048, 1.77004347, -55.12002969, 44.96476227, 131.78422574],
+  [39.48211675, 0.2488273, 17.14001206, 238.92903833, 224.06891629, 110.30393684],
+];
+const EPH_RATE = [
+  [0.00000037, 0.00001906, -0.00594749, 149472.67411175, 0.16047689, -0.12534081],
+  [0.0000039, -0.00004107, -0.0007889, 58517.81538729, 0.00268329, -0.27769418],
+  [0.00000562, -0.00004392, -0.01294668, 35999.37244981, 0.32327364, 0.0],
+  [0.00001847, 0.00007882, -0.00813131, 19140.30268499, 0.44441088, -0.29257343],
+  [-0.00011607, -0.00013253, -0.00183714, 3034.74612775, 0.21252668, 0.20469106],
+  [-0.0012506, -0.00050991, 0.00193609, 1222.49362201, -0.41897216, -0.28867794],
+  [-0.00196176, -0.00004397, -0.00242939, 428.48202785, 0.40805281, 0.04240589],
+  [0.00026291, 0.00005105, 0.00035372, 218.45945325, -0.32241464, -0.00508664],
+  [-0.00031596, 0.0000517, 0.00004818, 145.20780515, -0.04062942, -0.01183482],
+];
+
+function ephJulianDay(date) { return date.getTime() / 86400000 + 2440587.5; }
+function ephCenturies(jd) { return (jd - 2451545.0) / 36525.0; }
+
+function ephHelio(row, jd) {
+  const t = ephCenturies(jd);
+  const a = EPH_EL[row][0] + EPH_RATE[row][0] * t;
+  const e = EPH_EL[row][1] + EPH_RATE[row][1] * t;
+  const I = deg2rad(EPH_EL[row][2] + EPH_RATE[row][2] * t);
+  const L = EPH_EL[row][3] + EPH_RATE[row][3] * t;
+  const peri = EPH_EL[row][4] + EPH_RATE[row][4] * t;
+  const node = deg2rad(EPH_EL[row][5] + EPH_RATE[row][5] * t);
+
+  const M = deg2rad(norm360(L - peri));
+  const w = deg2rad(peri) - node;
+
+  let E = M;
+  for (let i = 0; i < 8; i++) E -= (E - e * Math.sin(E) - M) / (1 - e * Math.cos(E));
+
+  const xv = a * (Math.cos(E) - e);
+  const yv = a * (Math.sqrt(1 - e * e) * Math.sin(E));
+  const v = Math.atan2(yv, xv);
+  const r = Math.hypot(xv, yv);
+  const u = v + w;
+  return {
+    x: r * (Math.cos(node) * Math.cos(u) - Math.sin(node) * Math.sin(u) * Math.cos(I)),
+    y: r * (Math.sin(node) * Math.cos(u) + Math.cos(node) * Math.sin(u) * Math.cos(I)),
+  };
+}
+
+function ephSunLon(jd) {
+  const t = ephCenturies(jd);
+  const L0 = norm360(280.46646 + 36000.76983 * t + 0.0003032 * t * t);
+  const M = deg2rad(norm360(357.52911 + 35999.05029 * t - 0.0001537 * t * t));
+  const c = (1.914602 - 0.004817 * t) * Math.sin(M)
+    + (0.019993 - 0.000101 * t) * Math.sin(2 * M)
+    + 0.000289 * Math.sin(3 * M);
+  return norm360(L0 + c);
+}
+
+function ephMoonLon(jd) {
+  const t = ephCenturies(jd);
+  const Lp = 218.3164477 + 481267.88123421 * t;
+  const D = deg2rad(297.8501921 + 445267.1114034 * t);
+  const M = deg2rad(357.5291092 + 35999.0502909 * t);
+  const Mp = deg2rad(134.9633964 + 477198.8675055 * t);
+  const F = deg2rad(93.272095 + 483202.0175233 * t);
+  const lon = Lp
+    + 6.288774 * Math.sin(Mp)
+    + 1.274027 * Math.sin(2 * D - Mp)
+    + 0.658314 * Math.sin(2 * D)
+    + 0.213618 * Math.sin(2 * Mp)
+    - 0.185116 * Math.sin(M)
+    - 0.114332 * Math.sin(2 * F);
+  return norm360(lon);
+}
+
+const EPH_PLANET_ROW = [0, 1, 3, 4, 5, 6, 7]; // for body idx 2..8 (Mercury..Neptune)
+
+// Geocentric ecliptic longitude for body idx 0 Sun .. 9 Pluto.
+function geocentricEclipticLon(p, jd) {
+  if (p === 0) return ephSunLon(jd);
+  if (p === 1) return ephMoonLon(jd);
+  const row = p === 9 ? 8 : EPH_PLANET_ROW[p - 2];
+  const b = ephHelio(row, jd);
+  const earth = ephHelio(2, jd);
+  return norm360(rad2deg(Math.atan2(b.y - earth.y, b.x - earth.x)));
+}
+
+// All ten bodies for an observer: ecliptic λ → RA/Dec → alt/az → disk + zone.
+// Returns every body with an `up` flag; the renderer draws the risen ones.
+function computePlanets(latDeg, lonDeg, date) {
+  const jd = ephJulianDay(date);
+  const lst = lstDeg(date, lonDeg);
+  const out = [];
+  for (let p = 0; p < 10; p++) {
+    const lambda = geocentricEclipticLon(p, jd);
+    const eq = eclipticToEquatorial(lambda);
+    const aa = altAzOf(eq.ra, eq.dec, latDeg, lst);
+    const proj = skyProject(aa.alt, aa.az);
+    out.push({
+      body: p,
+      eclLon: lambda,
+      sign: Math.floor(lambda / 30) % 12,
+      ra: eq.ra, dec: eq.dec,
+      alt: aa.alt, az: aa.az,
+      x: proj.x, y: proj.y,
+      zone: zoneForAltAz(aa.alt, aa.az),
+      up: aa.alt > 0,
+    });
+  }
+  return out;
+}
+
+// The visible arc of the ecliptic — the plane the planets ride — as polyline
+// segments on the disk (it breaks where the plane dips below the horizon).
+function eclipticSegments(latDeg, lonDeg, date, stepDeg = 3) {
+  const lst = lstDeg(date, lonDeg);
+  const segs = [];
+  let cur = null;
+  for (let lambda = 0; lambda <= 360; lambda += stepDeg) {
+    const eq = eclipticToEquatorial(lambda % 360);
+    const aa = altAzOf(eq.ra, eq.dec, latDeg, lst);
+    if (aa.alt > 0) {
+      const p = skyProject(aa.alt, aa.az);
+      (cur ??= []).push(p);
+    } else if (cur) {
+      segs.push(cur);
+      cur = null;
+    }
+  }
+  if (cur) segs.push(cur);
+  return segs;
+}
+
 // A star's pull on the zone meter — mirrors server combat::node_weight.
 function starWeight(magnitude) { return Math.max(0.4, 6.5 - magnitude); }
 
