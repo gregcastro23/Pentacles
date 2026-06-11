@@ -811,11 +811,16 @@ class GameState {
     return have;
   }
 
-  // A planetary agent's rack: AGENT_RACK_SIZE tiles drawn deterministically from the
-  // sky (faction + the rotating season), mirroring the server's agent_letters seam.
+  // A planetary agent's rack: AGENT_RACK_SIZE tiles drawn deterministically from
+  // the sky, mirroring the server's agent_letters seam. The agent is the planet
+  // at its associated degree — its rack is seeded by its real ecliptic position
+  // (arc-minutes), so the agent you face IS the body overhead right now.
+  // Falls back to the season clock if the ephemeris hasn't computed yet.
   agentLetters(opponentIdx) {
     const RACK = 7;
-    let s = (opponentIdx + 1) * 2654435761 + this.seasonDegree * 40503 + 0x9e3779b9;
+    const p = (this.planets || [])[opponentIdx];
+    const degSeed = p ? Math.floor(p.eclLon * 60) : this.seasonDegree;
+    let s = (opponentIdx + 1) * 2654435761 + degSeed * 40503 + 0x9e3779b9;
     s = s >>> 0;
     const have = {};
     for (let i = 0; i < RACK; i++) {

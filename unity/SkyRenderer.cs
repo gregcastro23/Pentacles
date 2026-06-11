@@ -34,11 +34,11 @@ public class SkyRenderer : MonoBehaviour
     public float maxRenderMagnitude = 5.0f;
 
     [Header("Planets (the wanderers)")]
-    /// Planets render on their own plane — a shell slightly inside the star
-    /// sphere — at deliberately exaggerated sizes, so a body never gets lost
-    /// among thousands of pinprick stars.
+    /// Planets share the stars' sky — one plane, one projection — but render
+    /// at deliberately exaggerated sizes: they are far closer than any star,
+    /// so they read much larger. Each body is the planetary agent of its
+    /// current zodiac degree (the planetary-agents project).
     public float planetScale = 1f;
-    const float PlanetShell = 0.94f; // fraction of skyRadius: in front of the stars
 
     static readonly Color[] FactionColor = {
         new(1.00f, 0.78f, 0.36f), // Sun
@@ -125,7 +125,8 @@ public class SkyRenderer : MonoBehaviour
 
     // ── Planets ───────────────────────────────────────────────────────────
 
-    /// The ten wanderers from the live `ephemeris` feed, on the planet shell.
+    /// The ten wanderers from the live `ephemeris` feed, in the same sky as
+    /// the stars (same shell, same alt/az), just much larger — they're closer.
     /// They are display-only here — taps still pick stars (`PickStar` walks
     /// `_stars`), so a giant Jupiter never eats a strike meant for a star.
     void RefreshPlanets(CelestialPentacleConn conn, double lst)
@@ -145,7 +146,7 @@ public class SkyRenderer : MonoBehaviour
             bool up = alt > 0;
             if (vis.Tr.gameObject.activeSelf != up) vis.Tr.gameObject.SetActive(up);
             if (up) vis.Tr.position = origin.position
-                + SkyMath.HorizontalToWorld(alt, az) * (skyRadius * PlanetShell);
+                + SkyMath.HorizontalToWorld(alt, az) * skyRadius;
         }
     }
 

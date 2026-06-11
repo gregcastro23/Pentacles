@@ -640,11 +640,13 @@
       renderSkyChrome();
     }
 
-    // The wanderers, on their own plane. The ecliptic arc is drawn across the
-    // star field and the ten bodies ride it at exaggerated sizes — glyph discs
-    // in faction colours — so a planet always reads at a glance among the
-    // pinprick stars. Tapping a planet selects the zone it is transiting.
-    const PLANET_DISC_R = [13, 11, 8, 9, 9, 10, 10, 8, 8, 7]; // Sun..Pluto, deliberately huge
+    // The wanderers share the stars' sky — same plane, same projection — but
+    // at exaggerated scale: they are far closer than any star, so they appear
+    // much larger (glyph medallions vs pinpricks). Each planet is the
+    // planetary agent of its current degree (the planetary-agents project);
+    // tapping one targets that agent in the Word Duels of the Spheres. The
+    // dashed ecliptic is the road the agents walk across that same sky.
+    const PLANET_DISC_R = [13, 11, 8, 9, 9, 10, 10, 8, 8, 7]; // Sun..Pluto — closer = larger
     function renderPlanets() {
       const g = document.getElementById("planets-g");
       if (!g) return;
@@ -695,12 +697,12 @@
         node.appendChild(glyph);
 
         const tip = document.createElementNS(NS, "title");
-        tip.textContent = `${PLANET_NAMES[p.body]} · ${SIGN_GLYPHS[p.sign]} ${SIGN_NAMES[p.sign]} ${Math.floor(p.eclLon % 30)}° · alt ${Math.round(p.alt)}° · transiting ${zoneName}`;
+        tip.textContent = `${PLANET_NAMES[p.body]} — planetary agent of ${SIGN_GLYPHS[p.sign]} ${SIGN_NAMES[p.sign]} ${Math.floor(p.eclLon % 30)}° · alt ${Math.round(p.alt)}° · transiting ${zoneName} · tap to challenge`;
         node.appendChild(tip);
 
         node.onclick = (e) => {
           e.stopPropagation();
-          selectZone(p.zone);
+          challengePlanetaryAgent(p);
         };
 
         frag.appendChild(node);
@@ -757,6 +759,20 @@
         const ascStr = state.asc ? ` · ASC ${SIGN_GLYPHS[state.asc.sign]} ${SIGN_NAMES[state.asc.sign]} ${state.asc.degInSign}° rising` : "";
         status.innerHTML = `✦ ${state.sky.length.toLocaleString()} stars overhead — ${inReach.toLocaleString()} in reach${ascStr}`;
       }
+    }
+
+    // A planet IS the planetary agent of its current degree. Tapping it opens
+    // the Words tab with that agent targeted, ready for a Word of Power.
+    function challengePlanetaryAgent(p) {
+      if (!state.player) return;
+      switchTab("tab-word");
+      const sel = document.getElementById("word-opponent");
+      if (sel.options.length) sel.value = String(p.body);
+      const out = document.getElementById("word-result");
+      out.style.color = "var(--gold-bright)";
+      out.innerHTML = `${PLANET_GLYPHS[p.body]} <b>${PLANET_NAMES[p.body]}</b> — agent of ${SIGN_GLYPHS[p.sign]} ${SIGN_NAMES[p.sign]} ${Math.floor(p.eclLon % 30)}° — awaits your Word of Power.`;
+      document.getElementById("word-input").focus();
+      synth.playSelect();
     }
 
     // Select star click
