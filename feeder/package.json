@@ -7,10 +7,12 @@
     "feed": "bun run push-ephemeris.ts",
     "once": "bun run push-ephemeris.ts --once",
     "oracle": "bun run oracle-service.ts",
-    "duel": "bun run duel-service.ts"
+    "duel": "bun run duel-service.ts",
+    "constellation": "bun run constellation-service.ts"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "latest"
+    "@anthropic-ai/sdk": "latest",
+    "viem": "^2.21.0"
   },
   "devDependencies": {
     "@types/node": "^25.9.2",

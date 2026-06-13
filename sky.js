@@ -61,6 +61,16 @@ function eclipticToEquatorial(lonDeg) {
   return { ra: norm360(rad2deg(ra)), dec: rad2deg(dec) };
 }
 
+// Ecliptic longitude (deg, 0..360) of an equatorial point — the inverse of the
+// above, mirroring the server's `equatorial_to_ecliptic_min` (chart.rs). A star's
+// sign = floor(lon/30); the sign's element is its ESMS suit. (Preview/tooltips;
+// the chain trusts the server's value, which is what freezes each pool's pair.)
+function equatorialToEcliptic(raDeg, decDeg) {
+  const e = deg2rad(OBLIQUITY_DEG), ra = deg2rad(raDeg), dec = deg2rad(decDeg);
+  const lon = Math.atan2(Math.sin(ra) * Math.cos(e) + Math.tan(dec) * Math.sin(e), Math.cos(ra));
+  return norm360(rad2deg(lon));
+}
+
 // The Ascendant: the ecliptic degree rising on the observer's eastern horizon
 // right now (same formula as the server's ascendant_deg / ChartCalculator.AscMc).
 // Returns { lambda, sign, signGlyph, degInSign, az } — az is the rim azimuth

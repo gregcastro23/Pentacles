@@ -76,6 +76,7 @@ pub fn init(ctx: &ReducerContext) {
             ascendant_degree: 0,
             seeded: false,
             star_seed_cursor: 0,
+            constellations_seeded: false,
         });
     }
 
@@ -103,6 +104,9 @@ pub fn init(ctx: &ReducerContext) {
     // tick_sky backfills the rest of the naked-eye catalogue batch by batch.
     let cursor = seed_star_batch(ctx, 0, INIT_SEED_STARS);
 
+    // Seed the constellation liquidity pools (small, fixed set — all at once).
+    seed_constellations(ctx);
+
     // Drive the persistent sky: tick every 10 seconds.
     ctx.db.sky_tick_timer().insert(SkyTickTimer {
         scheduled_id: 0,
@@ -112,6 +116,7 @@ pub fn init(ctx: &ReducerContext) {
     if let Some(mut cfg) = ctx.db.game_config().id().find(&0) {
         cfg.seeded = true;
         cfg.star_seed_cursor = cursor;
+        cfg.constellations_seeded = true;
         ctx.db.game_config().id().update(cfg);
     }
     log::info!("Pentacles module initialised");
@@ -1165,6 +1170,13 @@ pub fn tick_sky(ctx: &ReducerContext, _timer: SkyTickTimer) {
                 seed_star_batch(ctx, cfg.star_seed_cursor as usize, SEED_BATCH_PER_TICK);
         }
 
+        // Seed the constellation pools on first tick after an upgrade (init seeds
+        // them on a fresh publish; this covers an already-published module).
+        if !cfg.constellations_seeded {
+            seed_constellations(ctx);
+            cfg.constellations_seeded = true;
+        }
+
         ctx.db.game_config().id().update(cfg);
     }
 
@@ -2184,6 +2196,161 @@ fn seed_star_batch(ctx: &ReducerContext, start: usize, count: usize) -> u32 {
         log::info!("star catalogue fully seeded: {} stars", end);
     }
     end as u32
+}
+
+/// Seed the constellation liquidity-pool catalogue (a small, frozen set of ~12
+/// figures) from the generated `constellations::CONSTELLATIONS`. Idempotent — each
+/// row is inserted only if absent — so it is safe to call on init and as an
+/// upgrade backfill from `tick_sky`.
+fn seed_constellations(ctx: &ReducerContext) {
+    for c in crate::constellations::CONSTELLATIONS {
+        if ctx.db.constellation().constellation_id().find(&c.id).is_some() {
+            continue;
+        }
+        ctx.db.constellation().insert(Constellation {
+            constellation_id: c.id,
+            abbr: c.abbr.to_string(),
+            name: c.name.to_string(),
+            elem_a: c.elem_a,
+            elem_b: c.elem_b,
+            degenerate: c.degenerate,
+            fee_bps: c.fee_bps,
+            member_count: c.members.len() as u16,
+            visible_threshold: c.visible_threshold,
+        });
+        for &hip in c.members {
+            ctx.db.constellation_star().insert(ConstellationStar {
+                id: 0,
+                constellation_id: c.id,
+                hip_id: hip,
+            });
+        }
+        for &(a, b) in c.lines {
+            ctx.db.constellation_line().insert(ConstellationLine {
+                id: 0,
+                constellation_id: c.id,
+                hip_a: a,
+                hip_b: b,
+            });
+        }
+    }
+    log::info!(
+        "constellation pools seeded: {} figures",
+        crate::constellations::CONSTELLATIONS.len()
+    );
+}
+
+// ── Constellation liquidity pools (trace → attest → settle) ──────────────────
+
+/// Trace a constellation to open/seed its pool. Hard horizon gate (the same one
+/// `resolve_star_battle` uses for star strikes): the figure must be risen — at
+/// least `visible_threshold` of its member stars above `MIN_ALT_DEG` over the
+/// location you reported. On success this records a `trace_intent`; the attestor
+/// service signs it and the client submits the on-chain `seedLiquidity`.
+#[reducer]
+pub fn trace_constellation(
+    ctx: &ReducerContext,
+    constellation_id: u16,
+    evm_address: String,
+) -> Result<(), String> {
+    // The on-chain attestation is bound to this EVM wallet; the trader must submit
+    // `seedLiquidity` from it (the AMM checks `att.trader == msg.sender`). We don't
+    // verify ownership here — a wrong address just yields an unusable attestation.
+    let evm = evm_address.trim().to_lowercase();
+    if evm.len() != 42 || !evm.starts_with("0x") || !evm[2..].bytes().all(|b| b.is_ascii_hexdigit())
+    {
+        return Err("evm_address must be a 0x-prefixed 20-byte hex address".into());
+    }
+    let loc = ctx
+        .db
+        .player_location()
+        .identity()
+        .find(&ctx.sender)
+        .ok_or_else(|| "set your location first (set_location)".to_string())?;
+    let con = ctx
+        .db
+        .constellation()
+        .constellation_id()
+        .find(&constellation_id)
+        .ok_or_else(|| "no such constellation".to_string())?;
+
+    let mut visible: u16 = 0;
+    for cs in ctx
+        .db
+        .constellation_star()
+        .constellation_id()
+        .filter(&constellation_id)
+    {
+        if let Some(star) = ctx.db.star_node().hip_id().find(&cs.hip_id) {
+            if altitude_deg(star.ra, star.dec, loc.lat, loc.lon, ctx.timestamp) >= MIN_ALT_DEG {
+                visible += 1;
+            }
+        }
+    }
+    if visible < con.visible_threshold {
+        return Err(format!(
+            "{} is below your horizon ({}/{} stars risen) — trace it once it climbs",
+            con.name, visible, con.visible_threshold
+        ));
+    }
+
+    ctx.db.trace_intent().insert(TraceIntent {
+        intent_id: 0,
+        trader: ctx.sender,
+        evm_address: evm,
+        constellation_id,
+        visible_stars: visible,
+        attested: false,
+        created_at: ctx.timestamp,
+    });
+    Ok(())
+}
+
+/// Owner-gated: the attestor service closes a trace intent by recording the signed
+/// EIP-712 VisibilityAttestation the client submits on-chain. Mirrors the
+/// `answer_oracle` / `answer_duel` trusted-bridge pattern.
+#[reducer]
+pub fn answer_trace(
+    ctx: &ReducerContext,
+    intent_id: u64,
+    region_commit: String,
+    visible_stars: u8,
+    nonce: u64,
+    deadline: u64,
+    signature: String,
+) -> Result<(), String> {
+    let cfg = ctx
+        .db
+        .game_config()
+        .id()
+        .find(&0)
+        .ok_or_else(|| "not initialised".to_string())?;
+    if ctx.sender != cfg.owner {
+        return Err("owner-only reducer".into());
+    }
+    let mut intent = ctx
+        .db
+        .trace_intent()
+        .intent_id()
+        .find(&intent_id)
+        .ok_or_else(|| "no such trace intent".to_string())?;
+    if intent.attested {
+        return Err("trace already attested".into());
+    }
+    ctx.db.trace_attestation().insert(TraceAttestation {
+        intent_id,
+        trader: intent.trader,
+        constellation_id: intent.constellation_id,
+        region_commit,
+        visible_stars,
+        nonce,
+        deadline,
+        signature,
+        created_at: ctx.timestamp,
+    });
+    intent.attested = true;
+    ctx.db.trace_intent().intent_id().update(intent);
+    Ok(())
 }
 
 /// Owner-gated reducer called by the companion worker to close a word duel challenge,
