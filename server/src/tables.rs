@@ -197,6 +197,10 @@ pub struct GameConfig {
     /// after an upgrade — `#[default]` keeps the publish non-destructive).
     #[default(0u32)]
     pub star_seed_cursor: u32,
+    /// Whether the constellation-pool catalogue has been seeded. `init` seeds it;
+    /// `tick_sky` backfills after an upgrade. `#[default]` keeps publishes non-destructive.
+    #[default(false)]
+    pub constellations_seeded: bool,
 }
 
 /// Live-PvP matchmaking intents, drained by `enqueue_duel`.
@@ -381,4 +385,94 @@ pub struct SkyTickTimer {
     #[auto_inc]
     pub scheduled_id: u64,
     pub scheduled_at: ScheduleAt,
+}
+
+// ── Constellation liquidity pools (the Web3 sky DEX) ────────────────────────
+//
+// Each real constellation is a constant-product AMM pool over a *pair* of ESMS
+// elements (0=Spirit,1=Essence,2=Matter,3=Substance). The pair, fee and member
+// set are frozen properties baked at generation time (see constellations.rs);
+// only *visibility* changes minute to minute. A pool may be traced/seeded/swapped
+// only while ≥ `visible_threshold` of its stars are above the trader's horizon —
+// the same hard horizon gate `resolve_star_battle` uses for star strikes.
+
+/// A constellation pool's frozen metadata, seeded from `constellations::CONSTELLATIONS`.
+#[spacetimedb::table(name = constellation, public)]
+#[derive(Clone)]
+pub struct Constellation {
+    #[primary_key]
+    pub constellation_id: u16,
+    pub abbr: String,            // IAU 3-letter (e.g. "Ori")
+    pub name: String,            // display name (e.g. "Orion")
+    pub elem_a: u8,              // ESMS id of the pool's first token
+    pub elem_b: u8,              // ESMS id of the pool's second token
+    pub degenerate: bool,        // true => single-element figure paired with its opposite
+    pub fee_bps: u16,            // swap fee tier (brighter/bigger figures trade cheaper)
+    pub member_count: u16,
+    pub visible_threshold: u16,  // min member stars above MIN_ALT to trade the pool
+}
+
+/// One member star of a constellation figure (indexed for per-figure visibility sweeps).
+#[spacetimedb::table(name = constellation_star, public)]
+#[derive(Clone)]
+pub struct ConstellationStar {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    #[index(btree)]
+    pub constellation_id: u16,
+    pub hip_id: u32,
+}
+
+/// One stick-figure line segment of a constellation (a HIP-id pair), for the
+/// client to draw and the data model to expose.
+#[spacetimedb::table(name = constellation_line, public)]
+#[derive(Clone)]
+pub struct ConstellationLine {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    #[index(btree)]
+    pub constellation_id: u16,
+    pub hip_a: u32,
+    pub hip_b: u32,
+}
+
+/// A trader's request to trace a constellation right now. The reducer
+/// `trace_constellation` only inserts this once it has authoritatively confirmed
+/// the figure is risen over the trader's location. The attestor service watches
+/// for `attested == false` rows, re-verifies, signs the EIP-712 attestation, and
+/// writes a `trace_attestation`. Public so the trader's client sees the result.
+#[spacetimedb::table(name = trace_intent, public)]
+#[derive(Clone)]
+pub struct TraceIntent {
+    #[primary_key]
+    #[auto_inc]
+    pub intent_id: u64,
+    #[index(btree)]
+    pub trader: Identity,     // the SpacetimeDB player who traced
+    pub evm_address: String,  // their EVM wallet (0x-hex) — the on-chain attestation subject
+    pub constellation_id: u16,
+    pub visible_stars: u16,   // member stars above the horizon at request time
+    pub attested: bool,       // flipped true once the attestor has signed
+    pub created_at: Timestamp,
+}
+
+/// The signed EIP-712 VisibilityAttestation the client submits with `seedLiquidity`/
+/// `swap`. Written by the attestor service (owner-gated `answer_trace`). All fields
+/// mirror the on-chain struct exactly; `region_commit` and `signature` are 0x-hex.
+#[spacetimedb::table(name = trace_attestation, public)]
+#[derive(Clone)]
+pub struct TraceAttestation {
+    #[primary_key]
+    pub intent_id: u64,       // 1:1 with the trace_intent it answers
+    #[index(btree)]
+    pub trader: Identity,
+    pub constellation_id: u16,
+    pub region_commit: String, // 0x-hex bytes32: keccak(latBucket,lonBucket,salt)
+    pub visible_stars: u8,
+    pub nonce: u64,            // must equal the AMM's usedNonce[trader] at submit
+    pub deadline: u64,         // unix seconds; the AMM rejects after this
+    pub signature: String,     // 0x-hex 65-byte ECDSA sig over the typed struct
+    pub created_at: Timestamp,
 }

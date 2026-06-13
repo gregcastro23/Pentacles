@@ -18,6 +18,12 @@ const PLANET_SUITS = ["wands", "cups", "swords", "cups", "wands", "wands", "pent
 
 const SUIT_GLYPHS = { cups: "♥", swords: "♠", pentacles: "♦", wands: "♣" };
 const SUIT_NAMES = { cups: "Cups", swords: "Swords", pentacles: "Pentacles", wands: "Wands" };
+
+// ESMS — the four alchemical elements that back the Constellation liquidity pools.
+// Ids match EsmsToken.sol: 0=Spirit(Fire), 1=Essence(Water), 2=Matter(Earth), 3=Substance(Air).
+const ESMS_NAMES = ["Spirit", "Essence", "Matter", "Substance"];
+const ESMS_GLYPHS = ["🜂", "🜄", "🜃", "🜁"]; // Fire, Water, Earth, Air
+const ESMS_COLORS = ["#e0a23a", "#4aa3d8", "#5fb37a", "#b98cd6"]; // Spirit/Essence/Matter/Substance
 const OPPOSITE_SUITS = { wands: "cups", cups: "wands", swords: "pentacles", pentacles: "swords" };
 
 const TRUMP_NAMES = ["The Sun", "The High Priestess", "The Magician", "The Empress", "The Tower", "Wheel of Fortune", "The World", "The Fool", "The Hanged Man", "Judgement"];
@@ -431,6 +437,7 @@ class GameState {
     this.asc = null;        // live ascendant {lambda, sign, degInSign, az}
     this.planets = [];      // the ten wanderers, riding their own plane (the ecliptic)
     this.ecliptic = [];     // visible arc(s) of that plane, for the overlay
+    this.constellations = []; // constellation pools with live visibility (the sky DEX)
     this._contesters = {};  // transient per-star contester cache (hip → faction list)
   }
 
@@ -467,6 +474,46 @@ class GameState {
     // star field so a planet is never lost among five thousand stars.
     this.planets = computePlanets(lat, lon, now);
     this.ecliptic = eclipticSegments(lat, lon, now);
+    this.recomputeConstellations(now, lat, lon, lst);
+  }
+
+  // Project each constellation figure onto the disk and decide whether its pool is
+  // tradeable right now: a pool is OPEN only while ≥ visibleThreshold of its member
+  // stars clear the 10° engagement band over the observer — the same horizon gate
+  // the server's `trace_constellation` reducer enforces. Liquidity rises and sets.
+  recomputeConstellations(now, lat, lon, lst) {
+    if (typeof CONSTELLATIONS === "undefined") { this.constellations = []; return; }
+    if (!this._starByHip) {
+      this._starByHip = new Map();
+      for (const row of STAR_CATALOG) this._starByHip.set(row[0], row);
+    }
+    const out = [];
+    for (const con of CONSTELLATIONS) {
+      const nodes = {};
+      let visibleCount = 0;
+      for (const hip of con.members) {
+        const row = this._starByHip.get(hip);
+        if (!row) continue;
+        const aa = altAzOf(row[2], row[3], lat, lst);
+        const p = skyProject(Math.max(0, aa.alt), aa.az);
+        const engage = aa.alt >= MIN_ENGAGE_ALT_DEG;
+        if (engage) visibleCount++;
+        nodes[hip] = { x: p.x, y: p.y, alt: aa.alt, up: aa.alt > 0, engage, name: row[1] };
+      }
+      const segments = [];
+      for (const [a, b] of con.lines) {
+        const na = nodes[a], nb = nodes[b];
+        if (na && nb && na.up && nb.up) segments.push([na, nb]); // both above the edge
+      }
+      out.push({
+        id: con.id, abbr: con.abbr, name: con.name, pair: con.pair,
+        feeBps: con.feeBps, degenerate: con.degenerate,
+        visibleThreshold: con.visibleThreshold, memberCount: con.members.length,
+        visibleCount, tradeable: visibleCount >= con.visibleThreshold,
+        segments, nodes,
+      });
+    }
+    this.constellations = out;
   }
 
   starsInZone(zoneId) {

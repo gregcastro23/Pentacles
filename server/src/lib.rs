@@ -15,6 +15,7 @@
 mod catalog;
 mod chart;
 mod combat;
+mod constellations;
 mod reducers;
 mod tables;
 mod types;
