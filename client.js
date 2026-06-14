@@ -469,6 +469,7 @@ class GameState {
       });
     }
     this.sky = sky;
+    window.needsFullStarRebuild = true;
     this.asc = ascendantNow(lat, lon, now);
     // The wanderers live on their own plane: the ecliptic, drawn over the
     // star field so a planet is never lost among five thousand stars.

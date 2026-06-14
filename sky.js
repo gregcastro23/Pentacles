@@ -143,12 +143,57 @@ function zoneForAltAz(altDeg, azDeg) {
   return Math.min(4, Math.max(0, Math.floor(((deg + 36) % 360) / 72)));
 }
 
+function toCartesian(alt, az) {
+  const altRad = deg2rad(alt);
+  const azRad = deg2rad(az);
+  return {
+    x: Math.cos(altRad) * Math.sin(azRad),
+    y: Math.cos(altRad) * Math.cos(azRad),
+    z: Math.sin(altRad)
+  };
+}
+
+function project3D(alt, az, pitchDeg, yawDeg, scale = 1.0, distance = 1.8) {
+  const p = toCartesian(alt, az);
+  
+  // Rotate around Z-axis (yaw)
+  const yaw = deg2rad(yawDeg);
+  const x1 = p.x * Math.cos(yaw) - p.y * Math.sin(yaw);
+  const y1 = p.x * Math.sin(yaw) + p.y * Math.cos(yaw);
+  const z1 = p.z;
+  
+  // Rotate around X-axis (pitch)
+  const pitch = deg2rad(pitchDeg);
+  const x2 = x1;
+  const y2 = y1 * Math.cos(pitch) - z1 * Math.sin(pitch);
+  const z2 = y1 * Math.sin(pitch) + z1 * Math.cos(pitch);
+  
+  // Z-axis camera looking up at the concave hemisphere:
+  // z2 is depth (Zenith is furthest at z2 = 1, Horizon is closest at z2 = 0)
+  // x2 and y2 are horizontal and vertical screen coordinates
+  const denom = distance + z2;
+  const scaleFactor = distance * (SKY_R / 220); // Scale R=220 to match SKY_R=250 at pitch=0
+  const px = (x2 / denom) * scale * scaleFactor;
+  const py = (y2 / denom) * scale * scaleFactor;
+  
+  const R = 220;
+  return {
+    x: SKY_CX + R * px,
+    y: SKY_CY - R * py,
+    z: z2
+  };
+}
+
 // Sky direction → SVG point on the horizon disk (zenith centre, horizon rim).
 function skyProject(altDeg, azDeg) {
+  if (window.HologramCamera && window.HologramCamera.enabled) {
+    return window.HologramCamera.project(altDeg, azDeg);
+  }
   const r = Math.min(1, (90 - altDeg) / 90);
   const a = deg2rad(azDeg);
   return { x: SKY_CX + SKY_R * r * Math.sin(a), y: SKY_CY - SKY_R * r * Math.cos(a) };
 }
+
 
 /* ---- The wanderers: low-precision geocentric ephemeris ----
    A port of feeder/ephemeris.ts (JPL Keplerian planets + truncated Sun/Moon

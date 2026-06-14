@@ -141,28 +141,46 @@ body {
   z-index: 3;
   transform-style: preserve-3d;
   transition: transform 0.1s ease-out;
+  cursor: grab;
+}
+.map-container:active {
+  cursor: grabbing;
 }
 .pentacle-svg {
   width: 100%;
   height: 100%;
-  filter: drop-shadow(0 0 20px rgba(0, 0, 0, 0.6));
+  filter: drop-shadow(0 0 25px rgba(13, 16, 28, 0.8));
 }
 
 /* Zone Hover highlight states */
 .zone-shape {
-  fill: rgba(13, 20, 38, 0.2);
-  stroke: transparent;
-  stroke-width: 1.5px;
-  transition: fill 0.3s, stroke 0.3s, stroke-width 0.3s;
+  fill: rgba(13, 20, 38, 0.12);
+  stroke: rgba(216, 180, 106, 0.08);
+  stroke-width: 0.8px;
+  transition: fill 0.3s, stroke 0.3s, stroke-width 0.3s, filter 0.3s;
   cursor: pointer;
 }
 .zone-shape:hover {
-  fill: rgba(216, 180, 106, 0.12);
+  fill: rgba(216, 180, 106, 0.08);
+  stroke: rgba(216, 180, 106, 0.4);
+  filter: drop-shadow(0 0 4px rgba(216, 180, 106, 0.25));
 }
 .zone-shape.selected {
-  fill: rgba(216, 180, 106, 0.25);
+  fill: rgba(216, 180, 106, 0.18);
   stroke: var(--gold-bright);
   stroke-width: 1.5px;
+  filter: drop-shadow(0 0 8px rgba(241, 219, 161, 0.4));
+}
+
+#horizon-rim-path {
+  filter: drop-shadow(0 0 6px rgba(216, 180, 106, 0.35));
+  opacity: 0.85;
+  stroke: var(--gold);
+}
+#pentagram-star-path {
+  filter: drop-shadow(0 0 4px rgba(216, 180, 106, 0.2));
+  opacity: 0.65;
+  stroke: var(--gold-deep);
 }
 
 /* Stars mapping — pinpricks that bloom under the cursor */
