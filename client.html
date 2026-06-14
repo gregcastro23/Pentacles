@@ -106,6 +106,7 @@
         </div>
         <div id="sky-status" style="align-self:center; font-size:11px; color:var(--gold-bright); text-shadow:0 2px 4px #000; letter-spacing:0.04em; pointer-events:none;"></div>
         <div class="hud-btn-group">
+          <button class="btn" id="reset-view-btn" style="display:none;" onclick="resetCameraView()">🔍 Reset View</button>
           <button class="btn" onclick="toggleSound()">🔊 Sound: ON</button>
           <button class="btn" onclick="toggleARMode()">📹 Toggle AR Mode</button>
         </div>
@@ -142,10 +143,10 @@
           <path id="zone-shape-10" class="zone-shape" d="M356.1,222.8 L390.8,329.5 L300,395.5 L209.2,329.5 L243.9,222.8 Z" fill="rgba(216,180,106,0.1)" onclick="selectZone(10)" />
 
           <!-- The static pentagram star and circle overlays -->
-          <circle cx="300" cy="300" r="250" fill="none" stroke="var(--gold)" stroke-width="2.2" pointer-events="none" />
-          <polygon points="300,50 447,502.3 62.2,222.8 537.8,222.8 153,502.3" fill="none" stroke="var(--gold)" stroke-width="2.2" stroke-linejoin="round" pointer-events="none" />
+          <path id="horizon-rim-path" fill="none" stroke="var(--gold)" stroke-width="2.2" pointer-events="none" />
+          <path id="pentagram-star-path" fill="none" stroke="var(--gold)" stroke-width="2.2" stroke-linejoin="round" pointer-events="none" />
 
-          <text x="300" y="304" text-anchor="middle" fill="var(--gold)" font-family="Space Grotesk" font-size="10" letter-spacing="1">CROWN</text>
+          <text id="crown-label-text" x="300" y="304" text-anchor="middle" fill="var(--gold)" font-family="Space Grotesk" font-size="10" letter-spacing="1">CROWN</text>
 
           <!-- Constellation figures (the sky DEX) — drawn under the stars so the
                star dots sit on top of the stick-figure lines. -->
@@ -276,6 +277,7 @@
       <div class="tab-headers" style="margin-bottom: 15px;">
         <button id="modal-tab-select" class="tab-btn active" onclick="switchModalTab('select')">Profiles</button>
         <button id="modal-tab-key" class="tab-btn" onclick="switchModalTab('key')">Astral Key</button>
+        <button id="modal-tab-web3" class="tab-btn" onclick="switchModalTab('web3')">Web3 Wallet</button>
       </div>
 
       <!-- Select Profile Pane -->
@@ -309,6 +311,28 @@
         </div>
       </div>
 
+      <!-- Web3 Wallet Connection Pane -->
+      <div id="modal-pane-web3" class="tab-pane" style="gap: 12px; display: none; flex-direction: column;">
+        <div class="panel" style="padding: 15px; background: rgba(216, 180, 106, 0.03); border: 1px dashed var(--gold); text-align: center;">
+          <div id="web3-wallet-status" style="font-size: 12px; color: var(--dim); margin-bottom: 15px;">
+            Connect your EVM wallet to authenticate and register on-chain.
+          </div>
+          <button id="web3-connect-btn" class="btn" style="width: 100%;" onclick="connectWeb3Wallet()">Connect EVM Wallet 🦊</button>
+        </div>
+        
+        <div id="web3-profile-section" style="display: none; flex-direction: column; gap: 10px;">
+          <label style="font-size: 10px; color: var(--dim); text-transform: uppercase; letter-spacing: 1px;">Associated Seeker Profile</label>
+          <div id="web3-profile-info" style="font-size: 12px; color: var(--gold-bright); background: #070910; border: 1px solid var(--line); padding: 10px; border-radius: 3px; text-align: center;">
+            <!-- Profile Info or 'No profile found' -->
+          </div>
+          <button id="web3-login-btn" class="btn" style="width: 100%;" onclick="loginWithWeb3Wallet()">Sign In with Wallet ⚡</button>
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-top: 5px;">
+          <button class="btn" style="flex: 1; border-color: var(--dim); color: var(--dim);" onclick="closeSignInModal()">Close</button>
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -318,6 +342,276 @@
   <script src="client.js"></script>
   <script>
     // ---- WEB CLIENT UI RENDERING BINDINGS ----
+
+    const ZONE_CENTERS = {
+      10: { alt: 75, az: 0 },
+      0: { alt: 22, az: 36 },
+      1: { alt: 22, az: 108 },
+      2: { alt: 22, az: 180 },
+      3: { alt: 22, az: 252 },
+      4: { alt: 22, az: 324 },
+      5: { alt: 42, az: 0 },
+      6: { alt: 42, az: 72 },
+      7: { alt: 42, az: 144 },
+      8: { alt: 42, az: 216 },
+      9: { alt: 42, az: 288 }
+    };
+
+    const HologramCamera = {
+      pitch: 20,
+      yaw: 0,
+      scale: 1.0,
+      targetPitch: 20,
+      targetYaw: 0,
+      targetScale: 1.0,
+      isZoomed: false,
+      autoRotate: true,
+      lastInteraction: 0,
+      get enabled() {
+        return !arActive;
+      },
+      project(alt, az) {
+        return project3D(alt, az, this.pitch, this.yaw, this.scale, 1.8);
+      },
+      update() {
+        if (!this.enabled) return;
+        const ease = 0.08;
+        this.pitch += (this.targetPitch - this.pitch) * ease;
+        let dy = this.targetYaw - this.yaw;
+        dy = ((dy + 180) % 360 + 360) % 360 - 180;
+        this.yaw += dy * ease;
+        this.scale += (this.targetScale - this.scale) * ease;
+
+        // Auto rotation when idle
+        if (this.autoRotate && !this.isZoomed && Date.now() - this.lastInteraction > 5000) {
+          this.targetYaw += 0.08;
+        }
+      }
+    };
+    window.HologramCamera = HologramCamera;
+
+    function resetCameraView() {
+      state.selectedZone = null;
+      state.selectedStarHip = null;
+      for (let i = 0; i < 11; i++) {
+        const el = document.getElementById(`zone-shape-${i}`);
+        if (el) el.classList.remove("selected");
+      }
+      renderZonesList();
+      renderStarsNodes();
+      updateCombatPreview();
+      
+      HologramCamera.targetPitch = 20;
+      HologramCamera.targetScale = 1.0;
+      HologramCamera.isZoomed = false;
+      document.getElementById("reset-view-btn").style.display = "none";
+      synth.playSelect();
+    }
+
+    function diskToAltAz(px, py) {
+      const r = Math.min(1.0, Math.hypot(px, py));
+      const alt = 90 * (1.0 - r);
+      const az = norm360(rad2deg(Math.atan2(px, py)));
+      return { alt, az };
+    }
+
+    function interpolateDiskLine(p1, p2, segments = 8) {
+      const pts = [];
+      for (let i = 0; i <= segments; i++) {
+        const t = i / segments;
+        const px = p1[0] + (p2[0] - p1[0]) * t;
+        const py = p1[1] + (p2[1] - p1[1]) * t;
+        const { alt, az } = diskToAltAz(px, py);
+        pts.push(skyProject(alt, az));
+      }
+      return pts;
+    }
+
+    const PENT_T_ALTAZ = PENT_T.map(pt => diskToAltAz(pt[0], pt[1]));
+    const PENT_V_ALTAZ = PENT_V.map(pt => diskToAltAz(pt[0], pt[1]));
+
+    function update3DOverlays() {
+      // 1. Update the 11 zone shapes (curved along the hemisphere surface)
+      for (let zoneId = 0; zoneId < 11; zoneId++) {
+        const pathEl = document.getElementById(`zone-shape-${zoneId}`);
+        if (!pathEl) continue;
+        
+        let pathStr = "";
+        if (zoneId === 10) {
+          // Crown (pentagon)
+          let pts = [];
+          for (let i = 0; i < 5; i++) {
+            const edge = interpolateDiskLine(PENT_V[i], PENT_V[(i + 1) % 5], 4);
+            if (i > 0) edge.shift();
+            pts = pts.concat(edge);
+          }
+          pathStr = "M " + pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" L ") + " Z";
+        } else if (zoneId >= 5) {
+          // Spire k = [T_k, V_{k-1}, V_k]
+          const k = zoneId - 5;
+          let pts = [];
+          pts = pts.concat(interpolateDiskLine(PENT_T[k], PENT_V[(k + 4) % 5], 6));
+          const edge2 = interpolateDiskLine(PENT_V[(k + 4) % 5], PENT_V[k], 6);
+          edge2.shift();
+          pts = pts.concat(edge2);
+          const edge3 = interpolateDiskLine(PENT_V[k], PENT_T[k], 6);
+          edge3.shift();
+          pts = pts.concat(edge3);
+          pathStr = "M " + pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" L ") + " Z";
+        } else {
+          // Arc-House k = [T_k, V_k, T_{k+1}] + horizon arc from T_{k+1} to T_k
+          let pts = [];
+          pts = pts.concat(interpolateDiskLine(PENT_T[zoneId], PENT_V[zoneId], 6));
+          const edge2 = interpolateDiskLine(PENT_V[zoneId], PENT_T[(zoneId + 1) % 5], 6);
+          edge2.shift();
+          pts = pts.concat(edge2);
+          
+          const startAz = (zoneId + 1) * 72;
+          for (let i = 1; i <= 8; i++) {
+            const az = startAz - (i / 8) * 72;
+            pts.push(skyProject(0, az));
+          }
+          pathStr = "M " + pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" L ") + " Z";
+        }
+        
+        pathEl.setAttribute("d", pathStr);
+      }
+
+      // 2. Update horizon rim path
+      const rimPath = document.getElementById("horizon-rim-path");
+      if (rimPath) {
+        const pts = [];
+        for (let i = 0; i <= 64; i++) {
+          const az = (i / 64) * 360;
+          pts.push(skyProject(0, az));
+        }
+        const pathStr = "M " + pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" L ");
+        rimPath.setAttribute("d", pathStr);
+      }
+
+      // 3. Update pentagram star path (curved along the hemisphere surface)
+      const starPath = document.getElementById("pentagram-star-path");
+      if (starPath) {
+        let pts = [];
+        const order = [0, 2, 4, 1, 3, 0];
+        for (let i = 0; i < 5; i++) {
+          const edge = interpolateDiskLine(PENT_T[order[i]], PENT_T[order[i+1]], 8);
+          if (i > 0) edge.shift();
+          pts = pts.concat(edge);
+        }
+        const pathStr = "M " + pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" L ");
+        starPath.setAttribute("d", pathStr);
+      }
+
+      // 4. Update Crown label text position
+      const crownLbl = document.getElementById("crown-label-text");
+      if (crownLbl) {
+        const zenith = skyProject(90, 0);
+        crownLbl.setAttribute("x", zenith.x.toFixed(1));
+        crownLbl.setAttribute("y", (zenith.y + 4).toFixed(1));
+        if (window.HologramCamera && window.HologramCamera.enabled) {
+          const fs = Math.max(5, Math.min(14, 10 * HologramCamera.scale));
+          crownLbl.setAttribute("font-size", fs.toFixed(1));
+        } else {
+          crownLbl.setAttribute("font-size", "10");
+        }
+      }
+    }
+
+    function projectSky3D() {
+      if (!HologramCamera.enabled) return;
+      
+      for (const star of state.sky) {
+        const proj = skyProject(star.alt, star.az);
+        star.x = proj.x;
+        star.y = proj.y;
+      }
+      
+      for (const p of state.planets) {
+        const proj = skyProject(p.alt, p.az);
+        p.x = proj.x;
+        p.y = proj.y;
+      }
+      
+      const now = new Date();
+      const { lat, lon } = state.observer;
+      state.ecliptic = eclipticSegments(lat, lon, now);
+      
+      const lst = lstDeg(now, lon);
+      state.recomputeConstellations(now, lat, lon, lst);
+    }
+
+    function animateFrame() {
+      if (HologramCamera.enabled) {
+        HologramCamera.update();
+        projectSky3D();
+        update3DOverlays();
+        renderStarsNodes();
+      }
+      requestAnimationFrame(animateFrame);
+    }
+
+    function initHologramControls() {
+      const wrapper = document.getElementById("sky-map-wrapper");
+      if (!wrapper) return;
+
+      let isDragging = false;
+      let startX = 0, startY = 0;
+      let startYaw = 0, startPitch = 0;
+
+      const onStart = (clientX, clientY) => {
+        if (arActive) return;
+        isDragging = true;
+        startX = clientX;
+        startY = clientY;
+        startYaw = HologramCamera.targetYaw;
+        startPitch = HologramCamera.targetPitch;
+        HologramCamera.lastInteraction = Date.now();
+        wrapper.style.cursor = "grabbing";
+      };
+
+      const onMove = (clientX, clientY) => {
+        if (!isDragging) return;
+        const dx = clientX - startX;
+        const dy = clientY - startY;
+        HologramCamera.targetYaw = startYaw - dx * 0.4;
+        HologramCamera.targetPitch = Math.max(5, Math.min(85, startPitch + dy * 0.4));
+        HologramCamera.lastInteraction = Date.now();
+      };
+
+      const onEnd = () => {
+        if (isDragging) {
+          isDragging = false;
+          wrapper.style.cursor = "grab";
+        }
+      };
+
+      wrapper.addEventListener("mousedown", (e) => onStart(e.clientX, e.clientY));
+      window.addEventListener("mousemove", (e) => onMove(e.clientX, e.clientY));
+      window.addEventListener("mouseup", onEnd);
+
+      wrapper.addEventListener("touchstart", (e) => {
+        if (e.touches.length > 0) onStart(e.touches[0].clientX, e.touches[0].clientY);
+      }, { passive: true });
+      window.addEventListener("touchmove", (e) => {
+        if (e.touches.length > 0) onMove(e.touches[0].clientX, e.touches[0].clientY);
+      }, { passive: true });
+      window.addEventListener("touchend", onEnd);
+
+      // Add cursor styling
+      wrapper.style.cursor = "grab";
+
+      // Background reset click listener on the SVG itself
+      const svg = document.querySelector(".pentacle-svg");
+      if (svg) {
+        svg.addEventListener("click", (e) => {
+          if (e.target === svg || e.target.id === "stars-nodes-g" || (e.target.tagName === "circle" && e.target.getAttribute("r") === "250")) {
+            resetCameraView();
+          }
+        });
+      }
+    }
+
 
     // Background stars canvas animation
     (function() {
@@ -431,6 +725,11 @@
     function confirmFactionOnboarding() {
       if (window.chosenFaction === null) return;
       state.registerPlayer(window.tempHandle, window.chosenFaction, window.tempChart);
+      if (window.tempEvmAddress) {
+        state.player.evm_address = window.tempEvmAddress;
+        window.tempEvmAddress = null;
+      }
+      state.save();
       
       // Dismiss overlay
       document.getElementById("onboarding-overlay").style.display = "none";
@@ -463,10 +762,37 @@
     // AR Mode Camera Toggle
     let arActive = false;
     async function toggleARMode() {
+      const originalTarget = event ? event.target : null;
       arActive = await toggleARCamera();
-      const btn = event.target;
-      btn.innerText = arActive ? "📹 Camera: ON" : "📹 Toggle AR Mode";
-      btn.classList.toggle("active", arActive);
+      const btn = originalTarget || document.querySelector("button[onclick='toggleARMode()']");
+      if (btn) {
+        btn.innerText = arActive ? "📹 Camera: ON" : "📹 Toggle AR Mode";
+        btn.classList.toggle("active", arActive);
+      }
+
+      const wrapper = document.getElementById("sky-map-wrapper");
+      if (wrapper) {
+        if (!arActive) {
+          wrapper.style.transform = ""; // clear gyro transform for 3D Hologram
+          window.needsFullStarRebuild = true;
+          if (window.HologramCamera) {
+            HologramCamera.pitch = 20;
+            HologramCamera.yaw = 0;
+            HologramCamera.scale = 1.0;
+            HologramCamera.targetPitch = 20;
+            HologramCamera.targetYaw = 0;
+            HologramCamera.targetScale = 1.0;
+            HologramCamera.isZoomed = false;
+          }
+          state.recomputeSky();
+          renderStarsNodes();
+        } else {
+          // In AR mode, force full rebuild once to flatten coordinates
+          window.needsFullStarRebuild = true;
+          state.recomputeSky();
+          renderStarsNodes();
+        }
+      }
     }
 
     // Render Web Card Component HTML
@@ -591,6 +917,20 @@
       for (let i = 0; i < 11; i++) {
         const el = document.getElementById(`zone-shape-${i}`);
         if (el) el.classList.toggle("selected", i === zoneId);
+      }
+
+      if (zoneId !== null && window.HologramCamera) {
+        const center = ZONE_CENTERS[zoneId];
+        HologramCamera.targetYaw = -center.az;
+        HologramCamera.targetPitch = 90 - center.alt;
+        HologramCamera.targetScale = 2.2;
+        HologramCamera.isZoomed = true;
+        document.getElementById("reset-view-btn").style.display = "inline-flex";
+      } else if (zoneId === null && window.HologramCamera) {
+        HologramCamera.targetPitch = 20;
+        HologramCamera.targetScale = 1.0;
+        HologramCamera.isZoomed = false;
+        document.getElementById("reset-view-btn").style.display = "none";
       }
 
       renderZonesList();
@@ -742,65 +1082,105 @@
     // the horizon, at its true projected position — zenith at the centre, the
     // horizon (and the rising ascendant) at the rim. Brightness sets size;
     // stars below the 10° engagement band render dimmed, like the AR client.
+    const starElementMap = new Map();
+    const starLabelMap = new Map();
+    window.needsFullStarRebuild = true;
+
     function renderStarsNodes() {
       renderConstellations();
       const container = document.getElementById("stars-nodes-g");
-      container.innerHTML = "";
-      const frag = document.createDocumentFragment();
       const NS = "http://www.w3.org/2000/svg";
 
-      // Paint dimmest first so the bright stars sit on top.
       const stars = [...state.sky].sort((a, b) => b.magnitude - a.magnitude);
-      for (const star of stars) {
-        const held = star.held_by !== null;
-        const fillCol = held ? PLANET_COLORS[star.held_by] : "#e8e1cd";
-        const isSelected = state.selectedStarHip === star.hip_id;
-        const inZone = state.selectedZone !== null && star.zone === state.selectedZone;
-        // Stars stay small — pinpricks that grow under the cursor (CSS :hover);
-        // the planets get the exaggerated sizes, on their own layer above.
-        const r = Math.max(0.6, Math.min(3.2, 2.6 - star.magnitude * 0.42));
-        const engageable = star.alt >= MIN_ENGAGE_ALT_DEG;
-        // Faint stars fade; held and zone-selected stars glow brighter.
-        let opacity = Math.max(0.3, Math.min(1, 1.15 - star.magnitude * 0.13));
-        if (held || inZone) opacity = Math.min(1, opacity + 0.25);
-        if (!engageable) opacity *= 0.45; // the 0–10° rim band, visible but out of reach
 
-        const circle = document.createElementNS(NS, "circle");
-        circle.setAttribute("cx", star.x.toFixed(1));
-        circle.setAttribute("cy", star.y.toFixed(1));
-        circle.setAttribute("r", (held ? r + 0.8 : r).toFixed(1));
-        circle.setAttribute("fill", fillCol);
-        circle.setAttribute("fill-opacity", opacity.toFixed(2));
-        circle.setAttribute("class", `star-node-dot ${isSelected ? 'selected' : ''}`);
-        circle.style.color = fillCol;
+      // Rebuild DOM nodes if requested or container is empty
+      if (window.needsFullStarRebuild || container.children.length === 0) {
+        container.innerHTML = "";
+        window.needsFullStarRebuild = false;
+        starElementMap.clear();
+        starLabelMap.clear();
 
-        const tip = document.createElementNS(NS, "title");
-        const zoneName = star.zone === 10 ? "Crown Zenith" : (star.zone >= 5 ? `Spire ${star.zone}` : `House ${star.zone}`);
-        tip.textContent = `${star.name} · mag ${star.magnitude} · alt ${Math.round(star.alt)}° · ${zoneName}` +
-          (held ? ` · held by ${PLANET_NAMES[star.held_by]}` : "") +
-          (engageable ? "" : " · below the 10° engage band");
-        circle.appendChild(tip);
+        const frag = document.createDocumentFragment();
 
-        circle.onclick = (e) => {
-          e.stopPropagation();
-          selectStar(star);
-        };
+        for (const star of stars) {
+          const held = star.held_by !== null;
+          const fillCol = held ? PLANET_COLORS[star.held_by] : "#e8e1cd";
+          const isSelected = state.selectedStarHip === star.hip_id;
+          const inZone = state.selectedZone !== null && star.zone === state.selectedZone;
+          const r = Math.max(0.6, Math.min(3.2, 2.6 - star.magnitude * 0.42));
+          const engageable = star.alt >= MIN_ENGAGE_ALT_DEG;
+          
+          let opacity = Math.max(0.3, Math.min(1, 1.15 - star.magnitude * 0.13));
+          if (held || inZone) opacity = Math.min(1, opacity + 0.25);
+          if (!engageable) opacity *= 0.45;
 
-        frag.appendChild(circle);
+          const circle = document.createElementNS(NS, "circle");
+          circle.setAttribute("cx", star.x.toFixed(1));
+          circle.setAttribute("cy", star.y.toFixed(1));
+          circle.setAttribute("r", (held ? r + 0.8 : r).toFixed(1));
+          circle.setAttribute("fill", fillCol);
+          circle.setAttribute("fill-opacity", opacity.toFixed(2));
+          circle.setAttribute("class", `star-node-dot ${isSelected ? 'selected' : ''}`);
+          circle.style.color = fillCol;
+
+          const tip = document.createElementNS(NS, "title");
+          const zoneName = star.zone === 10 ? "Crown Zenith" : (star.zone >= 5 ? `Spire ${star.zone}` : `House ${star.zone}`);
+          tip.textContent = `${star.name} · mag ${star.magnitude} · alt ${Math.round(star.alt)}° · ${zoneName}` +
+            (held ? ` · held by ${PLANET_NAMES[star.held_by]}` : "") +
+            (engageable ? "" : " · below the 10° engage band");
+          circle.appendChild(tip);
+
+          circle.onclick = (e) => {
+            e.stopPropagation();
+            selectStar(star);
+          };
+
+          starElementMap.set(star.hip_id, circle);
+          frag.appendChild(circle);
+        }
+
+        // Labels for the brightest beacons
+        for (const star of stars) {
+          if (star.magnitude > 0.8) continue;
+          const label = document.createElementNS(NS, "text");
+          label.setAttribute("x", (star.x + 6).toFixed(1));
+          label.setAttribute("y", (star.y - 5).toFixed(1));
+          label.setAttribute("class", "star-name-label");
+          label.textContent = star.name;
+
+          starLabelMap.set(star.hip_id, label);
+          frag.appendChild(label);
+        }
+
+        container.appendChild(frag);
+      } else {
+        // Fast-path: update positions of existing nodes
+        for (const star of stars) {
+          const circle = starElementMap.get(star.hip_id);
+          if (circle) {
+            circle.setAttribute("cx", star.x.toFixed(1));
+            circle.setAttribute("cy", star.y.toFixed(1));
+            
+            const held = star.held_by !== null;
+            const isSelected = state.selectedStarHip === star.hip_id;
+            const inZone = state.selectedZone !== null && star.zone === state.selectedZone;
+            const engageable = star.alt >= MIN_ENGAGE_ALT_DEG;
+            let opacity = Math.max(0.3, Math.min(1, 1.15 - star.magnitude * 0.13));
+            if (held || inZone) opacity = Math.min(1, opacity + 0.25);
+            if (!engageable) opacity *= 0.45;
+            
+            circle.setAttribute("fill-opacity", opacity.toFixed(2));
+            circle.setAttribute("class", `star-node-dot ${isSelected ? 'selected' : ''}`);
+          }
+
+          const label = starLabelMap.get(star.hip_id);
+          if (label) {
+            label.setAttribute("x", (star.x + 6).toFixed(1));
+            label.setAttribute("y", (star.y - 5).toFixed(1));
+          }
+        }
       }
 
-      // Name the brightest beacons currently overhead.
-      for (const star of stars) {
-        if (star.magnitude > 0.8) continue;
-        const label = document.createElementNS(NS, "text");
-        label.setAttribute("x", (star.x + 6).toFixed(1));
-        label.setAttribute("y", (star.y - 5).toFixed(1));
-        label.setAttribute("class", "star-name-label");
-        label.textContent = star.name;
-        frag.appendChild(label);
-      }
-
-      container.appendChild(frag);
       renderPlanets();
       renderSkyChrome();
     }
@@ -886,8 +1266,16 @@
       const NS = "http://www.w3.org/2000/svg";
 
       const rimPoint = (azDeg, radius) => {
-        const a = azDeg * Math.PI / 180;
-        return { x: 300 + radius * Math.sin(a), y: 300 - radius * Math.cos(a) };
+        const p = skyProject(0, azDeg);
+        if (window.HologramCamera && window.HologramCamera.enabled) {
+          const dx = p.x - 300;
+          const dy = p.y - 300;
+          const factor = radius / 250;
+          return { x: 300 + dx * factor, y: 300 + dy * factor };
+        } else {
+          const a = azDeg * Math.PI / 180;
+          return { x: 300 + radius * Math.sin(a), y: 300 - radius * Math.cos(a) };
+        }
       };
 
       [["N", 0], ["E", 90], ["S", 180], ["W", 270]].forEach(([t, az]) => {
@@ -949,6 +1337,14 @@
       for (let i = 0; i < 11; i++) {
         const el = document.getElementById(`zone-shape-${i}`);
         if (el) el.classList.toggle("selected", i === star.zone);
+      }
+
+      if (window.HologramCamera) {
+        HologramCamera.targetYaw = -star.az;
+        HologramCamera.targetPitch = 90 - star.alt;
+        HologramCamera.targetScale = 2.5;
+        HologramCamera.isZoomed = true;
+        document.getElementById("reset-view-btn").style.display = "inline-flex";
       }
 
       renderZonesList();
@@ -1228,9 +1624,13 @@
       const banner = document.getElementById("player-banner");
       if (!state.player) return;
       const fIdx = state.player.faction;
+      const evmStr = state.player.evm_address 
+        ? `<span style="font-size: 9px; color: var(--gold); font-family: var(--mono); background: rgba(216,180,106,0.1); border: 1px solid rgba(216,180,106,0.25); padding: 2px 6px; border-radius: 2px; text-shadow: none;">Wallet: ${state.player.evm_address.slice(0,6)}...${state.player.evm_address.slice(-4)}</span>` 
+        : "";
       banner.innerHTML = `
         <div style="display:flex; align-items:center; gap:8px;">
           <span style="font-size: 14px; font-weight: bold; color: #fff;">${state.player.handle}</span>
+          ${evmStr}
           <span style="font-size: 10px; color: var(--gold); cursor:pointer; text-decoration:underline;" onclick="openSignInModal()">[Switch]</span>
         </div>
         <span style="font-size: 10px; color: ${PLANET_COLORS[fIdx]}; letter-spacing: 0.05em; text-transform: uppercase;">
@@ -1275,9 +1675,11 @@
     function switchModalTab(tabId) {
       document.getElementById("modal-tab-select").classList.toggle("active", tabId === 'select');
       document.getElementById("modal-tab-key").classList.toggle("active", tabId === 'key');
+      document.getElementById("modal-tab-web3").classList.toggle("active", tabId === 'web3');
       
       document.getElementById("modal-pane-select").style.display = tabId === 'select' ? 'flex' : 'none';
       document.getElementById("modal-pane-key").style.display = tabId === 'key' ? 'flex' : 'none';
+      document.getElementById("modal-pane-web3").style.display = tabId === 'web3' ? 'flex' : 'none';
       synth.playClick();
     }
 
@@ -1377,6 +1779,107 @@
       }
     }
 
+    let web3Address = null;
+
+    async function connectWeb3Wallet() {
+      if (typeof window.ethereum === 'undefined') {
+        alert("No EVM wallet extension (e.g. MetaMask) detected. Please install one to use Web3 login.");
+        return;
+      }
+      
+      const status = document.getElementById("web3-wallet-status");
+      const btn = document.getElementById("web3-connect-btn");
+      
+      try {
+        status.innerHTML = "Requesting account access...";
+        btn.disabled = true;
+        
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        if (accounts.length === 0) {
+          throw new Error("No accounts returned.");
+        }
+        
+        web3Address = accounts[0];
+        status.innerHTML = `Connected EVM Wallet:<br><strong style="font-family: var(--mono); color: var(--gold-bright); font-size: 11px;">${web3Address}</strong>`;
+        btn.innerText = "Disconnect Wallet";
+        btn.setAttribute("onclick", "disconnectWeb3Wallet()");
+        btn.disabled = false;
+        
+        // Check if there is a profile locally associated with this wallet
+        const handle = getHandleForWallet(web3Address);
+        const profileSection = document.getElementById("web3-profile-section");
+        const profileInfo = document.getElementById("web3-profile-info");
+        const loginBtn = document.getElementById("web3-login-btn");
+        
+        profileSection.style.display = "flex";
+        if (handle) {
+          profileInfo.innerHTML = `Profile: <strong>${handle}</strong>`;
+          loginBtn.innerText = `Sign In as ${handle} ⚡`;
+        } else {
+          profileInfo.innerHTML = `No seeker profile associated with this wallet. Sign in to create a new profile.`;
+          loginBtn.innerText = `Create New Profile for Wallet ✦`;
+        }
+        
+        synth.playFanfare();
+      } catch (e) {
+        console.error("Wallet connection failed", e);
+        status.innerHTML = `<span style="color:#e88a8a;">Connection failed: ${e.message || e}</span>`;
+        btn.disabled = false;
+        btn.innerText = "Connect EVM Wallet 🦊";
+        btn.setAttribute("onclick", "connectWeb3Wallet()");
+        synth.playClick();
+      }
+    }
+
+    function disconnectWeb3Wallet() {
+      web3Address = null;
+      document.getElementById("web3-wallet-status").innerHTML = "Connect your EVM wallet to authenticate and register on-chain.";
+      const btn = document.getElementById("web3-connect-btn");
+      btn.innerText = "Connect EVM Wallet 🦊";
+      btn.setAttribute("onclick", "connectWeb3Wallet()");
+      document.getElementById("web3-profile-section").style.display = "none";
+      synth.playSelect();
+    }
+
+    function getHandleForWallet(address) {
+      const list = state.getProfilesList();
+      for (const handle of list) {
+        const profileRaw = localStorage.getItem(`pentacles_save_${handle}`);
+        if (profileRaw) {
+          try {
+            const data = JSON.parse(profileRaw);
+            if (data.player && data.player.evm_address && data.player.evm_address.toLowerCase() === address.toLowerCase()) {
+              return handle;
+            }
+          } catch(e) {}
+        }
+      }
+      return null;
+    }
+
+    function loginWithWeb3Wallet() {
+      if (!web3Address) return;
+      
+      const handle = getHandleForWallet(web3Address);
+      if (handle) {
+        // Log in to existing profile
+        selectProfile(handle);
+      } else {
+        // Create new profile for this wallet
+        closeSignInModal();
+        document.getElementById("onboarding-overlay").style.display = "flex";
+        document.getElementById("onboarding-step-1").style.display = "flex";
+        document.getElementById("onboarding-step-2").style.display = "none";
+        
+        // Prefill handle with first 6 chars of address
+        document.getElementById("ob-handle").value = `Seeker_${web3Address.slice(2, 8)}`;
+        
+        // Store temp address so onboarding registers it
+        window.tempEvmAddress = web3Address;
+        synth.playSelect();
+      }
+    }
+
     // Master render call
     function renderAll() {
       renderActiveHand();
@@ -1467,6 +1970,8 @@
 
     // Init Page setup
     document.addEventListener("DOMContentLoaded", () => {
+      initHologramControls();
+      requestAnimationFrame(animateFrame);
       // Open the Codex (shared wordlist.txt) for Word Duels; re-render when it lands.
       loadCodex().then(() => { if (state.player) renderWordDuel(); });
 
