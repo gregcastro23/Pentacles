@@ -18,7 +18,10 @@
 //
 // Environment:
 //   ATTESTOR_PRIVATE_KEY   (required) the 0x-hex key holding ATTESTOR_ROLE on the AMM
-//   AMM_CONTRACT_ADDRESS   (required) the deployed ConstellationAMM (verifyingContract)
+//                          (this feeder's signing key, granted at deploy via ATTESTOR_ADDRESS)
+//   AMM_CONTRACT_ADDRESS   (required) the deployed ConstellationAMM (verifyingContract);
+//                          canonical Base-Sepolia deploy (12 pools, ids match constellations.rs):
+//                          0x6B4EE164320e9E5583C0F6BEe14D5BABb5ba5095
 //   ESMS_CHAIN             base | base-sepolia            (default: base-sepolia)
 //   BASE_SEPOLIA_RPC_URL / BASE_RPC_URL                   (default: public RPC)
 //   SPACETIMEDB_DB         (default: cookingwithcastrollc)
@@ -62,18 +65,28 @@ const REGION_SALT = process.env.REGION_SALT ?? "pentacles";
 
 const ATTESTOR_PRIVATE_KEY = process.env.ATTESTOR_PRIVATE_KEY as Hex | undefined;
 const AMM_ADDRESS = process.env.AMM_CONTRACT_ADDRESS as Address | undefined;
+// The 12-pool ConstellationAMM (one pool per real constellation in `constellations.rs`) is
+// deployed on Base Sepolia by AlchmAgentsETH's Deploy.s.sol. (AlchmAgentsETH also runs a
+// separate 6-element-pair AMM on Arc for its own staking page — that is NOT this attestor's
+// pool set, so we stay on Base.) The EIP-712 domain's chainId must match the deployed AMM.
 const CHAIN = (process.env.ESMS_CHAIN ?? "base-sepolia") === "base" ? base : baseSepolia;
 const RPC_URL =
   CHAIN.id === base.id
     ? process.env.BASE_RPC_URL ?? "https://mainnet.base.org"
     : process.env.BASE_SEPOLIA_RPC_URL ?? "https://sepolia.base.org";
 
+// usedNonce is keyed per-(constellation, trader): `mapping(uint16 => mapping(address => uint64))`
+// in ConstellationAMM. Must match exactly — a single-arg `usedNonce(address)` read reverts and
+// would silently fall back to nonce 0, producing AttestationBadNonce on the trader's 2nd trade.
 const USED_NONCE_ABI = [
   {
     type: "function",
     name: "usedNonce",
     stateMutability: "view",
-    inputs: [{ name: "", type: "address" }],
+    inputs: [
+      { name: "constId", type: "uint16" },
+      { name: "trader", type: "address" },
+    ],
     outputs: [{ name: "", type: "uint64" }],
   },
 ] as const;
@@ -177,14 +190,14 @@ async function regionCommit(traderIdentity: string): Promise<Hex> {
 
 const publicClient = createPublicClient({ chain: CHAIN, transport: http(RPC_URL) });
 
-async function nextNonce(evm: Address): Promise<bigint> {
+async function nextNonce(constId: number, evm: Address): Promise<bigint> {
   if (!AMM_ADDRESS) return 0n;
   try {
     return (await publicClient.readContract({
       address: AMM_ADDRESS,
       abi: USED_NONCE_ABI,
       functionName: "usedNonce",
-      args: [evm],
+      args: [constId, evm],
     })) as bigint;
   } catch (err) {
     console.warn(`[constellation] usedNonce read failed, defaulting to 0:`, (err as Error).message);
@@ -234,7 +247,7 @@ async function processIntent(row: Record<string, string>): Promise<void> {
     return;
   }
 
-  const nonce = await nextNonce(evm);
+  const nonce = await nextNonce(constellationId, evm);
   const region = await regionCommit(trader);
   const deadline = Math.floor(Date.now() / 1000) + ATTESTATION_TTL_SECS;
 
