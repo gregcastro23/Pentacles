@@ -18,6 +18,11 @@ dist/
 *.local
 .vite/
 
+# Local env (keep .env.example tracked)
+.env
+.env.*
+!.env.example
+
 # Rust (SpacetimeDB server target)
 server/target/
 

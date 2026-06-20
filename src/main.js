@@ -15,6 +15,8 @@ import './ui/ui.css'
 import { isAddress, getAddress } from 'viem'
 import { toast, confirmToast } from './ui/toast.js'
 import { initA11y } from './ui/a11y.js'
+import spacetime from './net/spacetime.js'
+import { initNetBadge } from './net/status-badge.js'
 
 const Pentacles = (window.Pentacles = window.Pentacles || {})
 Pentacles.version = '0.2.0'
@@ -39,8 +41,16 @@ window.confirmToast = confirmToast
 Pentacles.toast = toast
 Pentacles.confirmToast = confirmToast
 
+// Live SpacetimeDB connection (dual-mode). Exposed for later phases to read
+// tables / call reducers; falls back silently to local simulation when offline.
+Pentacles.net = spacetime
+
 function boot() {
   initA11y()
+  initNetBadge()
+  // Attempt the live connection in the background; the badge reflects the result
+  // and the game keeps running on local simulation either way.
+  spacetime.connect().catch(() => {})
   // eslint-disable-next-line no-console
   console.info('[Pentacles] ESM layer ready (Vite) — v' + Pentacles.version)
 }
