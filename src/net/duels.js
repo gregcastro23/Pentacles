@@ -41,8 +41,9 @@ export async function castWordLive(word, opponentIdx, { timeoutMs = 35000, inter
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
     await new Promise((r) => setTimeout(r, intervalMs))
+    // SpacetimeDB SQL has no ORDER BY; fetch matches and find the unseen one.
     const rows = await spacetime
-      .query(`SELECT * FROM word_duel WHERE player_word = '${sqlEscape(w)}' ORDER BY created_at DESC LIMIT 3`)
+      .query(`SELECT * FROM word_duel WHERE player_word = '${sqlEscape(w)}'`)
       .catch(() => [])
     const fresh = rows.find((r) => !seen.has(String(r.duel_id)))
     if (fresh) {

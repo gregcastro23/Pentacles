@@ -196,41 +196,64 @@ class SpacetimeClient {
 // result is `{ schema, rows }` where rows are positional arrays and column names
 // live in schema.elements[].name (sometimes wrapped as {some:"x"}). We map each
 // row to a {col: value} object, and pass through already-object rows untouched.
+// SpacetimeDB /sql returns [{ schema, rows }]. Rows are positional arrays in SATS
+// JSON: enums/Options encode as [tagIndex, payload] (e.g. owner [0,[1,[]]] =
+// some(Moon); none = [1,[]]). We use the schema's AlgebraicType to decode each
+// value: plain enums → variant name ("Mars"), Option → inner value or null,
+// primitives → through (u64/u128 may be strings; callers coerce).
 function normalizeSqlResult(json) {
   const stmt = Array.isArray(json) ? json[json.length - 1] : json
   if (!stmt) return []
+  const schema = stmt.schema || stmt.Schema
   const rows = stmt.rows || stmt.Rows || []
   if (!rows.length) return []
-  if (!Array.isArray(rows[0])) return rows // already objects
-
-  const cols = extractColumnNames(stmt.schema || stmt.Schema)
+  const elements = schema?.elements || schema?.Elements || []
+  const cols = elements.map((el, i) => elName(el, i))
+  const types = elements.map((el) => el?.algebraic_type ?? el?.algebraicType)
+  if (!Array.isArray(rows[0])) return rows // already objects (defensive)
   return rows.map((row) => {
     const obj = {}
     row.forEach((val, i) => {
-      obj[cols[i] ?? `col${i}`] = unwrapValue(val)
+      obj[cols[i] ?? `col${i}`] = decodeSats(types[i], val)
     })
     return obj
   })
 }
 
-function extractColumnNames(schema) {
-  const els = schema?.elements || schema?.Elements || []
-  return els.map((el, i) => {
-    const n = el?.name ?? el?.Name
-    if (typeof n === 'string') return n
-    if (n && typeof n === 'object') return n.some ?? n.Some ?? `col${i}`
-    return `col${i}`
-  })
+function elName(el, i) {
+  const n = el?.name ?? el?.Name
+  if (typeof n === 'string') return n
+  if (n && typeof n === 'object') return n.some ?? n.Some ?? `col${i}`
+  return `col${i}`
 }
 
-// SpacetimeDB JSON wraps Option/enum values; unwrap the common shapes.
-function unwrapValue(v) {
-  if (v && typeof v === 'object' && !Array.isArray(v)) {
-    if ('some' in v) return unwrapValue(v.some)
-    if ('Some' in v) return unwrapValue(v.Some)
-    if ('none' in v || 'None' in v) return null
+function decodeSats(type, val) {
+  if (!type) return val
+  if (type.Sum) {
+    const variants = type.Sum.variants || []
+    if (!Array.isArray(val)) return val
+    const [tag, payload] = val
+    const variant = variants[tag]
+    const vname = (variant && (variant.name?.some ?? variant.name)) ?? String(tag)
+    const isOption = variants.length === 2 && variants.some((v) => (v?.name?.some ?? v?.name) === 'none')
+    if (isOption) {
+      if (vname === 'none') return null
+      return decodeSats(variant?.algebraic_type ?? variant?.algebraicType, payload) // unwrap some
+    }
+    return vname // plain enum → variant name (e.g. "Mars", "House")
   }
-  return v
+  if (type.Product) {
+    const els = type.Product.elements || []
+    if (Array.isArray(val)) {
+      const o = {}
+      els.forEach((e, i) => {
+        o[elName(e, i)] = decodeSats(e?.algebraic_type ?? e?.algebraicType, val[i])
+      })
+      return o
+    }
+    return val
+  }
+  return val // primitives
 }
 
 export const spacetime = new SpacetimeClient()

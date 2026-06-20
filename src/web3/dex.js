@@ -181,10 +181,11 @@ export async function requestTrace(constId) {
 export async function awaitAttestation(constId, { timeoutMs = 30000, intervalMs = 2500 } = {}) {
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
+    // SpacetimeDB SQL has no ORDER BY; fetch + pick the newest client-side.
     const rows = await spacetime
-      .query(`SELECT * FROM trace_attestation WHERE constellation_id = ${constId} ORDER BY created_at DESC LIMIT 1`)
+      .query(`SELECT * FROM trace_attestation WHERE constellation_id = ${constId}`)
       .catch(() => [])
-    const row = rows[0]
+    const row = rows.sort((a, b) => Number(b.created_at || 0) - Number(a.created_at || 0))[0]
     if (row && row.signature) {
       return {
         trader: wallet.address,
