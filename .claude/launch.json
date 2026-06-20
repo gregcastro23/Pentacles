@@ -2,6 +2,13 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "pentacles-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 5173,
+      "autoPort": true
+    },
+    {
       "name": "pentacles-web",
       "runtimeExecutable": "bun",
       "runtimeArgs": ["serve.ts", "8090"],

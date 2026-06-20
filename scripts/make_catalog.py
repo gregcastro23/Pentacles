@@ -115,7 +115,7 @@ def main():
     root = Path(__file__).resolve().parent.parent
     stars = load(src)
     write_rust(stars, root / "server" / "src" / "catalog.rs")
-    write_js(stars, root / "star-catalog.js")
+    write_js(stars, root / "public" / "star-catalog.js")
     bands = {}
     for s in stars:
         bands[int(s[4]) if s[4] >= 0 else -1] = bands.get(int(s[4]) if s[4] >= 0 else -1, 0) + 1

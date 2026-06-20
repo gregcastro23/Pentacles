@@ -252,7 +252,7 @@ def write_rust(cons, path):
 
 def main():
     root = Path(__file__).resolve().parent.parent
-    by_name, by_hip = parse_catalog(root / "star-catalog.js")
+    by_name, by_hip = parse_catalog(root / "public" / "star-catalog.js")
     cons, misses = build(by_name)
 
     if misses:
@@ -263,7 +263,7 @@ def main():
         print(f"\n{len(misses)} unresolved — outputs NOT written.", file=sys.stderr)
         sys.exit(1)
 
-    write_js(cons, root / "constellations.js")
+    write_js(cons, root / "public" / "constellations.js")
     write_rust(cons, root / "server" / "src" / "constellations.rs")
     print(f"{len(cons)} constellations written.")
     for c in cons:

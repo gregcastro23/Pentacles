@@ -13,6 +13,11 @@ bun.lockb
 bun.lock
 .npm/
 
+# Vite build output
+dist/
+*.local
+.vite/
+
 # Rust (SpacetimeDB server target)
 server/target/
 

@@ -61,19 +61,24 @@ A standalone, lightweight 2D/AR-toggleable Web Client is now available in the pr
     *   Low pass filters and noise generators simulate combat strikes.
 *   **Persistence & Bot Activity**: Saves all state (profile, deck, levels, map captures) in `localStorage`. Runs a background loop that decays controlled zones and triggers periodic bot attacks to simulate an active sky.
 
-### Run Locally (Bun)
+### Run Locally (Vite)
 
-Start the lightweight static file server from the root directory:
+The web client is a Vite app. The entry is `index.html`; the celestial data + math
+(`public/star-catalog.js`, `public/constellations.js`, `public/sky.js`), the game
+logic (`public/client.js`) and the UI bindings (`public/app.js`) load as classic
+global scripts, while the npm-backed layer (`src/`) is bundled by Vite.
 ```bash
-# Serves the playable client at http://localhost:8080/ (and /client.html)
-bun --bun run serve.ts  # Or serve via your preferred static file server
+npm install
+npm run dev          # Vite dev server with HMR (prints the local URL)
+npm run build        # Production build → ./dist
+bun --bun run serve.ts   # Serves the ./dist build at http://localhost:8080/
 ```
 
 ### Deploy to Vercel
 
-The web client deploys directly as a static project (`vercel.json` rewrites `/`
-to `client.html`, so the root URL serves the playable client; the design doc
-stays at `/Pentacles_GDD.html`):
+The web client deploys as a Vite project (`vercel.json` sets `framework: vite`,
+`buildCommand: vite build`, `outputDirectory: dist`; `index.html` is the SPA root
+and the design doc stays at `/Pentacles_GDD.html`):
 ```bash
 # Deploy to Vercel production
 vercel --prod
@@ -230,14 +235,14 @@ and tutorial all work without it; this powers only the free-text chat.
 
 ## Playable Web Client (Non-AR & AR Gyroscope)
 
-A lightweight web client (`client.html`) is provided in the project root to play and test the game's core loops in any standard desktop or mobile web browser.
+A lightweight Vite web client (entry `index.html`) is provided to play and test the game's core loops in any standard desktop or mobile web browser.
 
 ### How to Run:
-1. Start a static server from the project root:
+1. Install deps and start the dev server from the project root:
    ```bash
-   python3 -m http.server 8080
+   npm install && npm run dev
    ```
-2. Navigate to **[http://localhost:8080/client.html](http://localhost:8080/client.html)**.
+2. Navigate to the URL Vite prints (e.g. **http://localhost:5173/**).
 3. Complete the onboarding screen with your birth details to generate deterministic local chart placements, recommended factions, and the 20-card starter deck shape used by the server.
 
 ### Key Features:
