@@ -19,6 +19,7 @@ import spacetime from './net/spacetime.js'
 import { initNetBadge } from './net/status-badge.js'
 import wallet from './web3/wallet.js'
 import { initEsmsHud } from './web3/hud.js'
+import { installPoolsUI } from './web3/pools-ui.js'
 
 const Pentacles = (window.Pentacles = window.Pentacles || {})
 Pentacles.version = '0.2.0'
@@ -61,6 +62,13 @@ function boot() {
   // labeled simulation). Silent reconnect if the user connected before.
   Pentacles.esmsHud = initEsmsHud()
   wallet.tryReconnect().catch(() => {})
+
+  // Constellation DEX: replace the dead PentaclesBridge stub with the real panel
+  // (runs after the classic app.js defined renderPoolsPanel/traceConstellation).
+  installPoolsUI()
+  if (document.getElementById('tab-pools')?.classList.contains('active')) {
+    window.renderPoolsPanel?.()
+  }
 
   // Optional Dynamic React island — only when VITE_DYNAMIC_ENV_ID is configured.
   if (import.meta.env.VITE_DYNAMIC_ENV_ID) {

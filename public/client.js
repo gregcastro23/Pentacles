@@ -1032,6 +1032,9 @@ class GameState {
 }
 
 const state = new GameState();
+// Bridge for the ES-module layer (src/), whose modules can't see this classic
+// top-level `const`. Phases 3–5 read window.state for live pool/faction/zone data.
+window.state = state;
 
 // ---- AUTO-SIEGE COMBAT RESOLVER ----
 // ---- MULTI-FACTION BATTLE HELPERS & RESOLVER ----
