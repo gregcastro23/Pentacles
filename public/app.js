@@ -308,14 +308,14 @@
 
     // Geolocation → observer inputs (anchors the live star map to where you stand)
     function useMyLocation() {
-      if (!navigator.geolocation) { alert("Geolocation is not available in this browser."); return; }
+      if (!navigator.geolocation) { toast("Geolocation is not available in this browser.", { type: "warn" }); return; }
       navigator.geolocation.getCurrentPosition(
         pos => {
           document.getElementById("ob-lat").value = pos.coords.latitude.toFixed(4);
           document.getElementById("ob-lon").value = pos.coords.longitude.toFixed(4);
           synth.playSelect();
         },
-        err => alert("Could not read your location (" + err.message + ") — enter lat/lon manually.")
+        err => toast("Could not read your location (" + err.message + ") — enter lat/lon manually.", { type: "warn" })
       );
     }
 
@@ -326,7 +326,7 @@
       const time = document.getElementById("ob-time").value;
       const loc = document.getElementById("ob-loc").value;
 
-      if (!handle) { alert("Enter a seeker name!"); return; }
+      if (!handle) { toast("Enter a seeker name!", { type: "warn" }); return; }
 
       // Anchor the live sky to the observer before the map first renders.
       const lat = parseFloat(document.getElementById("ob-lat").value);
@@ -1382,9 +1382,11 @@
       synth.playFanfare();
     }
 
-    function deleteProfileClick(handle, event) {
+    async function deleteProfileClick(handle, event) {
       event.stopPropagation();
-      if (confirm(`Are you sure you want to discard seeker profile: "${handle}"? This action is permanent.`)) {
+      const ok = await confirmToast(`Discard seeker profile <b>${handle}</b>? This is permanent.`, { title: "Discard profile", confirmLabel: "Discard", cancelLabel: "Keep", danger: true });
+      if (!ok) return;
+      {
         state.deleteProfile(handle);
         
         const loaded = state.load();
@@ -1412,7 +1414,7 @@
     function importAstralKey() {
       const input = document.getElementById("astral-key-import-input").value.trim();
       if (!input) {
-        alert("Please paste an Astral Key!");
+        toast("Please paste an Astral Key!", { type: "warn" });
         return;
       }
       
@@ -1428,11 +1430,11 @@
           renderAll();
           synth.playFanfare();
         } else {
-          alert("Invalid Astral Key structure.");
+          toast("Invalid Astral Key structure.", { type: "error" });
         }
       } catch(e) {
         console.error("Import failed", e);
-        alert("Failed to decode Astral Key. Make sure you copied the entire key string.");
+        toast("Failed to decode Astral Key. Make sure you copied the entire key string.", { type: "error" });
       }
     }
 
@@ -1440,7 +1442,7 @@
 
     async function connectWeb3Wallet() {
       if (typeof window.ethereum === 'undefined') {
-        alert("No EVM wallet extension (e.g. MetaMask) detected. Please install one to use Web3 login.");
+        toast("No EVM wallet extension (e.g. MetaMask) detected. Please install one to use Web3 login.", { type: "warn" });
         return;
       }
       

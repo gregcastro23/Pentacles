@@ -809,13 +809,13 @@ class GameState {
     if (next === "active") {
       const activeCount = this.deck.filter(d => d.loadout === "active").length;
       if (activeCount >= 8) {
-        alert("Active slots are full (max 8)! Bench a card first.");
+        toast("Active slots are full (max 8)! Bench a card first.", { type: "warn" });
         return;
       }
     } else if (next === "defense") {
       const defenseCount = this.deck.filter(d => d.loadout === "defense").length;
       if (defenseCount >= 8) {
-        alert("Defense slots are full (max 8)! Bench a card first.");
+        toast("Defense slots are full (max 8)! Bench a card first.", { type: "warn" });
         return;
       }
     }
@@ -1232,7 +1232,7 @@ async function toggleARCamera() {
     return true;
   } catch (e) {
     console.error("Camera access failed", e);
-    alert("Camera permission denied. Enabling interactive sky sphere fallback instead!");
+    toast("Camera permission denied — enabling the interactive sky sphere fallback instead.", { type: "info" });
     return false;
   }
 }
