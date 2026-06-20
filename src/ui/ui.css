@@ -284,10 +284,16 @@
 .swap-err { color: #e88a8a; }
 .seed-note { font-size: 11.5px; color: var(--dim, #a3a4ba); line-height: 1.45; margin: 0 0 4px; }
 
+/* ---- Live Word Duel result ---- */
+.duel-thinking { color: var(--gold, #d8b46a); animation: pt-pulse 1.3s ease-in-out infinite; }
+.duel-live { font-size: 10px; color: var(--pentacles, #74ab6c); text-transform: uppercase; letter-spacing: 0.05em; }
+.duel-rationale { display: inline-block; margin-top: 4px; font-style: italic; color: var(--dim, #a3a4ba); font-size: 12px; line-height: 1.4; }
+
 /* ---- Reduced motion ---- */
 @media (prefers-reduced-motion: reduce) {
   .pt-toast,
   .pt-toast.pt-leaving { animation: none !important; }
   .pt-toast__bar i { animation: none !important; }
   .pt-net--connecting .pt-net__dot { animation: none !important; }
+  .duel-thinking { animation: none !important; }
 }

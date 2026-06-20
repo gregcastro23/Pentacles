@@ -17,6 +17,7 @@ import { toast, confirmToast } from './ui/toast.js'
 import { initA11y } from './ui/a11y.js'
 import spacetime from './net/spacetime.js'
 import { initNetBadge } from './net/status-badge.js'
+import duels from './net/duels.js'
 import wallet from './web3/wallet.js'
 import { initEsmsHud } from './web3/hud.js'
 import { installPoolsUI } from './web3/pools-ui.js'
@@ -47,6 +48,9 @@ Pentacles.confirmToast = confirmToast
 // Live SpacetimeDB connection (dual-mode). Exposed for later phases to read
 // tables / call reducers; falls back silently to local simulation when offline.
 Pentacles.net = spacetime
+
+// Live Word Duels (cast_word → word_duel); app.js falls back to the offline solver.
+Pentacles.duels = duels
 
 // Wallet façade (injected now; Dynamic island layers on top in dynamic.js).
 Pentacles.wallet = wallet

@@ -1628,26 +1628,88 @@
       prev.innerText = msg;
     }
 
-    function castWordOfPower() {
+    function renderDuelResult(res, opp, live) {
+      const out = document.getElementById("word-result");
+      out.style.color = res.won ? "var(--gold-bright)" : "var(--dim)";
+      const tag = live ? ' <span class="duel-live">● live</span>' : '';
+      let html = res.won
+        ? `✦ <b>Victory!</b> ${res.playerWord} (${res.playerScore}) bested ${PLANET_NAMES[opp]}'s ${res.agentWord || "—"} (${res.agentScore}). <b>+${res.tokens}</b> tokens!${tag}`
+        : `${PLANET_NAMES[opp]} answered <b>${res.agentWord || "—"}</b> (${res.agentScore}) to your ${res.playerWord} (${res.playerScore}). +${res.tokens} tokens.${tag}`;
+      if (res.rationale) html += `<br><span class="duel-rationale">“${res.rationale}”</span>`;
+      out.innerHTML = html;
+    }
+
+    // Fast local validation so the live path gives instant feedback before the
+    // round-trip (mirrors the server cast_word guards in words.rs).
+    function validateWordInput(w) {
+      if (!w || w.length < 2) return "A Word of Power needs at least two letters.";
+      if (!/^[A-Z]+$/.test(w)) return "Letters only.";
+      if (typeof WORD_SET === "undefined" || WORD_SET === null) return "The Codex is still opening — try again in a moment.";
+      if (!isValidWord(w)) return `"${w}" is not in the Codex.`;
+      if (!canSpell(w, state.playerLetters())) return "Your Arcana don't hold those letters.";
+      return null;
+    }
+
+    async function castWordOfPower() {
       if (!state.player) return;
       const inp = document.getElementById("word-input");
       const opp = parseInt(document.getElementById("word-opponent").value || "0", 10);
-      const res = state.castWord(inp.value, opp);
       const out = document.getElementById("word-result");
-      if (res.error) {
+      const live = !!(window.Pentacles && window.Pentacles.net && window.Pentacles.net.isLive);
+
+      if (!live) {
+        // Offline solver — the bundled mirror of the server's cast_word.
+        const res = state.castWord(inp.value, opp);
+        if (res.error) {
+          out.style.color = "#e88a8a";
+          out.innerText = "✗ " + res.error;
+          synth.playClick();
+          return;
+        }
+        renderDuelResult(res, opp, false);
+        inp.value = "";
+        if (res.won) synth.playFanfare(); else synth.playClick();
+        renderWordDuel();
+        renderUserBanner();
+        return;
+      }
+
+      // Live path — cast_word reducer → the planetary agent answers via the feeder.
+      const w = inp.value.trim().toUpperCase();
+      const err = validateWordInput(w);
+      if (err) {
         out.style.color = "#e88a8a";
-        out.innerText = "✗ " + res.error;
+        out.innerText = "✗ " + err;
         synth.playClick();
         return;
       }
-      out.style.color = res.won ? "var(--gold-bright)" : "var(--dim)";
-      out.innerHTML = res.won
-        ? `✦ <b>Victory!</b> ${res.playerWord} (${res.playerScore}) bested ${PLANET_NAMES[opp]}'s ${res.agentWord || "—"} (${res.agentScore}). <b>+${res.tokens}</b> tokens!`
-        : `${PLANET_NAMES[opp]} answered <b>${res.agentWord || "—"}</b> (${res.agentScore}) to your ${res.playerWord} (${res.playerScore}). +${res.tokens} tokens.`;
-      inp.value = "";
-      if (res.won) synth.playFanfare(); else synth.playClick();
-      renderWordDuel();
-      renderUserBanner();
+      const castBtn = document.getElementById("word-cast-btn");
+      out.style.color = "var(--dim)";
+      out.innerHTML = `<span class="duel-thinking">✦ ${PLANET_NAMES[opp]} deliberates over its rack…</span>`;
+      if (castBtn) castBtn.disabled = true;
+      try {
+        const res = await window.Pentacles.duels.castWordLive(w, opp);
+        // Mirror the offline side effects with the server's scored result.
+        state.player.tokens += res.tokens;
+        if (res.won) state.player.word_wins = (state.player.word_wins || 0) + 1;
+        state.wordDuels.unshift({
+          opponent: opp, playerWord: res.playerWord, playerScore: res.playerScore,
+          agentWord: res.agentWord, agentScore: res.agentScore, won: res.won, tokens: res.tokens, at: res.at,
+        });
+        if (state.wordDuels.length > 20) state.wordDuels.pop();
+        state.save();
+        renderDuelResult(res, opp, true);
+        inp.value = "";
+        if (res.won) synth.playFanfare(); else synth.playClick();
+        renderWordDuel();
+        renderUserBanner();
+      } catch (e) {
+        out.style.color = "#e88a8a";
+        out.innerText = "✗ " + (e.message || e);
+        toast(e.message || String(e), { type: "error", title: "Word Duel" });
+      } finally {
+        if (castBtn) castBtn.disabled = false;
+      }
     }
 
     // Init Page setup
