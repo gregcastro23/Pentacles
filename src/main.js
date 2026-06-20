@@ -17,6 +17,8 @@ import { toast, confirmToast } from './ui/toast.js'
 import { initA11y } from './ui/a11y.js'
 import spacetime from './net/spacetime.js'
 import { initNetBadge } from './net/status-badge.js'
+import wallet from './web3/wallet.js'
+import { initEsmsHud } from './web3/hud.js'
 
 const Pentacles = (window.Pentacles = window.Pentacles || {})
 Pentacles.version = '0.2.0'
@@ -45,12 +47,28 @@ Pentacles.confirmToast = confirmToast
 // tables / call reducers; falls back silently to local simulation when offline.
 Pentacles.net = spacetime
 
+// Wallet façade (injected now; Dynamic island layers on top in dynamic.js).
+Pentacles.wallet = wallet
+
 function boot() {
   initA11y()
   initNetBadge()
   // Attempt the live connection in the background; the badge reflects the result
   // and the game keeps running on local simulation either way.
   spacetime.connect().catch(() => {})
+
+  // ESMS balance HUD (live balanceOfBatch when a wallet is on Base Sepolia, else
+  // labeled simulation). Silent reconnect if the user connected before.
+  Pentacles.esmsHud = initEsmsHud()
+  wallet.tryReconnect().catch(() => {})
+
+  // Optional Dynamic React island — only when VITE_DYNAMIC_ENV_ID is configured.
+  if (import.meta.env.VITE_DYNAMIC_ENV_ID) {
+    import('./web3/dynamic.js')
+      .then((m) => m.mountDynamic())
+      .catch((e) => console.warn('[Pentacles] Dynamic island failed to load', e))
+  }
+
   // eslint-disable-next-line no-console
   console.info('[Pentacles] ESM layer ready (Vite) — v' + Pentacles.version)
 }

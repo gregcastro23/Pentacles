@@ -165,6 +165,40 @@
 .pt-net--error .pt-net__dot { color: #e88a8a; }
 @keyframes pt-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
 
+/* ---- ESMS balance HUD (top-right) ---- */
+.pt-esms {
+  position: fixed;
+  top: 12px;
+  right: 14px;
+  z-index: 99998;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 9px;
+  border-radius: 10px;
+  background: var(--bg-panel, rgba(13, 16, 28, 0.82));
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--line-hard, rgba(216, 180, 106, 0.32));
+  font-family: var(--ui, "Space Grotesk", system-ui, sans-serif);
+  font-size: 12px;
+  color: var(--text, #ece9e0);
+}
+.pt-esms__tag {
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 6px;
+  color: var(--dim, #a3a4ba);
+  border: 1px solid var(--line, rgba(216, 180, 106, 0.16));
+}
+.pt-esms__tag--live { color: var(--pentacles, #74ab6c); border-color: rgba(116, 179, 108, 0.4); }
+.pt-esms__tag--sim { color: var(--gold, #d8b46a); border-color: rgba(216, 180, 106, 0.3); }
+.pt-esms__chip { display: inline-flex; align-items: center; gap: 4px; }
+.pt-esms__glyph { color: var(--c); font-size: 14px; line-height: 1; }
+.pt-esms__amt { font-variant-numeric: tabular-nums; min-width: 1.6em; text-align: right; }
+
 /* ---- Reduced motion ---- */
 @media (prefers-reduced-motion: reduce) {
   .pt-toast,

@@ -1440,36 +1440,45 @@
 
     let web3Address = null;
 
+    function renderWeb3Status() {
+      const status = document.getElementById("web3-wallet-status");
+      if (!status || !web3Address) return;
+      const onBase = window.Pentacles?.wallet?.onBaseSepolia;
+      status.innerHTML =
+        `Connected EVM Wallet:<br><strong style="font-family: var(--mono); color: var(--gold-bright); font-size: 11px;">${web3Address}</strong>` +
+        (onBase
+          ? `<br><span style="color:var(--pentacles);font-size:11px;">● Base Sepolia · live</span>`
+          : `<br><button class="btn" style="margin-top:6px;font-size:11px;padding:4px 8px;" onclick="switchWalletToBaseSepolia()">Switch to Base Sepolia ⚡</button>`);
+    }
+
     async function connectWeb3Wallet() {
-      if (typeof window.ethereum === 'undefined') {
+      const wallet = window.Pentacles && window.Pentacles.wallet;
+      if (!wallet || typeof window.ethereum === 'undefined') {
         toast("No EVM wallet extension (e.g. MetaMask) detected. Please install one to use Web3 login.", { type: "warn" });
         return;
       }
-      
+
       const status = document.getElementById("web3-wallet-status");
       const btn = document.getElementById("web3-connect-btn");
-      
+
       try {
-        status.innerHTML = "Requesting account access...";
+        status.innerHTML = "Requesting account access…";
         btn.disabled = true;
-        
-        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-        if (accounts.length === 0) {
-          throw new Error("No accounts returned.");
-        }
-        
-        web3Address = accounts[0];
-        status.innerHTML = `Connected EVM Wallet:<br><strong style="font-family: var(--mono); color: var(--gold-bright); font-size: 11px;">${web3Address}</strong>`;
+
+        // Route through the wallet façade: wires account/chain events, persistence,
+        // and updates the ESMS HUD automatically.
+        web3Address = await wallet.connectInjected();
+        renderWeb3Status();
         btn.innerText = "Disconnect Wallet";
         btn.setAttribute("onclick", "disconnectWeb3Wallet()");
         btn.disabled = false;
-        
-        // Check if there is a profile locally associated with this wallet
+
+        // Local profile associated with this wallet?
         const handle = getHandleForWallet(web3Address);
         const profileSection = document.getElementById("web3-profile-section");
         const profileInfo = document.getElementById("web3-profile-info");
         const loginBtn = document.getElementById("web3-login-btn");
-        
+
         profileSection.style.display = "flex";
         if (handle) {
           profileInfo.innerHTML = `Profile: <strong>${handle}</strong>`;
@@ -1478,7 +1487,10 @@
           profileInfo.innerHTML = `No seeker profile associated with this wallet. Sign in to create a new profile.`;
           loginBtn.innerText = `Create New Profile for Wallet ✦`;
         }
-        
+
+        if (!wallet.onBaseSepolia) {
+          toast("Connected — switch to Base Sepolia for live ESMS balances and pool trading.", { type: "info" });
+        }
         synth.playFanfare();
       } catch (e) {
         console.error("Wallet connection failed", e);
@@ -1490,8 +1502,19 @@
       }
     }
 
+    async function switchWalletToBaseSepolia() {
+      try {
+        await window.Pentacles.wallet.switchToBaseSepolia();
+        toast("Switched to Base Sepolia.", { type: "success" });
+        renderWeb3Status();
+      } catch (e) {
+        toast(`Could not switch network: ${e.message || e}`, { type: "error" });
+      }
+    }
+
     function disconnectWeb3Wallet() {
       web3Address = null;
+      window.Pentacles?.wallet?.disconnect();
       document.getElementById("web3-wallet-status").innerHTML = "Connect your EVM wallet to authenticate and register on-chain.";
       const btn = document.getElementById("web3-connect-btn");
       btn.innerText = "Connect EVM Wallet 🦊";
