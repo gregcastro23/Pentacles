@@ -114,24 +114,34 @@ const FROM_BLOCK = (() => {
   const b = import.meta.env.VITE_AMM_FROM_BLOCK
   return b ? BigInt(b) : 0n
 })()
+const MAX_RANGE = 2000n // Base Sepolia public RPC caps eth_getLogs at 2000 blocks
+const LOOKBACK = BigInt(import.meta.env.VITE_AMM_LOOKBACK_BLOCKS || 40000)
 
 export async function discoverPositions(trader) {
-  if (!trader) return []
+  if (!trader || trader === '0x0000000000000000000000000000000000000000') return []
   const event = AMM_ABI.find((x) => x.type === 'event' && x.name === 'PoolSeeded')
-  let logs
+  let latest
   try {
-    logs = await publicClient.getLogs({
-      address: ADDRESSES.amm,
-      event,
-      args: { trader },
-      fromBlock: FROM_BLOCK,
-      toBlock: 'latest',
-    })
-  } catch (e) {
-    // Public RPC range limit etc. — degrade gracefully (no positions surfaced).
-    console.warn('[dex] PoolSeeded getLogs failed', e?.message || e)
+    latest = await publicClient.getBlockNumber()
+  } catch {
     return []
   }
+  // Scan a bounded recent window in ≤2000-block chunks (set VITE_AMM_FROM_BLOCK
+  // to the deploy block for full history).
+  let from = FROM_BLOCK > 0n ? FROM_BLOCK : latest > LOOKBACK ? latest - LOOKBACK : 0n
+  const logs = []
+  let failures = 0
+  while (from <= latest) {
+    const to = from + MAX_RANGE - 1n > latest ? latest : from + MAX_RANGE - 1n
+    try {
+      const part = await publicClient.getLogs({ address: ADDRESSES.amm, event, args: { trader }, fromBlock: from, toBlock: to })
+      logs.push(...part)
+    } catch {
+      failures++
+    }
+    from = to + 1n
+  }
+  if (failures && !logs.length) return []
   const deedIds = [...new Set(logs.map((l) => l.args.deedId))]
   const positions = []
   for (const deedId of deedIds) {

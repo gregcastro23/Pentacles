@@ -20,6 +20,7 @@ import * as sim from './dex-sim.js'
 let poolsCache = []
 let positionsCache = []
 let refreshToken = 0
+let lastPosAddr = null
 let ctx = null // active swap/seed drawer context
 
 const toast = (...a) => window.toast?.(...a)
@@ -50,27 +51,29 @@ export function renderPoolsPanel() {
   refreshPools()
 }
 
-async function refreshPools() {
+async function refreshPools(force = false) {
   const token = ++refreshToken
   const meta = poolMeta()
   const simMeta = meta.map((m) => ({ constId: m.constId, pair: m.pair, feeBps: m.feeBps }))
   try {
     if (mode() === 'live') {
-      const [pools, positions] = await Promise.all([
-        dex.readAllPools(),
-        wallet.address ? dex.discoverPositions(wallet.address) : Promise.resolve([]),
-      ])
+      poolsCache = await dex.readAllPools()
       if (token !== refreshToken) return
-      poolsCache = pools
-      positionsCache = positions
+      // LP positions need an event scan (Deed isn't enumerable) — only refetch on
+      // wallet change or after a tx, never on the routine reserve tick.
+      if (force || wallet.address !== lastPosAddr) {
+        positionsCache = wallet.address ? await dex.discoverPositions(wallet.address) : []
+        lastPosAddr = wallet.address
+      }
     } else {
       poolsCache = sim.simAllPools(simMeta)
       positionsCache = sim.simPositions()
+      lastPosAddr = null
     }
   } catch (e) {
     // live RPC read failed → show sim reserves so the panel still works
     poolsCache = sim.simAllPools(simMeta)
-    positionsCache = []
+    if (force) positionsCache = []
   }
   if (token === refreshToken) paint()
 }
@@ -263,7 +266,7 @@ async function doSwap() {
       toast('Swap executed (simulation).', { type: 'success', title: 'Constellation DEX' })
     }
     closeDrawer()
-    refreshPools()
+    refreshPools(true)
     window.Pentacles?.esmsHud?.refresh?.()
   } catch (e) {
     const msg = dex.explainRevert(e)
@@ -320,7 +323,7 @@ async function doSeed() {
       toast(`Seeded — Constellation Deed #${deedId} minted (simulation).`, { type: 'success', title: ctx.mt.name })
     }
     closeDrawer()
-    refreshPools()
+    refreshPools(true)
     window.Pentacles?.esmsHud?.refresh?.()
   } catch (e) {
     const msg = dex.explainRevert(e)
@@ -347,7 +350,7 @@ async function withdrawPosition(deedIdStr) {
       sim.simWithdraw(deedId, 10000)
       toast('Withdrew position (simulation).', { type: 'success', title: 'Constellation DEX' })
     }
-    refreshPools()
+    refreshPools(true)
     window.Pentacles?.esmsHud?.refresh?.()
   } catch (e) {
     toast(dex.explainRevert(e), { type: 'error', title: 'Withdraw failed' })
