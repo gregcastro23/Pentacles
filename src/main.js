@@ -18,6 +18,7 @@ import { initA11y } from './ui/a11y.js'
 import spacetime from './net/spacetime.js'
 import { initNetBadge } from './net/status-badge.js'
 import duels from './net/duels.js'
+import { installDashboards } from './net/dashboards.js'
 import wallet from './web3/wallet.js'
 import { initEsmsHud } from './web3/hud.js'
 import { installPoolsUI } from './web3/pools-ui.js'
@@ -73,6 +74,10 @@ function boot() {
   if (document.getElementById('tab-pools')?.classList.contains('active')) {
     window.renderPoolsPanel?.()
   }
+
+  // Faction Standings + Zones: live from subscribed tables when online, classic
+  // local derivation otherwise.
+  installDashboards()
 
   // Optional Dynamic React island — only when VITE_DYNAMIC_ENV_ID is configured.
   if (import.meta.env.VITE_DYNAMIC_ENV_ID) {
