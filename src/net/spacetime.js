@@ -95,13 +95,17 @@ class SpacetimeClient {
 
   /** Create (once) an anonymous SpacetimeDB identity + token for a stable sender. */
   async ensureIdentity() {
-    if (this.token) return this.token
-    const res = await fetch(`${this.base}/v1/identity`, { method: 'POST' })
-    if (!res.ok) throw new Error(`identity ${res.status}: ${await res.text().catch(() => '')}`)
-    const j = await res.json()
-    this.token = j.token || j.Token || null
-    this.identity = j.identity || j.Identity || null
-    if (this.token) localStorage.setItem(TOKEN_KEY, this.token)
+    if (!this.token) {
+      const res = await fetch(`${this.base}/v1/identity`, { method: 'POST' })
+      if (!res.ok) throw new Error(`identity ${res.status}: ${await res.text().catch(() => '')}`)
+      const j = await res.json()
+      this.token = j.token || j.Token || null
+      if (j.identity || j.Identity) this.identity = j.identity || j.Identity
+      if (this.token) localStorage.setItem(TOKEN_KEY, this.token)
+    }
+    // Always derive the identity from the JWT (hex_identity claim) so it's set
+    // even when a token was restored from localStorage.
+    if (this.token && !this.identity) this.identity = identityFromToken(this.token)
     return this.token
   }
 
@@ -189,6 +193,51 @@ class SpacetimeClient {
   async fetchTable(table, whereSql = '') {
     return this.query(`SELECT * FROM ${table}${whereSql ? ' WHERE ' + whereSql : ''}`)
   }
+
+  // ---- live reducer helpers (Phases 5–6) ------------------------------------
+  // Arg encoding mirrors duels.js: a unit enum is { Variant: [] }; an Option is
+  // { some: <value> } / { none: [] }. UNVALIDATED-live until a host + feeder run;
+  // the agent/constellation pages gate every call behind `isLive` and fall back
+  // to the bundled simulation when offline.
+
+  /** Add a star to a constellation → raises resolution, mints a block. */
+  async addStarToConstellation(constellationId, hipId) {
+    return this.callReducer('add_star_to_constellation', [Number(constellationId), Number(hipId)])
+  }
+
+  /** Cast a Jing at a planetary agent (body idx 0–9) or a player (identity hex). */
+  async castJing(moveId, { agentBody = null, playerIdentity = null } = {}) {
+    const tp = playerIdentity ? { some: playerIdentity } : { none: [] }
+    const ta = agentBody != null ? { some: planetVariant(agentBody) } : { none: [] }
+    return this.callReducer('cast_jing', [jingMoveArg(moveId), tp, ta])
+  }
+
+  /** Counter an open Jing duel you are the target of. */
+  async counterJing(duelId, moveId) {
+    return this.callReducer('counter_jing', [Number(duelId), jingMoveArg(moveId)])
+  }
+
+  /** The bright star-agent roster (live). */
+  async starAgents() {
+    return this.query('SELECT hip_id, display_name, element, specialty FROM star_agent WHERE active = true')
+  }
+
+  /** The comet registry (Chiron + any future comets), with osculating elements. */
+  async comets() {
+    return this.query('SELECT comet_id, name, designation, element, specialty FROM comet WHERE active = true')
+  }
+}
+
+// SATS-JSON arg encoders for the unit enums the reducers take.
+const JING_VARIANT = {
+  meltdown: 'Meltdown', freeze: 'Freeze', tectonicRoot: 'TectonicRoot', vacuum: 'Vacuum', erode: 'Erode',
+}
+function jingMoveArg(id) {
+  return { [JING_VARIANT[id] || 'Meltdown']: [] }
+}
+const PLANET_VARIANT = ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto']
+function planetVariant(idx) {
+  return { [PLANET_VARIANT[idx] || 'Sun']: [] }
 }
 
 // ---- SQL response normalization --------------------------------------------
@@ -254,6 +303,18 @@ function decodeSats(type, val) {
     return val
   }
   return val // primitives
+}
+
+// Decode the hex identity from a SpacetimeDB JWT (the `hex_identity` claim),
+// so spacetime.identity is available even from a restored token.
+function identityFromToken(jwt) {
+  try {
+    const part = jwt.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')
+    const claims = JSON.parse(atob(part))
+    return claims.hex_identity || claims.identity || null
+  } catch {
+    return null
+  }
 }
 
 export const spacetime = new SpacetimeClient()
