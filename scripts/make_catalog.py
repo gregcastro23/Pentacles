@@ -22,7 +22,7 @@ import csv
 import sys
 from pathlib import Path
 
-MAG_LIMIT = 6.0  # the naked-eye limit: "all (or close to all) visible stars"
+MAG_LIMIT = 6.5  # a touch past the naked-eye limit (~6.0) for a denser sky
 
 GREEK = {
     "Alp": "Alpha", "Bet": "Beta", "Gam": "Gamma", "Del": "Delta",
