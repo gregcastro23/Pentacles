@@ -599,7 +599,8 @@ pub struct JingCast {
 
 /// The player's Sacred-7 + ESMS consciousness pools a Jing cast drains
 /// (game-side, mirrored — ESMS on-chain is soulbound and never burned here).
-#[spacetimedb::table(name = jing_pool)]
+/// Public so the agent page can surface the authoritative pool when live.
+#[spacetimedb::table(name = jing_pool, public)]
 #[derive(Clone)]
 pub struct JingPool {
     #[primary_key]
