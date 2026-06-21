@@ -351,15 +351,20 @@
     chatThread().push({ role: "you", text, ts: Date.now() });
     inp.value = "";
     paintChatLog();
-    // Live oracle if wired; else simulated voice.
+    // Always give an INSTANT in-character reply from the live weather (no hang).
+    setTimeout(() => appendAgent(agentReply(text), pickAgentMove()), 240);
+    // If a companion Oracle is reachable, deepen it in the background — when its
+    // reply arrives it's appended as a "✦ live" reading. Silent on timeout, so a
+    // missing feeder never blocks the chat.
     const net = window.Pentacles && window.Pentacles.net;
     if (net && net.isLive && typeof net.askAgent === "function") {
-      const mode = elById("ag-chat-mode"); if (mode) mode.innerHTML = '<span class="duel-live">● live</span>';
-      Promise.resolve(net.askAgent(agentKey(), text)).then((reply) => {
-        appendAgent((reply && reply.text) || agentReply(text), (reply && reply.move) || null);
-      }).catch(() => appendAgent(agentReply(text), pickAgentMove()));
-    } else {
-      setTimeout(() => appendAgent(agentReply(text), pickAgentMove()), 280);
+      const mode = elById("ag-chat-mode"); if (mode) mode.innerHTML = '<span class="duel-live">● live oracle</span>';
+      const f = lastFocus && lastFocus.f;
+      const context = `${cur.name} (${cur.kind === "star" ? "fixed star" : cur.body === 10 ? "comet" : "planet"})` +
+        (f ? ` — ${AW().weatherSummary(f)}` : "");
+      net.askAgent(agentKey(), text, { context, timeoutMs: 25000 })
+        .then((reply) => { if (reply && reply.text) appendAgent("✦ " + reply.text, null); })
+        .catch(() => {});
     }
   }
 

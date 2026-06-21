@@ -226,6 +226,40 @@ class SpacetimeClient {
   async comets() {
     return this.query('SELECT comet_id, name, designation, element, specialty FROM comet WHERE active = true')
   }
+
+  /**
+   * Ask an agent a question live: queue it via ask_oracle, then poll oracle_reply
+   * for the companion service's answer. Returns { text }. Throws on timeout so the
+   * agent page falls back to its bundled (offline) voice. Mirrors duels.js: note
+   * existing rows, fire, detect the fresh one. `context` is a derived weather
+   * summary — never birth data.
+   */
+  async askAgent(agentKey, text, { context = '', timeoutMs = 30000, intervalMs = 2000 } = {}) {
+    if (!this.isLive) throw new Error('SpacetimeDB offline')
+    const q = String(text).trim()
+    const esc = (s) => String(s).replace(/'/g, "''")
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+    const seen = new Set(
+      (await this.query(`SELECT request_id FROM oracle_request WHERE question = '${esc(q)}'`).catch(() => []))
+        .map((r) => String(r.request_id)),
+    )
+    await this.callReducer('ask_oracle', [q, String(context || ''), false])
+    const deadline = Date.now() + timeoutMs
+    let reqId = null
+    while (Date.now() < deadline && reqId == null) {
+      await sleep(900)
+      const rows = await this.query(`SELECT request_id FROM oracle_request WHERE question = '${esc(q)}'`).catch(() => [])
+      const fresh = rows.find((r) => !seen.has(String(r.request_id)))
+      if (fresh) reqId = fresh.request_id
+    }
+    if (reqId == null) throw new Error('oracle did not accept the question')
+    while (Date.now() < deadline) {
+      await sleep(intervalMs)
+      const rep = await this.query(`SELECT text FROM oracle_reply WHERE request_id = ${Number(reqId)}`).catch(() => [])
+      if (rep.length && rep[0].text) return { text: rep[0].text }
+    }
+    throw new Error('the oracle is still considering')
+  }
 }
 
 // SATS-JSON arg encoders for the unit enums the reducers take.
