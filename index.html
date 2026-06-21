@@ -336,6 +336,12 @@
     </div>
   </div>
 
+  <!-- ===================== AGENT / CONSTELLATION PENTACLES PAGE ===================== -->
+  <!-- Full-screen overlay populated by agent-page.js / constellation-page.js: a
+       planetary or star agent's live astrological weather + chat · jings · scrabble,
+       or a constellation's brightest stars + pool. -->
+  <div id="agent-page" class="overlay-fullscreen agent-page" style="display:none; z-index:120;" role="dialog" aria-modal="true" aria-label="Agent pentacles page"></div>
+
   <!-- Celestial data + math + legacy game logic + UI bindings: classic GLOBAL
        scripts served verbatim from public/. Load order is load-bearing, and the
        inline onclick="fn()" handlers in the markup require these to stay global. -->
@@ -343,7 +349,12 @@
   <script src="/constellations.js"></script>
   <script src="/sky.js"></script>
   <script src="/client.js"></script>
+  <script src="/astro-weather.js"></script>
   <script src="/app.js"></script>
+  <!-- Agent + constellation pentacles pages (open from sky clicks). Load after
+       app.js so they can call its global render/tab/pool helpers. -->
+  <script src="/agent-page.js"></script>
+  <script src="/constellation-page.js"></script>
   <!-- New ES-module layer, bundled by Vite: toasts, a11y, web3, live SpacetimeDB. -->
   <script type="module" src="/src/main.js"></script>
 </body>
