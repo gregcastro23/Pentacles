@@ -131,8 +131,9 @@
               <div class="cp-pool-row"><span class="ag-dim">Pair</span><span>${esmsTag(def.pair[0])} ↔ ${esmsTag(def.pair[1])}</span></div>
               <div class="cp-pool-row"><span class="ag-dim">Fee</span><span>${def.feeBps} bps</span></div>
               <div class="cp-pool-row"><span class="ag-dim">Members</span><span>${stars.length} stars${blocks ? ` <span class="ag-tag">+${blocks} minted</span>` : ""}</span></div>
-              <div class="cp-pool-row"><span class="ag-dim">Resolution</span><span>level ${blocks}</span></div>
+              <div class="cp-pool-row"><span class="ag-dim">Resolution</span><span id="cp-reslevel">level ${blocks}</span></div>
             </div>
+            <div id="cp-blocks"></div>
             <button id="cp-enter" class="ag-btn ${live.tradeable ? "" : "ghost"}" ${live.tradeable ? "" : "disabled"} style="width:100%;margin-top:10px;">${live.tradeable ? "Enter pool with special preparations ✦" : "Below horizon — cannot enter"}</button>
             <button id="cp-mint" class="ag-btn" style="width:100%;margin-top:8px;background:transparent;color:var(--gold-bright);border-color:var(--gold);" ${cand ? "" : "disabled"} title="${cand ? "Add " + esc(cand[1]) + " (mag " + cand[4] + ")" : "No nearby star to add"}">⛏ Mint a block — add a star</button>
           </div>
@@ -151,6 +152,34 @@
     const mint = document.getElementById("cp-mint");
     if (mint && !mint.disabled) mint.onclick = () => mintBlock(id);
     drawFigure(id);
+    refreshBlocks(id);
+  }
+
+  // Live: surface the AUTHORITATIVE minted blocks from the module, each labeled
+  // with its on-chain mintedAtBlock (ConstellationDeed) when the pool was seeded.
+  async function refreshBlocks(id) {
+    const net = window.Pentacles && window.Pentacles.net;
+    const host = document.getElementById("cp-blocks");
+    if (!host || !net || !net.isLive || typeof net.constellationBlocks !== "function") return;
+    let blocks = [], res = null;
+    try { [blocks, res] = await Promise.all([net.constellationBlocks(id), net.constellationResolution(id)]); }
+    catch (e) { return; }
+    if (id !== curId) return;
+    const lvl = res ? Number(res.resolution_level)
+      : (blocks.length ? Math.max.apply(null, blocks.map((b) => Number(b.level_after) || 0)) : 0);
+    const lvlEl = document.getElementById("cp-reslevel");
+    if (lvlEl) lvlEl.innerHTML = `level ${lvl} <span class="ag-tag">live</span>`;
+    if (!blocks.length) { host.innerHTML = ""; return; }
+    host.innerHTML =
+      `<div class="ag-jing-h" style="margin-top:10px;">Minted blocks <span class="ag-tag">live</span></div>` +
+      blocks.map((b) => {
+        const r = starByHip(Number(b.hip_id));
+        const name = r ? r[1] : `HIP ${b.hip_id}`;
+        const oc = b.onchain_block != null
+          ? `<span class="ag-tag" title="ConstellationDeed.mintedAtBlock">⛓ block ${esc(b.onchain_block)}</span>`
+          : `<span class="ag-dim" title="not yet seeded on-chain">off-chain</span>`;
+        return `<div class="cp-pool-row"><span>⛏ #${esc(b.block_id)} · ${esc(name)}</span><span class="ag-dim">lvl ${esc(b.level_after)} · ${oc}</span></div>`;
+      }).join("");
   }
 
   // small thumbnail of the projected figure using the live disk coords

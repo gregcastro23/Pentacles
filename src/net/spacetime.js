@@ -227,6 +227,48 @@ class SpacetimeClient {
     return this.query('SELECT comet_id, name, designation, element, specialty FROM comet WHERE active = true')
   }
 
+  /** Authoritative minted blocks for a constellation (onchain_block = Deed.mintedAtBlock). */
+  async constellationBlocks(constId) {
+    const rows = await this.query(
+      `SELECT block_id, constellation_id, hip_id, level_after, onchain_block, created_at FROM constellation_block WHERE constellation_id = ${Number(constId)}`,
+    ).catch(() => [])
+    return rows.sort((a, b) => Number(a.block_id) - Number(b.block_id))
+  }
+
+  /** Authoritative resolution row for a constellation (or null). */
+  async constellationResolution(constId) {
+    const r = await this.query(
+      `SELECT constellation_id, baseline_members, added_members, resolution_level FROM constellation_resolution WHERE constellation_id = ${Number(constId)}`,
+    ).catch(() => [])
+    return r[0] || null
+  }
+
+  /** This identity's Jing duels (initiated), newest first. */
+  async jingDuelsFor(identity) {
+    const id = identity || this.identity
+    const rows = await this.query(
+      'SELECT duel_id, initiator, target_agent, opening_move, state, winner_is_initiator, created_at FROM jing_duel',
+    ).catch(() => [])
+    return rows
+      .filter((r) => sameIdentity(r.initiator && (r.initiator.__identity__ ?? r.initiator), id))
+      .sort((a, b) => Number(b.duel_id) - Number(a.duel_id))
+  }
+
+  /** Casts in a Jing duel thread, in cast order. */
+  async jingCasts(duelId) {
+    const rows = await this.query(
+      `SELECT cast_id, duel_id, caster, caster_agent, mv, deflects, voice, created_at FROM jing_cast WHERE duel_id = ${Number(duelId)}`,
+    ).catch(() => [])
+    return rows.sort((a, b) => Number(a.cast_id) - Number(b.cast_id))
+  }
+
+  /** The player's authoritative Jing pools (sacred7 + esms), or null. Needs jing_pool public. */
+  async jingPool(identity) {
+    const id = identity || this.identity
+    const rows = await this.query('SELECT identity, sacred7, esms FROM jing_pool').catch(() => [])
+    return rows.find((r) => sameIdentity(r.identity && (r.identity.__identity__ ?? r.identity), id)) || null
+  }
+
   /**
    * Ask an agent a question live: queue it via ask_oracle, then poll oracle_reply
    * for the companion service's answer. Returns { text }. Throws on timeout so the
@@ -273,6 +315,8 @@ const PLANET_VARIANT = ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'S
 function planetVariant(idx) {
   return { [PLANET_VARIANT[idx] || 'Sun']: [] }
 }
+const sameIdentity = (a, b) =>
+  !!a && !!b && String(a).toLowerCase().replace(/^0x/, '') === String(b).toLowerCase().replace(/^0x/, '')
 
 // ---- SQL response normalization --------------------------------------------
 // SpacetimeDB's /sql returns an array of statement results. Across versions a

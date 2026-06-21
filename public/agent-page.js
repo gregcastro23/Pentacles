@@ -419,11 +419,26 @@
     return { Fire: 25, Water: 25, Earth: 25, Air: 25 };
   }
   function ensurePool() {
+    if (state.jingPool && state.jingPool.live) return state.jingPool; // authoritative server pool — don't regen
     if (!state.jingPool) state.jingPool = { sacred7: [100, 100, 100, 100, 100, 100, 100], esms: simEsms() };
     // gentle regen each visit
     state.jingPool.sacred7 = state.jingPool.sacred7.map((v) => Math.min(100, v + 6));
     state.jingPool.esms = state.jingPool.esms.map((v) => Math.min(100, v + 6));
     return state.jingPool;
+  }
+
+  // Live: adopt the AUTHORITATIVE jing_pool (sacred7 + esms) the server drains.
+  async function refreshLivePool() {
+    const net = window.Pentacles && window.Pentacles.net;
+    if (!net || !net.isLive || typeof net.jingPool !== "function") return;
+    let row; try { row = await net.jingPool(); } catch (e) { return; }
+    if (!row || !row.sacred7) return;
+    const s7 = row.sacred7.map(Number), es = (row.esms || []).map(Number);
+    const prev = state.jingPool || {};
+    const changed = !prev.live || JSON.stringify(prev.sacred7) !== JSON.stringify(s7) || JSON.stringify(prev.esms) !== JSON.stringify(es);
+    state.jingPool = { sacred7: s7, esms: es, live: true };
+    if (state.player) state.save();
+    if (changed && document.querySelector('.ag-tab[data-tab="jings"].active')) renderJings(elById("ag-tab-body"));
   }
   function simEsms() {
     try { if (window.Pentacles && window.Pentacles.esmsHud && window.Pentacles.esmsHud.balances) {
@@ -466,7 +481,7 @@
             <div class="ag-hint">Moves unlock at ≥30% of their element.</div>
           </div>
           <div class="ag-jing-card">
-            <div class="ag-jing-h">Your consciousness pools</div>
+            <div class="ag-jing-h">Your consciousness pools${pool.live ? ' <span class="ag-tag">live</span>' : ''}</div>
             ${pool.sacred7.map((v, i) => bar(SACRED7_LABEL[i], v, "#d8b46a")).slice(2, 7).join("")}
             <div class="ag-esms-row">${pool.esms.map((v, i) => `<span style="color:${ESMS_COLORS[i]}">${ESMS_GLYPHS[i]} ${v}</span>`).join("")}</div>
           </div>
@@ -477,6 +492,8 @@
       </div>`;
     host.querySelectorAll(".ag-move[data-move]").forEach((b) => { if (!b.disabled) b.onclick = () => castJing(b.dataset.move); });
     paintJingThread();
+    refreshLivePool();  // authoritative consciousness pools when live
+    refreshLiveJings(); // live threads take precedence over the local sim when present
   }
 
   function castJing(playerMove) {
@@ -505,7 +522,9 @@
     // Best-effort live record (the jing feeder resolves it); offline result already shown.
     const net = window.Pentacles && window.Pentacles.net;
     if (net && net.isLive && cur.kind === "planet" && typeof net.castJing === "function") {
-      net.castJing(playerMove, { agentBody: cur.body }).catch(() => {});
+      net.castJing(playerMove, { agentBody: cur.body })
+        .then(() => { setTimeout(() => { refreshLivePool(); refreshLiveJings(); }, 2500); setTimeout(refreshLiveJings, 8000); })
+        .catch(() => {});
     }
     renderJings(elById("ag-tab-body")); // refresh pools + thread
   }
@@ -520,6 +539,46 @@
       const sym = d.outcome === "win" ? "✦" : d.outcome === "loss" ? "✗" : "≡";
       return `<div class="ag-thread-line ${cls}">${sym} You ${pm.glyph} <b>${esc(pm.name)}</b> → ${cur.name} ${am.glyph} <b>${esc(am.name)}</b> · ${d.outcome.toUpperCase()}</div>`;
     }).join("");
+  }
+
+  // ── Live Jing duel-thread: the authoritative jing_duel + jing_cast threads ──
+  const JING_ID_BY_VARIANT = { Meltdown: "meltdown", Freeze: "freeze", TectonicRoot: "tectonicRoot", Vacuum: "vacuum", Erode: "erode" };
+  function moveById(v) { return AW().JING_MOVES[JING_ID_BY_VARIANT[v] || String(v || "").toLowerCase()] || { name: v || "?", glyph: "🜂" }; }
+  function isAgentCaster(c) {
+    if (c.caster_agent != null) return true;
+    const idh = c.caster && (c.caster.__identity__ != null ? c.caster.__identity__ : c.caster);
+    return /^0x0+$/i.test(String(idh || ""));
+  }
+  async function refreshLiveJings() {
+    const net = window.Pentacles && window.Pentacles.net;
+    const el = elById("ag-jing-thread");
+    if (!el || !net || !net.isLive || cur.kind !== "planet" || typeof net.jingDuelsFor !== "function") return;
+    let duels = [];
+    try { duels = await net.jingDuelsFor(); } catch (e) { return; }
+    const planetName = (typeof PLANET_NAMES !== "undefined" ? PLANET_NAMES[cur.body] : null);
+    const mine = duels.filter((d) => d.target_agent === planetName).slice(0, 4);
+    if (!mine.length) return; // no live duels vs this agent → keep the local sim view
+    const threads = [];
+    for (const d of mine) {
+      const casts = await net.jingCasts(d.duel_id).catch(() => []);
+      threads.push(liveThreadHtml(d, casts));
+    }
+    el.innerHTML = `<div class="ag-hint">● live duel thread${mine.length > 1 ? "s" : ""}</div>` + threads.join("");
+  }
+  function liveThreadHtml(duel, casts) {
+    const lines = casts.map((c) => {
+      const m = moveById(c.mv);
+      const who = isAgentCaster(c) ? esc(cur.name) : "You";
+      const defl = c.deflects ? ` <span class="ag-dim">⟲ ${esc(moveById(c.deflects).name)}</span>` : "";
+      const voice = c.voice ? `<div class="ag-dim" style="margin-left:18px;">— ${esc(c.voice)}</div>` : "";
+      return `<div class="ag-thread-line">${m.glyph} <b>${who}</b> ${esc(m.name)}${defl}</div>${voice}`;
+    }).join("");
+    const w = duel.winner_is_initiator;
+    const verdict = w === true ? `<span class="ag-tag">✦ you won</span>`
+      : w === false ? `<span class="ag-tag">${esc(cur.name)} won</span>`
+      : casts.length >= 2 ? `<span class="ag-tag">standoff</span>`
+      : `<span class="ag-dim">awaiting ${esc(cur.name)}'s counter…</span>`;
+    return `<div class="ag-livethread">${lines || '<div class="ag-dim">opening cast…</div>'}<div class="ag-thread-line">${verdict}</div></div>`;
   }
 
   // ── SCRABBLE (reuse the Word Duel engine) ──────────────────────────────────
