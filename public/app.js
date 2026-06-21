@@ -54,13 +54,13 @@
         const el = document.getElementById(`zone-shape-${i}`);
         if (el) el.classList.remove("selected");
       }
-      renderZonesList();
-      renderStarsNodes();
-      updateCombatPreview();
-      
       HologramCamera.targetPitch = 20;
       HologramCamera.targetScale = 1.0;
       HologramCamera.isZoomed = false;
+      window.needsFullStarRebuild = true; // re-apply the density cull for the wide view
+      renderZonesList();
+      renderStarsNodes();
+      updateCombatPreview();
       document.getElementById("reset-view-btn").style.display = "none";
       synth.playSelect();
     }
@@ -391,9 +391,18 @@
       // Dismiss overlay
       document.getElementById("onboarding-overlay").style.display = "none";
       synth.playFanfare();
-      
+
       // Full UI Render
       renderAll();
+
+      // Online: also register a server-side player so cast_word + the live game
+      // work. Fire-and-forget so it never blocks onboarding; toast the result.
+      const reg = window.Pentacles && window.Pentacles.register;
+      if (reg && window.Pentacles.net && window.Pentacles.net.isLive) {
+        reg.registerLive(state.player.handle, state.player.chart, state.player.faction, state.observer)
+          .then(() => toast(`Registered ${state.player.handle} on the live module.`, { type: "success", title: "SpacetimeDB" }))
+          .catch((e) => toast(`Live registration failed: ${e.message || e}`, { type: "warn", title: "SpacetimeDB" }));
+      }
     }
 
     // App Navigation tabs
@@ -625,6 +634,15 @@
         if (!con.segments.length) continue;
         const col = ESMS_COLORS[con.pair[0]];
         const tradeable = con.tradeable;
+        // Each figure is its own clickable cluster → the constellation pentacles
+        // page. The group overrides the layer's pointer-events:none; wide invisible
+        // hit-lines make the stick figure pickable, while the visible lines stay
+        // non-interactive so a star dot on top still wins its own click.
+        const group = document.createElementNS(NS, "g");
+        group.setAttribute("class", "constellation-cluster");
+        group.setAttribute("id", "con-" + con.id);
+        group.style.cursor = "pointer";
+        group.style.pointerEvents = "auto";
         for (const [a, b] of con.segments) {
           const line = document.createElementNS(NS, "line");
           line.setAttribute("x1", a.x.toFixed(1)); line.setAttribute("y1", a.y.toFixed(1));
@@ -633,21 +651,37 @@
           line.setAttribute("stroke-width", tradeable ? "1.2" : "0.6");
           line.setAttribute("stroke-opacity", tradeable ? "0.85" : "0.28");
           line.setAttribute("stroke-linecap", "round");
+          line.setAttribute("pointer-events", "none");
           if (tradeable) line.setAttribute("filter", `drop-shadow(0 0 2px ${col})`);
-          frag.appendChild(line);
+          group.appendChild(line);
+          const hit = document.createElementNS(NS, "line");
+          hit.setAttribute("x1", a.x.toFixed(1)); hit.setAttribute("y1", a.y.toFixed(1));
+          hit.setAttribute("x2", b.x.toFixed(1)); hit.setAttribute("y2", b.y.toFixed(1));
+          hit.setAttribute("stroke", "transparent");
+          hit.setAttribute("stroke-width", "9");
+          group.appendChild(hit);
         }
         const up = Object.values(con.nodes).filter(n => n.up);
-        if (tradeable && up.length) {
+        if (up.length) {
           const cx = up.reduce((s, n) => s + n.x, 0) / up.length;
           const cy = up.reduce((s, n) => s + n.y, 0) / up.length;
           const t = document.createElementNS(NS, "text");
           t.setAttribute("x", cx.toFixed(1)); t.setAttribute("y", cy.toFixed(1));
-          t.setAttribute("text-anchor", "middle"); t.setAttribute("fill", col);
+          t.setAttribute("text-anchor", "middle"); t.setAttribute("fill", tradeable ? col : "#7c8398");
           t.setAttribute("font-size", "8"); t.setAttribute("font-family", "Space Grotesk");
-          t.setAttribute("opacity", "0.75"); t.setAttribute("letter-spacing", "1");
+          t.setAttribute("opacity", tradeable ? "0.8" : "0.4"); t.setAttribute("letter-spacing", "1");
+          t.setAttribute("pointer-events", "none");
           t.textContent = con.abbr.toUpperCase();
-          frag.appendChild(t);
+          group.appendChild(t);
         }
+        const tip = document.createElementNS(NS, "title");
+        tip.textContent = `${con.name} — ${tradeable ? "pool OPEN" : "below horizon"} · tap for its stars & pool`;
+        group.appendChild(tip);
+        group.onclick = (e) => {
+          e.stopPropagation();
+          if (typeof window.openConstellationPage === "function") window.openConstellationPage(con);
+        };
+        frag.appendChild(group);
       }
       g.appendChild(frag);
     }
@@ -743,12 +777,26 @@
     const starLabelMap = new Map();
     window.needsFullStarRebuild = true;
 
+    // Magnitude cap for what we draw, so a denser catalogue doesn't flood the SVG
+    // with tens of thousands of nodes. Wide view shows the bright field; zooming
+    // in reveals the faint stars in the focused region. Held/selected/in-zone
+    // stars always draw regardless of the cap.
+    function starRenderCap() {
+      const cam = window.HologramCamera;
+      const sc = cam ? (cam.isZoomed ? (cam.targetScale || cam.scale || 1) : 1) : 1;
+      if (sc >= 2.0) return 99;    // zoomed in — show everything in the focused region
+      // Show the full denser field in the wide view (catalogue tops out at 6.5).
+      // The cap only bites if the catalogue is later deepened past ~6.6.
+      return 6.6;
+    }
+
     function renderStarsNodes() {
       renderConstellations();
       const container = document.getElementById("stars-nodes-g");
       const NS = "http://www.w3.org/2000/svg";
 
       const stars = [...state.sky].sort((a, b) => b.magnitude - a.magnitude);
+      const magCap = starRenderCap();
 
       // Rebuild DOM nodes if requested or container is empty
       if (window.needsFullStarRebuild || container.children.length === 0) {
@@ -764,6 +812,7 @@
           const fillCol = held ? PLANET_COLORS[star.held_by] : "#e8e1cd";
           const isSelected = state.selectedStarHip === star.hip_id;
           const inZone = state.selectedZone !== null && star.zone === state.selectedZone;
+          if (star.magnitude > magCap && !held && !isSelected && !inZone) continue; // density cull
           const r = Math.max(0.6, Math.min(3.2, 2.6 - star.magnitude * 0.42));
           const engageable = star.alt >= MIN_ENGAGE_ALT_DEG;
           
@@ -865,19 +914,41 @@
         frag.appendChild(path);
       }
 
-      for (const p of state.planets) {
+      // Include Chiron (idx 10) beside the ten classical wanderers — an
+      // astrology-only agent: a sky glyph + its own pentacles page, never a faction.
+      const wanderers = state.chiron ? state.planets.concat([state.chiron]) : state.planets;
+      for (const p of wanderers) {
         if (!p.up) continue;
-        const col = PLANET_COLORS[p.body];
+        const AWlib = window.AstroWeather;
+        const col = PLANET_COLORS[p.body] || (AWlib && AWlib.bodyColor(p.body)) || "#86d6b0";
+        const discR = PLANET_DISC_R[p.body] || 7;
+        const glyphCh = PLANET_GLYPHS[p.body] || (AWlib && AWlib.bodyGlyph(p.body)) || "⚷";
+        const nameCh = PLANET_NAMES[p.body] || (AWlib && AWlib.bodyName(p.body)) || "Body";
         const zoneName = p.zone === 10 ? "Crown Zenith" : (p.zone >= 5 ? `Spire ${p.zone}` : `House ${p.zone}`);
 
         const node = document.createElementNS(NS, "g");
-        node.setAttribute("class", "planet-node");
+        node.setAttribute("class", "planet-node" + (p.body === 10 ? " comet-node" : ""));
         node.style.color = col;
+
+        // Chiron is a comet: draw a tail streaming away from the Sun (else outward).
+        if (p.body === 10) {
+          let ax = p.x - 300, ay = p.y - 300;
+          const sun = state.planets[0];
+          if (sun && sun.up) { ax = p.x - sun.x; ay = p.y - sun.y; }
+          const tl = Math.hypot(ax, ay) || 1; ax /= tl; ay /= tl;
+          const tail = document.createElementNS(NS, "line");
+          tail.setAttribute("x1", p.x.toFixed(1)); tail.setAttribute("y1", p.y.toFixed(1));
+          tail.setAttribute("x2", (p.x + ax * 28).toFixed(1)); tail.setAttribute("y2", (p.y + ay * 28).toFixed(1));
+          tail.setAttribute("stroke", col); tail.setAttribute("stroke-width", "3");
+          tail.setAttribute("stroke-linecap", "round"); tail.setAttribute("stroke-opacity", "0.4");
+          tail.setAttribute("class", "comet-tail");
+          node.appendChild(tail);
+        }
 
         const halo = document.createElementNS(NS, "circle");
         halo.setAttribute("cx", p.x.toFixed(1));
         halo.setAttribute("cy", p.y.toFixed(1));
-        halo.setAttribute("r", (PLANET_DISC_R[p.body] + 4).toFixed(1));
+        halo.setAttribute("r", (discR + 4).toFixed(1));
         halo.setAttribute("class", "planet-halo");
         halo.setAttribute("fill", col);
         node.appendChild(halo);
@@ -885,26 +956,30 @@
         const disc = document.createElementNS(NS, "circle");
         disc.setAttribute("cx", p.x.toFixed(1));
         disc.setAttribute("cy", p.y.toFixed(1));
-        disc.setAttribute("r", PLANET_DISC_R[p.body]);
+        disc.setAttribute("r", discR);
         disc.setAttribute("class", "planet-disc");
         disc.setAttribute("fill", col);
         node.appendChild(disc);
 
         const glyph = document.createElementNS(NS, "text");
         glyph.setAttribute("x", p.x.toFixed(1));
-        glyph.setAttribute("y", (p.y + PLANET_DISC_R[p.body] * 0.42).toFixed(1));
+        glyph.setAttribute("y", (p.y + discR * 0.42).toFixed(1));
         glyph.setAttribute("class", "planet-glyph");
-        glyph.setAttribute("font-size", Math.round(PLANET_DISC_R[p.body] * 1.25));
-        glyph.textContent = PLANET_GLYPHS[p.body];
+        glyph.setAttribute("font-size", Math.round(discR * 1.25));
+        glyph.textContent = glyphCh;
         node.appendChild(glyph);
 
         const tip = document.createElementNS(NS, "title");
-        tip.textContent = `${PLANET_NAMES[p.body]} — planetary agent of ${SIGN_GLYPHS[p.sign]} ${SIGN_NAMES[p.sign]} ${Math.floor(p.eclLon % 30)}° · alt ${Math.round(p.alt)}° · transiting ${zoneName} · tap to challenge`;
+        const role = p.body === 10 ? "comet — the wounded healer" : "planetary agent";
+        tip.textContent = `${nameCh} — ${role} of ${SIGN_GLYPHS[p.sign]} ${SIGN_NAMES[p.sign]} ${Math.floor(p.eclLon % 30)}° · alt ${Math.round(p.alt)}° · transiting ${zoneName} · tap to open`;
         node.appendChild(tip);
 
         node.onclick = (e) => {
           e.stopPropagation();
-          challengePlanetaryAgent(p);
+          // The planetary agent's pentacles page (weather + chat · jings · scrabble).
+          // Falls back to the inline Word-Duel tab if the page module isn't loaded.
+          if (typeof window.openPlanetAgentPage === "function") window.openPlanetAgentPage(p.body);
+          else challengePlanetaryAgent(p);
         };
 
         frag.appendChild(node);
@@ -1004,11 +1079,19 @@
         document.getElementById("reset-view-btn").style.display = "inline-flex";
       }
 
+      window.needsFullStarRebuild = true; // reveal faint stars in the zoomed region
       renderZonesList();
       renderStarsNodes();
       updateCombatPreview();
       switchTab("tab-duel");
       synth.playSelect();
+    }
+
+    // A star is a "named agent" (its own pentacles page) when it carries a real
+    // proper name — not a Bayer/Flamsteed designation or a bare HIP id.
+    const GREEK_RE = /^(Alpha|Beta|Gamma|Delta|Epsilon|Zeta|Eta|Theta|Iota|Kappa|Lambda|Mu|Nu|Xi|Omicron|Pi|Rho|Sigma|Tau|Upsilon|Phi|Chi|Psi|Omega)\b/;
+    function isNamedStar(name) {
+      return !!name && !/^HIP /.test(name) && !GREEK_RE.test(name) && !/\d/.test(name);
     }
 
     // Update Duel combat details
@@ -1056,6 +1139,7 @@
         });
       }
 
+      const named = isNamedStar(star.name);
       details.innerHTML = `
         <strong>Target Node:</strong> ${star.name} (${star.magnitude} mag)<br>
         <strong>Sky Position:</strong> alt ${Math.round(star.alt)}° · az ${Math.round(star.az)}°${engageable ? "" : ` — <span style="color:#e88a8a">below the ${MIN_ENGAGE_ALT_DEG}° engage band; wait for it to climb</span>`}<br>
@@ -1063,7 +1147,12 @@
         <strong>Current Node Owner:</strong> ${ownerStr}<br>
         <strong>Round Contesters (${contesters.length}):</strong> ${contestersNames}<br>
         <strong>Attack Cards:</strong> ${handCount > 0 ? handCount : 'All Active'} (${totalAtk} Base Power)
+        ${named ? `<div style="margin-top:9px;"><button id="open-star-agent" class="btn" style="padding:5px 11px;font-size:11px;border-color:var(--gold);color:var(--gold-bright);background:transparent;">✦ Commune with ${star.name} — open its agent page</button></div>` : ""}
       `;
+      if (named) {
+        const sab = document.getElementById("open-star-agent");
+        if (sab) sab.onclick = () => { if (window.openStarAgentPage) window.openStarAgentPage(star.hip_id); };
+      }
 
       if (engageable) btn.removeAttribute("disabled");
       else btn.setAttribute("disabled", "true");
@@ -1641,12 +1730,13 @@
 
     // Fast local validation so the live path gives instant feedback before the
     // round-trip (mirrors the server cast_word guards in words.rs).
-    function validateWordInput(w) {
+    function validateWordInput(w, skipLetters) {
       if (!w || w.length < 2) return "A Word of Power needs at least two letters.";
       if (!/^[A-Z]+$/.test(w)) return "Letters only.";
       if (typeof WORD_SET === "undefined" || WORD_SET === null) return "The Codex is still opening — try again in a moment.";
       if (!isValidWord(w)) return `"${w}" is not in the Codex.`;
-      if (!canSpell(w, state.playerLetters())) return "Your Arcana don't hold those letters.";
+      // Online, the server validates letters against its authoritative rack.
+      if (!skipLetters && !canSpell(w, state.playerLetters())) return "Your Arcana don't hold those letters.";
       return null;
     }
 
@@ -1676,7 +1766,7 @@
 
       // Live path — cast_word reducer → the planetary agent answers via the feeder.
       const w = inp.value.trim().toUpperCase();
-      const err = validateWordInput(w);
+      const err = validateWordInput(w, true); // letters validated against the server rack below
       if (err) {
         out.style.color = "#e88a8a";
         out.innerText = "✗ " + err;
@@ -1688,6 +1778,11 @@
       out.innerHTML = `<span class="duel-thinking">✦ ${PLANET_NAMES[opp]} deliberates over its rack…</span>`;
       if (castBtn) castBtn.disabled = true;
       try {
+        // Validate letters against the live (authoritative) rack before casting.
+        const serverRack = await window.Pentacles.duels.getServerRack().catch(() => null);
+        if (serverRack && !canSpell(w, serverRack)) {
+          throw new Error("Your live Arcana don't hold the letters for that word.");
+        }
         const res = await window.Pentacles.duels.castWordLive(w, opp);
         // Mirror the offline side effects with the server's scored result.
         state.player.tokens += res.tokens;

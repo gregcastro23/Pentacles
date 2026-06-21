@@ -427,6 +427,14 @@ class GameState {
     this.seasonDegree = 0;
     this.wordDuels = []; // recent Word Duels of the Spheres (most-recent first)
 
+    // Planetary / star agent sessions (the agent "pentacles pages"):
+    //  agentChats — per-agent chat threads keyed by agentKey ("p2"=Mercury, "s32349"=Sirius)
+    //  jingPool   — the player's Sacred-7 + ESMS consciousness pools a Jing cast drains
+    //  jingDuels  — per-agent recent Jing duel threads (most-recent first)
+    this.agentChats = {};
+    this.jingPool = null;
+    this.jingDuels = {};
+
     // The real sky. `holdings` (hip → faction) is the persistent capture state;
     // `sky` is the computed view of every catalogue star currently above the
     // horizon — from the ascendant rising in the east to the edge of the sky —
@@ -436,6 +444,7 @@ class GameState {
     this.sky = [];
     this.asc = null;        // live ascendant {lambda, sign, degInSign, az}
     this.planets = [];      // the ten wanderers, riding their own plane (the ecliptic)
+    this.chiron = null;     // the wounded-healer Centaur (idx 10) — astrology-only agent
     this.ecliptic = [];     // visible arc(s) of that plane, for the overlay
     this.constellations = []; // constellation pools with live visibility (the sky DEX)
     this._contesters = {};  // transient per-star contester cache (hip → faction list)
@@ -472,8 +481,11 @@ class GameState {
     window.needsFullStarRebuild = true;
     this.asc = ascendantNow(lat, lon, now);
     // The wanderers live on their own plane: the ecliptic, drawn over the
-    // star field so a planet is never lost among five thousand stars.
-    this.planets = computePlanets(lat, lon, now);
+    // star field so a planet is never lost among five thousand stars. The 11th
+    // body, Chiron, rides with them but stays out of the ten-faction maths.
+    const allBodies = computePlanets(lat, lon, now, 11);
+    this.planets = allBodies.slice(0, 10);
+    this.chiron = allBodies[10] || null;
     this.ecliptic = eclipticSegments(lat, lon, now);
     this.recomputeConstellations(now, lat, lon, lst);
   }
@@ -561,6 +573,9 @@ class GameState {
           this.leaderboard = data.leaderboard;
           this.seasonDegree = data.seasonDegree || 0;
           this.wordDuels = data.wordDuels || [];
+          this.agentChats = data.agentChats || {};
+          this.jingPool = data.jingPool || null;
+          this.jingDuels = data.jingDuels || {};
           this.holdings = data.holdings || {};
           this.observer = data.observer || { lat: 40.7128, lon: -74.0060 };
           // Lettered Arcana migration: older saves predate letters/tokens.
@@ -598,6 +613,9 @@ class GameState {
       leaderboard: this.leaderboard,
       seasonDegree: this.seasonDegree,
       wordDuels: this.wordDuels,
+      agentChats: this.agentChats,
+      jingPool: this.jingPool,
+      jingDuels: this.jingDuels,
       holdings: this.holdings,
       observer: this.observer
     };
