@@ -25,6 +25,8 @@ namespace SpacetimeDB.Types
         public bool Seeded;
         [DataMember(Name = "star_seed_cursor")]
         public uint StarSeedCursor;
+        [DataMember(Name = "constellations_seeded")]
+        public bool ConstellationsSeeded;
 
         public GameConfig(
             byte Id,
@@ -32,7 +34,8 @@ namespace SpacetimeDB.Types
             ushort SeasonDegree,
             ushort AscendantDegree,
             bool Seeded,
-            uint StarSeedCursor
+            uint StarSeedCursor,
+            bool ConstellationsSeeded
         )
         {
             this.Id = Id;
@@ -41,6 +44,7 @@ namespace SpacetimeDB.Types
             this.AscendantDegree = AscendantDegree;
             this.Seeded = Seeded;
             this.StarSeedCursor = StarSeedCursor;
+            this.ConstellationsSeeded = ConstellationsSeeded;
         }
 
         public GameConfig()
