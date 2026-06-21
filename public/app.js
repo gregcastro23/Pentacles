@@ -189,7 +189,11 @@
         p.x = proj.x;
         p.y = proj.y;
       }
-      
+      if (state.chiron) {
+        const proj = skyProject(state.chiron.alt, state.chiron.az);
+        state.chiron.x = proj.x; state.chiron.y = proj.y;
+      }
+
       const now = new Date();
       const { lat, lon } = state.observer;
       state.ecliptic = eclipticSegments(lat, lon, now);
@@ -587,7 +591,9 @@
 
       if (zoneId !== null && window.HologramCamera) {
         const center = ZONE_CENTERS[zoneId];
-        HologramCamera.targetYaw = -center.az;
+        // Center the zone: yaw = az brings it to the meridian, pitch = 90-alt lifts
+        // it to screen centre (x2=0, y2=0). (-az was the bug — it never centred.)
+        HologramCamera.targetYaw = center.az;
         HologramCamera.targetPitch = 90 - center.alt;
         HologramCamera.targetScale = 2.2;
         HologramCamera.isZoomed = true;
@@ -658,7 +664,10 @@
           hit.setAttribute("x1", a.x.toFixed(1)); hit.setAttribute("y1", a.y.toFixed(1));
           hit.setAttribute("x2", b.x.toFixed(1)); hit.setAttribute("y2", b.y.toFixed(1));
           hit.setAttribute("stroke", "transparent");
-          hit.setAttribute("stroke-width", "9");
+          hit.setAttribute("stroke-width", "12");
+          // visiblePainted (the default) ignores a transparent stroke — force the
+          // stroke band to capture clicks regardless of paint so EVERY figure is pickable.
+          hit.setAttribute("pointer-events", "stroke");
           group.appendChild(hit);
         }
         const up = Object.values(con.nodes).filter(n => n.up);
@@ -670,7 +679,8 @@
           t.setAttribute("text-anchor", "middle"); t.setAttribute("fill", tradeable ? col : "#7c8398");
           t.setAttribute("font-size", "8"); t.setAttribute("font-family", "Space Grotesk");
           t.setAttribute("opacity", tradeable ? "0.8" : "0.4"); t.setAttribute("letter-spacing", "1");
-          t.setAttribute("pointer-events", "none");
+          t.setAttribute("pointer-events", "auto"); // the label is a click target too
+          t.style.cursor = "pointer";
           t.textContent = con.abbr.toUpperCase();
           group.appendChild(t);
         }
@@ -1072,7 +1082,7 @@
       }
 
       if (window.HologramCamera) {
-        HologramCamera.targetYaw = -star.az;
+        HologramCamera.targetYaw = star.az; // yaw=az centers the star (was -az)
         HologramCamera.targetPitch = 90 - star.alt;
         HologramCamera.targetScale = 2.5;
         HologramCamera.isZoomed = true;

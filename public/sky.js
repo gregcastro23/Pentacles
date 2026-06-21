@@ -168,10 +168,11 @@ function project3D(alt, az, pitchDeg, yawDeg, scale = 1.0, distance = 1.8) {
   const y2 = y1 * Math.cos(pitch) - z1 * Math.sin(pitch);
   const z2 = y1 * Math.sin(pitch) + z1 * Math.cos(pitch);
   
-  // Z-axis camera looking up at the concave hemisphere:
-  // z2 is depth (Zenith is furthest at z2 = 1, Horizon is closest at z2 = 0)
-  // x2 and y2 are horizontal and vertical screen coordinates
-  const denom = distance + z2;
+  // The observer stands INSIDE the dome looking up: the zenith is overhead and
+  // NEAREST (z2≈1 → smallest denom → largest/closest), the horizon wraps away
+  // around the rim. (Was `distance + z2`, which rendered the dome convex — a bowl
+  // seen from outside/above.)
+  const denom = distance - z2;
   const scaleFactor = distance * (SKY_R / 220); // Scale R=220 to match SKY_R=250 at pitch=0
   const px = (x2 / denom) * scale * scaleFactor;
   const py = (y2 / denom) * scale * scaleFactor;
