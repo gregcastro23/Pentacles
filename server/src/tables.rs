@@ -476,3 +476,145 @@ pub struct TraceAttestation {
     pub signature: String,     // 0x-hex 65-byte ECDSA sig over the typed struct
     pub created_at: Timestamp,
 }
+
+// ── Constellation resolution: "mint blocks by adding stars" ─────────────────
+// A constellation's resolution rises as members are added at runtime via
+// `add_star_to_constellation`. Each added star mints a ConstellationBlock — the
+// authoritative trophy of raising a figure's resolution (optionally stamped with
+// the on-chain ConstellationDeed block when the richer pool is later seeded).
+
+/// Per-constellation runtime resolution state (one row per figure).
+#[spacetimedb::table(name = constellation_resolution, public)]
+#[derive(Clone)]
+pub struct ConstellationResolution {
+    #[primary_key]
+    pub constellation_id: u16,
+    pub baseline_members: u16,  // member_count at seed time
+    pub added_members: u16,     // stars added at runtime
+    pub resolution_level: u16,  // = added_members / STARS_PER_BLOCK
+    pub updated_at: Timestamp,
+}
+
+/// One minted block: a star added to a figure, raising its resolution. Append-only.
+#[spacetimedb::table(name = constellation_block, public)]
+#[derive(Clone)]
+pub struct ConstellationBlock {
+    #[primary_key]
+    #[auto_inc]
+    pub block_id: u64,
+    #[index(btree)]
+    pub constellation_id: u16,
+    pub minter: Identity,
+    pub hip_id: u32,            // the star that was added
+    pub level_after: u16,
+    #[default(None::<u64>)]
+    pub onchain_block: Option<u64>, // ConstellationDeed.mintedAtBlock, if seeded on-chain
+    pub created_at: Timestamp,
+}
+
+// ── Star agents: bright catalogue stars promoted to interactive agents ───────
+
+/// A bright catalogue star promoted to an agent (chat + jings), keyed by the same
+/// hip_id as its StarNode — no new identity space, no Planet-enum growth.
+#[spacetimedb::table(name = star_agent, public)]
+#[derive(Clone)]
+pub struct StarAgent {
+    #[primary_key]
+    pub hip_id: u32,           // 1:1 with star_node
+    pub display_name: String,  // "Sirius", "Vega", "Polaris" …
+    pub element: u8,           // dominant ESMS id 0..3
+    pub composition: Vec<u16>, // [fire,water,earth,air] % for the Jing ≥30 gate
+    pub specialty: String,     // flavour for the chat voice
+    pub active: bool,
+}
+
+// ── Comets: a category of their own (NOT planets) ───────────────────────────
+// Chiron is classified as both a minor planet AND a comet (95P/Chiron), so it
+// joins as the game's first comet — its own kind, kept out of the ten-faction
+// `Planet` enum (which is a primary-key type; growing it would force a
+// destructive migration). New rows = new comets; the client reads the osculating
+// elements to place each comet on the ecliptic.
+#[spacetimedb::table(name = comet, public)]
+#[derive(Clone)]
+pub struct Comet {
+    #[primary_key]
+    pub comet_id: u16,         // 0 = Chiron
+    pub name: String,
+    pub designation: String,   // e.g. "2060 Chiron · 95P/Chiron"
+    pub element: u8,           // dominant ESMS id 0..3
+    pub composition: Vec<u16>, // [fire,water,earth,air] % for the Jing ≥30 gate
+    pub specialty: String,
+    // Osculating Keplerian elements (epoch ~J2000) — the authoritative orbit.
+    pub semi_major_au: f64,
+    pub eccentricity: f64,
+    pub inclination_deg: f64,
+    pub mean_long_deg: f64,    // L at epoch
+    pub long_peri_deg: f64,    // ϖ
+    pub long_node_deg: f64,    // Ω
+    pub mean_long_rate: f64,   // deg per Julian century (the fast element)
+    pub active: bool,
+}
+
+// ── The Jing Arena (cast → counter → resolve) ───────────────────────────────
+
+/// A standalone Jing duel thread. Public so both sides watch it resolve. Exactly
+/// one of `target_player` / `target_agent` is set (agent duels are answered by the
+/// owner-gated `answer_jing`, mirroring answer_oracle/answer_trace).
+#[spacetimedb::table(name = jing_duel, public)]
+#[derive(Clone)]
+pub struct JingDuel {
+    #[primary_key]
+    #[auto_inc]
+    pub duel_id: u64,
+    #[index(btree)]
+    pub initiator: Identity,
+    pub target_player: Option<Identity>,
+    pub target_agent: Option<Planet>,
+    pub opening_move: JingMove,
+    pub state: JingState,
+    #[default(None::<bool>)]
+    pub winner_is_initiator: Option<bool>, // None until resolved (or a draw)
+    pub created_at: Timestamp,
+    pub updated_at: Timestamp,
+}
+
+/// One cast in a duel thread (cast or counter). Append-only; pruned with history.
+#[spacetimedb::table(name = jing_cast, public)]
+#[derive(Clone)]
+pub struct JingCast {
+    #[primary_key]
+    #[auto_inc]
+    pub cast_id: u64,
+    #[index(btree)]
+    pub duel_id: u64,
+    pub caster: Identity,          // ZERO identity = the agent (via answer_jing)
+    pub caster_agent: Option<Planet>,
+    pub mv: JingMove,
+    pub cost_sacred7: u8,          // Sacred-7 stat index drained
+    pub cost_esms: u8,            // ESMS id drained
+    pub deflects: Option<JingMove>, // what this cast counters in the thread
+    pub voice: String,            // characterful line (agent casts)
+    pub created_at: Timestamp,
+}
+
+/// The player's Sacred-7 + ESMS consciousness pools a Jing cast drains
+/// (game-side, mirrored — ESMS on-chain is soulbound and never burned here).
+#[spacetimedb::table(name = jing_pool)]
+#[derive(Clone)]
+pub struct JingPool {
+    #[primary_key]
+    pub identity: Identity,
+    pub sacred7: Vec<u16>,        // 7 stats
+    pub esms: Vec<u16>,          // 4 element pools
+    pub updated_at: Timestamp,
+}
+
+/// Per-player Jing cast cooldown (private). Stops spam-draining.
+#[spacetimedb::table(name = jing_rate)]
+#[derive(Clone)]
+pub struct JingRate {
+    #[primary_key]
+    pub identity: Identity,
+    pub last_at: Timestamp,
+    pub casts: u32,
+}

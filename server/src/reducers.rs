@@ -61,7 +61,7 @@ const AGENT_RACK_SIZE: usize = 7; // tiles the agent draws — a standard Scrabb
 /// catalogue (all ~5k stars to magnitude 6.0) a batch per tick. At 10s/tick the
 /// whole sky is in within ~3 minutes of first publish or upgrade.
 const INIT_SEED_STARS: usize = 512;
-const SEED_BATCH_PER_TICK: usize = 256;
+const SEED_BATCH_PER_TICK: usize = 512;
 
 // ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -106,6 +106,12 @@ pub fn init(ctx: &ReducerContext) {
 
     // Seed the constellation liquidity pools (small, fixed set — all at once).
     seed_constellations(ctx);
+
+    // Seed the bright star-agent roster (chat + jings targets).
+    seed_star_agents(ctx);
+
+    // Seed the comet registry (Chiron — the first comet).
+    seed_comets(ctx);
 
     // Drive the persistent sky: tick every 10 seconds.
     ctx.db.sky_tick_timer().insert(SkyTickTimer {
@@ -1178,6 +1184,15 @@ pub fn tick_sky(ctx: &ReducerContext, _timer: SkyTickTimer) {
         }
 
         ctx.db.game_config().id().update(cfg);
+    }
+
+    // Backfill the star-agent roster + comet registry after an upgrade (init
+    // seeds them on a fresh publish; these cover an already-published module).
+    if ctx.db.star_agent().iter().next().is_none() {
+        seed_star_agents(ctx);
+    }
+    if ctx.db.comet().iter().next().is_none() {
+        seed_comets(ctx);
     }
 
     advance_round_clock(ctx); // round weather: which sign is rising at the world horizon
@@ -2418,6 +2433,385 @@ pub fn answer_duel(
         created_at: ctx.timestamp,
     });
 
+    Ok(())
+}
+
+// ── Constellation resolution: "mint blocks by adding stars" ─────────────────
+
+const STARS_PER_BLOCK: u16 = 1;
+
+/// Add a real catalogue star to a constellation, raising its resolution and
+/// minting a ConstellationBlock. Horizon-gated exactly like `trace_constellation`:
+/// the star must be risen over the caller's reported location.
+#[reducer]
+pub fn add_star_to_constellation(
+    ctx: &ReducerContext,
+    constellation_id: u16,
+    hip_id: u32,
+) -> Result<(), String> {
+    ctx.db
+        .player()
+        .identity()
+        .find(&ctx.sender)
+        .ok_or_else(|| "register first".to_string())?;
+    let loc = ctx
+        .db
+        .player_location()
+        .identity()
+        .find(&ctx.sender)
+        .ok_or_else(|| "set your location first (set_location)".to_string())?;
+    let mut con = ctx
+        .db
+        .constellation()
+        .constellation_id()
+        .find(&constellation_id)
+        .ok_or_else(|| "no such constellation".to_string())?;
+    let star = ctx
+        .db
+        .star_node()
+        .hip_id()
+        .find(&hip_id)
+        .ok_or_else(|| "no such star (wait for it to seed)".to_string())?;
+
+    let alt = altitude_deg(star.ra, star.dec, loc.lat, loc.lon, ctx.timestamp);
+    if alt < MIN_ALT_DEG {
+        return Err(format!(
+            "{} is below your horizon ({alt:.0}°) — add a star that has risen",
+            star.name
+        ));
+    }
+    for cs in ctx
+        .db
+        .constellation_star()
+        .constellation_id()
+        .filter(&constellation_id)
+    {
+        if cs.hip_id == hip_id {
+            return Err(format!("{} is already part of {}", star.name, con.name));
+        }
+    }
+
+    let baseline = con.member_count;
+    ctx.db.constellation_star().insert(ConstellationStar {
+        id: 0,
+        constellation_id,
+        hip_id,
+    });
+    con.member_count = con.member_count.saturating_add(1);
+    ctx.db.constellation().constellation_id().update(con.clone());
+
+    let level = if let Some(mut r) = ctx
+        .db
+        .constellation_resolution()
+        .constellation_id()
+        .find(&constellation_id)
+    {
+        r.added_members = r.added_members.saturating_add(1);
+        r.resolution_level = r.added_members / STARS_PER_BLOCK;
+        r.updated_at = ctx.timestamp;
+        let lvl = r.resolution_level;
+        ctx.db.constellation_resolution().constellation_id().update(r);
+        lvl
+    } else {
+        let lvl = 1 / STARS_PER_BLOCK;
+        ctx.db.constellation_resolution().insert(ConstellationResolution {
+            constellation_id,
+            baseline_members: baseline,
+            added_members: 1,
+            resolution_level: lvl,
+            updated_at: ctx.timestamp,
+        });
+        lvl
+    };
+
+    ctx.db.constellation_block().insert(ConstellationBlock {
+        block_id: 0,
+        constellation_id,
+        minter: ctx.sender,
+        hip_id,
+        level_after: level,
+        onchain_block: None,
+        created_at: ctx.timestamp,
+    });
+    Ok(())
+}
+
+// ── Star agents ──────────────────────────────────────────────────────────────
+
+/// The bright catalogue stars promoted to agents. (hip, name, dominant ESMS id,
+/// [fire,water,earth,air]% composition, flavour). ESMS ids: 0=Spirit/Fire,
+/// 1=Essence/Water, 2=Matter/Earth, 3=Substance/Air.
+const STAR_AGENTS: &[(u32, &str, u8, [u16; 4], &str)] = &[
+    (32349, "Sirius", 1, [15, 55, 15, 15], "the brightest oracle — sharp, brilliant counsel"),
+    (91262, "Vega", 3, [15, 15, 15, 55], "the harp-star — art, signal, clarity"),
+    (11767, "Polaris", 2, [15, 15, 55, 15], "the fixed pole — constancy and direction"),
+    (69673, "Arcturus", 0, [55, 15, 15, 15], "guardian of the Bear — bold momentum"),
+    (24608, "Capella", 0, [55, 15, 15, 15], "the she-goat — nurture through fire"),
+    (24436, "Rigel", 3, [15, 15, 15, 55], "Orion's blue foot — cold, far-seeing power"),
+    (37279, "Procyon", 1, [15, 55, 15, 15], "herald before the Dog — swift intuition"),
+    (27989, "Betelgeuse", 0, [55, 15, 15, 15], "the red shoulder — volatile, dramatic force"),
+    (21421, "Aldebaran", 2, [15, 15, 55, 15], "the Bull's eye — steadfast, watchful"),
+    (80763, "Antares", 0, [55, 15, 15, 15], "heart of the Scorpion — intense, transformative"),
+    (65474, "Spica", 2, [15, 15, 55, 15], "the wheat-ear — fertile, exacting craft"),
+    (49669, "Regulus", 0, [55, 15, 15, 15], "the little king — royal, commanding"),
+    (97649, "Altair", 3, [15, 15, 15, 55], "the flying eagle — quick, decisive"),
+    (102098, "Deneb", 3, [15, 15, 15, 55], "the Swan's tail — distant, luminous vision"),
+];
+
+/// Seed the comet registry. Chiron (2060 Chiron / 95P/Chiron) is the first comet
+/// — classified as both a minor planet and a comet, it joins as its own kind.
+/// Idempotent; safe on init and as an upgrade backfill from `tick_sky`.
+fn seed_comets(ctx: &ReducerContext) {
+    // (id, name, designation, element, [fire,water,earth,air], specialty, a, e, i, L, peri, node, L_rate)
+    const COMETS: &[(u16, &str, &str, u8, [u16; 4], &str, f64, f64, f64, f64, f64, f64, f64)] = &[(
+        0,
+        "Chiron",
+        "2060 Chiron · 95P/Chiron",
+        1, // Essence/Water — the wounded-healer
+        [15, 55, 15, 15],
+        "the wounded healer — the bridge-comet between Saturn and Uranus",
+        13.7088, 0.3816, 6.928, 217.10, 188.60, 209.40, 714.06,
+    )];
+    for &(id, name, desig, element, comp, specialty, a, e, i, l, peri, node, rate) in COMETS {
+        if ctx.db.comet().comet_id().find(&id).is_some() {
+            continue;
+        }
+        ctx.db.comet().insert(Comet {
+            comet_id: id,
+            name: name.to_string(),
+            designation: desig.to_string(),
+            element,
+            composition: comp.to_vec(),
+            specialty: specialty.to_string(),
+            semi_major_au: a,
+            eccentricity: e,
+            inclination_deg: i,
+            mean_long_deg: l,
+            long_peri_deg: peri,
+            long_node_deg: node,
+            mean_long_rate: rate,
+            active: true,
+        });
+    }
+}
+
+/// Seed the star-agent roster. Idempotent (insert-if-absent), so safe on init and
+/// as an upgrade backfill from `tick_sky`.
+fn seed_star_agents(ctx: &ReducerContext) {
+    for &(hip, name, element, comp, specialty) in STAR_AGENTS {
+        if ctx.db.star_agent().hip_id().find(&hip).is_some() {
+            continue;
+        }
+        ctx.db.star_agent().insert(StarAgent {
+            hip_id: hip,
+            display_name: name.to_string(),
+            element,
+            composition: comp.to_vec(),
+            specialty: specialty.to_string(),
+            active: true,
+        });
+    }
+}
+
+// ── The Jing Arena (cast → counter → resolve) ───────────────────────────────
+
+const JING_PRIMARY: u16 = 15; // Sacred-7 drain per cast (constants.ts)
+const JING_SECONDARY: u16 = 10; // ESMS drain per cast
+const JING_COOLDOWN_SECS: i64 = 6;
+
+/// Lazily create the caller's Sacred-7 + ESMS pools.
+fn ensure_jing_pool(ctx: &ReducerContext, who: Identity) -> JingPool {
+    if let Some(p) = ctx.db.jing_pool().identity().find(&who) {
+        return p;
+    }
+    let p = JingPool {
+        identity: who,
+        sacred7: vec![100, 100, 100, 100, 100, 100, 100],
+        esms: vec![80, 80, 80, 80],
+        updated_at: ctx.timestamp,
+    };
+    ctx.db.jing_pool().insert(p.clone());
+    p
+}
+
+fn drain_pool(pool: &mut JingPool, mv: JingMove) -> Result<(), String> {
+    let s = mv.sacred7();
+    let e = mv.esms() as usize;
+    if s >= pool.sacred7.len() || e >= pool.esms.len() {
+        return Err("pool not ready".into());
+    }
+    if pool.sacred7[s] < JING_PRIMARY || pool.esms[e] < JING_SECONDARY {
+        return Err("that pool is too depleted to cast this Jing".into());
+    }
+    pool.sacred7[s] -= JING_PRIMARY;
+    pool.esms[e] -= JING_SECONDARY;
+    Ok(())
+}
+
+/// Open a Jing duel: declare a move, pay its cost, target a player OR an agent.
+#[reducer]
+pub fn cast_jing(
+    ctx: &ReducerContext,
+    mv: JingMove,
+    target_player: Option<Identity>,
+    target_agent: Option<Planet>,
+) -> Result<(), String> {
+    ctx.db
+        .player()
+        .identity()
+        .find(&ctx.sender)
+        .ok_or_else(|| "register first".to_string())?;
+    if target_player.is_some() == target_agent.is_some() {
+        return Err("cast at exactly one target (a player or an agent)".into());
+    }
+    if let Some(rate) = ctx.db.jing_rate().identity().find(&ctx.sender) {
+        if elapsed_secs(ctx.timestamp, rate.last_at) < JING_COOLDOWN_SECS {
+            return Err("steady — your last Jing still echoes".into());
+        }
+        ctx.db.jing_rate().identity().update(JingRate {
+            identity: ctx.sender,
+            last_at: ctx.timestamp,
+            casts: rate.casts + 1,
+        });
+    } else {
+        ctx.db.jing_rate().insert(JingRate {
+            identity: ctx.sender,
+            last_at: ctx.timestamp,
+            casts: 1,
+        });
+    }
+
+    let mut pool = ensure_jing_pool(ctx, ctx.sender);
+    drain_pool(&mut pool, mv)?;
+    pool.updated_at = ctx.timestamp;
+    ctx.db.jing_pool().identity().update(pool);
+
+    let duel = ctx.db.jing_duel().insert(JingDuel {
+        duel_id: 0,
+        initiator: ctx.sender,
+        target_player,
+        target_agent,
+        opening_move: mv,
+        state: JingState::Open,
+        winner_is_initiator: None,
+        created_at: ctx.timestamp,
+        updated_at: ctx.timestamp,
+    });
+    ctx.db.jing_cast().insert(JingCast {
+        cast_id: 0,
+        duel_id: duel.duel_id,
+        caster: ctx.sender,
+        caster_agent: None,
+        mv,
+        cost_sacred7: mv.sacred7() as u8,
+        cost_esms: mv.esms(),
+        deflects: None,
+        voice: String::new(),
+        created_at: ctx.timestamp,
+    });
+    Ok(())
+}
+
+/// The targeted player counters an open duel with a move that deflects the last
+/// cast. A valid counter wins the thread.
+#[reducer]
+pub fn counter_jing(ctx: &ReducerContext, duel_id: u64, mv: JingMove) -> Result<(), String> {
+    ctx.db
+        .player()
+        .identity()
+        .find(&ctx.sender)
+        .ok_or_else(|| "register first".to_string())?;
+    let mut duel = ctx
+        .db
+        .jing_duel()
+        .duel_id()
+        .find(&duel_id)
+        .ok_or_else(|| "no such duel".to_string())?;
+    if duel.state == JingState::Resolved {
+        return Err("that duel is already resolved".into());
+    }
+    if duel.target_player != Some(ctx.sender) {
+        return Err("you are not the target of this duel".into());
+    }
+    let last = ctx
+        .db
+        .jing_cast()
+        .duel_id()
+        .filter(&duel_id)
+        .max_by_key(|c| c.cast_id)
+        .ok_or_else(|| "duel has no casts".to_string())?;
+    if !last.mv.countered_by().contains(&mv) {
+        return Err(format!("{:?} does not counter {:?}", mv, last.mv));
+    }
+
+    let mut pool = ensure_jing_pool(ctx, ctx.sender);
+    drain_pool(&mut pool, mv)?;
+    pool.updated_at = ctx.timestamp;
+    ctx.db.jing_pool().identity().update(pool);
+
+    ctx.db.jing_cast().insert(JingCast {
+        cast_id: 0,
+        duel_id,
+        caster: ctx.sender,
+        caster_agent: None,
+        mv,
+        cost_sacred7: mv.sacred7() as u8,
+        cost_esms: mv.esms(),
+        deflects: Some(last.mv),
+        voice: String::new(),
+        created_at: ctx.timestamp,
+    });
+    duel.state = JingState::Resolved;
+    duel.winner_is_initiator = Some(false); // the counter-er (target) prevails
+    duel.updated_at = ctx.timestamp;
+    ctx.db.jing_duel().duel_id().update(duel);
+    Ok(())
+}
+
+/// Owner-gated: the planetary-agents service answers an agent-targeted duel with
+/// the agent's move + voice, resolving the thread (mirrors answer_oracle).
+#[reducer]
+pub fn answer_jing(
+    ctx: &ReducerContext,
+    duel_id: u64,
+    agent_move: JingMove,
+    voice: String,
+) -> Result<(), String> {
+    let cfg = ctx
+        .db
+        .game_config()
+        .id()
+        .find(&0)
+        .ok_or_else(|| "not initialised".to_string())?;
+    if ctx.sender != cfg.owner {
+        return Err("owner-only reducer".into());
+    }
+    let mut duel = ctx
+        .db
+        .jing_duel()
+        .duel_id()
+        .find(&duel_id)
+        .ok_or_else(|| "no such duel".to_string())?;
+    if duel.state == JingState::Resolved {
+        return Ok(());
+    }
+    let opening = duel.opening_move;
+    ctx.db.jing_cast().insert(JingCast {
+        cast_id: 0,
+        duel_id,
+        caster: ctx.sender, // the owner answers on the agent's behalf
+        caster_agent: duel.target_agent,
+        mv: agent_move,
+        cost_sacred7: agent_move.sacred7() as u8,
+        cost_esms: agent_move.esms(),
+        deflects: Some(opening),
+        voice,
+        created_at: ctx.timestamp,
+    });
+    duel.winner_is_initiator = JingMove::resolve(opening, agent_move);
+    duel.state = JingState::Resolved;
+    duel.updated_at = ctx.timestamp;
+    ctx.db.jing_duel().duel_id().update(duel);
     Ok(())
 }
 
