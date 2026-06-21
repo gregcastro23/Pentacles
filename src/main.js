@@ -18,6 +18,7 @@ import { initA11y } from './ui/a11y.js'
 import spacetime from './net/spacetime.js'
 import { initNetBadge } from './net/status-badge.js'
 import duels from './net/duels.js'
+import register from './net/register.js'
 import { installDashboards } from './net/dashboards.js'
 import wallet from './web3/wallet.js'
 import { initEsmsHud } from './web3/hud.js'
@@ -52,6 +53,9 @@ Pentacles.net = spacetime
 
 // Live Word Duels (cast_word → word_duel); app.js falls back to the offline solver.
 Pentacles.duels = duels
+
+// Live player registration (create_player) wired into onboarding by app.js.
+Pentacles.register = register
 
 // Wallet façade (injected now; Dynamic island layers on top in dynamic.js).
 Pentacles.wallet = wallet
