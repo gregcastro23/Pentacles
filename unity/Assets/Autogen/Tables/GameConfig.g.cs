@@ -45,6 +45,7 @@ namespace SpacetimeDB.Types
         public global::SpacetimeDB.Col<GameConfig, ushort> AscendantDegree { get; }
         public global::SpacetimeDB.Col<GameConfig, bool> Seeded { get; }
         public global::SpacetimeDB.Col<GameConfig, uint> StarSeedCursor { get; }
+        public global::SpacetimeDB.Col<GameConfig, bool> ConstellationsSeeded { get; }
 
         public GameConfigCols(string tableName)
         {
@@ -54,6 +55,7 @@ namespace SpacetimeDB.Types
             AscendantDegree = new global::SpacetimeDB.Col<GameConfig, ushort>(tableName, "ascendant_degree");
             Seeded = new global::SpacetimeDB.Col<GameConfig, bool>(tableName, "seeded");
             StarSeedCursor = new global::SpacetimeDB.Col<GameConfig, uint>(tableName, "star_seed_cursor");
+            ConstellationsSeeded = new global::SpacetimeDB.Col<GameConfig, bool>(tableName, "constellations_seeded");
         }
     }
 

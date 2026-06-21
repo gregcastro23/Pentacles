@@ -33,6 +33,46 @@ const DB = process.env.SPACETIMEDB_DB ?? "cookingwithcastrollc";
 const BACKEND_URL = process.env.PLANETARY_AGENTS_BACKEND_URL ?? "https://api.agents.alchm.kitchen";
 const POLL_INTERVAL_MS = Number(process.env.POLL_INTERVAL_MS ?? "3000");
 
+// Read via the HTTP SQL API (clean JSON). The CLI's ASCII-table output wraps long
+// string columns (e.g. the candidates JSON array), which the fixed-width
+// parseTable below can't recover; the HTTP rows are positional SATS values we
+// decode by schema. Writes still go through `spacetime call` (owner-gated).
+const SPACETIMEDB_URI = (process.env.SPACETIMEDB_URI ?? "https://maincloud.spacetimedb.com").replace(/\/+$/, "");
+
+function decodeSats(type: any, val: any): any {
+  if (!type) return val;
+  if (type.Sum) {
+    const variants = type.Sum.variants ?? [];
+    if (!Array.isArray(val)) return val;
+    const [tag, payload] = val;
+    const variant = variants[tag];
+    const vname = (variant && (variant.name?.some ?? variant.name)) ?? String(tag);
+    const isOption = variants.length === 2 && variants.some((v: any) => (v?.name?.some ?? v?.name) === "none");
+    if (isOption) return vname === "none" ? null : decodeSats(variant?.algebraic_type, payload);
+    return vname; // enum → variant name (e.g. "Mars")
+  }
+  return val; // Product (Identity → {__identity__}) + primitives pass through
+}
+
+async function queryRows(sql: string): Promise<Array<Record<string, any>>> {
+  const res = await fetch(`${SPACETIMEDB_URI}/v1/database/${DB}/sql`, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain" },
+    body: sql,
+  });
+  if (!res.ok) throw new Error(`sql ${res.status}: ${await res.text().catch(() => "")}`);
+  const json: any = await res.json();
+  const stmt = Array.isArray(json) ? json[json.length - 1] : json;
+  const els = stmt?.schema?.elements ?? [];
+  const cols = els.map((e: any, i: number) => (typeof e?.name === "string" ? e.name : e?.name?.some ?? `col${i}`));
+  const types = els.map((e: any) => e?.algebraic_type);
+  return (stmt?.rows ?? []).map((row: any[]) => {
+    const o: Record<string, any> = {};
+    row.forEach((v, i) => (o[cols[i] ?? `col${i}`] = decodeSats(types[i], v)));
+    return o;
+  });
+}
+
 // Push a move back through the owner-gated reducer.
 async function answerDuel(
   challengeId: number,
@@ -99,19 +139,13 @@ function parseTable(output: string): Array<Record<string, string>> {
 }
 
 // Decode SpacetimeDB SQL string quotes
-function parseValue(val: string): string {
-  const trimmed = val.trim();
-  if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
-    try {
-      return JSON.parse(trimmed);
-    } catch {
-      return trimmed.slice(1, -1);
-    }
-  }
-  return trimmed;
+function parseValue(val: any): string {
+  if (val == null) return "";
+  if (typeof val === "object") return (val as any).__identity__ ?? JSON.stringify(val);
+  return String(val);
 }
 
-async function processChallenge(row: Record<string, string>): Promise<void> {
+async function processChallenge(row: Record<string, any>): Promise<void> {
   const rawId = parseValue(row.challenge_id);
   const player = parseValue(row.player);
   const opponent = parseValue(row.opponent);
@@ -197,13 +231,9 @@ async function processChallenge(row: Record<string, string>): Promise<void> {
 
 async function checkPendingChallenges(): Promise<void> {
   try {
-    const { stdout } = await run(SPACETIMEDB_CLI, [
-      "sql",
-      DB,
-      "SELECT challenge_id, player, opponent, player_word, player_score, agent_rack, candidates FROM duel_challenge WHERE answered = false",
-    ]);
-
-    const rows = parseTable(stdout);
+    const rows = await queryRows(
+      "SELECT challenge_id, player, opponent, player_word, player_score, agent_rack, candidates FROM duel_challenge WHERE answered = false"
+    );
     if (rows.length === 0) return;
 
     console.log(`[WordDuel] Found ${rows.length} pending challenge(s).`);

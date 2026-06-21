@@ -94,3 +94,63 @@ impl Planet {
         ALL_PLANETS[(i as usize).min(9)]
     }
 }
+
+// ── The Jing Arena — elemental duel moves ───────────────────────────────────
+// Ported from the planetary_agents "Jing" metagame. The five moves map onto the
+// four ESMS elements (0=Spirit/Fire, 1=Essence/Water, 2=Matter/Earth,
+// 3=Substance/Air); Erode is the Water·Earth compound. A cast drains a Sacred-7
+// stat + an ESMS pool; moves beat each other on a fixed counter graph.
+
+/// The five elemental Jing moves.
+#[derive(SpacetimeType, Clone, Copy, PartialEq, Eq, Debug)]
+pub enum JingMove { Meltdown, Freeze, TectonicRoot, Vacuum, Erode }
+
+/// Lifecycle of a standalone cast→counter Jing duel thread.
+#[derive(SpacetimeType, Clone, Copy, PartialEq, Eq, Debug)]
+pub enum JingState { Open, Countered, Resolved }
+
+impl JingMove {
+    /// Stable index (also the order shown to the client).
+    pub fn idx(self) -> usize {
+        match self {
+            JingMove::Meltdown => 0, JingMove::Freeze => 1, JingMove::TectonicRoot => 2,
+            JingMove::Vacuum => 3, JingMove::Erode => 4,
+        }
+    }
+    /// Primary ESMS element id drained (0=Spirit,1=Essence,2=Matter,3=Substance).
+    pub fn esms(self) -> u8 {
+        match self {
+            JingMove::Meltdown => 0, JingMove::Freeze => 1, JingMove::TectonicRoot => 2,
+            JingMove::Vacuum => 3, JingMove::Erode => 1,
+        }
+    }
+    /// Sacred-7 stat index drained: [power,resonance,wisdom,charisma,intuition,adaptability,vitality].
+    pub fn sacred7(self) -> usize {
+        match self {
+            JingMove::Meltdown => 6,      // vitality
+            JingMove::Freeze => 5,        // adaptability
+            JingMove::TectonicRoot => 2,  // wisdom
+            JingMove::Vacuum => 3,        // charisma
+            JingMove::Erode => 4,         // intuition
+        }
+    }
+    /// The moves that beat `self` (the counter graph from constants.ts).
+    pub fn countered_by(self) -> &'static [JingMove] {
+        match self {
+            JingMove::Meltdown => &[JingMove::Vacuum],
+            JingMove::Freeze => &[JingMove::Meltdown],
+            JingMove::TectonicRoot => &[JingMove::Erode],
+            JingMove::Vacuum => &[JingMove::Freeze],
+            JingMove::Erode => &[JingMove::Vacuum],
+        }
+    }
+    /// Resolve initiator vs responder → Some(true) initiator wins, Some(false)
+    /// responder wins, None = draw (neither counters the other).
+    pub fn resolve(initiator: JingMove, responder: JingMove) -> Option<bool> {
+        let resp_beats_init = initiator.countered_by().contains(&responder);
+        let init_beats_resp = responder.countered_by().contains(&initiator);
+        if init_beats_resp && !resp_beats_init { Some(true) }
+        else if resp_beats_init && !init_beats_resp { Some(false) }
+        else { None }
+    }
+}

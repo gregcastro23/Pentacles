@@ -1,346 +1,3 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Pentacles — Web App Client</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,400&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="client.css">
-</head>
-<body>
-
-  <!-- Background camera feed & star field fallback -->
-  <video id="ar-video-bg" autoplay playsinline></video>
-  <canvas id="canvas-stars-bg"></canvas>
-
-  <!-- ===================== ONBOARDING OVERLAY ===================== -->
-  <div id="onboarding-overlay" class="overlay-fullscreen">
-    <div class="onboarding-window">
-      <h2 style="font-family: var(--display); font-size: 28px; color: var(--gold-bright); text-align: center;">Forge Natal Deck</h2>
-      <p style="font-size: 13px; color: var(--dim); text-align: center; margin-top: -10px;">Enter your birth details to calculate your chart, join a planetary faction, and mint your procedural cards.</p>
-      
-      <div id="onboarding-step-1" style="display: flex; flex-direction: column; gap: 16px;">
-        <div class="form-group">
-          <label>Seeker Name / Handle</label>
-          <input type="text" id="ob-handle" class="form-input" placeholder="e.g. ArcturusSeeker" value="CelestialSeeker">
-        </div>
-        <div class="form-group">
-          <label>Birth Date</label>
-          <input type="date" id="ob-date" class="form-input" value="1998-05-14">
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>Birth Time</label>
-            <input type="time" id="ob-time" class="form-input" value="14:30">
-          </div>
-          <div class="form-group">
-            <label>Location (City)</label>
-            <input type="text" id="ob-loc" class="form-input" placeholder="e.g. New York, US" value="New York, US">
-          </div>
-        </div>
-        <div class="form-row" style="align-items: flex-end;">
-          <div class="form-group">
-            <label>Observer Latitude</label>
-            <input type="number" id="ob-lat" class="form-input" step="0.0001" min="-90" max="90" value="40.7128">
-          </div>
-          <div class="form-group">
-            <label>Longitude (east +)</label>
-            <input type="number" id="ob-lon" class="form-input" step="0.0001" min="-180" max="180" value="-74.0060">
-          </div>
-          <button class="btn" style="white-space:nowrap; height:38px;" onclick="useMyLocation()" title="Anchor the live star map to where you stand">📍 Locate</button>
-        </div>
-        <p style="font-size:11px; color:var(--dim); margin:-6px 0 0;">The observer anchors the live sky: every naked-eye star above your horizon — from the ascendant to the edge of the sky — is mapped into the Pentacle.</p>
-        <button class="btn" style="margin-top: 10px;" onclick="calculateNatalOnboarding()">✦ Calculate Placements</button>
-      </div>
-
-      <div id="onboarding-step-2" style="display: none; flex-direction: column; gap: 16px;">
-        <h3 class="title-orn">Planetary Alignments</h3>
-        <p style="font-size: 13px; color: var(--dim);">Your chart's dignity scores recommendation choices. Choose your planetary faction:</p>
-        
-        <div id="faction-picks-grid" class="faction-choices-grid">
-          <!-- Populated by JS -->
-        </div>
-
-        <button id="faction-confirm-btn" class="btn" disabled onclick="confirmFactionOnboarding()">Confirm Allegiance & Mint Deck ⚔</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ===================== MAIN APPLICATION SHELL ===================== -->
-  <div class="app-shell">
-    
-    <!-- LEFT SIDEBAR: STANDINGS & WORLD STATE -->
-    <aside class="sidebar">
-      <div class="sidebar-header">
-        <h2>✦ Sky Dashboard</h2>
-        <div class="spinner" id="sync-spinner" style="display:none"></div>
-      </div>
-      
-      <div class="sidebar-content">
-        <!-- Factions Leaderboard -->
-        <div class="panel">
-          <h3 class="title-orn" style="margin-bottom: 12px;">Faction Standings</h3>
-          <div id="leaderboard-container" class="standings-list">
-            <!-- Rendered by JS -->
-          </div>
-        </div>
-
-        <!-- Zones Weather & Control -->
-        <div class="panel" style="flex: 1; display: flex; flex-direction: column; min-height: 250px;">
-          <h3 class="title-orn" style="margin-bottom: 12px;">Zones weather & ownership</h3>
-          <div id="zones-list-container" style="overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 10px;">
-            <!-- Rendered by JS -->
-          </div>
-        </div>
-      </div>
-    </aside>
-
-    <!-- CENTER VIEWPORT: THE PENTACLE VIEW -->
-    <main class="viewport-center">
-      <!-- HUD Top Bar -->
-      <div class="hud-bar">
-        <div id="player-banner" style="display:flex; flex-direction:column; text-shadow:0 2px 4px #000; pointer-events:auto;">
-          <!-- Loaded dynamically -->
-        </div>
-        <div id="sky-status" style="align-self:center; font-size:11px; color:var(--gold-bright); text-shadow:0 2px 4px #000; letter-spacing:0.04em; pointer-events:none;"></div>
-        <div class="hud-btn-group">
-          <button class="btn" id="reset-view-btn" style="display:none;" onclick="resetCameraView()">🔍 Reset View</button>
-          <button class="btn" onclick="toggleSound()">🔊 Sound: ON</button>
-          <button class="btn" onclick="toggleARMode()">📹 Toggle AR Mode</button>
-        </div>
-      </div>
-
-      <!-- The Pentacle SVGs wrapper -->
-      <div class="map-container" id="sky-map-wrapper">
-        <svg viewBox="0 0 600 600" class="pentacle-svg">
-          <defs>
-            <radialGradient id="sky-halo" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stop-color="rgba(22, 32, 58, 0.4)" />
-              <stop offset="100%" stop-color="rgba(5, 6, 12, 0.0)" />
-            </radialGradient>
-          </defs>
-          
-          <circle cx="300" cy="300" r="250" fill="url(#sky-halo)" />
-
-          <!-- The Eleven Zones clickable boundaries -->
-          <!-- 5 ARC-HOUSES -->
-          <path id="zone-shape-0" class="zone-shape" d="M300,50 L356.1,222.8 L537.8,222.8 A250,250 0 0,0 300,50 Z" onclick="selectZone(0)" />
-          <path id="zone-shape-1" class="zone-shape" d="M537.8,222.8 L390.8,329.5 L447,502.3 A250,250 0 0,0 537.8,222.8 Z" onclick="selectZone(1)" />
-          <path id="zone-shape-2" class="zone-shape" d="M447,502.3 L300,395.5 L153,502.3 A250,250 0 0,0 447,502.3 Z" onclick="selectZone(2)" />
-          <path id="zone-shape-3" class="zone-shape" d="M153,502.3 L209.2,329.5 L62.2,222.8 A250,250 0 0,0 153,502.3 Z" onclick="selectZone(3)" />
-          <path id="zone-shape-4" class="zone-shape" d="M62.2,222.8 L243.9,222.8 L300,50 A250,250 0 0,0 62.2,222.8 Z" onclick="selectZone(4)" />
-
-          <!-- 5 SPIRES -->
-          <path id="zone-shape-5" class="zone-shape" d="M300,50 L243.9,222.8 L356.1,222.8 Z" fill="rgba(241,219,161,0.05)" onclick="selectZone(5)" />
-          <path id="zone-shape-6" class="zone-shape" d="M537.8,222.8 L356.1,222.8 L390.8,329.5 Z" fill="rgba(241,219,161,0.05)" onclick="selectZone(6)" />
-          <path id="zone-shape-7" class="zone-shape" d="M447,502.3 L390.8,329.5 L300,395.5 Z" fill="rgba(241,219,161,0.05)" onclick="selectZone(7)" />
-          <path id="zone-shape-8" class="zone-shape" d="M153,502.3 L300,395.5 L209.2,329.5 Z" fill="rgba(241,219,161,0.05)" onclick="selectZone(8)" />
-          <path id="zone-shape-9" class="zone-shape" d="M62.2,222.8 L209.2,329.5 L243.9,222.8 Z" fill="rgba(241,219,161,0.05)" onclick="selectZone(9)" />
-
-          <!-- CENTRAL CROWN -->
-          <path id="zone-shape-10" class="zone-shape" d="M356.1,222.8 L390.8,329.5 L300,395.5 L209.2,329.5 L243.9,222.8 Z" fill="rgba(216,180,106,0.1)" onclick="selectZone(10)" />
-
-          <!-- The static pentagram star and circle overlays -->
-          <path id="horizon-rim-path" fill="none" stroke="var(--gold)" stroke-width="2.2" pointer-events="none" />
-          <path id="pentagram-star-path" fill="none" stroke="var(--gold)" stroke-width="2.2" stroke-linejoin="round" pointer-events="none" />
-
-          <text id="crown-label-text" x="300" y="304" text-anchor="middle" fill="var(--gold)" font-family="Space Grotesk" font-size="10" letter-spacing="1">CROWN</text>
-
-          <!-- Constellation figures (the sky DEX) — drawn under the stars so the
-               star dots sit on top of the stick-figure lines. -->
-          <g id="constellations-g" pointer-events="none"></g>
-          <!-- Dynamic overlay layer for Star Nodes -->
-          <g id="stars-nodes-g"></g>
-          <!-- The wanderers' plane: the ecliptic arc + the ten bodies, rendered
-               above the star field so the planets are never lost in the stars -->
-          <g id="planets-g"></g>
-          <!-- Compass rose + the live Ascendant marker on the horizon rim -->
-          <g id="sky-chrome-g" pointer-events="none"></g>
-        </svg>
-      </div>
-
-      <!-- BOTTOM PANEL: ACTIVE HAND STRIP -->
-      <footer class="hud-card-footer">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <h3 class="title-orn">Active Hand (Select to Strike)</h3>
-          <span id="active-hand-count" style="font-size:11px; color:var(--dim)">0 / 8 Selected</span>
-        </div>
-        <div id="active-deck-strip" class="cards-scroller">
-          <!-- Populated by JS -->
-        </div>
-      </footer>
-    </main>
-
-    <!-- RIGHT SIDEBAR: INVENTORY, FUSION & DUELS LOGS -->
-    <aside class="sidebar right">
-      <div class="tab-headers">
-        <button class="tab-btn active" data-tab="tab-collection" onclick="switchTab('tab-collection')">Cards</button>
-        <button class="tab-btn" data-tab="tab-duel" onclick="switchTab('tab-duel')">Siege</button>
-        <button class="tab-btn" data-tab="tab-word" onclick="switchTab('tab-word')">✦ Words</button>
-        <button class="tab-btn" data-tab="tab-pools" onclick="switchTab('tab-pools')">✦ Pools</button>
-      </div>
-      
-      <div class="sidebar-content" style="padding-top:0">
-        <!-- Collection Panel -->
-        <div id="tab-collection" class="tab-pane active">
-          <p style="font-size:12px; color:var(--dim)">Cycle loadouts (Active / Defense / Bench). Tap a card and then a matching copy to fuse and level it up.</p>
-          <div id="collection-grid" style="display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; overflow-y:auto; flex:1;">
-            <!-- Populated by JS -->
-          </div>
-          <div id="fuse-controls-bar" style="display:none; padding:10px; background:rgba(216, 180, 106, 0.05); border:1px dashed var(--gold); border-radius:3px; justify-content:space-between; align-items:center;">
-            <span id="fuse-label" style="font-size:11px; color:var(--gold-bright)">Fusing...</span>
-            <button class="btn" style="padding:6px 12px;" onclick="cancelFuse()">Cancel</button>
-          </div>
-        </div>
-
-        <!-- Duel & Auto-Siege Console -->
-        <div id="tab-duel" class="tab-pane">
-          <!-- Strike target Details -->
-          <div class="panel" style="display:flex; flex-direction:column; gap:10px">
-            <h4 style="font-size:12px; color:var(--gold-bright);">Combat Preview</h4>
-            <div id="duel-target-details" style="font-size:13px; color:var(--dim)">
-              Select a star in the sky map to coordinate a siege target.
-            </div>
-            <button id="strike-btn" class="btn" style="width:100%" disabled onclick="initiateSiegeStrike()">Initiate Auto-Siege ⚔</button>
-          </div>
-
-          <!-- Real-Time Combat Logs -->
-          <div style="display:flex; flex-direction:column; gap:8px; flex:1;">
-            <h4 class="title-orn">Combat Log</h4>
-            <div id="combat-log-console" class="battle-console">
-              <span class="log-line system">Waiting for target selection...</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Word Duels of the Spheres (the Lettered Arcana) -->
-        <div id="tab-word" class="tab-pane">
-          <div class="panel" style="display:flex; flex-direction:column; gap:10px;">
-            <div style="display:flex; justify-content:space-between; align-items:baseline;">
-              <h4 style="font-size:12px; color:var(--gold-bright);">Word Duel of the Spheres</h4>
-              <span id="word-token-balance" style="font-size:13px; color:var(--gold-bright); font-weight:bold;">✦ 0</span>
-            </div>
-            <p style="font-size:11px; color:var(--dim); margin:0;">Spell a Word of Power from the letters on your Arcana. A planetary agent answers with its best word — match or beat it for massive tokens.</p>
-
-            <div>
-              <div style="font-size:10px; color:var(--dim); text-transform:uppercase; letter-spacing:1px; margin-bottom:5px;">Your Rack</div>
-              <div id="word-rack" class="word-rack"></div>
-            </div>
-
-            <label style="font-size:10px; color:var(--dim); text-transform:uppercase; letter-spacing:1px;">Challenge a Planetary Agent</label>
-            <select id="word-opponent" class="word-select"></select>
-
-            <input id="word-input" class="word-input" type="text" maxlength="15" placeholder="Spell a word…" autocomplete="off" spellcheck="false" oninput="onWordInput()" onkeydown="if(event.key==='Enter'){event.preventDefault();castWordOfPower();}" />
-            <div id="word-preview" style="font-size:11px; color:var(--dim); min-height:14px;"></div>
-            <button id="word-cast-btn" class="btn" style="width:100%;" onclick="castWordOfPower()">Cast Word of Power ✦</button>
-            <div id="word-result" style="font-size:12px; min-height:16px; line-height:1.4;"></div>
-          </div>
-
-          <div style="display:flex; flex-direction:column; gap:8px; flex:1; min-height:0;">
-            <h4 class="title-orn">Duel Log</h4>
-            <div id="word-log-console" class="battle-console">
-              <span class="log-line system">No words cast yet. Spell your first Word of Power…</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Constellation Liquidity Pools (the sky DEX) -->
-        <div id="tab-pools" class="tab-pane">
-          <div class="panel" style="display:flex; flex-direction:column; gap:10px; min-height:0;">
-            <div style="display:flex; justify-content:space-between; align-items:baseline;">
-              <h4 style="font-size:12px; color:var(--gold-bright);">Constellation Pools</h4>
-              <span style="font-size:10px; color:var(--dim);">liquidity that rises &amp; sets</span>
-            </div>
-            <p style="font-size:11px; color:var(--dim); margin:0;">Each constellation is a constant-product pool over two ESMS elements. A pool opens only while enough of its stars are above <em>your</em> horizon — cross the Earth and different pools light up.</p>
-
-            <div>
-              <div style="font-size:10px; color:var(--dim); text-transform:uppercase; letter-spacing:1px; margin-bottom:5px;">Your sky over</div>
-              <div id="pools-city-toggle" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
-            </div>
-
-            <div id="pools-list" style="display:flex; flex-direction:column; gap:7px; overflow-y:auto; flex:1; min-height:120px;"></div>
-            <div id="pools-status" style="font-size:12px; min-height:16px; line-height:1.4; color:var(--dim);"></div>
-          </div>
-        </div>
-      </div>
-    </aside>
-
-  <!-- ===================== SIGN IN / SWITCH ACCOUNT MODAL ===================== -->
-  <div id="signin-modal" class="overlay-fullscreen" style="display: none; background: rgba(5, 6, 12, 0.95); z-index: 101;">
-    <div class="onboarding-window" style="width: 440px;">
-      <h2 style="font-family: var(--display); font-size: 26px; color: var(--gold-bright); text-align: center; margin-bottom: 5px;">Astral Sign In</h2>
-      <p style="font-size: 12px; color: var(--dim); text-align: center; margin-top: 0;">Access or manage your seeker profiles and credentials.</p>
-      
-      <!-- Modal Tabs -->
-      <div class="tab-headers" style="margin-bottom: 15px;">
-        <button id="modal-tab-select" class="tab-btn active" onclick="switchModalTab('select')">Profiles</button>
-        <button id="modal-tab-key" class="tab-btn" onclick="switchModalTab('key')">Astral Key</button>
-        <button id="modal-tab-web3" class="tab-btn" onclick="switchModalTab('web3')">Web3 Wallet</button>
-      </div>
-
-      <!-- Select Profile Pane -->
-      <div id="modal-pane-select" class="tab-pane active" style="gap: 12px; display: flex; flex-direction: column;">
-        <div id="profiles-list-container" style="max-height: 160px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
-          <!-- Loaded dynamically -->
-        </div>
-        
-        <div style="display: flex; gap: 10px; margin-top: 10px;">
-          <button class="btn" style="flex: 1;" onclick="createNewSeekerProfile()">Create New Seeker ✦</button>
-          <button class="btn" style="flex: 1; border-color: var(--dim); color: var(--dim);" onclick="closeSignInModal()">Close</button>
-        </div>
-      </div>
-
-      <!-- Import/Export Astral Key Pane -->
-      <div id="modal-pane-key" class="tab-pane" style="gap: 12px; display: none; flex-direction: column;">
-        <div class="form-group">
-          <label>Your Astral Key (Export/Backup)</label>
-          <textarea id="astral-key-textarea" class="form-input" style="height: 80px; font-family: var(--mono); font-size: 11px; resize: none; background: #070910;" readonly onclick="this.select()"></textarea>
-          <span style="font-size: 10px; color: var(--dim); margin-top: 2px;">Click to select and copy this key to transfer your profile.</span>
-        </div>
-        
-        <div class="form-group">
-          <label>Import Astral Key</label>
-          <input type="text" id="astral-key-import-input" class="form-input" placeholder="Paste Astral Key here..." style="font-family: var(--mono); font-size: 11px;">
-        </div>
-
-        <div style="display: flex; gap: 10px;">
-          <button class="btn" style="flex: 1;" onclick="importAstralKey()">Load Astral Key ⚡</button>
-          <button class="btn" style="flex: 1; border-color: var(--dim); color: var(--dim);" onclick="closeSignInModal()">Close</button>
-        </div>
-      </div>
-
-      <!-- Web3 Wallet Connection Pane -->
-      <div id="modal-pane-web3" class="tab-pane" style="gap: 12px; display: none; flex-direction: column;">
-        <div class="panel" style="padding: 15px; background: rgba(216, 180, 106, 0.03); border: 1px dashed var(--gold); text-align: center;">
-          <div id="web3-wallet-status" style="font-size: 12px; color: var(--dim); margin-bottom: 15px;">
-            Connect your EVM wallet to authenticate and register on-chain.
-          </div>
-          <button id="web3-connect-btn" class="btn" style="width: 100%;" onclick="connectWeb3Wallet()">Connect EVM Wallet 🦊</button>
-        </div>
-        
-        <div id="web3-profile-section" style="display: none; flex-direction: column; gap: 10px;">
-          <label style="font-size: 10px; color: var(--dim); text-transform: uppercase; letter-spacing: 1px;">Associated Seeker Profile</label>
-          <div id="web3-profile-info" style="font-size: 12px; color: var(--gold-bright); background: #070910; border: 1px solid var(--line); padding: 10px; border-radius: 3px; text-align: center;">
-            <!-- Profile Info or 'No profile found' -->
-          </div>
-          <button id="web3-login-btn" class="btn" style="width: 100%;" onclick="loginWithWeb3Wallet()">Sign In with Wallet ⚡</button>
-        </div>
-
-        <div style="display: flex; gap: 10px; margin-top: 5px;">
-          <button class="btn" style="flex: 1; border-color: var(--dim); color: var(--dim);" onclick="closeSignInModal()">Close</button>
-        </div>
-      </div>
-
-    </div>
-  </div>
-
-  <script src="star-catalog.js"></script>
-  <script src="constellations.js"></script>
-  <script src="sky.js"></script>
-  <script src="client.js"></script>
-  <script>
     // ---- WEB CLIENT UI RENDERING BINDINGS ----
 
     const ZONE_CENTERS = {
@@ -397,13 +54,13 @@
         const el = document.getElementById(`zone-shape-${i}`);
         if (el) el.classList.remove("selected");
       }
-      renderZonesList();
-      renderStarsNodes();
-      updateCombatPreview();
-      
       HologramCamera.targetPitch = 20;
       HologramCamera.targetScale = 1.0;
       HologramCamera.isZoomed = false;
+      window.needsFullStarRebuild = true; // re-apply the density cull for the wide view
+      renderZonesList();
+      renderStarsNodes();
+      updateCombatPreview();
       document.getElementById("reset-view-btn").style.display = "none";
       synth.playSelect();
     }
@@ -532,7 +189,11 @@
         p.x = proj.x;
         p.y = proj.y;
       }
-      
+      if (state.chiron) {
+        const proj = skyProject(state.chiron.alt, state.chiron.az);
+        state.chiron.x = proj.x; state.chiron.y = proj.y;
+      }
+
       const now = new Date();
       const { lat, lon } = state.observer;
       state.ecliptic = eclipticSegments(lat, lon, now);
@@ -651,14 +312,14 @@
 
     // Geolocation → observer inputs (anchors the live star map to where you stand)
     function useMyLocation() {
-      if (!navigator.geolocation) { alert("Geolocation is not available in this browser."); return; }
+      if (!navigator.geolocation) { toast("Geolocation is not available in this browser.", { type: "warn" }); return; }
       navigator.geolocation.getCurrentPosition(
         pos => {
           document.getElementById("ob-lat").value = pos.coords.latitude.toFixed(4);
           document.getElementById("ob-lon").value = pos.coords.longitude.toFixed(4);
           synth.playSelect();
         },
-        err => alert("Could not read your location (" + err.message + ") — enter lat/lon manually.")
+        err => toast("Could not read your location (" + err.message + ") — enter lat/lon manually.", { type: "warn" })
       );
     }
 
@@ -669,7 +330,7 @@
       const time = document.getElementById("ob-time").value;
       const loc = document.getElementById("ob-loc").value;
 
-      if (!handle) { alert("Enter a seeker name!"); return; }
+      if (!handle) { toast("Enter a seeker name!", { type: "warn" }); return; }
 
       // Anchor the live sky to the observer before the map first renders.
       const lat = parseFloat(document.getElementById("ob-lat").value);
@@ -734,9 +395,18 @@
       // Dismiss overlay
       document.getElementById("onboarding-overlay").style.display = "none";
       synth.playFanfare();
-      
+
       // Full UI Render
       renderAll();
+
+      // Online: also register a server-side player so cast_word + the live game
+      // work. Fire-and-forget so it never blocks onboarding; toast the result.
+      const reg = window.Pentacles && window.Pentacles.register;
+      if (reg && window.Pentacles.net && window.Pentacles.net.isLive) {
+        reg.registerLive(state.player.handle, state.player.chart, state.player.faction, state.observer)
+          .then(() => toast(`Registered ${state.player.handle} on the live module.`, { type: "success", title: "SpacetimeDB" }))
+          .catch((e) => toast(`Live registration failed: ${e.message || e}`, { type: "warn", title: "SpacetimeDB" }));
+      }
     }
 
     // App Navigation tabs
@@ -921,7 +591,9 @@
 
       if (zoneId !== null && window.HologramCamera) {
         const center = ZONE_CENTERS[zoneId];
-        HologramCamera.targetYaw = -center.az;
+        // Center the zone: yaw = az brings it to the meridian, pitch = 90-alt lifts
+        // it to screen centre (x2=0, y2=0). (-az was the bug — it never centred.)
+        HologramCamera.targetYaw = center.az;
         HologramCamera.targetPitch = 90 - center.alt;
         HologramCamera.targetScale = 2.2;
         HologramCamera.isZoomed = true;
@@ -968,6 +640,15 @@
         if (!con.segments.length) continue;
         const col = ESMS_COLORS[con.pair[0]];
         const tradeable = con.tradeable;
+        // Each figure is its own clickable cluster → the constellation pentacles
+        // page. The group overrides the layer's pointer-events:none; wide invisible
+        // hit-lines make the stick figure pickable, while the visible lines stay
+        // non-interactive so a star dot on top still wins its own click.
+        const group = document.createElementNS(NS, "g");
+        group.setAttribute("class", "constellation-cluster");
+        group.setAttribute("id", "con-" + con.id);
+        group.style.cursor = "pointer";
+        group.style.pointerEvents = "auto";
         for (const [a, b] of con.segments) {
           const line = document.createElementNS(NS, "line");
           line.setAttribute("x1", a.x.toFixed(1)); line.setAttribute("y1", a.y.toFixed(1));
@@ -976,21 +657,41 @@
           line.setAttribute("stroke-width", tradeable ? "1.2" : "0.6");
           line.setAttribute("stroke-opacity", tradeable ? "0.85" : "0.28");
           line.setAttribute("stroke-linecap", "round");
+          line.setAttribute("pointer-events", "none");
           if (tradeable) line.setAttribute("filter", `drop-shadow(0 0 2px ${col})`);
-          frag.appendChild(line);
+          group.appendChild(line);
+          const hit = document.createElementNS(NS, "line");
+          hit.setAttribute("x1", a.x.toFixed(1)); hit.setAttribute("y1", a.y.toFixed(1));
+          hit.setAttribute("x2", b.x.toFixed(1)); hit.setAttribute("y2", b.y.toFixed(1));
+          hit.setAttribute("stroke", "transparent");
+          hit.setAttribute("stroke-width", "12");
+          // visiblePainted (the default) ignores a transparent stroke — force the
+          // stroke band to capture clicks regardless of paint so EVERY figure is pickable.
+          hit.setAttribute("pointer-events", "stroke");
+          group.appendChild(hit);
         }
         const up = Object.values(con.nodes).filter(n => n.up);
-        if (tradeable && up.length) {
+        if (up.length) {
           const cx = up.reduce((s, n) => s + n.x, 0) / up.length;
           const cy = up.reduce((s, n) => s + n.y, 0) / up.length;
           const t = document.createElementNS(NS, "text");
           t.setAttribute("x", cx.toFixed(1)); t.setAttribute("y", cy.toFixed(1));
-          t.setAttribute("text-anchor", "middle"); t.setAttribute("fill", col);
+          t.setAttribute("text-anchor", "middle"); t.setAttribute("fill", tradeable ? col : "#7c8398");
           t.setAttribute("font-size", "8"); t.setAttribute("font-family", "Space Grotesk");
-          t.setAttribute("opacity", "0.75"); t.setAttribute("letter-spacing", "1");
+          t.setAttribute("opacity", tradeable ? "0.8" : "0.4"); t.setAttribute("letter-spacing", "1");
+          t.setAttribute("pointer-events", "auto"); // the label is a click target too
+          t.style.cursor = "pointer";
           t.textContent = con.abbr.toUpperCase();
-          frag.appendChild(t);
+          group.appendChild(t);
         }
+        const tip = document.createElementNS(NS, "title");
+        tip.textContent = `${con.name} — ${tradeable ? "pool OPEN" : "below horizon"} · tap for its stars & pool`;
+        group.appendChild(tip);
+        group.onclick = (e) => {
+          e.stopPropagation();
+          if (typeof window.openConstellationPage === "function") window.openConstellationPage(con);
+        };
+        frag.appendChild(group);
       }
       g.appendChild(frag);
     }
@@ -1086,12 +787,26 @@
     const starLabelMap = new Map();
     window.needsFullStarRebuild = true;
 
+    // Magnitude cap for what we draw, so a denser catalogue doesn't flood the SVG
+    // with tens of thousands of nodes. Wide view shows the bright field; zooming
+    // in reveals the faint stars in the focused region. Held/selected/in-zone
+    // stars always draw regardless of the cap.
+    function starRenderCap() {
+      const cam = window.HologramCamera;
+      const sc = cam ? (cam.isZoomed ? (cam.targetScale || cam.scale || 1) : 1) : 1;
+      if (sc >= 2.0) return 99;    // zoomed in — show everything in the focused region
+      // Show the full denser field in the wide view (catalogue tops out at 6.5).
+      // The cap only bites if the catalogue is later deepened past ~6.6.
+      return 6.6;
+    }
+
     function renderStarsNodes() {
       renderConstellations();
       const container = document.getElementById("stars-nodes-g");
       const NS = "http://www.w3.org/2000/svg";
 
       const stars = [...state.sky].sort((a, b) => b.magnitude - a.magnitude);
+      const magCap = starRenderCap();
 
       // Rebuild DOM nodes if requested or container is empty
       if (window.needsFullStarRebuild || container.children.length === 0) {
@@ -1107,6 +822,7 @@
           const fillCol = held ? PLANET_COLORS[star.held_by] : "#e8e1cd";
           const isSelected = state.selectedStarHip === star.hip_id;
           const inZone = state.selectedZone !== null && star.zone === state.selectedZone;
+          if (star.magnitude > magCap && !held && !isSelected && !inZone) continue; // density cull
           const r = Math.max(0.6, Math.min(3.2, 2.6 - star.magnitude * 0.42));
           const engageable = star.alt >= MIN_ENGAGE_ALT_DEG;
           
@@ -1208,19 +924,41 @@
         frag.appendChild(path);
       }
 
-      for (const p of state.planets) {
+      // Include Chiron (idx 10) beside the ten classical wanderers — an
+      // astrology-only agent: a sky glyph + its own pentacles page, never a faction.
+      const wanderers = state.chiron ? state.planets.concat([state.chiron]) : state.planets;
+      for (const p of wanderers) {
         if (!p.up) continue;
-        const col = PLANET_COLORS[p.body];
+        const AWlib = window.AstroWeather;
+        const col = PLANET_COLORS[p.body] || (AWlib && AWlib.bodyColor(p.body)) || "#86d6b0";
+        const discR = PLANET_DISC_R[p.body] || 7;
+        const glyphCh = PLANET_GLYPHS[p.body] || (AWlib && AWlib.bodyGlyph(p.body)) || "⚷";
+        const nameCh = PLANET_NAMES[p.body] || (AWlib && AWlib.bodyName(p.body)) || "Body";
         const zoneName = p.zone === 10 ? "Crown Zenith" : (p.zone >= 5 ? `Spire ${p.zone}` : `House ${p.zone}`);
 
         const node = document.createElementNS(NS, "g");
-        node.setAttribute("class", "planet-node");
+        node.setAttribute("class", "planet-node" + (p.body === 10 ? " comet-node" : ""));
         node.style.color = col;
+
+        // Chiron is a comet: draw a tail streaming away from the Sun (else outward).
+        if (p.body === 10) {
+          let ax = p.x - 300, ay = p.y - 300;
+          const sun = state.planets[0];
+          if (sun && sun.up) { ax = p.x - sun.x; ay = p.y - sun.y; }
+          const tl = Math.hypot(ax, ay) || 1; ax /= tl; ay /= tl;
+          const tail = document.createElementNS(NS, "line");
+          tail.setAttribute("x1", p.x.toFixed(1)); tail.setAttribute("y1", p.y.toFixed(1));
+          tail.setAttribute("x2", (p.x + ax * 28).toFixed(1)); tail.setAttribute("y2", (p.y + ay * 28).toFixed(1));
+          tail.setAttribute("stroke", col); tail.setAttribute("stroke-width", "3");
+          tail.setAttribute("stroke-linecap", "round"); tail.setAttribute("stroke-opacity", "0.4");
+          tail.setAttribute("class", "comet-tail");
+          node.appendChild(tail);
+        }
 
         const halo = document.createElementNS(NS, "circle");
         halo.setAttribute("cx", p.x.toFixed(1));
         halo.setAttribute("cy", p.y.toFixed(1));
-        halo.setAttribute("r", (PLANET_DISC_R[p.body] + 4).toFixed(1));
+        halo.setAttribute("r", (discR + 4).toFixed(1));
         halo.setAttribute("class", "planet-halo");
         halo.setAttribute("fill", col);
         node.appendChild(halo);
@@ -1228,26 +966,30 @@
         const disc = document.createElementNS(NS, "circle");
         disc.setAttribute("cx", p.x.toFixed(1));
         disc.setAttribute("cy", p.y.toFixed(1));
-        disc.setAttribute("r", PLANET_DISC_R[p.body]);
+        disc.setAttribute("r", discR);
         disc.setAttribute("class", "planet-disc");
         disc.setAttribute("fill", col);
         node.appendChild(disc);
 
         const glyph = document.createElementNS(NS, "text");
         glyph.setAttribute("x", p.x.toFixed(1));
-        glyph.setAttribute("y", (p.y + PLANET_DISC_R[p.body] * 0.42).toFixed(1));
+        glyph.setAttribute("y", (p.y + discR * 0.42).toFixed(1));
         glyph.setAttribute("class", "planet-glyph");
-        glyph.setAttribute("font-size", Math.round(PLANET_DISC_R[p.body] * 1.25));
-        glyph.textContent = PLANET_GLYPHS[p.body];
+        glyph.setAttribute("font-size", Math.round(discR * 1.25));
+        glyph.textContent = glyphCh;
         node.appendChild(glyph);
 
         const tip = document.createElementNS(NS, "title");
-        tip.textContent = `${PLANET_NAMES[p.body]} — planetary agent of ${SIGN_GLYPHS[p.sign]} ${SIGN_NAMES[p.sign]} ${Math.floor(p.eclLon % 30)}° · alt ${Math.round(p.alt)}° · transiting ${zoneName} · tap to challenge`;
+        const role = p.body === 10 ? "comet — the wounded healer" : "planetary agent";
+        tip.textContent = `${nameCh} — ${role} of ${SIGN_GLYPHS[p.sign]} ${SIGN_NAMES[p.sign]} ${Math.floor(p.eclLon % 30)}° · alt ${Math.round(p.alt)}° · transiting ${zoneName} · tap to open`;
         node.appendChild(tip);
 
         node.onclick = (e) => {
           e.stopPropagation();
-          challengePlanetaryAgent(p);
+          // The planetary agent's pentacles page (weather + chat · jings · scrabble).
+          // Falls back to the inline Word-Duel tab if the page module isn't loaded.
+          if (typeof window.openPlanetAgentPage === "function") window.openPlanetAgentPage(p.body);
+          else challengePlanetaryAgent(p);
         };
 
         frag.appendChild(node);
@@ -1340,18 +1082,26 @@
       }
 
       if (window.HologramCamera) {
-        HologramCamera.targetYaw = -star.az;
+        HologramCamera.targetYaw = star.az; // yaw=az centers the star (was -az)
         HologramCamera.targetPitch = 90 - star.alt;
         HologramCamera.targetScale = 2.5;
         HologramCamera.isZoomed = true;
         document.getElementById("reset-view-btn").style.display = "inline-flex";
       }
 
+      window.needsFullStarRebuild = true; // reveal faint stars in the zoomed region
       renderZonesList();
       renderStarsNodes();
       updateCombatPreview();
       switchTab("tab-duel");
       synth.playSelect();
+    }
+
+    // A star is a "named agent" (its own pentacles page) when it carries a real
+    // proper name — not a Bayer/Flamsteed designation or a bare HIP id.
+    const GREEK_RE = /^(Alpha|Beta|Gamma|Delta|Epsilon|Zeta|Eta|Theta|Iota|Kappa|Lambda|Mu|Nu|Xi|Omicron|Pi|Rho|Sigma|Tau|Upsilon|Phi|Chi|Psi|Omega)\b/;
+    function isNamedStar(name) {
+      return !!name && !/^HIP /.test(name) && !GREEK_RE.test(name) && !/\d/.test(name);
     }
 
     // Update Duel combat details
@@ -1399,6 +1149,7 @@
         });
       }
 
+      const named = isNamedStar(star.name);
       details.innerHTML = `
         <strong>Target Node:</strong> ${star.name} (${star.magnitude} mag)<br>
         <strong>Sky Position:</strong> alt ${Math.round(star.alt)}° · az ${Math.round(star.az)}°${engageable ? "" : ` — <span style="color:#e88a8a">below the ${MIN_ENGAGE_ALT_DEG}° engage band; wait for it to climb</span>`}<br>
@@ -1406,7 +1157,12 @@
         <strong>Current Node Owner:</strong> ${ownerStr}<br>
         <strong>Round Contesters (${contesters.length}):</strong> ${contestersNames}<br>
         <strong>Attack Cards:</strong> ${handCount > 0 ? handCount : 'All Active'} (${totalAtk} Base Power)
+        ${named ? `<div style="margin-top:9px;"><button id="open-star-agent" class="btn" style="padding:5px 11px;font-size:11px;border-color:var(--gold);color:var(--gold-bright);background:transparent;">✦ Commune with ${star.name} — open its agent page</button></div>` : ""}
       `;
+      if (named) {
+        const sab = document.getElementById("open-star-agent");
+        if (sab) sab.onclick = () => { if (window.openStarAgentPage) window.openStarAgentPage(star.hip_id); };
+      }
 
       if (engageable) btn.removeAttribute("disabled");
       else btn.setAttribute("disabled", "true");
@@ -1725,9 +1481,11 @@
       synth.playFanfare();
     }
 
-    function deleteProfileClick(handle, event) {
+    async function deleteProfileClick(handle, event) {
       event.stopPropagation();
-      if (confirm(`Are you sure you want to discard seeker profile: "${handle}"? This action is permanent.`)) {
+      const ok = await confirmToast(`Discard seeker profile <b>${handle}</b>? This is permanent.`, { title: "Discard profile", confirmLabel: "Discard", cancelLabel: "Keep", danger: true });
+      if (!ok) return;
+      {
         state.deleteProfile(handle);
         
         const loaded = state.load();
@@ -1755,7 +1513,7 @@
     function importAstralKey() {
       const input = document.getElementById("astral-key-import-input").value.trim();
       if (!input) {
-        alert("Please paste an Astral Key!");
+        toast("Please paste an Astral Key!", { type: "warn" });
         return;
       }
       
@@ -1771,46 +1529,55 @@
           renderAll();
           synth.playFanfare();
         } else {
-          alert("Invalid Astral Key structure.");
+          toast("Invalid Astral Key structure.", { type: "error" });
         }
       } catch(e) {
         console.error("Import failed", e);
-        alert("Failed to decode Astral Key. Make sure you copied the entire key string.");
+        toast("Failed to decode Astral Key. Make sure you copied the entire key string.", { type: "error" });
       }
     }
 
     let web3Address = null;
 
+    function renderWeb3Status() {
+      const status = document.getElementById("web3-wallet-status");
+      if (!status || !web3Address) return;
+      const onBase = window.Pentacles?.wallet?.onBaseSepolia;
+      status.innerHTML =
+        `Connected EVM Wallet:<br><strong style="font-family: var(--mono); color: var(--gold-bright); font-size: 11px;">${web3Address}</strong>` +
+        (onBase
+          ? `<br><span style="color:var(--pentacles);font-size:11px;">● Base Sepolia · live</span>`
+          : `<br><button class="btn" style="margin-top:6px;font-size:11px;padding:4px 8px;" onclick="switchWalletToBaseSepolia()">Switch to Base Sepolia ⚡</button>`);
+    }
+
     async function connectWeb3Wallet() {
-      if (typeof window.ethereum === 'undefined') {
-        alert("No EVM wallet extension (e.g. MetaMask) detected. Please install one to use Web3 login.");
+      const wallet = window.Pentacles && window.Pentacles.wallet;
+      if (!wallet || typeof window.ethereum === 'undefined') {
+        toast("No EVM wallet extension (e.g. MetaMask) detected. Please install one to use Web3 login.", { type: "warn" });
         return;
       }
-      
+
       const status = document.getElementById("web3-wallet-status");
       const btn = document.getElementById("web3-connect-btn");
-      
+
       try {
-        status.innerHTML = "Requesting account access...";
+        status.innerHTML = "Requesting account access…";
         btn.disabled = true;
-        
-        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-        if (accounts.length === 0) {
-          throw new Error("No accounts returned.");
-        }
-        
-        web3Address = accounts[0];
-        status.innerHTML = `Connected EVM Wallet:<br><strong style="font-family: var(--mono); color: var(--gold-bright); font-size: 11px;">${web3Address}</strong>`;
+
+        // Route through the wallet façade: wires account/chain events, persistence,
+        // and updates the ESMS HUD automatically.
+        web3Address = await wallet.connectInjected();
+        renderWeb3Status();
         btn.innerText = "Disconnect Wallet";
         btn.setAttribute("onclick", "disconnectWeb3Wallet()");
         btn.disabled = false;
-        
-        // Check if there is a profile locally associated with this wallet
+
+        // Local profile associated with this wallet?
         const handle = getHandleForWallet(web3Address);
         const profileSection = document.getElementById("web3-profile-section");
         const profileInfo = document.getElementById("web3-profile-info");
         const loginBtn = document.getElementById("web3-login-btn");
-        
+
         profileSection.style.display = "flex";
         if (handle) {
           profileInfo.innerHTML = `Profile: <strong>${handle}</strong>`;
@@ -1819,7 +1586,10 @@
           profileInfo.innerHTML = `No seeker profile associated with this wallet. Sign in to create a new profile.`;
           loginBtn.innerText = `Create New Profile for Wallet ✦`;
         }
-        
+
+        if (!wallet.onBaseSepolia) {
+          toast("Connected — switch to Base Sepolia for live ESMS balances and pool trading.", { type: "info" });
+        }
         synth.playFanfare();
       } catch (e) {
         console.error("Wallet connection failed", e);
@@ -1831,8 +1601,19 @@
       }
     }
 
+    async function switchWalletToBaseSepolia() {
+      try {
+        await window.Pentacles.wallet.switchToBaseSepolia();
+        toast("Switched to Base Sepolia.", { type: "success" });
+        renderWeb3Status();
+      } catch (e) {
+        toast(`Could not switch network: ${e.message || e}`, { type: "error" });
+      }
+    }
+
     function disconnectWeb3Wallet() {
       web3Address = null;
+      window.Pentacles?.wallet?.disconnect();
       document.getElementById("web3-wallet-status").innerHTML = "Connect your EVM wallet to authenticate and register on-chain.";
       const btn = document.getElementById("web3-connect-btn");
       btn.innerText = "Connect EVM Wallet 🦊";
@@ -1946,26 +1727,94 @@
       prev.innerText = msg;
     }
 
-    function castWordOfPower() {
+    function renderDuelResult(res, opp, live) {
+      const out = document.getElementById("word-result");
+      out.style.color = res.won ? "var(--gold-bright)" : "var(--dim)";
+      const tag = live ? ' <span class="duel-live">● live</span>' : '';
+      let html = res.won
+        ? `✦ <b>Victory!</b> ${res.playerWord} (${res.playerScore}) bested ${PLANET_NAMES[opp]}'s ${res.agentWord || "—"} (${res.agentScore}). <b>+${res.tokens}</b> tokens!${tag}`
+        : `${PLANET_NAMES[opp]} answered <b>${res.agentWord || "—"}</b> (${res.agentScore}) to your ${res.playerWord} (${res.playerScore}). +${res.tokens} tokens.${tag}`;
+      if (res.rationale) html += `<br><span class="duel-rationale">“${res.rationale}”</span>`;
+      out.innerHTML = html;
+    }
+
+    // Fast local validation so the live path gives instant feedback before the
+    // round-trip (mirrors the server cast_word guards in words.rs).
+    function validateWordInput(w, skipLetters) {
+      if (!w || w.length < 2) return "A Word of Power needs at least two letters.";
+      if (!/^[A-Z]+$/.test(w)) return "Letters only.";
+      if (typeof WORD_SET === "undefined" || WORD_SET === null) return "The Codex is still opening — try again in a moment.";
+      if (!isValidWord(w)) return `"${w}" is not in the Codex.`;
+      // Online, the server validates letters against its authoritative rack.
+      if (!skipLetters && !canSpell(w, state.playerLetters())) return "Your Arcana don't hold those letters.";
+      return null;
+    }
+
+    async function castWordOfPower() {
       if (!state.player) return;
       const inp = document.getElementById("word-input");
       const opp = parseInt(document.getElementById("word-opponent").value || "0", 10);
-      const res = state.castWord(inp.value, opp);
       const out = document.getElementById("word-result");
-      if (res.error) {
+      const live = !!(window.Pentacles && window.Pentacles.net && window.Pentacles.net.isLive);
+
+      if (!live) {
+        // Offline solver — the bundled mirror of the server's cast_word.
+        const res = state.castWord(inp.value, opp);
+        if (res.error) {
+          out.style.color = "#e88a8a";
+          out.innerText = "✗ " + res.error;
+          synth.playClick();
+          return;
+        }
+        renderDuelResult(res, opp, false);
+        inp.value = "";
+        if (res.won) synth.playFanfare(); else synth.playClick();
+        renderWordDuel();
+        renderUserBanner();
+        return;
+      }
+
+      // Live path — cast_word reducer → the planetary agent answers via the feeder.
+      const w = inp.value.trim().toUpperCase();
+      const err = validateWordInput(w, true); // letters validated against the server rack below
+      if (err) {
         out.style.color = "#e88a8a";
-        out.innerText = "✗ " + res.error;
+        out.innerText = "✗ " + err;
         synth.playClick();
         return;
       }
-      out.style.color = res.won ? "var(--gold-bright)" : "var(--dim)";
-      out.innerHTML = res.won
-        ? `✦ <b>Victory!</b> ${res.playerWord} (${res.playerScore}) bested ${PLANET_NAMES[opp]}'s ${res.agentWord || "—"} (${res.agentScore}). <b>+${res.tokens}</b> tokens!`
-        : `${PLANET_NAMES[opp]} answered <b>${res.agentWord || "—"}</b> (${res.agentScore}) to your ${res.playerWord} (${res.playerScore}). +${res.tokens} tokens.`;
-      inp.value = "";
-      if (res.won) synth.playFanfare(); else synth.playClick();
-      renderWordDuel();
-      renderUserBanner();
+      const castBtn = document.getElementById("word-cast-btn");
+      out.style.color = "var(--dim)";
+      out.innerHTML = `<span class="duel-thinking">✦ ${PLANET_NAMES[opp]} deliberates over its rack…</span>`;
+      if (castBtn) castBtn.disabled = true;
+      try {
+        // Validate letters against the live (authoritative) rack before casting.
+        const serverRack = await window.Pentacles.duels.getServerRack().catch(() => null);
+        if (serverRack && !canSpell(w, serverRack)) {
+          throw new Error("Your live Arcana don't hold the letters for that word.");
+        }
+        const res = await window.Pentacles.duels.castWordLive(w, opp);
+        // Mirror the offline side effects with the server's scored result.
+        state.player.tokens += res.tokens;
+        if (res.won) state.player.word_wins = (state.player.word_wins || 0) + 1;
+        state.wordDuels.unshift({
+          opponent: opp, playerWord: res.playerWord, playerScore: res.playerScore,
+          agentWord: res.agentWord, agentScore: res.agentScore, won: res.won, tokens: res.tokens, at: res.at,
+        });
+        if (state.wordDuels.length > 20) state.wordDuels.pop();
+        state.save();
+        renderDuelResult(res, opp, true);
+        inp.value = "";
+        if (res.won) synth.playFanfare(); else synth.playClick();
+        renderWordDuel();
+        renderUserBanner();
+      } catch (e) {
+        out.style.color = "#e88a8a";
+        out.innerText = "✗ " + (e.message || e);
+        toast(e.message || String(e), { type: "error", title: "Word Duel" });
+      } finally {
+        if (castBtn) castBtn.disabled = false;
+      }
     }
 
     // Init Page setup
@@ -2002,6 +1851,3 @@
         }
       }, 15000);
     });
-  </script>
-</body>
-</html>

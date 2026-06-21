@@ -22,7 +22,7 @@ import csv
 import sys
 from pathlib import Path
 
-MAG_LIMIT = 6.0  # the naked-eye limit: "all (or close to all) visible stars"
+MAG_LIMIT = 6.5  # a touch past the naked-eye limit (~6.0) for a denser sky
 
 GREEK = {
     "Alp": "Alpha", "Bet": "Beta", "Gam": "Gamma", "Del": "Delta",
@@ -115,7 +115,7 @@ def main():
     root = Path(__file__).resolve().parent.parent
     stars = load(src)
     write_rust(stars, root / "server" / "src" / "catalog.rs")
-    write_js(stars, root / "star-catalog.js")
+    write_js(stars, root / "public" / "star-catalog.js")
     bands = {}
     for s in stars:
         bands[int(s[4]) if s[4] >= 0 else -1] = bands.get(int(s[4]) if s[4] >= 0 else -1, 0) + 1

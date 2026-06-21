@@ -168,10 +168,11 @@ function project3D(alt, az, pitchDeg, yawDeg, scale = 1.0, distance = 1.8) {
   const y2 = y1 * Math.cos(pitch) - z1 * Math.sin(pitch);
   const z2 = y1 * Math.sin(pitch) + z1 * Math.cos(pitch);
   
-  // Z-axis camera looking up at the concave hemisphere:
-  // z2 is depth (Zenith is furthest at z2 = 1, Horizon is closest at z2 = 0)
-  // x2 and y2 are horizontal and vertical screen coordinates
-  const denom = distance + z2;
+  // The observer stands INSIDE the dome looking up: the zenith is overhead and
+  // NEAREST (z2≈1 → smallest denom → largest/closest), the horizon wraps away
+  // around the rim. (Was `distance + z2`, which rendered the dome convex — a bowl
+  // seen from outside/above.)
+  const denom = distance - z2;
   const scaleFactor = distance * (SKY_R / 220); // Scale R=220 to match SKY_R=250 at pitch=0
   const px = (x2 / denom) * scale * scaleFactor;
   const py = (y2 / denom) * scale * scaleFactor;
@@ -212,6 +213,10 @@ const EPH_EL = [
   [19.18916464, 0.04725744, 0.77263783, 313.23810451, 170.9542763, 74.01692503],
   [30.06992276, 0.00859048, 1.77004347, -55.12002969, 44.96476227, 131.78422574],
   [39.48211675, 0.2488273, 17.14001206, 238.92903833, 224.06891629, 110.30393684],
+  // Chiron (2060 Chiron) — osculating Keplerian elements ~J2000. The wounded-
+  // healer Centaur between Saturn and Uranus. Game-grade only (Chiron's orbit is
+  // chaotic from Saturn encounters); enough to place its sign/degree on the disk.
+  [13.7088, 0.3816, 6.928, 217.10, 188.60, 209.40],
 ];
 const EPH_RATE = [
   [0.00000037, 0.00001906, -0.00594749, 149472.67411175, 0.16047689, -0.12534081],
@@ -223,6 +228,9 @@ const EPH_RATE = [
   [-0.00196176, -0.00004397, -0.00242939, 428.48202785, 0.40805281, 0.04240589],
   [0.00026291, 0.00005105, 0.00035372, 218.45945325, -0.32241464, -0.00508664],
   [-0.00031596, 0.0000517, 0.00004818, 145.20780515, -0.04062942, -0.01183482],
+  // Chiron rates per Julian century — only the mean longitude advances appreciably
+  // (period ≈ 50.4 yr → ~714°/century); secular drift in the rest is negligible here.
+  [0.0, 0.0, 0.0, 714.06, 0.0, 0.0],
 ];
 
 function ephJulianDay(date) { return date.getTime() / 86400000 + 2440587.5; }
@@ -283,23 +291,24 @@ function ephMoonLon(jd) {
 
 const EPH_PLANET_ROW = [0, 1, 3, 4, 5, 6, 7]; // for body idx 2..8 (Mercury..Neptune)
 
-// Geocentric ecliptic longitude for body idx 0 Sun .. 9 Pluto.
+// Geocentric ecliptic longitude for body idx 0 Sun .. 9 Pluto, 10 Chiron.
 function geocentricEclipticLon(p, jd) {
   if (p === 0) return ephSunLon(jd);
   if (p === 1) return ephMoonLon(jd);
-  const row = p === 9 ? 8 : EPH_PLANET_ROW[p - 2];
+  const row = p === 10 ? 9 : p === 9 ? 8 : EPH_PLANET_ROW[p - 2];
   const b = ephHelio(row, jd);
   const earth = ephHelio(2, jd);
   return norm360(rad2deg(Math.atan2(b.y - earth.y, b.x - earth.x)));
 }
 
-// All ten bodies for an observer: ecliptic λ → RA/Dec → alt/az → disk + zone.
+// All bodies for an observer: ecliptic λ → RA/Dec → alt/az → disk + zone.
 // Returns every body with an `up` flag; the renderer draws the risen ones.
-function computePlanets(latDeg, lonDeg, date) {
+// `count` defaults to 10 (Sun..Pluto); pass 11 to include Chiron (idx 10).
+function computePlanets(latDeg, lonDeg, date, count = 10) {
   const jd = ephJulianDay(date);
   const lst = lstDeg(date, lonDeg);
   const out = [];
-  for (let p = 0; p < 10; p++) {
+  for (let p = 0; p < count; p++) {
     const lambda = geocentricEclipticLon(p, jd);
     const eq = eclipticToEquatorial(lambda);
     const aa = altAzOf(eq.ra, eq.dec, latDeg, lst);

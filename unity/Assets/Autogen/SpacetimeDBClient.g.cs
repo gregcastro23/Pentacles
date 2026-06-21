@@ -29,18 +29,29 @@ namespace SpacetimeDB.Types
         {
             AddTable(Battle = new(conn));
             AddTable(Card = new(conn));
+            AddTable(Comet = new(conn));
+            AddTable(Constellation = new(conn));
+            AddTable(ConstellationBlock = new(conn));
+            AddTable(ConstellationLine = new(conn));
+            AddTable(ConstellationResolution = new(conn));
+            AddTable(ConstellationStar = new(conn));
             AddTable(DeckSlot = new(conn));
             AddTable(Duel = new(conn));
             AddTable(DuelChallenge = new(conn));
             AddTable(DuelQueue = new(conn));
             AddTable(Ephemeris = new(conn));
             AddTable(GameConfig = new(conn));
+            AddTable(JingCast = new(conn));
+            AddTable(JingDuel = new(conn));
             AddTable(OracleCache = new(conn));
             AddTable(OracleReply = new(conn));
             AddTable(OracleRequest = new(conn));
             AddTable(Player = new(conn));
             AddTable(RoundState = new(conn));
+            AddTable(StarAgent = new(conn));
             AddTable(StarNode = new(conn));
+            AddTable(TraceAttestation = new(conn));
+            AddTable(TraceIntent = new(conn));
             AddTable(Trade = new(conn));
             AddTable(WordDuel = new(conn));
             AddTable(Zone = new(conn));
@@ -528,18 +539,29 @@ namespace SpacetimeDB.Types
         {
             new QueryBuilder().From.Battle().ToSql(),
             new QueryBuilder().From.Card().ToSql(),
+            new QueryBuilder().From.Comet().ToSql(),
+            new QueryBuilder().From.Constellation().ToSql(),
+            new QueryBuilder().From.ConstellationBlock().ToSql(),
+            new QueryBuilder().From.ConstellationLine().ToSql(),
+            new QueryBuilder().From.ConstellationResolution().ToSql(),
+            new QueryBuilder().From.ConstellationStar().ToSql(),
             new QueryBuilder().From.DeckSlot().ToSql(),
             new QueryBuilder().From.Duel().ToSql(),
             new QueryBuilder().From.DuelChallenge().ToSql(),
             new QueryBuilder().From.DuelQueue().ToSql(),
             new QueryBuilder().From.Ephemeris().ToSql(),
             new QueryBuilder().From.GameConfig().ToSql(),
+            new QueryBuilder().From.JingCast().ToSql(),
+            new QueryBuilder().From.JingDuel().ToSql(),
             new QueryBuilder().From.OracleCache().ToSql(),
             new QueryBuilder().From.OracleReply().ToSql(),
             new QueryBuilder().From.OracleRequest().ToSql(),
             new QueryBuilder().From.Player().ToSql(),
             new QueryBuilder().From.RoundState().ToSql(),
+            new QueryBuilder().From.StarAgent().ToSql(),
             new QueryBuilder().From.StarNode().ToSql(),
+            new QueryBuilder().From.TraceAttestation().ToSql(),
+            new QueryBuilder().From.TraceIntent().ToSql(),
             new QueryBuilder().From.Trade().ToSql(),
             new QueryBuilder().From.WordDuel().ToSql(),
             new QueryBuilder().From.Zone().ToSql(),
@@ -551,18 +573,29 @@ namespace SpacetimeDB.Types
     {
         public global::SpacetimeDB.Table<Battle, BattleCols, BattleIxCols> Battle() => new("battle", new BattleCols("battle"), new BattleIxCols("battle"));
         public global::SpacetimeDB.Table<Card, CardCols, CardIxCols> Card() => new("card", new CardCols("card"), new CardIxCols("card"));
+        public global::SpacetimeDB.Table<Comet, CometCols, CometIxCols> Comet() => new("comet", new CometCols("comet"), new CometIxCols("comet"));
+        public global::SpacetimeDB.Table<Constellation, ConstellationCols, ConstellationIxCols> Constellation() => new("constellation", new ConstellationCols("constellation"), new ConstellationIxCols("constellation"));
+        public global::SpacetimeDB.Table<ConstellationBlock, ConstellationBlockCols, ConstellationBlockIxCols> ConstellationBlock() => new("constellation_block", new ConstellationBlockCols("constellation_block"), new ConstellationBlockIxCols("constellation_block"));
+        public global::SpacetimeDB.Table<ConstellationLine, ConstellationLineCols, ConstellationLineIxCols> ConstellationLine() => new("constellation_line", new ConstellationLineCols("constellation_line"), new ConstellationLineIxCols("constellation_line"));
+        public global::SpacetimeDB.Table<ConstellationResolution, ConstellationResolutionCols, ConstellationResolutionIxCols> ConstellationResolution() => new("constellation_resolution", new ConstellationResolutionCols("constellation_resolution"), new ConstellationResolutionIxCols("constellation_resolution"));
+        public global::SpacetimeDB.Table<ConstellationStar, ConstellationStarCols, ConstellationStarIxCols> ConstellationStar() => new("constellation_star", new ConstellationStarCols("constellation_star"), new ConstellationStarIxCols("constellation_star"));
         public global::SpacetimeDB.Table<DeckSlot, DeckSlotCols, DeckSlotIxCols> DeckSlot() => new("deck_slot", new DeckSlotCols("deck_slot"), new DeckSlotIxCols("deck_slot"));
         public global::SpacetimeDB.Table<Duel, DuelCols, DuelIxCols> Duel() => new("duel", new DuelCols("duel"), new DuelIxCols("duel"));
         public global::SpacetimeDB.Table<DuelChallenge, DuelChallengeCols, DuelChallengeIxCols> DuelChallenge() => new("duel_challenge", new DuelChallengeCols("duel_challenge"), new DuelChallengeIxCols("duel_challenge"));
         public global::SpacetimeDB.Table<DuelQueue, DuelQueueCols, DuelQueueIxCols> DuelQueue() => new("duel_queue", new DuelQueueCols("duel_queue"), new DuelQueueIxCols("duel_queue"));
         public global::SpacetimeDB.Table<Ephemeris, EphemerisCols, EphemerisIxCols> Ephemeris() => new("ephemeris", new EphemerisCols("ephemeris"), new EphemerisIxCols("ephemeris"));
         public global::SpacetimeDB.Table<GameConfig, GameConfigCols, GameConfigIxCols> GameConfig() => new("game_config", new GameConfigCols("game_config"), new GameConfigIxCols("game_config"));
+        public global::SpacetimeDB.Table<JingCast, JingCastCols, JingCastIxCols> JingCast() => new("jing_cast", new JingCastCols("jing_cast"), new JingCastIxCols("jing_cast"));
+        public global::SpacetimeDB.Table<JingDuel, JingDuelCols, JingDuelIxCols> JingDuel() => new("jing_duel", new JingDuelCols("jing_duel"), new JingDuelIxCols("jing_duel"));
         public global::SpacetimeDB.Table<OracleCache, OracleCacheCols, OracleCacheIxCols> OracleCache() => new("oracle_cache", new OracleCacheCols("oracle_cache"), new OracleCacheIxCols("oracle_cache"));
         public global::SpacetimeDB.Table<OracleReply, OracleReplyCols, OracleReplyIxCols> OracleReply() => new("oracle_reply", new OracleReplyCols("oracle_reply"), new OracleReplyIxCols("oracle_reply"));
         public global::SpacetimeDB.Table<OracleRequest, OracleRequestCols, OracleRequestIxCols> OracleRequest() => new("oracle_request", new OracleRequestCols("oracle_request"), new OracleRequestIxCols("oracle_request"));
         public global::SpacetimeDB.Table<Player, PlayerCols, PlayerIxCols> Player() => new("player", new PlayerCols("player"), new PlayerIxCols("player"));
         public global::SpacetimeDB.Table<RoundState, RoundStateCols, RoundStateIxCols> RoundState() => new("round_state", new RoundStateCols("round_state"), new RoundStateIxCols("round_state"));
+        public global::SpacetimeDB.Table<StarAgent, StarAgentCols, StarAgentIxCols> StarAgent() => new("star_agent", new StarAgentCols("star_agent"), new StarAgentIxCols("star_agent"));
         public global::SpacetimeDB.Table<StarNode, StarNodeCols, StarNodeIxCols> StarNode() => new("star_node", new StarNodeCols("star_node"), new StarNodeIxCols("star_node"));
+        public global::SpacetimeDB.Table<TraceAttestation, TraceAttestationCols, TraceAttestationIxCols> TraceAttestation() => new("trace_attestation", new TraceAttestationCols("trace_attestation"), new TraceAttestationIxCols("trace_attestation"));
+        public global::SpacetimeDB.Table<TraceIntent, TraceIntentCols, TraceIntentIxCols> TraceIntent() => new("trace_intent", new TraceIntentCols("trace_intent"), new TraceIntentIxCols("trace_intent"));
         public global::SpacetimeDB.Table<Trade, TradeCols, TradeIxCols> Trade() => new("trade", new TradeCols("trade"), new TradeIxCols("trade"));
         public global::SpacetimeDB.Table<WordDuel, WordDuelCols, WordDuelIxCols> WordDuel() => new("word_duel", new WordDuelCols("word_duel"), new WordDuelIxCols("word_duel"));
         public global::SpacetimeDB.Table<Zone, ZoneCols, ZoneIxCols> Zone() => new("zone", new ZoneCols("zone"), new ZoneIxCols("zone"));
@@ -646,15 +679,20 @@ namespace SpacetimeDB.Types
         {
             var eventContext = (ReducerEventContext)context;
             return reducer switch {
+                Reducer.AddStarToConstellation args => Reducers.InvokeAddStarToConstellation(eventContext, args),
                 Reducer.AnswerDuel args => Reducers.InvokeAnswerDuel(eventContext, args),
+                Reducer.AnswerJing args => Reducers.InvokeAnswerJing(eventContext, args),
                 Reducer.AnswerOracle args => Reducers.InvokeAnswerOracle(eventContext, args),
+                Reducer.AnswerTrace args => Reducers.InvokeAnswerTrace(eventContext, args),
                 Reducer.AskOracle args => Reducers.InvokeAskOracle(eventContext, args),
                 Reducer.CancelTrade args => Reducers.InvokeCancelTrade(eventContext, args),
+                Reducer.CastJing args => Reducers.InvokeCastJing(eventContext, args),
                 Reducer.CastWord args => Reducers.InvokeCastWord(eventContext, args),
                 Reducer.ClaimDuelTimeout args => Reducers.InvokeClaimDuelTimeout(eventContext, args),
                 Reducer.CombineCards args => Reducers.InvokeCombineCards(eventContext, args),
                 Reducer.CommitDuel args => Reducers.InvokeCommitDuel(eventContext, args),
                 Reducer.ConfirmTrade args => Reducers.InvokeConfirmTrade(eventContext, args),
+                Reducer.CounterJing args => Reducers.InvokeCounterJing(eventContext, args),
                 Reducer.CreatePlayer args => Reducers.InvokeCreatePlayer(eventContext, args),
                 Reducer.EnqueueDuel args => Reducers.InvokeEnqueueDuel(eventContext, args),
                 Reducer.ProposeTrade args => Reducers.InvokeProposeTrade(eventContext, args),
@@ -662,6 +700,7 @@ namespace SpacetimeDB.Types
                 Reducer.ResolveStarBattle args => Reducers.InvokeResolveStarBattle(eventContext, args),
                 Reducer.SetLoadout args => Reducers.InvokeSetLoadout(eventContext, args),
                 Reducer.SetLocation args => Reducers.InvokeSetLocation(eventContext, args),
+                Reducer.TraceConstellation args => Reducers.InvokeTraceConstellation(eventContext, args),
                 _ => throw new ArgumentOutOfRangeException("Reducer", $"Unknown reducer {reducer}")
             };
         }
