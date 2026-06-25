@@ -143,6 +143,7 @@
           <path id="zone-shape-10" class="zone-shape" d="M356.1,222.8 L390.8,329.5 L300,395.5 L209.2,329.5 L243.9,222.8 Z" fill="rgba(216,180,106,0.1)" onclick="selectZone(10)" />
 
           <!-- The static pentagram star and circle overlays -->
+          <g id="zodiac-signs-g" pointer-events="none"></g>
           <path id="horizon-rim-path" fill="none" stroke="var(--gold)" stroke-width="2.2" pointer-events="none" />
           <path id="pentagram-star-path" fill="none" stroke="var(--gold)" stroke-width="2.2" stroke-linejoin="round" pointer-events="none" />
 
@@ -160,6 +161,9 @@
           <g id="sky-chrome-g" pointer-events="none"></g>
         </svg>
       </div>
+
+      <!-- RITUAL CHAIN HUD OVERLAY -->
+      <div id="ritual-hud-overlay" class="ritual-hud-overlay" style="display: none;"></div>
 
       <!-- BOTTOM PANEL: ACTIVE HAND STRIP -->
       <footer class="hud-card-footer">

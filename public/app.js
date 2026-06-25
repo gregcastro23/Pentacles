@@ -15,14 +15,14 @@
     };
 
     const HologramCamera = {
-      pitch: 20,
+      pitch: 0,
       yaw: 0,
       scale: 1.0,
-      targetPitch: 20,
+      targetPitch: 0,
       targetYaw: 0,
       targetScale: 1.0,
       isZoomed: false,
-      autoRotate: true,
+      autoRotate: false,
       lastInteraction: 0,
       get enabled() {
         return !arActive;
@@ -54,7 +54,7 @@
         const el = document.getElementById(`zone-shape-${i}`);
         if (el) el.classList.remove("selected");
       }
-      HologramCamera.targetPitch = 20;
+      HologramCamera.targetPitch = 0;
       HologramCamera.targetScale = 1.0;
       HologramCamera.isZoomed = false;
       window.needsFullStarRebuild = true; // re-apply the density cull for the wide view
@@ -62,6 +62,11 @@
       renderStarsNodes();
       updateCombatPreview();
       document.getElementById("reset-view-btn").style.display = "none";
+      
+      const overlay = document.getElementById("ritual-hud-overlay");
+      if (overlay) overlay.style.display = "none";
+      window.activeRitualTarget = null;
+      
       synth.playSelect();
     }
 
@@ -236,7 +241,7 @@
         const dx = clientX - startX;
         const dy = clientY - startY;
         HologramCamera.targetYaw = startYaw - dx * 0.4;
-        HologramCamera.targetPitch = Math.max(5, Math.min(85, startPitch + dy * 0.4));
+        HologramCamera.targetPitch = Math.max(0, Math.min(70, startPitch + dy * 0.25));
         HologramCamera.lastInteraction = Date.now();
       };
 
@@ -261,6 +266,28 @@
 
       // Add cursor styling
       wrapper.style.cursor = "grab";
+
+      // Setup zone paths drag & drop
+      for (let z = 0; z < 11; z++) {
+        const el = document.getElementById(`zone-shape-${z}`);
+        if (el) {
+          el.addEventListener("dragover", (e) => {
+            e.preventDefault();
+            el.classList.add("drag-over");
+          });
+          el.addEventListener("dragleave", () => {
+            el.classList.remove("drag-over");
+          });
+          el.addEventListener("drop", (e) => {
+            e.preventDefault();
+            el.classList.remove("drag-over");
+            const cardId = parseInt(e.dataTransfer.getData("text/plain"));
+            if (!isNaN(cardId)) {
+              playCardIntoRitual(cardId, "zone", z);
+            }
+          });
+        }
+      }
 
       // Background reset click listener on the SVG itself
       const svg = document.querySelector(".pentacle-svg");
@@ -446,10 +473,10 @@
           wrapper.style.transform = ""; // clear gyro transform for 3D Hologram
           window.needsFullStarRebuild = true;
           if (window.HologramCamera) {
-            HologramCamera.pitch = 20;
+            HologramCamera.pitch = 0;
             HologramCamera.yaw = 0;
             HologramCamera.scale = 1.0;
-            HologramCamera.targetPitch = 20;
+            HologramCamera.targetPitch = 0;
             HologramCamera.targetYaw = 0;
             HologramCamera.targetScale = 1.0;
             HologramCamera.isZoomed = false;
@@ -474,8 +501,12 @@
       const actionFn = isSelectionMode ? `toggleActiveSelection(${c.card_id})` : `handleCollectionCardClick(${c.card_id})`;
       const badge = loadout === "active" ? `<span class="web-card-chip">Active</span>` : (loadout === "defense" ? `<span class="web-card-chip defense">Defense</span>` : "");
 
+      const dragAttr = isSelectionMode
+        ? `draggable="true" ondragstart="handleCardDragStart(event, ${c.card_id})" ondragend="handleCardDragEnd(event, ${c.card_id})"`
+        : "";
+
       return `
-        <div class="web-card ${c.suit} ${selClass} ${isTrump ? 'trump' : ''} ${c.inverted ? 'inverted' : ''}" onclick="${actionFn}">
+        <div class="web-card ${c.suit} ${selClass} ${isTrump ? 'trump' : ''} ${c.inverted ? 'inverted' : ''}" ${dragAttr} onclick="${actionFn}">
           ${badge}
           <div class="web-card-glyph" style="color: ${PLANET_COLORS[c.source_body]};">${SUIT_GLYPHS[c.suit]}</div>
           <div class="web-card-title">${c.title}</div>
@@ -580,8 +611,22 @@
 
     // Select zone click
     function selectZone(zoneId) {
+      // Tap fallback: if exactly 1 card selected, play it into the zone ritual!
+      if (state.player && state.selectedCards.size === 1) {
+        const cardId = Array.from(state.selectedCards)[0];
+        playCardIntoRitual(cardId, "zone", zoneId);
+        state.selectedCards.clear();
+        renderActiveHand();
+        return;
+      }
+
       state.selectedZone = zoneId;
       state.selectedStarHip = null;
+
+      // Select the zone in our ritual overlay
+      if (state.player && state.rituals && zoneId !== null) {
+        showRitualOverlay("zone", zoneId);
+      }
 
       // Update zone SVG paths selections
       for (let i = 0; i < 11; i++) {
@@ -591,15 +636,14 @@
 
       if (zoneId !== null && window.HologramCamera) {
         const center = ZONE_CENTERS[zoneId];
-        // Center the zone: yaw = az brings it to the meridian, pitch = 90-alt lifts
-        // it to screen centre (x2=0, y2=0). (-az was the bug — it never centred.)
+        // Rotate the chosen zone toward the top while keeping the observer-up dome.
         HologramCamera.targetYaw = center.az;
-        HologramCamera.targetPitch = 90 - center.alt;
+        HologramCamera.targetPitch = 0;
         HologramCamera.targetScale = 2.2;
         HologramCamera.isZoomed = true;
         document.getElementById("reset-view-btn").style.display = "inline-flex";
       } else if (zoneId === null && window.HologramCamera) {
-        HologramCamera.targetPitch = 20;
+        HologramCamera.targetPitch = 0;
         HologramCamera.targetScale = 1.0;
         HologramCamera.isZoomed = false;
         document.getElementById("reset-view-btn").style.display = "none";
@@ -627,6 +671,102 @@
 
     function esmsTag(id) {
       return `<span style="color:${ESMS_COLORS[id]}; white-space:nowrap;">${ESMS_GLYPHS[id]} ${ESMS_NAMES[id]}</span>`;
+    }
+
+    const SIGN_ELEMENT_COLORS = {
+      wands: "#db7a47",
+      pentacles: "#74ab6c",
+      swords: "#aebbd6",
+      cups: "#5f93d8"
+    };
+
+    function signElementColor(sign) {
+      return SIGN_ELEMENT_COLORS[SIGN_SUITS[sign % 12]] || "#d8b46a";
+    }
+
+    function projectedEclipticPoint(lambdaDeg, betaDeg, lat, lst) {
+      const eq = eclipticToEquatorialLat(lambdaDeg, betaDeg);
+      const aa = altAzOf(eq.ra, eq.dec, lat, lst);
+      if (aa.alt <= 0) return null;
+      return skyProject(aa.alt, aa.az);
+    }
+
+    function appendZodiacPath(g, pts, className, color, width) {
+      if (pts.length < 2) return;
+      const NS = "http://www.w3.org/2000/svg";
+      const path = document.createElementNS(NS, "path");
+      path.setAttribute("d", "M " + pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" L "));
+      path.setAttribute("class", className);
+      path.setAttribute("stroke", color);
+      path.style.color = color;
+      if (width) path.setAttribute("stroke-width", width);
+      g.appendChild(path);
+    }
+
+    function renderZodiacSigns() {
+      const g = document.getElementById("zodiac-signs-g");
+      if (!g) return;
+      g.innerHTML = "";
+      const NS = "http://www.w3.org/2000/svg";
+      const now = new Date();
+      const { lat, lon } = state.observer;
+      const lst = lstDeg(now, lon);
+
+      // Great-circle sign boundaries: constant ecliptic longitude divides the
+      // whole overhead hemisphere, not just the planet road.
+      for (let sign = 0; sign < 12; sign++) {
+        const color = signElementColor(sign);
+        let pts = [];
+        for (let beta = -88; beta <= 88; beta += 4) {
+          const p = projectedEclipticPoint(sign * 30, beta, lat, lst);
+          if (p) {
+            pts.push(p);
+          } else {
+            appendZodiacPath(g, pts, "zodiac-boundary", color);
+            pts = [];
+          }
+        }
+        appendZodiacPath(g, pts, "zodiac-boundary", color);
+      }
+
+      // The visible half of the ecliptic is the observer's zodiac band. Split it
+      // into sign-sized arcs and tint each by its element color.
+      for (let sign = 0; sign < 12; sign++) {
+        const color = signElementColor(sign);
+        const start = sign * 30;
+        const end = start + 30;
+        let pts = [];
+        let labelPoint = null;
+        let bestMid = Infinity;
+
+        for (let lambda = start; lambda <= end + 0.001; lambda += 1.5) {
+          const p = projectedEclipticPoint(lambda, 0, lat, lst);
+          if (p) {
+            pts.push(p);
+            const midDelta = Math.abs(lambda - (start + 15));
+            if (midDelta < bestMid) {
+              bestMid = midDelta;
+              labelPoint = p;
+            }
+          } else {
+            appendZodiacPath(g, pts, "zodiac-sign-band", color, "15");
+            appendZodiacPath(g, pts, "zodiac-sign-line", color, "2.2");
+            pts = [];
+          }
+        }
+        appendZodiacPath(g, pts, "zodiac-sign-band", color, "15");
+        appendZodiacPath(g, pts, "zodiac-sign-line", color, "2.2");
+
+        if (labelPoint) {
+          const label = document.createElementNS(NS, "text");
+          label.setAttribute("x", labelPoint.x.toFixed(1));
+          label.setAttribute("y", (labelPoint.y - 10).toFixed(1));
+          label.setAttribute("class", "zodiac-sign-label");
+          label.setAttribute("fill", color);
+          label.textContent = SIGN_NAMES[sign].slice(0, 3).toUpperCase();
+          g.appendChild(label);
+        }
+      }
     }
 
     function renderConstellations() {
@@ -801,6 +941,7 @@
     }
 
     function renderStarsNodes() {
+      renderZodiacSigns();
       renderConstellations();
       const container = document.getElementById("stars-nodes-g");
       const NS = "http://www.w3.org/2000/svg";
@@ -841,10 +982,34 @@
 
           const tip = document.createElementNS(NS, "title");
           const zoneName = star.zone === 10 ? "Crown Zenith" : (star.zone >= 5 ? `Spire ${star.zone}` : `House ${star.zone}`);
-          tip.textContent = `${star.name} · mag ${star.magnitude} · alt ${Math.round(star.alt)}° · ${zoneName}` +
+          let starRitualText = "";
+          if (state.player && state.rituals) {
+            const rit = state.rituals[`zone_${star.zone}`];
+            if (rit) {
+              starRitualText = ` · Ritual: ${rit.description} (${rit.chain.length}/${rit.cardsNeeded})`;
+            }
+          }
+          tip.textContent = `${star.name} · mag ${star.magnitude} · alt ${Math.round(star.alt)}° · ${zoneName}${starRitualText}` +
             (held ? ` · held by ${PLANET_NAMES[star.held_by]}` : "") +
             (engageable ? "" : " · below the 10° engage band");
           circle.appendChild(tip);
+
+          // Drag and drop events for stars (plays into zone ritual)
+          circle.addEventListener("dragover", (e) => {
+            e.preventDefault();
+            circle.classList.add("drag-over");
+          });
+          circle.addEventListener("dragleave", () => {
+            circle.classList.remove("drag-over");
+          });
+          circle.addEventListener("drop", (e) => {
+            e.preventDefault();
+            circle.classList.remove("drag-over");
+            const cardId = parseInt(e.dataTransfer.getData("text/plain"));
+            if (!isNaN(cardId)) {
+              playCardIntoRitual(cardId, "zone", star.zone);
+            }
+          });
 
           circle.onclick = (e) => {
             e.stopPropagation();
@@ -981,15 +1146,50 @@
 
         const tip = document.createElementNS(NS, "title");
         const role = p.body === 10 ? "comet — the wounded healer" : "planetary agent";
-        tip.textContent = `${nameCh} — ${role} of ${SIGN_GLYPHS[p.sign]} ${SIGN_NAMES[p.sign]} ${Math.floor(p.eclLon % 30)}° · alt ${Math.round(p.alt)}° · transiting ${zoneName} · tap to open`;
+        let ritualText = "";
+        if (state.player && state.rituals) {
+          const rit = state.rituals[`planet_${p.body}`];
+          if (rit) {
+            ritualText = `\n✦ Ritual: ${rit.description} (${rit.chain.length}/${rit.cardsNeeded} spent)`;
+          }
+        }
+        tip.textContent = `${nameCh} — ${role} of ${SIGN_GLYPHS[p.sign]} ${SIGN_NAMES[p.sign]} ${Math.floor(p.eclLon % 30)}° · alt ${Math.round(p.alt)}° · transiting ${zoneName}${ritualText} · tap to open or drag card here`;
         node.appendChild(tip);
+
+        // Drag and drop events
+        node.addEventListener("dragover", (e) => {
+          e.preventDefault();
+          node.classList.add("drag-over");
+        });
+        node.addEventListener("dragleave", () => {
+          node.classList.remove("drag-over");
+        });
+        node.addEventListener("drop", (e) => {
+          e.preventDefault();
+          node.classList.remove("drag-over");
+          const cardId = parseInt(e.dataTransfer.getData("text/plain"));
+          if (!isNaN(cardId)) {
+            playCardIntoRitual(cardId, "planet", p.body);
+          }
+        });
 
         node.onclick = (e) => {
           e.stopPropagation();
-          // The planetary agent's pentacles page (weather + chat · jings · scrabble).
-          // Falls back to the inline Word-Duel tab if the page module isn't loaded.
-          if (typeof window.openPlanetAgentPage === "function") window.openPlanetAgentPage(p.body);
-          else challengePlanetaryAgent(p);
+          // Tap fallback: if exactly 1 card selected, play it into the planet ritual!
+          if (state.player && state.selectedCards.size === 1) {
+            const cardId = Array.from(state.selectedCards)[0];
+            playCardIntoRitual(cardId, "planet", p.body);
+            state.selectedCards.clear();
+            renderActiveHand();
+          } else {
+            // Show/select the ritual HUD overlay first, then trigger standard page
+            const ritKey = `planet_${p.body}`;
+            if (state.player && state.rituals && state.rituals[ritKey]) {
+              showRitualOverlay("planet", p.body);
+            }
+            if (typeof window.openPlanetAgentPage === "function") window.openPlanetAgentPage(p.body);
+            else challengePlanetaryAgent(p);
+          }
         };
 
         frag.appendChild(node);
@@ -1072,8 +1272,22 @@
 
     // Select star click
     function selectStar(star) {
+      // Tap fallback: if exactly 1 card selected, play it into the zone ritual!
+      if (state.player && state.selectedCards.size === 1) {
+        const cardId = Array.from(state.selectedCards)[0];
+        playCardIntoRitual(cardId, "zone", star.zone);
+        state.selectedCards.clear();
+        renderActiveHand();
+        return;
+      }
+
       state.selectedZone = star.zone;
       state.selectedStarHip = star.hip_id;
+
+      // Select the zone in our ritual overlay
+      if (state.player && state.rituals && star.zone !== null) {
+        showRitualOverlay("zone", star.zone);
+      }
 
       // Toggle shapes selections
       for (let i = 0; i < 11; i++) {
@@ -1082,8 +1296,8 @@
       }
 
       if (window.HologramCamera) {
-        HologramCamera.targetYaw = star.az; // yaw=az centers the star (was -az)
-        HologramCamera.targetPitch = 90 - star.alt;
+        HologramCamera.targetYaw = star.az;
+        HologramCamera.targetPitch = 0;
         HologramCamera.targetScale = 2.5;
         HologramCamera.isZoomed = true;
         document.getElementById("reset-view-btn").style.display = "inline-flex";
@@ -1851,3 +2065,166 @@
         }
       }, 15000);
     });
+
+    // ---- DRAG AND DROP RITUAL PLAY HANDLERS ----
+    window.draggedCardId = null;
+    window.activeRitualTarget = null; // { type, id }
+
+    window.handleCardDragStart = function(event, cardId) {
+      event.dataTransfer.setData("text/plain", cardId);
+      event.target.classList.add("dragging");
+      
+      // Highlight valid drop targets
+      document.querySelectorAll(".planet-node, .zone-shape, .star-node-dot").forEach(el => {
+        el.classList.add("potential-target");
+      });
+      
+      window.draggedCardId = cardId;
+    };
+
+    window.handleCardDragEnd = function(event, cardId) {
+      event.target.classList.remove("dragging");
+      document.querySelectorAll(".planet-node, .zone-shape, .star-node-dot").forEach(el => {
+        el.classList.remove("potential-target", "drag-over");
+      });
+      window.draggedCardId = null;
+    };
+
+    window.playCardIntoRitual = function(cardId, targetType, targetId) {
+      const result = state.playCardIntoRitual(cardId, targetType, targetId);
+      if (result.error) {
+        toast(result.error, { type: "warn", title: "Ritual Chain" });
+        if (synth.playSelect) synth.playSelect();
+        return;
+      }
+
+      // Refresh hand
+      renderActiveHand();
+      
+      const key = `${targetType}_${targetId}`;
+      const ritual = state.rituals[key];
+      
+      if (synth.playSelect) synth.playSelect();
+
+      // Log to combat log
+      const consoleEl = document.getElementById("combat-log-console");
+      if (consoleEl) {
+        const targetName = targetType === "planet" ? PLANET_NAMES[targetId] : `Zone ${targetId}`;
+        const card = state.collection.find(c => c.card_id === cardId) || ritual.chain[ritual.chain.length - 1];
+        const cardName = card ? card.title : "Card";
+        consoleEl.innerHTML += `<div class="log-line system">[Ritual] Played ${cardName} (Letter ${card ? card.letter : '?'}) into ${targetName} chain! (${ritual.chain.length}/${ritual.cardsNeeded})</div>`;
+        consoleEl.scrollTop = consoleEl.scrollHeight;
+      }
+
+      // If completed, show rewards
+      if (result.completed && result.reward) {
+        const rew = result.reward;
+        if (synth.playWin) synth.playWin();
+        
+        if (consoleEl) {
+          consoleEl.innerHTML += `<div class="log-line victory">🌟 Ritual Completed for ${targetType === "planet" ? PLANET_NAMES[targetId] : `Zone ${targetId}`} in ${rew.zoneName}!</div>`;
+          consoleEl.innerHTML += `<div class="log-line victory">✦ Faction gains +500 Control in ${rew.zoneName}!</div>`;
+          consoleEl.innerHTML += `<div class="log-line victory">✦ Earned +${rew.tokens} Tokens!</div>`;
+          if (rew.card) {
+            consoleEl.innerHTML += `<div class="log-line victory">✦ Spoils: <b>${rew.card.title}</b> (Lv ${rew.card.level}, Letter ${rew.card.letter}) drafted to your Bench!</div>`;
+          }
+          consoleEl.scrollTop = consoleEl.scrollHeight;
+        }
+
+        toast(`Ritual Completed! Control +500, +${rew.tokens} Tokens!`, { type: "success", title: "Celestial Ritual" });
+        
+        renderLeaderboard();
+        renderZonesList();
+        renderStarsNodes();
+        renderPoolsPanel();
+      }
+
+      // Update the active Ritual UI Panel
+      updateActiveRitualPanel(targetType, targetId);
+    };
+
+    window.showRitualOverlay = function(targetType, targetId) {
+      window.activeRitualTarget = { type: targetType, id: targetId };
+      const overlay = document.getElementById("ritual-hud-overlay");
+      if (!overlay) return;
+      
+      overlay.style.display = "flex";
+      updateActiveRitualPanel(targetType, targetId);
+    };
+
+    window.resetActiveRitual = function() {
+      if (!window.activeRitualTarget) return;
+      const { type, id } = window.activeRitualTarget;
+      state.resetRitualChain(type, id);
+      
+      renderActiveHand();
+      updateActiveRitualPanel(type, id);
+      if (synth.playClick) synth.playClick();
+      
+      const consoleEl = document.getElementById("combat-log-console");
+      if (consoleEl) {
+        const targetName = type === "planet" ? PLANET_NAMES[id] : `Zone ${id}`;
+        consoleEl.innerHTML += `<div class="log-line system">[Ritual] Cleared chain for ${targetName}.</div>`;
+        consoleEl.scrollTop = consoleEl.scrollHeight;
+      }
+    };
+
+    window.updateActiveRitualPanel = function(targetType, targetId) {
+      const overlay = document.getElementById("ritual-hud-overlay");
+      if (!overlay) return;
+      
+      const key = `${targetType}_${targetId}`;
+      const ritual = state.rituals ? state.rituals[key] : null;
+      if (!ritual) {
+        overlay.style.display = "none";
+        return;
+      }
+
+      const sigil = targetType === "planet" ? PLANET_GLYPHS[targetId] : "✦";
+      const name = targetType === "planet" ? `${PLANET_NAMES[targetId]} Alignment` : `Zone ${targetId} Ritual`;
+      const titleColor = targetType === "planet" ? PLANET_COLORS[targetId] : "var(--gold-bright)";
+
+      let slotsHTML = "";
+      for (let i = 0; i < ritual.cardsNeeded; i++) {
+        if (i > 0) {
+          slotsHTML += `<div class="ritual-slot-connector">──</div>`;
+        }
+
+        const card = ritual.chain[i];
+        if (card) {
+          slotsHTML += `
+            <div class="ritual-slot filled ${card.suit}">
+              <span class="ritual-slot-suit">${SUIT_GLYPHS[card.suit]}</span>
+              <span class="ritual-slot-rank">${card.is_trump ? 'Trump' : rankName(card.rank)}</span>
+              <span class="ritual-slot-letter">${card.letter}</span>
+            </div>
+          `;
+        } else {
+          const isActiveSlot = i === ritual.chain.length;
+          slotsHTML += `
+            <div class="ritual-slot ${isActiveSlot ? 'active' : ''}">
+              <span class="ritual-slot-placeholder">${isActiveSlot ? 'Drop here' : 'Locked'}</span>
+            </div>
+          `;
+        }
+      }
+
+      const rewardsText = `Rewards: +${ritual.type === 'word' ? 600 : 400} Tokens · +500 Zone Control · Spoils Card (Lv 2)`;
+
+      overlay.innerHTML = `
+        <div class="ritual-header">
+          <div class="ritual-target-info">
+            <span class="ritual-target-sigil" style="color: ${titleColor};">${sigil}</span>
+            <span class="ritual-target-title" style="color: ${titleColor};">${name}</span>
+          </div>
+          <button class="btn btn-reset-ritual" onclick="resetActiveRitual()">Clear Chain</button>
+        </div>
+        <div class="ritual-challenge-desc">${ritual.description}</div>
+        <div class="ritual-chain-row">
+          ${slotsHTML}
+        </div>
+        <div class="ritual-rewards-preview">
+          ${rewardsText}
+        </div>
+      `;
+    };
