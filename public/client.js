@@ -434,6 +434,7 @@ class GameState {
     this.agentChats = {};
     this.jingPool = null;
     this.jingDuels = {};
+    this.rituals = {};
 
     // The real sky. `holdings` (hip → faction) is the persistent capture state;
     // `sky` is the computed view of every catalogue star currently above the
@@ -589,6 +590,8 @@ class GameState {
           // Real-sky migration: older saves carried per-zone fake star lists.
           // The sky is now computed from the shared catalogue; drop the relics.
           (this.map || []).forEach(z => { delete z.stars; });
+          this.rituals = data.rituals || {};
+          this.initRituals();
           this.recomputeSky();
           return true;
         } catch (e) {
@@ -617,7 +620,8 @@ class GameState {
       jingPool: this.jingPool,
       jingDuels: this.jingDuels,
       holdings: this.holdings,
-      observer: this.observer
+      observer: this.observer,
+      rituals: this.rituals || {}
     };
     
     localStorage.setItem(`pentacles_save_${activeHandle}`, JSON.stringify(data));
@@ -697,6 +701,8 @@ class GameState {
         control: 0   // -1000..1000 tug of war meter
       });
     }
+    this.rituals = {};
+    this.initRituals();
     this.recalculateLeaderboard();
     this.recomputeSky();
   }
@@ -1046,6 +1052,255 @@ class GameState {
     this.deck.push({ card_id: card.card_id, loadout: "bench" });
     this.save();
     return card;
+  }
+
+  initRituals() {
+    if (!this.rituals) this.rituals = {};
+    for (let p = 0; p <= 10; p++) {
+      const key = `planet_${p}`;
+      if (!this.rituals[key]) {
+        this.rituals[key] = this.generateProceduralRitual('planet', p);
+      }
+    }
+    for (let z = 0; z <= 10; z++) {
+      const key = `zone_${z}`;
+      if (!this.rituals[key]) {
+        this.rituals[key] = this.generateProceduralRitual('zone', z);
+      }
+    }
+  }
+
+  generateProceduralRitual(targetType, targetId) {
+    const types = ['suit', 'rank_asc', 'rank_desc', 'word', 'sum'];
+    const type = types[Math.floor(Math.random() * types.length)];
+    
+    let cardsNeeded = 3;
+    let targetSuit = "";
+    let targetSum = 0;
+    let description = "";
+
+    if (targetType === 'planet') {
+      const name = PLANET_NAMES[targetId] || "Chiron";
+      if (targetId === 4 || targetId === 0) { // Mars, Sun -> Fire/Wands preferred
+        targetSuit = "wands";
+      } else if (targetId === 3 || targetId === 1 || targetId === 8) { // Venus, Moon, Neptune -> Water/Cups
+        targetSuit = "cups";
+      } else if (targetId === 2 || targetId === 7 || targetId === 9) { // Mercury, Uranus, Pluto -> Air/Swords
+        targetSuit = "swords";
+      } else { // Saturn, Jupiter, Chiron -> Earth/Pentacles
+        targetSuit = "pentacles";
+      }
+    } else {
+      const suitIdx = targetId % 12;
+      targetSuit = SIGN_SUITS[suitIdx];
+    }
+
+    if (type === 'suit') {
+      cardsNeeded = 3;
+      description = `Chain ${cardsNeeded} ${SUIT_NAMES[targetSuit]} cards.`;
+    } else if (type === 'rank_asc') {
+      cardsNeeded = 3;
+      description = `Chain ${cardsNeeded} cards of ascending rank (e.g. 3 → 4 → 5).`;
+    } else if (type === 'rank_desc') {
+      cardsNeeded = 3;
+      description = `Chain ${cardsNeeded} cards of descending rank (e.g. King → Queen → Knight).`;
+    } else if (type === 'word') {
+      cardsNeeded = 3;
+      description = `Spell a valid Codex Word of length ≥ 3 using card Letters in order.`;
+    } else if (type === 'sum') {
+      cardsNeeded = 3;
+      targetSum = 15 + Math.floor(Math.random() * 15); // 15..30
+      description = `Chain ${cardsNeeded} cards summing to exactly ${targetSum} in rank (Page=11, Knight=12, Queen=13, King=14).`;
+    }
+
+    return {
+      targetType,
+      targetId,
+      type,
+      cardsNeeded,
+      description,
+      targetSuit,
+      targetSum,
+      chain: []
+    };
+  }
+
+  validateCardForChain(card, ritual) {
+    const currentChain = ritual.chain;
+    
+    // 1. Basic sanity: Is card already in the chain?
+    if (currentChain.some(c => c.card_id === card.card_id)) {
+      return { valid: false, reason: "Card is already in this chain!" };
+    }
+
+    // 2. Max capacity
+    if (currentChain.length >= ritual.cardsNeeded) {
+      return { valid: false, reason: "Chain is already full!" };
+    }
+
+    // 3. Validation based on type
+    if (ritual.type === 'suit') {
+      if (card.suit !== ritual.targetSuit) {
+        return { valid: false, reason: `Must be a ${SUIT_NAMES[ritual.targetSuit]} card!` };
+      }
+    } else if (ritual.type === 'rank_asc') {
+      if (currentChain.length > 0) {
+        const lastCard = currentChain[currentChain.length - 1];
+        if (card.rank <= lastCard.rank) {
+          return { valid: false, reason: `Rank must be strictly greater than last card (${rankName(lastCard.rank)} < ${rankName(card.rank)})!` };
+        }
+      }
+    } else if (ritual.type === 'rank_desc') {
+      if (currentChain.length > 0) {
+        const lastCard = currentChain[currentChain.length - 1];
+        if (card.rank >= lastCard.rank) {
+          return { valid: false, reason: `Rank must be strictly lower than last card (${rankName(lastCard.rank)} > ${rankName(card.rank)})!` };
+        }
+      }
+    } else if (ritual.type === 'sum') {
+      const currentSum = currentChain.reduce((sum, c) => sum + c.rank, 0);
+      const newSum = currentSum + card.rank;
+      if (currentChain.length === ritual.cardsNeeded - 1) {
+        if (newSum !== ritual.targetSum) {
+          return { valid: false, reason: `Sum would be ${newSum}, but must be exactly ${ritual.targetSum}!` };
+        }
+      } else {
+        if (newSum >= ritual.targetSum) {
+          return { valid: false, reason: `Sum would exceed/reach target sum of ${ritual.targetSum} too early!` };
+        }
+      }
+    } else if (ritual.type === 'word') {
+      if (currentChain.length === ritual.cardsNeeded - 1) {
+        const wordChars = currentChain.map(c => c.letter).concat([card.letter]).join("").toUpperCase();
+        if (!isValidWord(wordChars)) {
+          return { valid: false, reason: `"${wordChars}" is not a valid word in the Codex!` };
+        }
+      }
+    }
+
+    return { valid: true };
+  }
+
+  playCardIntoRitual(cardId, targetType, targetId) {
+    if (!this.player) return { error: "Register a Seeker first." };
+    const card = this.collection.find(c => c.card_id === cardId);
+    if (!card) return { error: "Card not found in collection." };
+    
+    // Check if card is in the active loadout
+    const slot = this.deck.find(d => d.card_id === cardId);
+    if (!slot || slot.loadout !== "active") {
+      return { error: "Card is not in your Active Hand!" };
+    }
+
+    const key = `${targetType}_${targetId}`;
+    const ritual = this.rituals[key];
+    if (!ritual) return { error: "Ritual not found." };
+
+    const check = this.validateCardForChain(card, ritual);
+    if (!check.valid) {
+      return { error: check.reason };
+    }
+
+    // Add card to chain
+    ritual.chain.push(JSON.parse(JSON.stringify(card)));
+
+    // Check if completed
+    const completed = ritual.chain.length === ritual.cardsNeeded;
+    let completionReward = null;
+
+    if (completed) {
+      // 1. Consume the cards in the chain
+      const chainedIds = new Set(ritual.chain.map(c => c.card_id));
+      this.collection = this.collection.filter(c => !chainedIds.has(c.card_id));
+      this.deck = this.deck.filter(d => !chainedIds.has(d.card_id));
+
+      // 2. Adjust zone control
+      let targetZoneId = targetId;
+      if (targetType === 'planet') {
+        const p = this.planets[targetId] || this.chiron;
+        if (p) {
+          targetZoneId = p.zone;
+        }
+      }
+      
+      const zone = this.map[targetZoneId];
+      if (zone) {
+        zone.control = Math.min(1000, zone.control + 500);
+        if (zone.control >= 600) {
+          zone.owner = this.player.faction;
+        }
+      }
+
+      // 3. Tokens reward
+      const baseTokens = ritual.type === 'word' ? 600 : 400;
+      this.player.tokens = (this.player.tokens || 0) + baseTokens;
+
+      // 4. Spoils: Draft a reward card
+      const degree = Math.floor(Math.random() * 30);
+      const minute = Math.floor(Math.random() * 60);
+      const rewardCard = this.createCard(
+        this.player.faction,
+        Math.random() < 0.15, // 15% chance of major trump
+        degree,
+        minute,
+        2, // dignity boost
+        false,
+        null,
+        targetZoneId % 12
+      );
+      
+      // Add level boost
+      rewardCard.level = 2;
+      rewardCard.attack = Math.round(rewardCard.attack * 1.2);
+      rewardCard.health = Math.round(rewardCard.health * 1.2);
+
+      // Check Collection cap
+      const COLLECTION_CAP = 100;
+      let addedToCollection = true;
+      if (this.collection.length >= COLLECTION_CAP) {
+        const benchSlots = this.deck.filter(d => d.loadout === "bench");
+        let weakest = null;
+        benchSlots.forEach(slot => {
+          const c = this.collection.find(cc => cc.card_id === slot.card_id);
+          if (c && !c.is_trump) {
+            const power = c.attack + c.health / 2 + c.armour;
+            if (!weakest || power < weakest.power) weakest = { card: c, power };
+          }
+        });
+        const newPower = rewardCard.attack + rewardCard.health / 2 + rewardCard.armour;
+        if (weakest && newPower > weakest.power) {
+          this.collection = this.collection.filter(c => c.card_id !== weakest.card.card_id);
+          this.deck = this.deck.filter(d => d.card_id !== weakest.card.card_id);
+          this.collection.push(rewardCard);
+          this.deck.push({ card_id: rewardCard.card_id, loadout: "bench" });
+        } else {
+          addedToCollection = false;
+        }
+      } else {
+        this.collection.push(rewardCard);
+        this.deck.push({ card_id: rewardCard.card_id, loadout: "bench" });
+      }
+
+      completionReward = {
+        tokens: baseTokens,
+        card: addedToCollection ? rewardCard : null,
+        zoneName: zone ? (zone.kind === "crown" ? "Crown Zenith" : `${zone.kind === "house" ? "House" : "Spire"} ${zone.zone_id}`) : "Unknown"
+      };
+
+      // Reset the chain and generate a new ritual
+      this.rituals[key] = this.generateProceduralRitual(targetType, targetId);
+    }
+
+    this.save();
+    return { success: true, completed, reward: completionReward };
+  }
+
+  resetRitualChain(targetType, targetId) {
+    const key = `${targetType}_${targetId}`;
+    const ritual = this.rituals[key];
+    if (!ritual) return;
+    ritual.chain = [];
+    this.save();
   }
 }
 

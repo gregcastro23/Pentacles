@@ -53,12 +53,21 @@ function altAzOf(raDeg, decDeg, latDeg, lst) {
   return { alt: rad2deg(alt), az: norm360(rad2deg(Math.atan2(y, x))) };
 }
 
+// Ecliptic longitude/latitude (deg) → equatorial {ra, dec} (deg).
+function eclipticToEquatorialLat(lonDeg, latDeg = 0) {
+  const e = deg2rad(OBLIQUITY_DEG), l = deg2rad(lonDeg), b = deg2rad(latDeg);
+  const x = Math.cos(b) * Math.cos(l);
+  const y = Math.cos(b) * Math.sin(l) * Math.cos(e) - Math.sin(b) * Math.sin(e);
+  const z = Math.cos(b) * Math.sin(l) * Math.sin(e) + Math.sin(b) * Math.cos(e);
+  return {
+    ra: norm360(rad2deg(Math.atan2(y, x))),
+    dec: rad2deg(Math.asin(Math.max(-1, Math.min(1, z)))),
+  };
+}
+
 // Ecliptic longitude (deg, β = 0) → equatorial {ra, dec} (deg).
 function eclipticToEquatorial(lonDeg) {
-  const e = deg2rad(OBLIQUITY_DEG), l = deg2rad(lonDeg);
-  const dec = Math.asin(Math.sin(e) * Math.sin(l));
-  const ra = Math.atan2(Math.sin(l) * Math.cos(e), Math.cos(l));
-  return { ra: norm360(rad2deg(ra)), dec: rad2deg(dec) };
+  return eclipticToEquatorialLat(lonDeg, 0);
 }
 
 // Ecliptic longitude (deg, 0..360) of an equatorial point — the inverse of the
@@ -154,34 +163,23 @@ function toCartesian(alt, az) {
 }
 
 function project3D(alt, az, pitchDeg, yawDeg, scale = 1.0, distance = 1.8) {
-  const p = toCartesian(alt, az);
-  
-  // Rotate around Z-axis (yaw)
-  const yaw = deg2rad(yawDeg);
-  const x1 = p.x * Math.cos(yaw) - p.y * Math.sin(yaw);
-  const y1 = p.x * Math.sin(yaw) + p.y * Math.cos(yaw);
-  const z1 = p.z;
-  
-  // Rotate around X-axis (pitch)
-  const pitch = deg2rad(pitchDeg);
-  const x2 = x1;
-  const y2 = y1 * Math.cos(pitch) - z1 * Math.sin(pitch);
-  const z2 = y1 * Math.sin(pitch) + z1 * Math.cos(pitch);
-  
-  // The observer stands INSIDE the dome looking up: the zenith is overhead and
-  // NEAREST (z2≈1 → smallest denom → largest/closest), the horizon wraps away
-  // around the rim. (Was `distance + z2`, which rendered the dome convex — a bowl
-  // seen from outside/above.)
-  const denom = distance - z2;
-  const scaleFactor = distance * (SKY_R / 220); // Scale R=220 to match SKY_R=250 at pitch=0
-  const px = (x2 / denom) * scale * scaleFactor;
-  const py = (y2 / denom) * scale * scaleFactor;
-  
-  const R = 220;
+  // Observer-up dome projection. At pitch=0 this is the canonical horizon disk:
+  // zenith fixed at the centre, horizon fixed on the rim. Pitch adds a bounded
+  // inside-the-dome lean for inspection without turning the sky into an exterior bowl.
+  const clampedAlt = Math.max(0, Math.min(90, alt));
+  const r = (90 - clampedAlt) / 90;
+  const a = deg2rad(norm360(az - yawDeg));
+  const x = r * Math.sin(a);
+  const y = r * Math.cos(a);
+  const domeLift = Math.sin(deg2rad(clampedAlt));
+  const tilt = Math.sin(deg2rad(Math.max(0, Math.min(70, pitchDeg))));
+  const xTilt = x * (1 + tilt * 0.03);
+  const yTilt = y * (1 - tilt * 0.28) - domeLift * tilt * 0.18;
+
   return {
-    x: SKY_CX + R * px,
-    y: SKY_CY - R * py,
-    z: z2
+    x: SKY_CX + SKY_R * scale * xTilt,
+    y: SKY_CY - SKY_R * scale * yTilt,
+    z: domeLift
   };
 }
 
