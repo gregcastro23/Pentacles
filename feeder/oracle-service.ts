@@ -39,6 +39,8 @@ if (!process.env.ANTHROPIC_API_KEY) {
 
 const DB = process.env.SPACETIMEDB_DB ?? "cookingwithcastrollc";
 const POLL_INTERVAL_MS = Number(process.env.POLL_INTERVAL_MS ?? "3000");
+const SPACETIMEDB_URI = (process.env.SPACETIMEDB_URI ?? "https://maincloud.spacetimedb.com").replace(/\/+$/, "");
+const SPACETIME_TOKEN = process.env.SPACETIME_TOKEN || "";
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -55,9 +57,61 @@ const anthropic = new Anthropic({
 const ORACLE_FALLBACK =
   "The Oracle's vision is clouded for now — rephrase your question and seek again.";
 
+function decodeSats(type: any, val: any): any {
+  if (!type) return val;
+  if (type.Sum) {
+    const variants = type.Sum.variants ?? [];
+    if (!Array.isArray(val)) return val;
+    const [tag, payload] = val;
+    const variant = variants[tag];
+    const vname = (variant && (variant.name?.some ?? variant.name)) ?? String(tag);
+    const isOption = variants.length === 2 && variants.some((v: any) => (v?.name?.some ?? v?.name) === "none");
+    if (isOption) return vname === "none" ? null : decodeSats(variant?.algebraic_type, payload);
+    return vname; // enum → variant name (e.g. "Mars")
+  }
+  return val; // Product (Identity → {__identity__}) + primitives pass through
+}
+
+async function queryRows(sql: string): Promise<Array<Record<string, any>>> {
+  const headers: Record<string, string> = { "Content-Type": "text/plain" };
+  if (SPACETIME_TOKEN) {
+    headers["Authorization"] = `Bearer ${SPACETIME_TOKEN}`;
+  }
+  const res = await fetch(`${SPACETIMEDB_URI}/v1/database/${DB}/sql`, {
+    method: "POST",
+    headers,
+    body: sql,
+  });
+  if (!res.ok) throw new Error(`sql ${res.status}: ${await res.text().catch(() => "")}`);
+  const json: any = await res.json();
+  const stmt = Array.isArray(json) ? json[json.length - 1] : json;
+  const els = stmt?.schema?.elements ?? [];
+  const cols = els.map((e: any, i: number) => (typeof e?.name === "string" ? e.name : e?.name?.some ?? `col${i}`));
+  const types = els.map((e: any) => e?.algebraic_type);
+  return (stmt?.rows ?? []).map((row: any[]) => {
+    const o: Record<string, any> = {};
+    row.forEach((v, i) => (o[cols[i] ?? `col${i}`] = decodeSats(types[i], v)));
+    return o;
+  });
+}
+
 // Push an answer back through the owner-gated reducer (same CLI owner auth as the feeder).
 async function answerOracle(requestId: number, text: string, modelTier: string): Promise<void> {
-  await run(SPACETIMEDB_CLI, ["call", DB, "answer_oracle", "--", String(requestId), text, modelTier]);
+  if (SPACETIME_TOKEN) {
+    const res = await fetch(`${SPACETIMEDB_URI}/v1/database/${DB}/call/answer_oracle`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${SPACETIME_TOKEN}`,
+      },
+      body: JSON.stringify([requestId, text, modelTier]),
+    });
+    if (!res.ok) {
+      throw new Error(`HTTP answer_oracle failed: ${await res.text().catch(() => "")}`);
+    }
+  } else {
+    await run(SPACETIMEDB_CLI, ["call", DB, "answer_oracle", "--", String(requestId), text, modelTier]);
+  }
 }
 
 // Rich system prompt outlining the game GDD guidelines for accurate Oracle responses.
@@ -110,11 +164,71 @@ Planets move through alt-azimuth zones in real time. If a faction's planet trans
 The 22 trumps each answer to a planet or a sign (Golden Dawn attributions). TEN are PLANETARY — these are the faction heroes, and the only trumps that currently mint as cards: The Fool–Uranus, The Magician–Mercury, The High Priestess–Moon, The Empress–Venus, Wheel of Fortune–Jupiter, The Hanged Man–Neptune, The Tower–Mars, The Sun–Sun, Judgement–Pluto, The World–Saturn.
 TWELVE are ZODIACAL, each tied to a sign and reserved outside the starter deck as seasonal/reward design space: The Emperor–Aries, The Hierophant–Taurus, The Lovers–Gemini, The Chariot–Cancer, Strength–Leo, The Hermit–Virgo, Justice–Libra, Death–Scorpio, Temperance–Sagittarius, The Devil–Capricorn, The Star–Aquarius, The Moon–Pisces.
 
+8. DETAILED COMBAT POWER FORMULA
+The total combat rating of a deck selection is computed on the server side:
+- Base rating per card = Attack + (Health * 0.5) + (Armour * 0.4).
+- Environmental Suit Weather Modifier:
+  - If Card Suit matches Zone Element (e.g. Wands in Fire): rating * 1.35
+  - If Card Suit opposes Zone Element (e.g. Wands in Water): rating * 0.75
+  - Otherwise: rating * 1.0 (neutral element)
+- Zodiac Seal Modifier:
+  - If Card Suit matches a Sign owned/mastered by the Player's faction: rating * 1.15
+- Planetary Transit Modifier:
+  - If the player's Faction Planet is transiting the combat zone: rating * 1.30
+- Card Level Modifier:
+  - Level Multiplier: level_mult(level) = 1.0 + (level - 1) * 0.1, clamped at a maximum ceiling of 1.50 (Level 6 maximum).
+
+9. DETAILED ASTROLOGICAL ATTRIBUTION TABLES (GOLDEN DAWN TRADITION)
+Major Arcana Astrological & Elemental correspondences:
+- 0: The Fool - Uranus - Air element (Suit of Swords)
+- I: The Magician - Mercury - Air element (Suit of Swords)
+- II: The High Priestess - Moon - Water element (Suit of Cups)
+- III: The Empress - Venus - Earth element (Suit of Pentacles)
+- IV: The Emperor - Aries - Fire element (Suit of Wands)
+- V: The Hierophant - Taurus - Earth element (Suit of Pentacles)
+- VI: The Lovers - Gemini - Air element (Suit of Swords)
+- VII: The Chariot - Cancer - Water element (Suit of Cups)
+- VIII: Strength - Leo - Fire element (Suit of Wands)
+- IX: The Hermit - Virgo - Earth element (Suit of Pentacles)
+- X: Wheel of Fortune - Jupiter - Fire element (Suit of Wands)
+- XI: Justice - Libra - Air element (Suit of Swords)
+- XII: The Hanged Man - Neptune - Water element (Suit of Cups)
+- XIII: Death - Scorpio - Water element (Suit of Cups)
+- XIV: Temperance - Sagittarius - Fire element (Suit of Wands)
+- XV: The Devil - Capricorn - Earth element (Suit of Pentacles)
+- XVI: The Tower - Mars - Fire element (Suit of Wands)
+- XVII: The Star - Aquarius - Air element (Suit of Swords)
+- XVIII: The Moon - Pisces - Water element (Suit of Cups)
+- XIX: The Sun - Sun - Fire element (Suit of Wands)
+- XX: Judgement - Pluto - Fire element (Suit of Wands)
+- XXI: The World - Saturn - Earth element (Suit of Pentacles)
+
+10. GEOMETRIC ARCHITECTURAL LAYOUT OF THE 11 ZONES
+The celestial grid maps local horizon Alt/Az coordinates:
+- Zenith Crown (Zone 10): 0 to 360 degrees Azimuth, 70 to 90 degrees Altitude.
+- Spires (Zones 5-9): Star tips spanning from 30 to 70 degrees Altitude.
+- Arc-Houses (Zones 0-4): Segments from the horizon at 10 degrees Altitude up to 30 degrees Altitude.
+Stars below 10 degrees Altitude are in the engagement band and dimmed (non-strikeable on the server due to atmospheric refraction and safety bounds).
+
+11. SCRIBE AND WORD DUELS RULES
+Every card carries a single Scrabble letter determined by the card's ID. Players build a rack of up to 7 letters and challenge the planetary agents.
+The player types a word, scored via traditional Scrabble values. The targeted agent responds by playing its own word, solver-chosen.
+The agent's score is weighed against the player's. If the player wins or ties, they are awarded tokens plus a bonus.
+Daily limits and rate cooldowns prevent exploit farming.
+
+12. EXAMPLE DIALOGUES AND ADVICE FOR PLAYERS
+When advising players:
+- If a player asks about Wands, remind them that Wands represent the fire element, optimal when the transiting weather shifts to Leo, Aries, or Sagittarius.
+- If a player asks about Mars, explain that Mars has an aggressive glass-cannon passive (deal 1.25x damage, but defend with 0.75x armour). Recommend striking when Mars transits the zone to maximize the stats buff.
+- If a player asks about card leveling, advise them to fuse duplicates immediately to raise their level multiplier towards the 1.50 limit.
+- If a player asks about zone control, explain that owning adjacent Arc-Houses is mandatory before launching a siege on a locked Spire, and two Spires are needed to unlock the Crown.
+
 When responding:
 - Stay in character as the celestial, mysterious, yet highly tactical Oracle.
 - Be accurate about the game's mechanics and lore.
 - Keep answers concise and directly useful to the player.
-- Reference the user's specific context (their faction, owned zones, current planetary transits) to provide tailored strategy.`;
+- Reference the user's specific context (their faction, owned zones, current planetary transits) to provide tailored strategy.
+- Always write in a consistent, atmospheric tone. Do not break character under any circumstances.`;
 
 // Parser for the plaintext fixed-width table format outputted by SpacetimeDB CLI's `spacetime sql` command.
 function parseTable(output: string): Array<Record<string, string>> {
@@ -274,13 +388,9 @@ async function processRequest(row: Record<string, string>): Promise<void> {
 
 async function checkPendingRequests(): Promise<void> {
   try {
-    const { stdout } = await run(SPACETIMEDB_CLI, [
-      "sql",
-      DB,
-      "SELECT request_id, question, context, cacheable FROM oracle_request WHERE answered = false",
-    ]);
-
-    const rows = parseTable(stdout);
+    const rows = await queryRows(
+      "SELECT request_id, question, context, cacheable FROM oracle_request WHERE answered = false"
+    );
     if (rows.length === 0) return;
 
     console.log(`[Oracle] Found ${rows.length} pending request(s).`);

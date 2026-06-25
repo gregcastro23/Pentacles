@@ -38,6 +38,7 @@ const POLL_INTERVAL_MS = Number(process.env.POLL_INTERVAL_MS ?? "3000");
 // parseTable below can't recover; the HTTP rows are positional SATS values we
 // decode by schema. Writes still go through `spacetime call` (owner-gated).
 const SPACETIMEDB_URI = (process.env.SPACETIMEDB_URI ?? "https://maincloud.spacetimedb.com").replace(/\/+$/, "");
+const SPACETIME_TOKEN = process.env.SPACETIME_TOKEN || "";
 
 function decodeSats(type: any, val: any): any {
   if (!type) return val;
@@ -55,9 +56,13 @@ function decodeSats(type: any, val: any): any {
 }
 
 async function queryRows(sql: string): Promise<Array<Record<string, any>>> {
+  const headers: Record<string, string> = { "Content-Type": "text/plain" };
+  if (SPACETIME_TOKEN) {
+    headers["Authorization"] = `Bearer ${SPACETIME_TOKEN}`;
+  }
   const res = await fetch(`${SPACETIMEDB_URI}/v1/database/${DB}/sql`, {
     method: "POST",
-    headers: { "Content-Type": "text/plain" },
+    headers,
     body: sql,
   });
   if (!res.ok) throw new Error(`sql ${res.status}: ${await res.text().catch(() => "")}`);
@@ -80,16 +85,30 @@ async function answerDuel(
   rationale: string,
   score: number
 ): Promise<void> {
-  await run(SPACETIMEDB_CLI, [
-    "call",
-    DB,
-    "answer_duel",
-    "--",
-    String(challengeId),
-    word,
-    rationale,
-    String(score),
-  ]);
+  if (SPACETIME_TOKEN) {
+    const res = await fetch(`${SPACETIMEDB_URI}/v1/database/${DB}/call/answer_duel`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${SPACETIME_TOKEN}`,
+      },
+      body: JSON.stringify([challengeId, word, rationale, score]),
+    });
+    if (!res.ok) {
+      throw new Error(`HTTP answer_duel failed: ${await res.text().catch(() => "")}`);
+    }
+  } else {
+    await run(SPACETIMEDB_CLI, [
+      "call",
+      DB,
+      "answer_duel",
+      "--",
+      String(challengeId),
+      word,
+      rationale,
+      String(score),
+    ]);
+  }
 }
 
 // Parser for SpacetimeDB CLI's plaintext table format

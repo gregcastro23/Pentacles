@@ -31,6 +31,8 @@ const SPACETIMEDB_CLI = getSpacetimeCli();
 const DB = process.env.SPACETIMEDB_DB ?? "cookingwithcastrollc";
 const INTERVAL_MIN = Number(process.env.FEED_INTERVAL_MIN ?? "15");
 const BODIES = ["Sun", "Moon", "Mercury", "Venus", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune", "Pluto"];
+const SPACETIMEDB_URI = (process.env.SPACETIMEDB_URI ?? "https://maincloud.spacetimedb.com").replace(/\/+$/, "");
+const SPACETIME_TOKEN = process.env.SPACETIME_TOKEN || "";
 
 // Canonical (global) transit zone: the planet's ecliptic longitude mapped into
 // the eleven zones. Each player's AR view anchors the Pentacle to their own
@@ -58,10 +60,24 @@ async function pushOnce(): Promise<void> {
     const zone = zoneForEclipticLon(eclLon);
     const retro = isRetrograde(idx, jd);
     try {
-      await run(SPACETIMEDB_CLI, [
-        "call", DB, "push_ephemeris", "--",
-        String(idx), ra.toFixed(5), dec.toFixed(5), String(zone), String(retro),
-      ]);
+      if (SPACETIME_TOKEN) {
+        const res = await fetch(`${SPACETIMEDB_URI}/v1/database/${DB}/call/push_ephemeris`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${SPACETIME_TOKEN}`,
+          },
+          body: JSON.stringify([idx, Number(ra.toFixed(5)), Number(dec.toFixed(5)), zone, retro]),
+        });
+        if (!res.ok) {
+          throw new Error(`HTTP push_ephemeris failed: ${await res.text().catch(() => "")}`);
+        }
+      } else {
+        await run(SPACETIMEDB_CLI, [
+          "call", DB, "push_ephemeris", "--",
+          String(idx), ra.toFixed(5), dec.toFixed(5), String(zone), String(retro),
+        ]);
+      }
       console.log(`✦ ${BODIES[idx].padEnd(8)} RA ${ra.toFixed(2)}°  Dec ${dec.toFixed(2)}°  → zone ${zone}${retro ? "  ℞" : ""}`);
     } catch (e) {
       console.error(`✗ ${BODIES[idx]}: ${(e as Error).message.split("\n")[0]}`);

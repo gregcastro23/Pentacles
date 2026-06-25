@@ -336,6 +336,7 @@ pub struct DuelChallenge {
     #[primary_key]
     #[auto_inc]
     pub challenge_id: u64,
+    #[index(btree)]
     pub player: Identity,
     pub opponent: Planet,
     pub player_word: String,

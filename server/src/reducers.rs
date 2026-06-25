@@ -168,8 +168,8 @@ pub fn create_player(
     let old_cards: Vec<u64> = ctx
         .db
         .card()
-        .iter()
-        .filter(|c| c.owner == ctx.sender)
+        .owner()
+        .filter(&ctx.sender)
         .map(|c| c.card_id)
         .collect();
     for cid in old_cards {
@@ -1067,6 +1067,17 @@ fn prune_stale(ctx: &ReducerContext) {
     for id in stale_reqs {
         ctx.db.oracle_request().request_id().delete(&id);
         ctx.db.oracle_reply().request_id().delete(&id);
+    }
+
+    let stale_challenges: Vec<u64> = ctx
+        .db
+        .duel_challenge()
+        .iter()
+        .filter(|c| c.answered && elapsed_secs(now, c.created_at) > ORACLE_TTL_SECS)
+        .map(|c| c.challenge_id)
+        .collect();
+    for id in stale_challenges {
+        ctx.db.duel_challenge().challenge_id().delete(&id);
     }
 }
 

@@ -62,6 +62,8 @@ const DB = process.env.SPACETIMEDB_DB ?? "cookingwithcastrollc";
 const POLL_INTERVAL_MS = Number(process.env.POLL_INTERVAL_MS ?? "3000");
 const ATTESTATION_TTL_SECS = Number(process.env.ATTESTATION_TTL_SECS ?? "120");
 const REGION_SALT = process.env.REGION_SALT ?? "pentacles";
+const SPACETIMEDB_URI = (process.env.SPACETIMEDB_URI ?? "https://maincloud.spacetimedb.com").replace(/\/+$/, "");
+const SPACETIME_TOKEN = process.env.SPACETIME_TOKEN || "";
 
 const ATTESTOR_PRIVATE_KEY = process.env.ATTESTOR_PRIVATE_KEY as Hex | undefined;
 const AMM_ADDRESS = process.env.AMM_CONTRACT_ADDRESS as Address | undefined;
@@ -140,21 +142,48 @@ function parseTable(output: string): Array<Record<string, string>> {
   return rows;
 }
 
-function parseValue(val: string): string {
-  const t = (val ?? "").trim();
-  if (t.startsWith('"') && t.endsWith('"')) {
-    try {
-      return JSON.parse(t);
-    } catch {
-      return t.slice(1, -1);
-    }
-  }
-  return t;
+function parseValue(val: any): string {
+  if (val == null) return "";
+  if (typeof val === "object") return (val as any).__identity__ ?? JSON.stringify(val);
+  return String(val);
 }
 
-async function sql(query: string): Promise<Array<Record<string, string>>> {
-  const { stdout } = await run(SPACETIMEDB_CLI, ["sql", DB, query]);
-  return parseTable(stdout);
+function decodeSats(type: any, val: any): any {
+  if (!type) return val;
+  if (type.Sum) {
+    const variants = type.Sum.variants ?? [];
+    if (!Array.isArray(val)) return val;
+    const [tag, payload] = val;
+    const variant = variants[tag];
+    const vname = (variant && (variant.name?.some ?? variant.name)) ?? String(tag);
+    const isOption = variants.length === 2 && variants.some((v: any) => (v?.name?.some ?? v?.name) === "none");
+    if (isOption) return vname === "none" ? null : decodeSats(variant?.algebraic_type, payload);
+    return vname;
+  }
+  return val;
+}
+
+async function sql(query: string): Promise<Array<Record<string, any>>> {
+  const headers: Record<string, string> = { "Content-Type": "text/plain" };
+  if (SPACETIME_TOKEN) {
+    headers["Authorization"] = `Bearer ${SPACETIME_TOKEN}`;
+  }
+  const res = await fetch(`${SPACETIMEDB_URI}/v1/database/${DB}/sql`, {
+    method: "POST",
+    headers,
+    body: query,
+  });
+  if (!res.ok) throw new Error(`sql ${res.status}: ${await res.text().catch(() => "")}`);
+  const json: any = await res.json();
+  const stmt = Array.isArray(json) ? json[json.length - 1] : json;
+  const els = stmt?.schema?.elements ?? [];
+  const cols = els.map((e: any, i: number) => (typeof e?.name === "string" ? e.name : e?.name?.some ?? `col${i}`));
+  const types = els.map((e: any) => e?.algebraic_type);
+  return (stmt?.rows ?? []).map((row: any[]) => {
+    const o: Record<string, any> = {};
+    row.forEach((v, i) => (o[cols[i] ?? `col${i}`] = decodeSats(types[i], v)));
+    return o;
+  });
 }
 
 // ── Region commitment ────────────────────────────────────────────────────────
@@ -215,18 +244,39 @@ async function answerTrace(
   deadline: number,
   signature: Hex,
 ): Promise<void> {
-  await run(SPACETIMEDB_CLI, [
-    "call",
-    DB,
-    "answer_trace",
-    "--",
-    intentId,
-    region,
-    String(visibleStars),
-    nonce.toString(),
-    String(deadline),
-    signature,
-  ]);
+  if (SPACETIME_TOKEN) {
+    const res = await fetch(`${SPACETIMEDB_URI}/v1/database/${DB}/call/answer_trace`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${SPACETIME_TOKEN}`,
+      },
+      body: JSON.stringify([
+        Number(intentId),
+        region,
+        visibleStars,
+        nonce.toString(),
+        deadline,
+        signature
+      ]),
+    });
+    if (!res.ok) {
+      throw new Error(`HTTP answer_trace failed: ${await res.text().catch(() => "")}`);
+    }
+  } else {
+    await run(SPACETIMEDB_CLI, [
+      "call",
+      DB,
+      "answer_trace",
+      "--",
+      intentId,
+      region,
+      String(visibleStars),
+      nonce.toString(),
+      String(deadline),
+      signature,
+    ]);
+  }
 }
 
 // ── Main loop ────────────────────────────────────────────────────────────────
