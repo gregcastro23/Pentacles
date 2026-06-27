@@ -372,6 +372,12 @@
 
       // Calculate deterministic local placements.
       const chart = deriveLocalNatalChart(`${date} ${time} ${loc}`);
+      // Capture the real birth instant + place so the Alchm Chart can compute a
+      // TRUE natal frame from the ephemeris (retiring the seed for that view).
+      const birthMs = Date.parse(`${date}T${time || "12:00"}`);
+      if (Number.isFinite(birthMs)) chart.birth_unix = Math.floor(birthMs / 1000);
+      if (Number.isFinite(lat)) chart.birth_lat = lat;
+      if (Number.isFinite(lon)) chart.birth_lon = lon;
       const picks = scoreFactions(chart);
       
       // Populate choices Grid

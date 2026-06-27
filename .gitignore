@@ -15,6 +15,7 @@ bun.lock
 
 # Vite build output
 dist/
+dist-alchm/
 *.local
 .vite/
 

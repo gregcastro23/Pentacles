@@ -66,18 +66,19 @@
   }
 
   // ── the bridge: expose celestial consts + fns to the ESM layer ─────────────
-  function pick(name) { try { return eval(name); } catch (e) { return undefined; } }
+  // These are lexical `const`s from client.js / constellations.js (same classic
+  // global scope as this file), invisible to ES modules without this seam.
   window.PentaclesSky = {
-    CONSTELLATIONS: pick("CONSTELLATIONS") || [],
+    CONSTELLATIONS: (typeof CONSTELLATIONS !== "undefined") ? CONSTELLATIONS : [],
     starByHip: starByHip,
-    ESMS_NAMES: pick("ESMS_NAMES") || ["Spirit", "Essence", "Matter", "Substance"],
-    ESMS_GLYPHS: pick("ESMS_GLYPHS") || ["🜂", "🜄", "🜃", "🜁"],
-    ESMS_COLORS: pick("ESMS_COLORS") || ["#e0a23a", "#4aa3d8", "#5fb37a", "#b98cd6"],
-    PLANET_NAMES: pick("PLANET_NAMES"),
-    PLANET_GLYPHS: pick("PLANET_GLYPHS"),
-    PLANET_COLORS: pick("PLANET_COLORS"),
-    SIGN_NAMES: pick("SIGN_NAMES"),
-    SIGN_GLYPHS: pick("SIGN_GLYPHS"),
+    ESMS_NAMES: (typeof ESMS_NAMES !== "undefined") ? ESMS_NAMES : ["Spirit", "Essence", "Matter", "Substance"],
+    ESMS_GLYPHS: (typeof ESMS_GLYPHS !== "undefined") ? ESMS_GLYPHS : ["🜂", "🜄", "🜃", "🜁"],
+    ESMS_COLORS: (typeof ESMS_COLORS !== "undefined") ? ESMS_COLORS : ["#e0a23a", "#4aa3d8", "#5fb37a", "#b98cd6"],
+    PLANET_NAMES: (typeof PLANET_NAMES !== "undefined") ? PLANET_NAMES : undefined,
+    PLANET_GLYPHS: (typeof PLANET_GLYPHS !== "undefined") ? PLANET_GLYPHS : undefined,
+    PLANET_COLORS: (typeof PLANET_COLORS !== "undefined") ? PLANET_COLORS : undefined,
+    SIGN_NAMES: (typeof SIGN_NAMES !== "undefined") ? SIGN_NAMES : undefined,
+    SIGN_GLYPHS: (typeof SIGN_GLYPHS !== "undefined") ? SIGN_GLYPHS : undefined,
     // functions (already on window, but collected here for one tidy handle)
     equatorialToEcliptic: window.equatorialToEcliptic,
     geocentricEclipticLon: window.geocentricEclipticLon,
