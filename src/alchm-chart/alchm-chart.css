@@ -41,6 +41,8 @@
   backdrop-filter: blur(8px);
 }
 #alchm-overlay.is-open { display: flex; }
+/* the app's floating LIVE badge sits in our scrubber's corner — hide while open */
+body.alchm-open #pentacles-net { display: none; }
 #alchm-overlay .ac-window {
   position: relative;
   width: min(1180px, 96vw);
@@ -170,6 +172,18 @@
 .alchm-chart .ac-pop-row { font-size: 12.5px; line-height: 1.6; }
 .alchm-chart .ac-pop-trade { margin-top: 10px; font-size: 11px; line-height: 1.5; border-top: 1px solid var(--ac-line); padding-top: 8px; }
 .alchm-chart .ac-dim { color: var(--ac-dim); }
+
+/* ---- swap panel (inside the pool inspector) ---- */
+.alchm-chart .ac-swap { margin-top: 10px; border-top: 1px solid var(--ac-line); padding-top: 10px; }
+.alchm-chart .ac-swap-head { font-size: 11px; margin-bottom: 4px; }
+.alchm-chart .ac-swap-bal { display: flex; gap: 14px; font-size: 13px; color: var(--ac-text); margin-bottom: 8px; }
+.alchm-chart .ac-swap-row { display: flex; gap: 6px; align-items: center; }
+.alchm-chart .ac-swap-dir { background: rgba(0,0,0,0.3); border: 1px solid var(--ac-line); color: var(--ac-gold-bright); border-radius: 8px; font: inherit; font-size: 13px; padding: 6px 8px; cursor: pointer; white-space: nowrap; }
+.alchm-chart .ac-swap-amt { flex: 1; min-width: 0; background: rgba(0,0,0,0.3); border: 1px solid var(--ac-line); color: var(--ac-text); border-radius: 8px; font: inherit; font-size: 13px; padding: 6px 8px; }
+.alchm-chart .ac-swap-go { background: var(--ac-gold); border: 0; color: #1a1406; font: inherit; font-weight: 600; font-size: 12px; border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+.alchm-chart .ac-swap-go:disabled { opacity: 0.45; cursor: not-allowed; }
+.alchm-chart .ac-swap-quote { font-size: 11.5px; margin-top: 6px; }
+.alchm-chart .ac-swap-note { font-size: 10.5px; margin-top: 6px; }
 
 /* ---- reduced motion + responsive ---- */
 .alchm-chart.ac-reduced .ac-bridge--applying,

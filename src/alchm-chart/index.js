@@ -283,8 +283,78 @@ class AlchmChartInstance {
     if (live && live.failed) rows.push(h("div", { class: "ac-pop-row ac-dim", text: "live reserves unavailable" }));
     else if (live && live.hasLiq) rows.push(h("div", { class: "ac-pop-row", text: `live depth ${live.aNum.toFixed(1)} / ${live.bNum.toFixed(1)} · spot ${live.spot.toFixed(3)}` }));
     else if (live) rows.push(h("div", { class: "ac-pop-row ac-dim", text: "unseeded — no liquidity yet" }));
-    rows.push(h("div", { class: "ac-pop-trade ac-dim", text: "Trades use in-game ESMS (earn via daily login grants on the agents & kitchen sites and by completing objectives)." }));
+    const swap = h("div", { class: "ac-swap" });
+    rows.push(swap);
+    this._fillSwap(swap, { pair, live, esms });
     return h("div", { class: "ac-pop-body" }, rows);
+  }
+
+  /** Async, balance-gated swap panel. Uses only the injected `trade` provider. */
+  async _fillSwap(box, ctx) {
+    const trade = this.providers.trade;
+    const earn = "Trades use in-game ESMS — earn it via daily login grants on the agents & kitchen sites and by completing objectives.";
+    if (!trade) { box.appendChild(h("div", { class: "ac-pop-trade ac-dim", text: earn })); return; }
+    box.appendChild(h("div", { class: "ac-pop-row ac-dim", text: "loading wallet…" }));
+    let balances, caps;
+    try { balances = await trade.esmsBalances(); caps = trade.capabilities(); }
+    catch { clear(box); box.appendChild(h("div", { class: "ac-pop-trade ac-dim", text: earn })); return; }
+    clear(box);
+    const { pair, live, esms } = ctx;
+    const b0 = balances[pair[0]] || { num: 0 }, b1 = balances[pair[1]] || { num: 0 };
+    const addr = (trade.address && trade.address()) || "";
+    const short = addr ? addr.slice(0, 6) + "…" + addr.slice(-4) : "—";
+    box.appendChild(h("div", { class: "ac-swap-head" }, [h("span", { class: "ac-dim", text: "burner " }), h("span", { text: short })]));
+    box.appendChild(h("div", { class: "ac-swap-bal" }, [
+      h("span", { text: `${esms.glyphs[pair[0]]} ${b0.num.toFixed(2)}` }),
+      h("span", { text: `${esms.glyphs[pair[1]]} ${b1.num.toFixed(2)}` }),
+    ]));
+    if (b0.num <= 0 && b1.num <= 0) {
+      box.appendChild(h("div", { class: "ac-pop-trade ac-dim", text: earn }));
+      if (!caps.sponsored) box.appendChild(h("div", { class: "ac-pop-row ac-dim", text: "Sponsored swaps off — set VITE_BUNDLER_URL." }));
+      return;
+    }
+    if (!live || !live.hasLiq) { box.appendChild(h("div", { class: "ac-pop-row ac-dim", text: "Pool unseeded — no liquidity to trade into yet." })); return; }
+    const outOf = (i) => (i === pair[0] ? pair[1] : pair[0]);
+    const st = { inId: b0.num >= b1.num ? pair[0] : pair[1] };
+    const dir = h("button", { class: "ac-swap-dir", title: "Flip direction" });
+    const amt = h("input", { class: "ac-swap-amt", type: "number", min: "0", step: "any", placeholder: "amount" });
+    const btn = h("button", { class: "ac-swap-go", text: "Swap" });
+    const quoteLine = h("div", { class: "ac-swap-quote ac-dim", text: "" });
+    const note = h("div", { class: "ac-swap-note ac-dim" });
+    let qto;
+    const paint = () => { dir.textContent = `${esms.glyphs[st.inId]} → ${esms.glyphs[outOf(st.inId)]}`; amt.max = String((balances[st.inId] || { num: 0 }).num); };
+    const doQuote = () => {
+      clearTimeout(qto);
+      qto = setTimeout(async () => {
+        const v = parseFloat(amt.value);
+        if (!(v > 0)) { quoteLine.textContent = `balance ${(balances[st.inId] || { num: 0 }).num.toFixed(2)}`; return; }
+        quoteLine.textContent = "quoting…";
+        const q = await trade.quote(live, st.inId, amt.value).catch(() => null);
+        quoteLine.textContent = q ? `≈ ${q.outNum.toFixed(4)} ${esms.glyphs[outOf(st.inId)]}${q.impact != null ? ` · impact ${(q.impact * 100).toFixed(1)}%` : ""}` : "no quote (pool too thin)";
+      }, 350);
+    };
+    dir.onclick = () => { st.inId = outOf(st.inId); paint(); doQuote(); };
+    amt.oninput = doQuote;
+    btn.disabled = !caps.sponsored;
+    btn.onclick = async () => {
+      const v = parseFloat(amt.value);
+      if (!(v > 0)) return;
+      btn.disabled = true; btn.textContent = "swapping…";
+      try {
+        const r = await trade.swap({ pool: live, inId: st.inId, inAmtHuman: amt.value });
+        if (window.toast) window.toast(`Swapped — ${r && r.hash ? r.hash.slice(0, 10) + "…" : "done"}`, { type: "success", title: "Constellation DEX" });
+        this.refreshPools(); this._closePop();
+      } catch (e) {
+        if (window.toast) window.toast((e && e.message) || "Swap failed", { type: "error", title: "Swap" });
+        btn.disabled = false; btn.textContent = "Swap";
+      }
+    };
+    box.appendChild(h("div", { class: "ac-swap-row" }, [dir, amt, btn]));
+    box.appendChild(quoteLine);
+    if (!caps.sponsored) note.textContent = "Sponsored swaps off — set VITE_BUNDLER_URL to enable gasless trading.";
+    box.appendChild(note);
+    paint();
+    quoteLine.textContent = `balance ${(balances[st.inId] || { num: 0 }).num.toFixed(2)}`;
   }
 
   // ── event bus ──

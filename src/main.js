@@ -27,6 +27,8 @@ import AlchmChart from './alchm-chart/index.js'
 import './alchm-chart/alchm-chart.css'
 import * as dex from './web3/dex.js'
 import { ESMS_DECIMALS } from './web3/esms.js'
+import { makeTradeProvider } from './web3/chart-trade.js'
+import { burner } from './web3/burner.js'
 
 const Pentacles = (window.Pentacles = window.Pentacles || {})
 Pentacles.version = '0.2.0'
@@ -98,8 +100,10 @@ function acProviders() {
       onChange: (cb) => wallet.onChange(() => cb()),
     },
     wallet,
+    trade: makeTradeProvider(),
   }
 }
+Pentacles.burner = burner
 function openAlchmChart() {
   const ov = document.getElementById('alchm-overlay')
   const host = document.getElementById('alchm-chart-host')
@@ -123,6 +127,7 @@ function openAlchmChart() {
     return
   }
   ov.classList.add('is-open')
+  document.body.classList.add('alchm-open')
   ov.onclick = (e) => { if (e.target === ov) closeAlchmChart() }
   acEsc = (e) => { if (e.key === 'Escape') closeAlchmChart() }
   document.addEventListener('keydown', acEsc)
@@ -130,6 +135,7 @@ function openAlchmChart() {
 function closeAlchmChart() {
   const ov = document.getElementById('alchm-overlay')
   if (ov) ov.classList.remove('is-open')
+  document.body.classList.remove('alchm-open')
   if (acEsc) { document.removeEventListener('keydown', acEsc); acEsc = null }
 }
 window.openAlchmChart = openAlchmChart
