@@ -67,15 +67,13 @@ export function createDome(container, state, hooks) {
   const goldBright = cssVar(container, "--ac-gold-bright", "#f1dba1");
   const applyingHex = cssVar(container, "--ac-applying", "#f1dba1");
   const separatingHex = cssVar(container, "--ac-separating", "#7d8aa0");
-  const reduced = (container.closest(".alchm-chart") || {}).classList?.contains("ac-reduced")
-    || (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
 
   let curW = Math.max(1, container.clientWidth);
   let curH = Math.max(1, container.clientHeight || 400);
 
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(52, curW / curH, 0.1, 2000);
-  camera.position.set(0, 7.5, 27);
+  camera.position.set(0, 6, 40);
 
   const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -83,13 +81,25 @@ export function createDome(container, state, hooks) {
   container.appendChild(renderer.domElement);
 
   const controls = new OrbitControls(camera, renderer.domElement);
-  controls.target.set(0, 1.5, 0);
+  controls.target.set(0, 0.5, 0);
   controls.enableDamping = true; controls.dampingFactor = 0.08;
   controls.enablePan = false;
-  controls.minDistance = 16; controls.maxDistance = 46;
-  controls.minPolarAngle = 0.16 * Math.PI; controls.maxPolarAngle = 0.62 * Math.PI;
-  controls.autoRotate = !reduced; controls.autoRotateSpeed = 0.25;
+  controls.minDistance = 12; controls.maxDistance = 90;
+  controls.minPolarAngle = 0.16 * Math.PI; controls.maxPolarAngle = 0.64 * Math.PI;
+  let userMoved = false;
+  controls.addEventListener("start", () => { userMoved = true; });
   controls.update();
+
+  // Pull the camera back along its current orbit direction until the whole dome
+  // (radius R, + margin) fits the viewport — vertical or horizontal, whichever binds.
+  function fitCamera() {
+    const m = 1.18, vFov = camera.fov * DEG;
+    const hFov = 2 * Math.atan(Math.tan(vFov / 2) * camera.aspect);
+    const dist = Math.max((R * m) / Math.tan(vFov / 2), (R * m) / Math.tan(hFov / 2));
+    const dir = camera.position.clone().sub(controls.target).normalize();
+    camera.position.copy(controls.target).addScaledVector(dir, dist);
+    controls.update();
+  }
 
   scene.add(new THREE.AmbientLight(0x404a66, 1.2));
   const key = new THREE.PointLight(0xfff0d0, 1.1, 200); key.position.set(0, 24, 6); scene.add(key);
@@ -193,7 +203,7 @@ export function createDome(container, state, hooks) {
   function update(st) {
     disposeGroup(dyn); pickList = [];
     const chart = st.chart;
-    if (!chart) { needsRender = true; return; }
+    if (!chart) { requestRender(); return; }
     const weights = (st.smes && st.smes.weights) || {};
     const maxW = Math.max(1, ...Object.values(weights));
     const mundane = st.frame !== "natal";
@@ -219,7 +229,7 @@ export function createDome(container, state, hooks) {
       if (!va || !vb) continue;
       addAspect(va, vb, a, chart.byBody && chart.byBody[a.a], chart.byBody && chart.byBody[a.b]);
     }
-    needsRender = true;
+    requestRender();
   }
 
   // ── picking (click, not drag) → existing onSelect hook ──
@@ -242,14 +252,19 @@ export function createDome(container, state, hooks) {
   renderer.domElement.addEventListener("pointerdown", onDown);
   renderer.domElement.addEventListener("pointerup", onUp);
 
-  // ── render loop ──
-  function frame() {
+  // ── render loop (on-demand) ──
+  // Renders on interaction / data change, keeps the rAF alive only while the
+  // orbit damping is still settling, then idles. No perpetual loop → the page
+  // stays stable (cheap on CPU, and automation tools can reach it).
+  function renderFrame() {
+    raf = 0;
     if (disposed) return;
-    raf = requestAnimationFrame(frame);
-    if (!reduced) stars.rotation.y += 0.0002;
-    const moved = controls.update();
-    if (moved || needsRender || !reduced) { renderer.render(scene, camera); needsRender = false; }
+    const moving = controls.update(); // applies damping; true while still settling
+    if (needsRender || moving) { renderer.render(scene, camera); needsRender = false; }
+    if (moving) raf = requestAnimationFrame(renderFrame);
   }
+  function requestRender() { needsRender = true; if (!raf) raf = requestAnimationFrame(renderFrame); }
+  controls.addEventListener("change", requestRender);
 
   function setResolution(w, h) { scene.traverse((o) => { if (o.material && o.material.resolution) o.material.resolution.set(w, h); }); }
   function resize() {
@@ -257,7 +272,9 @@ export function createDome(container, state, hooks) {
     if (w === curW && h === curH) return;
     curW = w; curH = h;
     camera.aspect = w / h; camera.updateProjectionMatrix();
-    renderer.setSize(w, h); setResolution(w, h); needsRender = true;
+    renderer.setSize(w, h); setResolution(w, h);
+    if (!userMoved) fitCamera();
+    requestRender();
   }
   const ro = new ResizeObserver(resize); ro.observe(container);
 
@@ -270,9 +287,10 @@ export function createDome(container, state, hooks) {
     }
   }
   function dispose() {
-    disposed = true; cancelAnimationFrame(raf); ro.disconnect();
+    disposed = true; if (raf) cancelAnimationFrame(raf); ro.disconnect();
     renderer.domElement.removeEventListener("pointerdown", onDown);
     renderer.domElement.removeEventListener("pointerup", onUp);
+    controls.removeEventListener("change", requestRender);
     controls.dispose(); disposeGroup(dyn);
     scene.traverse((o) => {
       if (o.geometry) o.geometry.dispose();
@@ -284,6 +302,6 @@ export function createDome(container, state, hooks) {
     if (renderer.domElement.parentNode) renderer.domElement.parentNode.removeChild(renderer.domElement);
   }
 
-  update(state); resize(); frame();
+  update(state); fitCamera(); resize(); requestRender();
   return { update, resize, dispose };
 }
