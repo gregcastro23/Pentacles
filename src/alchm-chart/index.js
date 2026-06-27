@@ -13,7 +13,6 @@ import {
   enrichAspects, blendedSMES, poolPressure, footprintsFromMembers, bodyVelocity,
   DEFAULT_WEIGHTS, compute,
 } from "./math.js";
-import { renderTrack } from "./render-track.js";
 import { renderSmes, renderPools } from "./render-pools.js";
 import { renderScrubber, syncScrubberThumb, setScrubberDate } from "./scrubber.js";
 
@@ -83,7 +82,7 @@ class AlchmChartInstance {
 
     const d = this.state.dom;
     d.header = h("div", { class: "ac-header" });
-    d.track = h("div", { class: "ac-track" });
+    d.track = h("div", { class: "ac-track ac-dome-host" });
     d.smes = h("div", { class: "ac-smes" });
     d.pools = h("div", { class: "ac-pools" });
     d.scrubber = h("div", { class: "ac-scrubber" });
@@ -99,11 +98,26 @@ class AlchmChartInstance {
     renderScrubber(d.scrubber, this.state);
     this.recompute();
     this.paint();
+    this._mountDome();
     this.refreshPools();
     if (this.providers.amm && this.providers.amm.onChange) this._unsub.push(this.providers.amm.onChange(() => this.refreshPools()));
     this._esc = (e) => { if (e.key === "Escape" && !d.pop.hidden) this._closePop(); };
     document.addEventListener("keydown", this._esc);
     return this;
+  }
+
+  /** Lazy-load the Three.js dome (keeps `three` out of the host's initial bundle). */
+  _mountDome() {
+    const host = this.state.dom.track;
+    host.appendChild(h("div", { class: "ac-dome-loading", text: "rendering sky…" }));
+    import("./render-dome.js").then(({ createDome }) => {
+      if (this._destroyed) return;
+      this._dome = createDome(host, this.state, this.state.hooks);
+      this._dome.update(this.state);
+    }).catch((e) => {
+      console.warn("[AlchmChart] dome failed to load", e);
+      clear(host); host.appendChild(h("div", { class: "ac-dome-loading", text: "sky unavailable" }));
+    });
   }
 
   _buildHeader() {
@@ -164,7 +178,7 @@ class AlchmChartInstance {
 
   paint() {
     const st = this.state;
-    renderTrack(st.dom.track, st, st.hooks);
+    if (this._dome) this._dome.update(st);
     renderSmes(st.dom.smes, st);
     renderPools(st.dom.pools, st);
     this._updateHeader();
@@ -198,7 +212,7 @@ class AlchmChartInstance {
       this._raf = 0;
       this.state.date = this._pendingDate;
       this.recompute();
-      renderTrack(this.state.dom.track, this.state, this.state.hooks);
+      if (this._dome) this._dome.update(this.state);
       renderSmes(this.state.dom.smes, this.state);
       renderPools(this.state.dom.pools, this.state);
       this._updateHeader();
@@ -373,7 +387,9 @@ class AlchmChartInstance {
     return this;
   }
   destroy() {
+    this._destroyed = true;
     if (this._raf) cancelAnimationFrame(this._raf);
+    if (this._dome) { try { this._dome.dispose(); } catch {} this._dome = null; }
     if (this._esc) document.removeEventListener("keydown", this._esc);
     this._unsub.forEach((u) => { try { u(); } catch {} });
     this._unsub = [];

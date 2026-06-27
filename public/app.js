@@ -207,14 +207,20 @@
       state.recomputeConstellations(now, lat, lon, lst);
     }
 
-    function animateFrame() {
-      if (HologramCamera.enabled) {
-        HologramCamera.update();
-        projectSky3D();
-        update3DOverlays();
-        renderStarsNodes();
-      }
+    // Re-projecting ~thousands of star nodes is the dominant cost, so cap the
+    // dome to ~30fps. At 60Hz this work ran twice as often for no visible gain;
+    // 30fps halves CPU/GPU with an imperceptible difference on a slow rotation.
+    let _lastSkyFrame = 0;
+    const SKY_FRAME_MS = 32;
+    function animateFrame(ts) {
       requestAnimationFrame(animateFrame);
+      if (!HologramCamera.enabled) return;
+      if (ts && ts - _lastSkyFrame < SKY_FRAME_MS) return;
+      _lastSkyFrame = ts || 0;
+      HologramCamera.update();
+      projectSky3D();
+      update3DOverlays();
+      renderStarsNodes();
     }
 
     function initHologramControls() {
@@ -941,9 +947,11 @@
       const cam = window.HologramCamera;
       const sc = cam ? (cam.isZoomed ? (cam.targetScale || cam.scale || 1) : 1) : 1;
       if (sc >= 2.0) return 99;    // zoomed in — show everything in the focused region
-      // Show the full denser field in the wide view (catalogue tops out at 6.5).
-      // The cap only bites if the catalogue is later deepened past ~6.6.
-      return 6.6;
+      // Wide view: cull to the brightest field (~mag 5.0). Rendering the full
+      // ~8k-star catalogue meant re-projecting thousands of SVG nodes every
+      // animation frame (~64ms/pass → ~13fps). mag ≤ 5.0 keeps a rich sky at a
+      // fraction of the node count; the zoomed view still reveals the faint stars.
+      return 5.0;
     }
 
     function renderStarsNodes() {
@@ -952,11 +960,16 @@
       const container = document.getElementById("stars-nodes-g");
       const NS = "http://www.w3.org/2000/svg";
 
-      const stars = [...state.sky].sort((a, b) => b.magnitude - a.magnitude);
       const magCap = starRenderCap();
 
+      // Only the rebuild path needs magnitude-sorted draw order; the fast path
+      // updates existing nodes by hip id, so iterate state.sky directly and skip
+      // sorting ~8k stars on every animation frame.
+      const doRebuild = window.needsFullStarRebuild || container.children.length === 0;
+      const stars = doRebuild ? [...state.sky].sort((a, b) => b.magnitude - a.magnitude) : state.sky;
+
       // Rebuild DOM nodes if requested or container is empty
-      if (window.needsFullStarRebuild || container.children.length === 0) {
+      if (doRebuild) {
         container.innerHTML = "";
         window.needsFullStarRebuild = false;
         starElementMap.clear();
