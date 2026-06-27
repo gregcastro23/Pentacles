@@ -89,12 +89,14 @@ class AlchmChartInstance {
     d.pools = h("div", { class: "ac-pools" });
     d.scrubber = h("div", { class: "ac-scrubber" });
     d.pop = h("div", { class: "ac-pop", hidden: true });
+    // app-shell: header / 3-column body [temperament+reading · dome+transit · pools] / scrubber.
+    // The render layer still targets d.smes/d.reading/d.track/etc.; only the wrappers are new.
+    d.colLeft = h("div", { class: "ac-col ac-col--left", dataset: { pane: "temperament" } }, [d.smes, d.reading]);
+    d.colCenter = h("div", { class: "ac-col ac-col--center", dataset: { pane: "dome" } }, [d.track, d.transitStrip]);
+    d.colRight = h("div", { class: "ac-col ac-col--right", dataset: { pane: "pools" } }, [d.pools]);
+    d.body = h("div", { class: "ac-body" }, [d.colLeft, d.colCenter, d.colRight]);
     host.appendChild(d.header);
-    host.appendChild(d.track);
-    host.appendChild(d.transitStrip);
-    host.appendChild(d.smes);
-    host.appendChild(d.reading);
-    host.appendChild(d.pools);
+    host.appendChild(d.body);
     host.appendChild(d.scrubber);
     host.appendChild(d.pop);
 

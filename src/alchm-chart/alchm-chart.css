@@ -23,7 +23,9 @@
   flex-direction: column;
   gap: 12px;
   width: 100%;
-  max-width: 1180px;
+  max-width: 1400px;
+  flex: 1;
+  min-height: 0;
   color: var(--ac-text);
   font-family: "Space Grotesk", system-ui, sans-serif;
 }
@@ -45,10 +47,12 @@
 body.alchm-open #pentacles-net { display: none; }
 #alchm-overlay .ac-window {
   position: relative;
-  width: min(1180px, 96vw);
-  max-height: 94vh;
-  overflow: auto;
-  padding: 18px 20px 22px;
+  width: min(1400px, 96vw);
+  height: min(900px, 94vh);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 18px;
   background: var(--ac-bg);
   border: 1px solid var(--ac-line);
   border-radius: 16px;
@@ -77,6 +81,37 @@ body.alchm-open #pentacles-net { display: none; }
 .alchm-chart .ac-house-sel { background: rgba(0,0,0,0.3); border: 1px solid var(--ac-line); color: var(--ac-text); border-radius: 8px; padding: 5px 8px; font: inherit; font-size: 12px; }
 .alchm-chart .ac-badge { font-size: 11px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--ac-line); color: var(--ac-gold-bright); }
 .alchm-chart .ac-badge--warn { color: #f0c674; border-color: rgba(240, 198, 116, 0.4); }
+
+/* ---- app-shell: header / 3-column body / footer scrubber ---- */
+.alchm-chart .ac-body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(244px, 0.92fr) minmax(0, 2.3fr) minmax(264px, 1fr);
+  gap: 14px;
+}
+.alchm-chart .ac-col {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.alchm-chart .ac-col--left,
+.alchm-chart .ac-col--right { overflow-y: auto; padding-right: 3px; }
+.alchm-chart .ac-col--center { overflow: hidden; }
+.alchm-chart .ac-col--center .ac-track { flex: 1; min-height: 280px; }
+.alchm-chart .ac-scrubber { flex: 0 0 auto; }
+
+/* mobile: stack into one scrolling column, dome on top.
+   Use flex (not grid) so rows take natural height — a definite-height grid would
+   stretch its auto rows equally and the dome would overflow onto the panels. */
+@media (max-width: 860px) {
+  #alchm-overlay .ac-window { width: 100vw; height: 100dvh; max-height: none; border: 0; border-radius: 0; padding: 10px 12px; }
+  .alchm-chart .ac-body { display: flex; flex-direction: column; overflow-y: auto; gap: 12px; }
+  .alchm-chart .ac-col { overflow: visible; flex: 0 0 auto; }
+  .alchm-chart .ac-col--center { order: -1; }
+  .alchm-chart .ac-col--center .ac-track { height: 46vh; min-height: 300px; flex: none; }
+}
 
 /* ---- observer's horizon dome (3D centerpiece) ---- */
 .alchm-chart .ac-track {
