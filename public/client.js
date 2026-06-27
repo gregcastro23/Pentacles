@@ -627,6 +627,7 @@ class GameState {
     localStorage.setItem(`pentacles_save_${activeHandle}`, JSON.stringify(data));
     localStorage.setItem("pentacles_active_profile", activeHandle);
     this.addProfileToList(activeHandle);
+    if (window.CookieSync) window.CookieSync.persistAll();
   }
 
   addProfileToList(handle) {
@@ -640,6 +641,7 @@ class GameState {
     if (!list.includes(handle)) {
       list.push(handle);
       localStorage.setItem("pentacles_profiles_list", JSON.stringify(list));
+      if (window.CookieSync) window.CookieSync.persistAll();
     }
   }
 
@@ -655,6 +657,7 @@ class GameState {
 
   switchProfile(handle) {
     localStorage.setItem("pentacles_active_profile", handle);
+    if (window.CookieSync) window.CookieSync.persistAll();
     return this.load();
   }
 
@@ -671,6 +674,7 @@ class GameState {
         localStorage.removeItem("pentacles_active_profile");
       }
     }
+    if (window.CookieSync) window.CookieSync.persistAll();
   }
 
   reset() {

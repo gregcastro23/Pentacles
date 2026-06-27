@@ -109,6 +109,7 @@
           <button class="btn" id="reset-view-btn" style="display:none;" onclick="resetCameraView()">🔍 Reset View</button>
           <button class="btn" onclick="toggleSound()">🔊 Sound: ON</button>
           <button class="btn" onclick="toggleARMode()">📹 Toggle AR Mode</button>
+          <button class="btn" id="alchm-chart-btn" onclick="openAlchmChart()">✦ Alchm Chart</button>
         </div>
       </div>
 
@@ -346,14 +347,29 @@
        or a constellation's brightest stars + pool. -->
   <div id="agent-page" class="overlay-fullscreen agent-page" style="display:none; z-index:120;" role="dialog" aria-modal="true" aria-label="Agent pentacles page"></div>
 
+  <!-- ===================== ✦ ALCHM CHART ===================== -->
+  <!-- Full-screen launcher for the embeddable AlchmChart module (mounted by
+       src/main.js into #alchm-chart-host). Reads are walletless; the rest of the
+       chart renders the live sky + SMES without a wallet. -->
+  <div id="alchm-overlay" role="dialog" aria-modal="true" aria-label="Alchm Chart">
+    <div class="ac-window">
+      <button class="ac-window-close" title="Close (Esc)" aria-label="Close" onclick="closeAlchmChart()">✕</button>
+      <div id="alchm-chart-host"></div>
+    </div>
+  </div>
+
   <!-- Celestial data + math + legacy game logic + UI bindings: classic GLOBAL
        scripts served verbatim from public/. Load order is load-bearing, and the
        inline onclick="fn()" handlers in the markup require these to stay global. -->
   <script src="/star-catalog.js"></script>
   <script src="/constellations.js"></script>
   <script src="/sky.js"></script>
+  <script src="/auth-cookie-sync.js"></script>
   <script src="/client.js"></script>
   <script src="/astro-weather.js"></script>
+  <!-- Real-ephemeris natal builder + the celestial-const → window bridge the
+       ESM AlchmChart reads. Loads after astro-weather.js, before app.js. -->
+  <script src="/natal-real.js"></script>
   <script src="/app.js"></script>
   <!-- Agent + constellation pentacles pages (open from sky clicks). Load after
        app.js so they can call its global render/tab/pool helpers. -->

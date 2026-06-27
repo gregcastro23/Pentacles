@@ -45,6 +45,7 @@ import {
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { base, baseSepolia } from "viem/chains";
+import { startFeed } from "./stdb-feed";
 
 const run = promisify(execFile);
 
@@ -59,7 +60,6 @@ function getSpacetimeCli(): string {
 const SPACETIMEDB_CLI = getSpacetimeCli();
 
 const DB = process.env.SPACETIMEDB_DB ?? "cookingwithcastrollc";
-const POLL_INTERVAL_MS = Number(process.env.POLL_INTERVAL_MS ?? "3000");
 const ATTESTATION_TTL_SECS = Number(process.env.ATTESTATION_TTL_SECS ?? "120");
 const REGION_SALT = process.env.REGION_SALT ?? "pentacles";
 const SPACETIMEDB_URI = (process.env.SPACETIMEDB_URI ?? "https://maincloud.spacetimedb.com").replace(/\/+$/, "");
@@ -105,42 +105,8 @@ const EIP712_TYPES = {
   ],
 } as const;
 
-// ── SpacetimeDB CLI plumbing (shared shape with duel-service.ts) ─────────────
-
-function parseTable(output: string): Array<Record<string, string>> {
-  const lines = output.split("\n").map((l) => l.trimEnd());
-  const separatorIndex = lines.findIndex((l) => {
-    const t = l.trim();
-    return t.length > 0 && /^[-\+]+$/.test(t);
-  });
-  if (separatorIndex === -1) return [];
-  const separatorLine = lines[separatorIndex];
-  const boundaries: number[] = [];
-  for (let i = 0; i < separatorLine.length; i++) {
-    if (separatorLine[i] === "+") boundaries.push(i);
-  }
-  const headerLine = lines[separatorIndex - 1];
-  if (!headerLine) return [];
-  const colRanges: { start: number; end: number }[] = [];
-  let start = 0;
-  for (const b of boundaries) {
-    colRanges.push({ start, end: b });
-    start = b + 1;
-  }
-  colRanges.push({ start, end: headerLine.length });
-  const headers = colRanges.map((r) => headerLine.substring(r.start, r.end).trim());
-  const rows: Array<Record<string, string>> = [];
-  for (let i = separatorIndex + 1; i < lines.length; i++) {
-    const line = lines[i];
-    if (!line.trim()) continue;
-    const row: Record<string, string> = {};
-    colRanges.forEach((r, idx) => {
-      row[headers[idx]] = line.substring(r.start, r.end).trim();
-    });
-    rows.push(row);
-  }
-  return rows;
-}
+// ── SpacetimeDB plumbing — one-shot HTTP /sql reads still used by regionCommit ─
+// (the trace_intent trigger now arrives over the WebSocket feed; see main()).
 
 function parseValue(val: any): string {
   if (val == null) return "";
@@ -283,7 +249,8 @@ async function answerTrace(
 
 const account = ATTESTOR_PRIVATE_KEY ? privateKeyToAccount(ATTESTOR_PRIVATE_KEY) : null;
 
-async function processIntent(row: Record<string, string>): Promise<void> {
+async function processIntent(row: Record<string, any>): Promise<void> {
+  // Rows arrive normalized from the WS feed; parseValue is value-shape tolerant.
   const intentId = parseValue(row.intent_id);
   const trader = parseValue(row.trader);
   const constellationId = Number(parseValue(row.constellation_id));
@@ -327,25 +294,6 @@ async function processIntent(row: Record<string, string>): Promise<void> {
   );
 }
 
-async function checkPending(): Promise<void> {
-  try {
-    const rows = await sql(
-      "SELECT intent_id, trader, evm_address, constellation_id, visible_stars FROM trace_intent WHERE attested = false",
-    );
-    if (rows.length === 0) return;
-    console.log(`[constellation] ${rows.length} pending trace(s).`);
-    for (const row of rows) {
-      try {
-        await processIntent(row);
-      } catch (err) {
-        console.error(`[constellation] failed to attest intent #${parseValue(row.intent_id)}:`, (err as Error).message.split("\n")[0]);
-      }
-    }
-  } catch (err) {
-    console.error("[constellation] poll error:", (err as Error).message.split("\n")[0]);
-  }
-}
-
 function main(): void {
   if (!account || !AMM_ADDRESS) {
     console.error(
@@ -358,13 +306,20 @@ function main(): void {
   console.log(`  Chain:      ${CHAIN.name} (${CHAIN.id})`);
   console.log(`  AMM:        ${AMM_ADDRESS}`);
   console.log(`  Attestor:   ${account.address}`);
-  console.log(`  TTL:        ${ATTESTATION_TTL_SECS}s, poll ${POLL_INTERVAL_MS}ms\n`);
+  console.log(`  TTL:        ${ATTESTATION_TTL_SECS}s, transport: WebSocket subscription\n`);
 
-  const loop = async () => {
-    await checkPending();
-    setTimeout(loop, POLL_INTERVAL_MS);
-  };
-  loop();
+  // React to new un-attested trace intents the module produces (plus startup backlog).
+  startFeed({
+    uri: SPACETIMEDB_URI,
+    db: DB,
+    token: SPACETIME_TOKEN || undefined,
+    table: "trace_intent",
+    query: "SELECT * FROM trace_intent WHERE attested = false",
+    idField: "intent_id",
+    accept: (r) => r.attested === false,
+    label: "constellation",
+    onRow: processIntent,
+  });
 }
 
 main();

@@ -7,7 +7,7 @@ use crate::reducers::{tick_sky, resolve_round};
 
 // ── Identity & natal chart ────────────────────────────────────────────────
 
-#[spacetimedb::table(name = player, public)]
+#[spacetimedb::table(accessor = player, public)]
 #[derive(Clone)]
 pub struct Player {
     #[primary_key]
@@ -25,7 +25,7 @@ pub struct Player {
     pub word_wins: u32,
 }
 
-#[spacetimedb::table(name = natal_chart)] // private to owner (not public)
+#[spacetimedb::table(accessor = natal_chart)] // private to owner (not public)
 #[derive(Clone)]
 pub struct NatalChart {
     #[primary_key]
@@ -52,7 +52,7 @@ pub struct NatalChart {
     pub intercepted_signs: Option<Vec<u8>>,
 }
 
-#[spacetimedb::table(name = player_location)] // private to owner (not public)
+#[spacetimedb::table(accessor = player_location)] // private to owner (not public)
 #[derive(Clone)]
 pub struct PlayerLocation {
     #[primary_key]
@@ -64,7 +64,7 @@ pub struct PlayerLocation {
 
 // ── Cards & inventory ─────────────────────────────────────────────────────
 
-#[spacetimedb::table(name = card, public)]
+#[spacetimedb::table(accessor = card, public)]
 #[derive(Clone)]
 pub struct Card {
     #[primary_key]
@@ -90,7 +90,7 @@ pub struct Card {
     pub letter: u8,
 }
 
-#[spacetimedb::table(name = deck_slot, public)]
+#[spacetimedb::table(accessor = deck_slot, public)]
 #[derive(Clone)]
 pub struct DeckSlot {
     #[primary_key]
@@ -105,7 +105,7 @@ pub struct DeckSlot {
 
 /// A two-sided card trade: both parties stake card_ids and must confirm before
 /// ownership swaps. Public so both clients can watch it resolve.
-#[spacetimedb::table(name = trade, public)]
+#[spacetimedb::table(accessor = trade, public)]
 #[derive(Clone)]
 pub struct Trade {
     #[primary_key]
@@ -126,7 +126,7 @@ pub struct Trade {
 
 // ── Global map state ──────────────────────────────────────────────────────
 
-#[spacetimedb::table(name = zone, public)]
+#[spacetimedb::table(accessor = zone, public)]
 #[derive(Clone)]
 pub struct Zone {
     #[primary_key]
@@ -137,7 +137,7 @@ pub struct Zone {
     pub updated_at: Timestamp,
 }
 
-#[spacetimedb::table(name = star_node, public)]
+#[spacetimedb::table(accessor = star_node, public)]
 #[derive(Clone)]
 pub struct StarNode {
     #[primary_key]
@@ -151,7 +151,7 @@ pub struct StarNode {
 }
 
 /// Real-time ephemeris — one row per body, fed by `push_ephemeris`.
-#[spacetimedb::table(name = ephemeris, public)]
+#[spacetimedb::table(accessor = ephemeris, public)]
 #[derive(Clone)]
 pub struct Ephemeris {
     #[primary_key]
@@ -167,7 +167,7 @@ pub struct Ephemeris {
 
 // ── Coordination ──────────────────────────────────────────────────────────
 
-#[spacetimedb::table(name = battle, public)]
+#[spacetimedb::table(accessor = battle, public)]
 #[derive(Clone)]
 pub struct Battle {
     #[primary_key]
@@ -182,7 +182,7 @@ pub struct Battle {
 }
 
 /// Singleton (id = 0). Captures the module owner for authz + the season marker.
-#[spacetimedb::table(name = game_config, public)]
+#[spacetimedb::table(accessor = game_config, public)]
 #[derive(Clone)]
 pub struct GameConfig {
     #[primary_key]
@@ -204,7 +204,7 @@ pub struct GameConfig {
 }
 
 /// Live-PvP matchmaking intents, drained by `enqueue_duel`.
-#[spacetimedb::table(name = duel_queue, public)]
+#[spacetimedb::table(accessor = duel_queue, public)]
 #[derive(Clone)]
 pub struct DuelQueue {
     #[primary_key]
@@ -216,7 +216,7 @@ pub struct DuelQueue {
 }
 
 /// A live 3-lane duel between two players contesting a zone.
-#[spacetimedb::table(name = duel, public)]
+#[spacetimedb::table(accessor = duel, public)]
 #[derive(Clone)]
 pub struct Duel {
     #[primary_key]
@@ -244,7 +244,7 @@ pub struct Duel {
 /// A player's question for the Oracle. The companion service watches these,
 /// asks Claude, and answers via `answer_oracle`. Public so the asker's client
 /// sees the reply. `context` is a derived chart/state summary — never birth data.
-#[spacetimedb::table(name = oracle_request, public)]
+#[spacetimedb::table(accessor = oracle_request, public)]
 #[derive(Clone)]
 pub struct OracleRequest {
     #[primary_key]
@@ -260,7 +260,7 @@ pub struct OracleRequest {
 }
 
 /// The Oracle's answer to a request (1:1 by request_id).
-#[spacetimedb::table(name = oracle_reply, public)]
+#[spacetimedb::table(accessor = oracle_reply, public)]
 #[derive(Clone)]
 pub struct OracleReply {
     #[primary_key]
@@ -273,7 +273,7 @@ pub struct OracleReply {
 
 /// Cache of generic Q&A (rules/lore), keyed by normalized-question hash, so a
 /// repeated question is answered instantly without troubling Claude.
-#[spacetimedb::table(name = oracle_cache, public)]
+#[spacetimedb::table(accessor = oracle_cache, public)]
 #[derive(Clone)]
 pub struct OracleCache {
     #[primary_key]
@@ -285,7 +285,7 @@ pub struct OracleCache {
 }
 
 /// Per-player Oracle rate state, backing the ask cooldown (private).
-#[spacetimedb::table(name = oracle_rate)]
+#[spacetimedb::table(accessor = oracle_rate)]
 #[derive(Clone)]
 pub struct OracleRate {
     #[primary_key]
@@ -299,7 +299,7 @@ pub struct OracleRate {
 /// A completed word duel: the player's Word of Power vs a planetary agent's best
 /// word, the token reward, and the verdict. Public so clients can show the result
 /// and a token/word-win ladder.
-#[spacetimedb::table(name = word_duel, public)]
+#[spacetimedb::table(accessor = word_duel, public)]
 #[derive(Clone)]
 pub struct WordDuel {
     #[primary_key]
@@ -321,7 +321,7 @@ pub struct WordDuel {
 
 /// Per-player word-duel rate state, backing the duel cooldown (private). Stops token
 /// farming by re-casting the same word in a tight loop.
-#[spacetimedb::table(name = word_rate)]
+#[spacetimedb::table(accessor = word_rate)]
 #[derive(Clone)]
 pub struct WordRate {
     #[primary_key]
@@ -330,7 +330,7 @@ pub struct WordRate {
     pub plays: u32,
 }
 
-#[spacetimedb::table(name = duel_challenge, public)]
+#[spacetimedb::table(accessor = duel_challenge, public)]
 #[derive(Clone)]
 pub struct DuelChallenge {
     #[primary_key]
@@ -352,7 +352,7 @@ pub struct DuelChallenge {
 /// Per-player round bookkeeping for the Ascendant clock: which round we're on, plus
 /// the live battle tally that decides this round's success (won ≥1 battle → a draft).
 /// Public so a client can show the round counter and react to a fresh draft.
-#[spacetimedb::table(name = round_state, public)]
+#[spacetimedb::table(accessor = round_state, public)]
 #[derive(Clone)]
 pub struct RoundState {
     #[primary_key]
@@ -366,7 +366,7 @@ pub struct RoundState {
 /// Per-player Ascendant clock: one self-re-arming row per player, fired by
 /// `resolve_round` at an interval that lengthens as the deck grows past 25 cards.
 /// One-shot `Time` schedules let each fire recompute the next interval from deck size.
-#[spacetimedb::table(name = round_timer, scheduled(resolve_round))]
+#[spacetimedb::table(accessor = round_timer, scheduled(resolve_round))]
 #[derive(Clone)]
 pub struct RoundTimer {
     #[primary_key]
@@ -379,7 +379,7 @@ pub struct RoundTimer {
 // ── Scheduled tick ────────────────────────────────────────────────────────
 
 /// Schedule table: SpacetimeDB calls `tick_sky` per row at the cadence below.
-#[spacetimedb::table(name = sky_tick_timer, scheduled(tick_sky))]
+#[spacetimedb::table(accessor = sky_tick_timer, scheduled(tick_sky))]
 #[derive(Clone)]
 pub struct SkyTickTimer {
     #[primary_key]
@@ -398,7 +398,7 @@ pub struct SkyTickTimer {
 // the same hard horizon gate `resolve_star_battle` uses for star strikes.
 
 /// A constellation pool's frozen metadata, seeded from `constellations::CONSTELLATIONS`.
-#[spacetimedb::table(name = constellation, public)]
+#[spacetimedb::table(accessor = constellation, public)]
 #[derive(Clone)]
 pub struct Constellation {
     #[primary_key]
@@ -414,7 +414,7 @@ pub struct Constellation {
 }
 
 /// One member star of a constellation figure (indexed for per-figure visibility sweeps).
-#[spacetimedb::table(name = constellation_star, public)]
+#[spacetimedb::table(accessor = constellation_star, public)]
 #[derive(Clone)]
 pub struct ConstellationStar {
     #[primary_key]
@@ -427,7 +427,7 @@ pub struct ConstellationStar {
 
 /// One stick-figure line segment of a constellation (a HIP-id pair), for the
 /// client to draw and the data model to expose.
-#[spacetimedb::table(name = constellation_line, public)]
+#[spacetimedb::table(accessor = constellation_line, public)]
 #[derive(Clone)]
 pub struct ConstellationLine {
     #[primary_key]
@@ -444,7 +444,7 @@ pub struct ConstellationLine {
 /// the figure is risen over the trader's location. The attestor service watches
 /// for `attested == false` rows, re-verifies, signs the EIP-712 attestation, and
 /// writes a `trace_attestation`. Public so the trader's client sees the result.
-#[spacetimedb::table(name = trace_intent, public)]
+#[spacetimedb::table(accessor = trace_intent, public)]
 #[derive(Clone)]
 pub struct TraceIntent {
     #[primary_key]
@@ -462,7 +462,7 @@ pub struct TraceIntent {
 /// The signed EIP-712 VisibilityAttestation the client submits with `seedLiquidity`/
 /// `swap`. Written by the attestor service (owner-gated `answer_trace`). All fields
 /// mirror the on-chain struct exactly; `region_commit` and `signature` are 0x-hex.
-#[spacetimedb::table(name = trace_attestation, public)]
+#[spacetimedb::table(accessor = trace_attestation, public)]
 #[derive(Clone)]
 pub struct TraceAttestation {
     #[primary_key]
@@ -485,7 +485,7 @@ pub struct TraceAttestation {
 // the on-chain ConstellationDeed block when the richer pool is later seeded).
 
 /// Per-constellation runtime resolution state (one row per figure).
-#[spacetimedb::table(name = constellation_resolution, public)]
+#[spacetimedb::table(accessor = constellation_resolution, public)]
 #[derive(Clone)]
 pub struct ConstellationResolution {
     #[primary_key]
@@ -497,7 +497,7 @@ pub struct ConstellationResolution {
 }
 
 /// One minted block: a star added to a figure, raising its resolution. Append-only.
-#[spacetimedb::table(name = constellation_block, public)]
+#[spacetimedb::table(accessor = constellation_block, public)]
 #[derive(Clone)]
 pub struct ConstellationBlock {
     #[primary_key]
@@ -517,7 +517,7 @@ pub struct ConstellationBlock {
 
 /// A bright catalogue star promoted to an agent (chat + jings), keyed by the same
 /// hip_id as its StarNode — no new identity space, no Planet-enum growth.
-#[spacetimedb::table(name = star_agent, public)]
+#[spacetimedb::table(accessor = star_agent, public)]
 #[derive(Clone)]
 pub struct StarAgent {
     #[primary_key]
@@ -535,7 +535,7 @@ pub struct StarAgent {
 // `Planet` enum (which is a primary-key type; growing it would force a
 // destructive migration). New rows = new comets; the client reads the osculating
 // elements to place each comet on the ecliptic.
-#[spacetimedb::table(name = comet, public)]
+#[spacetimedb::table(accessor = comet, public)]
 #[derive(Clone)]
 pub struct Comet {
     #[primary_key]
@@ -561,7 +561,7 @@ pub struct Comet {
 /// A standalone Jing duel thread. Public so both sides watch it resolve. Exactly
 /// one of `target_player` / `target_agent` is set (agent duels are answered by the
 /// owner-gated `answer_jing`, mirroring answer_oracle/answer_trace).
-#[spacetimedb::table(name = jing_duel, public)]
+#[spacetimedb::table(accessor = jing_duel, public)]
 #[derive(Clone)]
 pub struct JingDuel {
     #[primary_key]
@@ -580,7 +580,7 @@ pub struct JingDuel {
 }
 
 /// One cast in a duel thread (cast or counter). Append-only; pruned with history.
-#[spacetimedb::table(name = jing_cast, public)]
+#[spacetimedb::table(accessor = jing_cast, public)]
 #[derive(Clone)]
 pub struct JingCast {
     #[primary_key]
@@ -601,7 +601,7 @@ pub struct JingCast {
 /// The player's Sacred-7 + ESMS consciousness pools a Jing cast drains
 /// (game-side, mirrored — ESMS on-chain is soulbound and never burned here).
 /// Public so the agent page can surface the authoritative pool when live.
-#[spacetimedb::table(name = jing_pool, public)]
+#[spacetimedb::table(accessor = jing_pool, public)]
 #[derive(Clone)]
 pub struct JingPool {
     #[primary_key]
@@ -612,7 +612,7 @@ pub struct JingPool {
 }
 
 /// Per-player Jing cast cooldown (private). Stops spam-draining.
-#[spacetimedb::table(name = jing_rate)]
+#[spacetimedb::table(accessor = jing_rate)]
 #[derive(Clone)]
 pub struct JingRate {
     #[primary_key]

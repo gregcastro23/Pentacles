@@ -57,7 +57,11 @@ class Wallet {
     this.address = getAddress(accounts[0])
     this.chainId = Number(await eth.request({ method: 'eth_chainId' }))
     this.connected = true
-    localStorage.setItem(RECONNECT_KEY, '1')
+    if (window.CookieSync) {
+      window.CookieSync.persist(RECONNECT_KEY, '1')
+    } else {
+      localStorage.setItem(RECONNECT_KEY, '1')
+    }
     this._wire(eth)
     this._emit()
     return this.address
@@ -118,13 +122,18 @@ class Wallet {
     this.connected = false
     this.chainId = null
     this.source = null
-    localStorage.removeItem(RECONNECT_KEY)
+    if (window.CookieSync) {
+      window.CookieSync.persist(RECONNECT_KEY, null)
+    } else {
+      localStorage.removeItem(RECONNECT_KEY)
+    }
     this._emit()
   }
 
   /** Silent reconnect on load (no wallet prompt) if previously connected. */
   async tryReconnect() {
-    if (localStorage.getItem(RECONNECT_KEY) !== '1') return
+    const reconnectVal = window.CookieSync ? window.CookieSync.getCookie(RECONNECT_KEY) : localStorage.getItem(RECONNECT_KEY)
+    if (reconnectVal !== '1') return
     const eth = window.ethereum
     if (!eth) return
     try {
@@ -148,8 +157,19 @@ class Wallet {
     this.address = address ? getAddress(address) : null
     this.chainId = chainId ?? this.chainId
     this.connected = !!address
-    if (this.connected) localStorage.setItem(RECONNECT_KEY, '1')
-    else localStorage.removeItem(RECONNECT_KEY)
+    if (this.connected) {
+      if (window.CookieSync) {
+        window.CookieSync.persist(RECONNECT_KEY, '1')
+      } else {
+        localStorage.setItem(RECONNECT_KEY, '1')
+      }
+    } else {
+      if (window.CookieSync) {
+        window.CookieSync.persist(RECONNECT_KEY, null)
+      } else {
+        localStorage.removeItem(RECONNECT_KEY)
+      }
+    }
     this._emit()
   }
 }

@@ -65,13 +65,13 @@ const SEED_BATCH_PER_TICK: usize = 512;
 
 // ── Lifecycle ─────────────────────────────────────────────────────────────
 
-/// Runs once on first publish (and after a clear). `ctx.sender` is the owner.
+/// Runs once on first publish (and after a clear). `ctx.sender()` is the owner.
 #[reducer(init)]
 pub fn init(ctx: &ReducerContext) {
     if ctx.db.game_config().id().find(&0).is_none() {
         ctx.db.game_config().insert(GameConfig {
             id: 0,
-            owner: ctx.sender,
+            owner: ctx.sender(),
             season_degree: 0,
             ascendant_degree: 0,
             seeded: false,
@@ -150,14 +150,14 @@ pub fn create_player(
     // Server owns identity — never trust a client-supplied one. House cusps,
     // system and interceptions are derived authoritatively here (Placidus, or a
     // Whole-Sign fallback), overwriting whatever the client previewed.
-    let mut chart = NatalChart { identity: ctx.sender, ..chart };
+    let mut chart = NatalChart { identity: ctx.sender(), ..chart };
     chart::populate_houses(&mut chart);
     // Server owns identity — never trust a client-supplied one.
     let chart = NatalChart {
-        identity: ctx.sender,
+        identity: ctx.sender(),
         ..chart
     };
-    if ctx.db.natal_chart().identity().find(&ctx.sender).is_some() {
+    if ctx.db.natal_chart().identity().find(&ctx.sender()).is_some() {
         ctx.db.natal_chart().identity().update(chart.clone());
     } else {
         ctx.db.natal_chart().insert(chart.clone());
@@ -169,7 +169,7 @@ pub fn create_player(
         .db
         .card()
         .owner()
-        .filter(&ctx.sender)
+        .filter(&ctx.sender())
         .map(|c| c.card_id)
         .collect();
     for cid in old_cards {
@@ -179,7 +179,7 @@ pub fn create_player(
         .db
         .deck_slot()
         .owner()
-        .filter(&ctx.sender)
+        .filter(&ctx.sender())
         .map(|s| s.slot_id)
         .collect();
     for sid in old_slots {
@@ -188,18 +188,18 @@ pub fn create_player(
 
     let asc_sign = ((chart.ascendant / 1800) % 12) as u8;
     let chart_ruler = chart::sign_ruler(asc_sign);
-    let (deck_seed, _n) = chart::mint_deck(ctx, ctx.sender, &chart, chart_ruler);
+    let (deck_seed, _n) = chart::mint_deck(ctx, ctx.sender(), &chart, chart_ruler);
 
     // Re-registration re-mints the deck but must never wipe the token wallet / ladder.
     let (tokens, word_wins) = ctx
         .db
         .player()
         .identity()
-        .find(&ctx.sender)
+        .find(&ctx.sender())
         .map(|p| (p.tokens, p.word_wins))
         .unwrap_or((0, 0));
     let player = Player {
-        identity: ctx.sender,
+        identity: ctx.sender(),
         handle,
         faction,
         deck_seed,
@@ -208,7 +208,7 @@ pub fn create_player(
         tokens,
         word_wins,
     };
-    if ctx.db.player().identity().find(&ctx.sender).is_some() {
+    if ctx.db.player().identity().find(&ctx.sender()).is_some() {
         ctx.db.player().identity().update(player);
     } else {
         ctx.db.player().insert(player);
@@ -219,20 +219,20 @@ pub fn create_player(
     // re-draft reads the live sky through these freshly-stamped houses each round
     // (`chart::blended_faction_vector` over `live_transits`) — dignity-weighting stays
     // in scoring/minting, never combat (GDD §02).
-    clear_round_timers(ctx, ctx.sender);
+    clear_round_timers(ctx, ctx.sender());
     let rstate = RoundState {
-        identity: ctx.sender,
+        identity: ctx.sender(),
         round_index: 0,
         wins: 0,
         fights: 0,
         last_resolved_at: ctx.timestamp,
     };
-    if ctx.db.round_state().identity().find(&ctx.sender).is_some() {
+    if ctx.db.round_state().identity().find(&ctx.sender()).is_some() {
         ctx.db.round_state().identity().update(rstate);
     } else {
         ctx.db.round_state().insert(rstate);
     }
-    schedule_next_round(ctx, ctx.sender);
+    schedule_next_round(ctx, ctx.sender());
     Ok(())
 }
 
@@ -244,7 +244,7 @@ pub fn set_location(ctx: &ReducerContext, lat: f64, lon: f64) -> Result<(), Stri
         return Err("lat/lon out of range".into());
     }
     let row = PlayerLocation {
-        identity: ctx.sender,
+        identity: ctx.sender(),
         lat,
         lon,
         updated_at: ctx.timestamp,
@@ -253,7 +253,7 @@ pub fn set_location(ctx: &ReducerContext, lat: f64, lon: f64) -> Result<(), Stri
         .db
         .player_location()
         .identity()
-        .find(&ctx.sender)
+        .find(&ctx.sender())
         .is_some()
     {
         ctx.db.player_location().identity().update(row);
@@ -271,7 +271,7 @@ pub fn set_loadout(ctx: &ReducerContext, card_id: u64, loadout: Loadout) -> Resu
         .deck_slot()
         .card_id()
         .filter(&card_id)
-        .find(|s| s.owner == ctx.sender)
+        .find(|s| s.owner == ctx.sender())
         .ok_or_else(|| "card slot not found or not owned by you".to_string())?;
 
     if slot.loadout == loadout {
@@ -284,7 +284,7 @@ pub fn set_loadout(ctx: &ReducerContext, card_id: u64, loadout: Loadout) -> Resu
                 .db
                 .deck_slot()
                 .owner()
-                .filter(&ctx.sender)
+                .filter(&ctx.sender())
                 .filter(|s| s.loadout == Loadout::Active)
                 .count();
             if active_count >= ACTIVE_LIMIT {
@@ -296,7 +296,7 @@ pub fn set_loadout(ctx: &ReducerContext, card_id: u64, loadout: Loadout) -> Resu
                 .db
                 .deck_slot()
                 .owner()
-                .filter(&ctx.sender)
+                .filter(&ctx.sender())
                 .filter(|s| s.loadout == Loadout::Defense)
                 .count();
             if defense_count >= DEFENSE_LIMIT {
@@ -346,7 +346,7 @@ pub fn combine_cards(ctx: &ReducerContext, keep_id: u64, consume_id: u64) -> Res
         .card_id()
         .find(&consume_id)
         .ok_or("no such card")?;
-    if keep.owner != ctx.sender || consume.owner != ctx.sender {
+    if keep.owner != ctx.sender() || consume.owner != ctx.sender() {
         return Err("you can only combine your own cards".into());
     }
     if keep.suit != consume.suit || keep.rank != consume.rank || keep.is_trump != consume.is_trump {
@@ -381,7 +381,7 @@ pub fn propose_trade(
     offer: Vec<u64>,
     request: Vec<u64>,
 ) -> Result<(), String> {
-    if partner == ctx.sender {
+    if partner == ctx.sender() {
         return Err("you can't trade with yourself".into());
     }
     if offer.is_empty() && request.is_empty() {
@@ -397,7 +397,7 @@ pub fn propose_trade(
             .card_id()
             .find(cid)
             .ok_or("you offered a card that doesn't exist")?;
-        if c.owner != ctx.sender {
+        if c.owner != ctx.sender() {
             return Err("you can only offer your own cards".into());
         }
     }
@@ -414,7 +414,7 @@ pub fn propose_trade(
     }
     ctx.db.trade().insert(Trade {
         trade_id: 0,
-        proposer: ctx.sender,
+        proposer: ctx.sender(),
         partner,
         offer,
         request,
@@ -440,9 +440,9 @@ pub fn confirm_trade(ctx: &ReducerContext, trade_id: u64) -> Result<(), String> 
     if t.state != TradeState::Open {
         return Err("this trade is already closed".into());
     }
-    if ctx.sender == t.proposer {
+    if ctx.sender() == t.proposer {
         t.proposer_ok = true;
-    } else if ctx.sender == t.partner {
+    } else if ctx.sender() == t.partner {
         t.partner_ok = true;
     } else {
         return Err("this trade isn't yours".into());
@@ -490,7 +490,7 @@ pub fn cancel_trade(ctx: &ReducerContext, trade_id: u64) -> Result<(), String> {
         .trade_id()
         .find(&trade_id)
         .ok_or("no such trade")?;
-    if ctx.sender != t.proposer && ctx.sender != t.partner {
+    if ctx.sender() != t.proposer && ctx.sender() != t.partner {
         return Err("this trade isn't yours".into());
     }
     if t.state == TradeState::Open {
@@ -542,7 +542,7 @@ pub fn resolve_star_battle(
         .db
         .player()
         .identity()
-        .find(&ctx.sender)
+        .find(&ctx.sender())
         .ok_or_else(|| "register first".to_string())?;
     let mut star = ctx
         .db
@@ -557,7 +557,7 @@ pub fn resolve_star_battle(
         .db
         .player_location()
         .identity()
-        .find(&ctx.sender)
+        .find(&ctx.sender())
         .ok_or_else(|| "set your location first (set_location)".to_string())?;
     let alt = altitude_deg(star.ra, star.dec, loc.lat, loc.lon, ctx.timestamp);
     if alt < MIN_ALT_DEG {
@@ -587,10 +587,10 @@ pub fn resolve_star_battle(
             .card_id()
             .find(cid)
             .ok_or_else(|| "card not found".to_string())?;
-        if c.owner != ctx.sender {
+        if c.owner != ctx.sender() {
             return Err("you can only strike with your own cards".into());
         }
-        if !has_loadout(ctx, ctx.sender, *cid, Loadout::Active) {
+        if !has_loadout(ctx, ctx.sender(), *cid, Loadout::Active) {
             return Err("only Active cards can strike; move the card into Active first".into());
         }
         attacker.push(stat_of(&c));
@@ -700,13 +700,13 @@ pub fn resolve_star_battle(
 
     // Cards are no longer minted on capture; a won fight feeds this round's success
     // tally, and the Ascendant clock drafts the reward at round end.
-    tally_fight(ctx, ctx.sender, won);
+    tally_fight(ctx, ctx.sender(), won);
 
     // Log the battle outcome for the client UI
     ctx.db.battle().insert(Battle {
         battle_id: 0,
         star_id: hip_id,
-        attacker: ctx.sender,
+        attacker: ctx.sender(),
         won,
         attacker_score: ap as u32,
         defense_rating: dp as u32,
@@ -727,7 +727,7 @@ pub fn enqueue_duel(ctx: &ReducerContext, zone_id: u8) -> Result<(), String> {
         .db
         .player()
         .identity()
-        .find(&ctx.sender)
+        .find(&ctx.sender())
         .ok_or_else(|| "register first".to_string())?;
 
     if !can_access_zone(ctx, me.faction, zone_id) {
@@ -738,7 +738,7 @@ pub fn enqueue_duel(ctx: &ReducerContext, zone_id: u8) -> Result<(), String> {
         .db
         .duel_queue()
         .iter()
-        .find(|t| t.zone_id == zone_id && t.seeker != ctx.sender);
+        .find(|t| t.zone_id == zone_id && t.seeker != ctx.sender());
 
     match waiting {
         Some(t) => {
@@ -752,7 +752,7 @@ pub fn enqueue_duel(ctx: &ReducerContext, zone_id: u8) -> Result<(), String> {
             // Surface the pairing's synastry for matchmaking telemetry — read-only,
             // never leaked to clients and never touching the duel's resolution.
             if let (Some(my_chart), Some(opp_chart)) = (
-                ctx.db.natal_chart().identity().find(&ctx.sender),
+                ctx.db.natal_chart().identity().find(&ctx.sender()),
                 ctx.db.natal_chart().identity().find(&t.seeker),
             ) {
                 let syn = chart::synastry(&opp_chart, &my_chart);
@@ -765,7 +765,7 @@ pub fn enqueue_duel(ctx: &ReducerContext, zone_id: u8) -> Result<(), String> {
                 duel_id: 0,
                 zone_id,
                 player_a: t.seeker,
-                player_b: ctx.sender,
+                player_b: ctx.sender(),
                 faction_a: opp.faction,
                 faction_b: me.faction,
                 a_cards: vec![0, 0, 0],
@@ -785,12 +785,12 @@ pub fn enqueue_duel(ctx: &ReducerContext, zone_id: u8) -> Result<(), String> {
                 .db
                 .duel_queue()
                 .iter()
-                .any(|t| t.zone_id == zone_id && t.seeker == ctx.sender);
+                .any(|t| t.zone_id == zone_id && t.seeker == ctx.sender());
             if !dup {
                 ctx.db.duel_queue().insert(DuelQueue {
                     ticket_id: 0,
                     zone_id,
-                    seeker: ctx.sender,
+                    seeker: ctx.sender(),
                     enqueued_at: ctx.timestamp,
                 });
             }
@@ -817,8 +817,8 @@ pub fn commit_duel(
     if duel.state != DuelState::Active {
         return Err("duel already resolved".into());
     }
-    let is_a = duel.player_a == ctx.sender;
-    let is_b = duel.player_b == ctx.sender;
+    let is_a = duel.player_a == ctx.sender();
+    let is_b = duel.player_b == ctx.sender();
     if !is_a && !is_b {
         return Err("not your duel".into());
     }
@@ -833,10 +833,10 @@ pub fn commit_duel(
             .card_id()
             .find(&cid)
             .ok_or_else(|| "card not found".to_string())?;
-        if c.owner != ctx.sender {
+        if c.owner != ctx.sender() {
             return Err("not your card".into());
         }
-        if !has_loadout(ctx, ctx.sender, cid, Loadout::Active) {
+        if !has_loadout(ctx, ctx.sender(), cid, Loadout::Active) {
             return Err("duel lanes can only use Active cards".into());
         }
     }
@@ -963,7 +963,7 @@ pub fn claim_duel_timeout(ctx: &ReducerContext, duel_id: u64) -> Result<(), Stri
     if duel.state != DuelState::Active {
         return Err("duel already resolved".into());
     }
-    if duel.player_a != ctx.sender && duel.player_b != ctx.sender {
+    if duel.player_a != ctx.sender() && duel.player_b != ctx.sender() {
         return Err("not your duel".into());
     }
     if elapsed_secs(ctx.timestamp, duel.updated_at) < DUEL_GRACE_SECS {
@@ -1241,7 +1241,7 @@ pub fn push_ephemeris(
         .id()
         .find(&0)
         .ok_or_else(|| "not initialised".to_string())?;
-    if ctx.sender != cfg.owner {
+    if ctx.sender() != cfg.owner {
         return Err("owner-only reducer".into());
     }
     let body = Planet::from_idx(body_idx);
@@ -1501,7 +1501,7 @@ fn schedule_next_round(ctx: &ReducerContext, player: Identity) {
 #[reducer]
 pub fn resolve_round(ctx: &ReducerContext, timer: RoundTimer) {
     // Scheduled reducers must be driven only by the scheduler, never a client.
-    if ctx.sender != ctx.identity() {
+    if ctx.sender() != ctx.database_identity() {
         return;
     }
     let player_id = timer.player;
@@ -1600,18 +1600,18 @@ pub fn ask_oracle(
     }
 
     // Per-player cooldown — a rejected attempt does not reset the clock.
-    if let Some(rate) = ctx.db.oracle_rate().identity().find(&ctx.sender) {
+    if let Some(rate) = ctx.db.oracle_rate().identity().find(&ctx.sender()) {
         if elapsed_secs(ctx.timestamp, rate.last_at) < ORACLE_COOLDOWN_SECS {
             return Err("the Oracle is still considering your last question".into());
         }
         ctx.db.oracle_rate().identity().update(OracleRate {
-            identity: ctx.sender,
+            identity: ctx.sender(),
             last_at: ctx.timestamp,
             count: rate.count + 1,
         });
     } else {
         ctx.db.oracle_rate().insert(OracleRate {
-            identity: ctx.sender,
+            identity: ctx.sender(),
             last_at: ctx.timestamp,
             count: 1,
         });
@@ -1624,7 +1624,7 @@ pub fn ask_oracle(
         if let Some(hit) = ctx.db.oracle_cache().qhash().find(&qhash) {
             let req = ctx.db.oracle_request().insert(OracleRequest {
                 request_id: 0,
-                asker: ctx.sender,
+                asker: ctx.sender(),
                 question: q.to_string(),
                 context,
                 cacheable,
@@ -1634,7 +1634,7 @@ pub fn ask_oracle(
             });
             ctx.db.oracle_reply().insert(OracleReply {
                 request_id: req.request_id,
-                asker: ctx.sender,
+                asker: ctx.sender(),
                 text: hit.text,
                 model: "cache".into(),
                 created_at: ctx.timestamp,
@@ -1646,7 +1646,7 @@ pub fn ask_oracle(
     // Miss: queue for the companion service to answer via `answer_oracle`.
     ctx.db.oracle_request().insert(OracleRequest {
         request_id: 0,
-        asker: ctx.sender,
+        asker: ctx.sender(),
         question: q.to_string(),
         context,
         cacheable,
@@ -1673,7 +1673,7 @@ pub fn answer_oracle(
         .id()
         .find(&0)
         .ok_or_else(|| "not initialised".to_string())?;
-    if ctx.sender != cfg.owner {
+    if ctx.sender() != cfg.owner {
         return Err("owner-only reducer".into());
     }
     let mut req = ctx
@@ -1783,7 +1783,7 @@ pub fn cast_word(ctx: &ReducerContext, word: String, opponent: Planet) -> Result
         .db
         .player()
         .identity()
-        .find(&ctx.sender)
+        .find(&ctx.sender())
         .is_none()
     {
         return Err("register a Seeker first".into());
@@ -1801,26 +1801,26 @@ pub fn cast_word(ctx: &ReducerContext, word: String, opponent: Planet) -> Result
     }
 
     // Per-player cooldown — a rejected cast above never starts the clock.
-    if let Some(rate) = ctx.db.word_rate().identity().find(&ctx.sender) {
+    if let Some(rate) = ctx.db.word_rate().identity().find(&ctx.sender()) {
         if elapsed_secs(ctx.timestamp, rate.last_at) < WORD_DUEL_COOLDOWN_SECS {
             return Err("the spheres still echo your last word — wait a moment".into());
         }
     }
 
     // You must hold the letters across your lettered Arcana.
-    let have = player_letters(ctx, ctx.sender);
+    let have = player_letters(ctx, ctx.sender());
     if !words::can_spell(&w, &have) {
         return Err("your Arcana don't hold the letters for that word".into());
     }
 
     // Start/refresh the cooldown only now the cast is valid.
-    if let Some(mut rate) = ctx.db.word_rate().identity().find(&ctx.sender) {
+    if let Some(mut rate) = ctx.db.word_rate().identity().find(&ctx.sender()) {
         rate.last_at = ctx.timestamp;
         rate.plays += 1;
         ctx.db.word_rate().identity().update(rate);
     } else {
         ctx.db.word_rate().insert(WordRate {
-            identity: ctx.sender,
+            identity: ctx.sender(),
             last_at: ctx.timestamp,
             plays: 1,
         });
@@ -1853,7 +1853,7 @@ pub fn cast_word(ctx: &ReducerContext, word: String, opponent: Planet) -> Result
 
     ctx.db.duel_challenge().insert(DuelChallenge {
         challenge_id: 0,
-        player: ctx.sender,
+        player: ctx.sender(),
         opponent,
         player_word: w,
         player_score,
@@ -2291,7 +2291,7 @@ pub fn trace_constellation(
         .db
         .player_location()
         .identity()
-        .find(&ctx.sender)
+        .find(&ctx.sender())
         .ok_or_else(|| "set your location first (set_location)".to_string())?;
     let con = ctx
         .db
@@ -2322,7 +2322,7 @@ pub fn trace_constellation(
 
     ctx.db.trace_intent().insert(TraceIntent {
         intent_id: 0,
-        trader: ctx.sender,
+        trader: ctx.sender(),
         evm_address: evm,
         constellation_id,
         visible_stars: visible,
@@ -2351,7 +2351,7 @@ pub fn answer_trace(
         .id()
         .find(&0)
         .ok_or_else(|| "not initialised".to_string())?;
-    if ctx.sender != cfg.owner {
+    if ctx.sender() != cfg.owner {
         return Err("owner-only reducer".into());
     }
     let mut intent = ctx
@@ -2395,7 +2395,7 @@ pub fn answer_duel(
         .id()
         .find(&0)
         .ok_or_else(|| "not initialised".to_string())?;
-    if ctx.sender != cfg.owner {
+    if ctx.sender() != cfg.owner {
         return Err("owner-only reducer".into());
     }
 
@@ -2463,13 +2463,13 @@ pub fn add_star_to_constellation(
     ctx.db
         .player()
         .identity()
-        .find(&ctx.sender)
+        .find(&ctx.sender())
         .ok_or_else(|| "register first".to_string())?;
     let loc = ctx
         .db
         .player_location()
         .identity()
-        .find(&ctx.sender)
+        .find(&ctx.sender())
         .ok_or_else(|| "set your location first (set_location)".to_string())?;
     let mut con = ctx
         .db
@@ -2538,7 +2538,7 @@ pub fn add_star_to_constellation(
     ctx.db.constellation_block().insert(ConstellationBlock {
         block_id: 0,
         constellation_id,
-        minter: ctx.sender,
+        minter: ctx.sender(),
         hip_id,
         level_after: level,
         onchain_block: None,
@@ -2670,36 +2670,36 @@ pub fn cast_jing(
     ctx.db
         .player()
         .identity()
-        .find(&ctx.sender)
+        .find(&ctx.sender())
         .ok_or_else(|| "register first".to_string())?;
     if target_player.is_some() == target_agent.is_some() {
         return Err("cast at exactly one target (a player or an agent)".into());
     }
-    if let Some(rate) = ctx.db.jing_rate().identity().find(&ctx.sender) {
+    if let Some(rate) = ctx.db.jing_rate().identity().find(&ctx.sender()) {
         if elapsed_secs(ctx.timestamp, rate.last_at) < JING_COOLDOWN_SECS {
             return Err("steady — your last Jing still echoes".into());
         }
         ctx.db.jing_rate().identity().update(JingRate {
-            identity: ctx.sender,
+            identity: ctx.sender(),
             last_at: ctx.timestamp,
             casts: rate.casts + 1,
         });
     } else {
         ctx.db.jing_rate().insert(JingRate {
-            identity: ctx.sender,
+            identity: ctx.sender(),
             last_at: ctx.timestamp,
             casts: 1,
         });
     }
 
-    let mut pool = ensure_jing_pool(ctx, ctx.sender);
+    let mut pool = ensure_jing_pool(ctx, ctx.sender());
     drain_pool(&mut pool, mv)?;
     pool.updated_at = ctx.timestamp;
     ctx.db.jing_pool().identity().update(pool);
 
     let duel = ctx.db.jing_duel().insert(JingDuel {
         duel_id: 0,
-        initiator: ctx.sender,
+        initiator: ctx.sender(),
         target_player,
         target_agent,
         opening_move: mv,
@@ -2711,7 +2711,7 @@ pub fn cast_jing(
     ctx.db.jing_cast().insert(JingCast {
         cast_id: 0,
         duel_id: duel.duel_id,
-        caster: ctx.sender,
+        caster: ctx.sender(),
         caster_agent: None,
         mv,
         cost_sacred7: mv.sacred7() as u8,
@@ -2730,7 +2730,7 @@ pub fn counter_jing(ctx: &ReducerContext, duel_id: u64, mv: JingMove) -> Result<
     ctx.db
         .player()
         .identity()
-        .find(&ctx.sender)
+        .find(&ctx.sender())
         .ok_or_else(|| "register first".to_string())?;
     let mut duel = ctx
         .db
@@ -2741,7 +2741,7 @@ pub fn counter_jing(ctx: &ReducerContext, duel_id: u64, mv: JingMove) -> Result<
     if duel.state == JingState::Resolved {
         return Err("that duel is already resolved".into());
     }
-    if duel.target_player != Some(ctx.sender) {
+    if duel.target_player != Some(ctx.sender()) {
         return Err("you are not the target of this duel".into());
     }
     let last = ctx
@@ -2755,7 +2755,7 @@ pub fn counter_jing(ctx: &ReducerContext, duel_id: u64, mv: JingMove) -> Result<
         return Err(format!("{:?} does not counter {:?}", mv, last.mv));
     }
 
-    let mut pool = ensure_jing_pool(ctx, ctx.sender);
+    let mut pool = ensure_jing_pool(ctx, ctx.sender());
     drain_pool(&mut pool, mv)?;
     pool.updated_at = ctx.timestamp;
     ctx.db.jing_pool().identity().update(pool);
@@ -2763,7 +2763,7 @@ pub fn counter_jing(ctx: &ReducerContext, duel_id: u64, mv: JingMove) -> Result<
     ctx.db.jing_cast().insert(JingCast {
         cast_id: 0,
         duel_id,
-        caster: ctx.sender,
+        caster: ctx.sender(),
         caster_agent: None,
         mv,
         cost_sacred7: mv.sacred7() as u8,
@@ -2794,7 +2794,7 @@ pub fn answer_jing(
         .id()
         .find(&0)
         .ok_or_else(|| "not initialised".to_string())?;
-    if ctx.sender != cfg.owner {
+    if ctx.sender() != cfg.owner {
         return Err("owner-only reducer".into());
     }
     let mut duel = ctx
@@ -2810,7 +2810,7 @@ pub fn answer_jing(
     ctx.db.jing_cast().insert(JingCast {
         cast_id: 0,
         duel_id,
-        caster: ctx.sender, // the owner answers on the agent's behalf
+        caster: ctx.sender(), // the owner answers on the agent's behalf
         caster_agent: duel.target_agent,
         mv: agent_move,
         cost_sacred7: agent_move.sacred7() as u8,

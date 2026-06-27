@@ -14,6 +14,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
+import { startFeed } from "./stdb-feed";
 
 const run = promisify(execFile);
 
@@ -28,7 +29,6 @@ function getSpacetimeCli(): string {
 const SPACETIMEDB_CLI = getSpacetimeCli();
 const DB = process.env.SPACETIMEDB_DB ?? "cookingwithcastrollc";
 const BACKEND_URL = process.env.PLANETARY_AGENTS_BACKEND_URL ?? "";
-const POLL_INTERVAL_MS = Number(process.env.POLL_INTERVAL_MS ?? "3000");
 const SPACETIMEDB_URI = (process.env.SPACETIMEDB_URI ?? "https://maincloud.spacetimedb.com").replace(/\/+$/, "");
 const SPACETIME_TOKEN = process.env.SPACETIME_TOKEN || "";
 
@@ -50,8 +50,12 @@ function agentVoice(planet: string, opening: string, counter: string): string {
   return `${planet} answers your ${opening} with ${counter} — ${el} folding back on ${el === "water" ? "your heat" : "your stance"}.`;
 }
 
+// SpacetimeDB 2.x names sum variants in camelCase (lower-first: Vacuum→vacuum,
+// TectonicRoot→tectonicRoot); PascalCase is rejected by the reducer.
+const lowerFirst = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
+
 async function answerJing(duelId: number, move: string, voice: string): Promise<void> {
-  const argMove = { [move]: [] };
+  const argMove = { [lowerFirst(move)]: [] };
   if (SPACETIME_TOKEN) {
     const res = await fetch(`${SPACETIMEDB_URI}/v1/database/${DB}/call/answer_jing`, {
       method: "POST",
@@ -92,54 +96,18 @@ async function backendMove(planet: string, opening: string): Promise<{ move: str
   }
 }
 
-function parseValue(val: any): string {
-  if (val == null) return "";
-  if (typeof val === "object") return (val as any).__identity__ ?? JSON.stringify(val);
-  return String(val);
+// Open agent-targeted duel: state Open AND target_agent is a Planet variant name.
+function isOpenAgentDuel(row: Record<string, any>): boolean {
+  const agent = row.target_agent;
+  return row.state === "Open" && typeof agent === "string" && /^[A-Za-z]+$/.test(agent);
 }
 
-function decodeSats(type: any, val: any): any {
-  if (!type) return val;
-  if (type.Sum) {
-    const variants = type.Sum.variants ?? [];
-    if (!Array.isArray(val)) return val;
-    const [tag, payload] = val;
-    const variant = variants[tag];
-    const vname = (variant && (variant.name?.some ?? variant.name)) ?? String(tag);
-    const isOption = variants.length === 2 && variants.some((v: any) => (v?.name?.some ?? v?.name) === "none");
-    if (isOption) return vname === "none" ? null : decodeSats(variant?.algebraic_type, payload);
-    return vname;
-  }
-  return val;
-}
-
-async function queryRows(sql: string): Promise<Array<Record<string, any>>> {
-  const headers: Record<string, string> = { "Content-Type": "text/plain" };
-  if (SPACETIME_TOKEN) {
-    headers["Authorization"] = `Bearer ${SPACETIME_TOKEN}`;
-  }
-  const res = await fetch(`${SPACETIMEDB_URI}/v1/database/${DB}/sql`, {
-    method: "POST",
-    headers,
-    body: sql,
-  });
-  if (!res.ok) throw new Error(`sql ${res.status}: ${await res.text().catch(() => "")}`);
-  const json: any = await res.json();
-  const stmt = Array.isArray(json) ? json[json.length - 1] : json;
-  const els = stmt?.schema?.elements ?? [];
-  const cols = els.map((e: any, i: number) => (typeof e?.name === "string" ? e.name : e?.name?.some ?? `col${i}`));
-  const types = els.map((e: any) => e?.algebraic_type);
-  return (stmt?.rows ?? []).map((row: any[]) => {
-    const o: Record<string, any> = {};
-    row.forEach((v, i) => (o[cols[i] ?? `col${i}`] = decodeSats(types[i], v)));
-    return o;
-  });
-}
-
-async function processDuel(row: Record<string, string>): Promise<void> {
-  const duelId = Number(parseValue(row.duel_id));
-  const opening = parseValue(row.opening_move); // variant name, e.g. "Meltdown"
-  const agent = parseValue(row.target_agent);   // Option<Planet> → "Mars" or "(none)"-ish
+async function processDuel(row: Record<string, any>): Promise<void> {
+  // Rows arrive normalized: opening_move/target_agent are variant-name strings
+  // ("Meltdown" / "Mars"), target_agent is null for player-vs-player duels.
+  const duelId = Number(row.duel_id);
+  const opening = String(row.opening_move ?? "");
+  const agent = typeof row.target_agent === "string" ? row.target_agent : "";
   if (isNaN(duelId) || !COUNTER_OF[opening]) {
     console.error(`[Jing] Skipping duel ${row.duel_id} (opening "${opening}")`);
     return;
@@ -157,32 +125,25 @@ async function processDuel(row: Record<string, string>): Promise<void> {
   }
 }
 
-async function checkOpenDuels(): Promise<void> {
-  try {
-    // Open duels aimed at an agent (target_agent set). SpacetimeDB SQL has no rich
-    // Option predicate; we fetch OPEN duels and skip player-vs-player ones here.
-    const rows = await queryRows(
-      "SELECT duel_id, opening_move, target_agent, target_player FROM jing_duel WHERE state = 'Open'"
-    );
-    const filtered = rows.filter((r) => {
-      const ta = parseValue(r.target_agent);
-      return ta && ta !== "(none)" && /^[A-Za-z]+$/.test(ta);
-    });
-    if (!filtered.length) return;
-    console.log(`[Jing] ${filtered.length} open agent duel(s).`);
-    for (const row of filtered) await processDuel(row);
-  } catch (err) {
-    console.error("[Jing] poll error:", (err as Error).message.split("\n")[0]);
-  }
-}
-
 async function main(): Promise<void> {
   console.log(`Pentacles Jing Arena companion starting.`);
   console.log(`  Database: ${DB}`);
   console.log(`  Backend:  ${BACKEND_URL || "(local counter pick)"}`);
-  console.log(`  Interval: ${POLL_INTERVAL_MS}ms\n`);
-  const loop = async () => { await checkOpenDuels(); setTimeout(loop, POLL_INTERVAL_MS); };
-  loop();
+  console.log(`  Transport: WebSocket subscription (reactive)\n`);
+
+  // React to open agent-targeted Jing duels. Subscribe to the whole table and
+  // filter client-side (enum + Option predicates aren't expressed in the query).
+  startFeed({
+    uri: SPACETIMEDB_URI,
+    db: DB,
+    token: SPACETIME_TOKEN || undefined,
+    table: "jing_duel",
+    query: "SELECT * FROM jing_duel",
+    idField: "duel_id",
+    accept: isOpenAgentDuel,
+    label: "Jing",
+    onRow: processDuel,
+  });
 }
 
 main();

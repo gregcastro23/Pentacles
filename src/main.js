@@ -12,7 +12,7 @@
 // inline `onclick="fn()"` handlers and classic scripts can call it.
 
 import './ui/ui.css'
-import { isAddress, getAddress } from 'viem'
+import { isAddress, getAddress, formatUnits } from 'viem'
 import { toast, confirmToast } from './ui/toast.js'
 import { initA11y } from './ui/a11y.js'
 import spacetime from './net/spacetime.js'
@@ -23,6 +23,10 @@ import { installDashboards } from './net/dashboards.js'
 import wallet from './web3/wallet.js'
 import { initEsmsHud } from './web3/hud.js'
 import { installPoolsUI } from './web3/pools-ui.js'
+import AlchmChart from './alchm-chart/index.js'
+import './alchm-chart/alchm-chart.css'
+import * as dex from './web3/dex.js'
+import { ESMS_DECIMALS } from './web3/esms.js'
 
 const Pentacles = (window.Pentacles = window.Pentacles || {})
 Pentacles.version = '0.2.0'
@@ -60,12 +64,92 @@ Pentacles.register = register
 // Wallet façade (injected now; Dynamic island layers on top in dynamic.js).
 Pentacles.wallet = wallet
 
+// ── ✦ Alchm Chart: the embeddable SMES landscape, mounted into a full-screen overlay ──
+Pentacles.dex = dex
+let acEsc = null
+function acObserver() {
+  const o = window.state && window.state.observer
+  return o && Number.isFinite(o.lat) ? { lat: o.lat, lon: o.lon } : { lat: 40.7128, lon: -74.006 }
+}
+function acNatalProfile() {
+  const ch = window.state && window.state.player && window.state.player.chart
+  if (!ch) return null
+  return {
+    ...ch,
+    birth_unix: Number(ch.birth_unix) || 0,
+    birth_lat: Number(ch.birth_lat ?? acObserver().lat),
+    birth_lon: Number(ch.birth_lon ?? acObserver().lon),
+  }
+}
+function acProviders() {
+  const sky = window.PentaclesSky || {}
+  return {
+    sky,
+    chart: {
+      mundane: (lat, lon, date, opts) => window.AstroWeather && window.AstroWeather.chartOfMoment(lat, lon, date, opts),
+      natal: (date) => (window.buildRealNatal ? window.buildRealNatal(acNatalProfile(), date) : null),
+      lonAt: (body, date) => (sky.lonAt ? sky.lonAt(body, date) : 0),
+    },
+    amm: {
+      readAllPools: () => dex.readAllPools(),
+      toNumber: (raw) => {
+        try { return Number(formatUnits(raw ?? 0n, ESMS_DECIMALS)) } catch { return 0 }
+      },
+      onChange: (cb) => wallet.onChange(() => cb()),
+    },
+    wallet,
+  }
+}
+function openAlchmChart() {
+  const ov = document.getElementById('alchm-overlay')
+  const host = document.getElementById('alchm-chart-host')
+  if (!ov || !host) return
+  try {
+    if (!Pentacles.chart) {
+      Pentacles.chart = AlchmChart.create({
+        el: host,
+        providers: acProviders(),
+        pools: (window.PentaclesSky || {}).CONSTELLATIONS,
+        observer: acObserver(),
+      })
+      Pentacles.chart.mount()
+    } else {
+      Pentacles.chart.update({ date: new Date(), observer: acObserver() })
+      Pentacles.chart.refreshPools()
+    }
+  } catch (e) {
+    console.error('[Pentacles] Alchm Chart failed to mount', e)
+    if (window.toast) window.toast('Alchm Chart failed to open — see console.', { type: 'error' })
+    return
+  }
+  ov.classList.add('is-open')
+  ov.onclick = (e) => { if (e.target === ov) closeAlchmChart() }
+  acEsc = (e) => { if (e.key === 'Escape') closeAlchmChart() }
+  document.addEventListener('keydown', acEsc)
+}
+function closeAlchmChart() {
+  const ov = document.getElementById('alchm-overlay')
+  if (ov) ov.classList.remove('is-open')
+  if (acEsc) { document.removeEventListener('keydown', acEsc); acEsc = null }
+}
+window.openAlchmChart = openAlchmChart
+window.closeAlchmChart = closeAlchmChart
+Pentacles.openChart = openAlchmChart
+
 function boot() {
   initA11y()
   initNetBadge()
   // Attempt the live connection in the background; the badge reflects the result
   // and the game keeps running on local simulation either way.
-  spacetime.connect().catch(() => {})
+  spacetime.connect()
+    .then((isLive) => {
+      if (isLive && window.state) {
+        import('./net/restore.js')
+          .then((m) => m.restoreProfileFromSpacetimeDB(spacetime, window.state))
+          .catch((e) => console.warn('[Pentacles] Profile restore failed', e))
+      }
+    })
+    .catch(() => {})
 
   // ESMS balance HUD (live balanceOfBatch when a wallet is on Base Sepolia, else
   // labeled simulation). Silent reconnect if the user connected before.

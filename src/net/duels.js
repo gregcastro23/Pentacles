@@ -14,9 +14,11 @@ import spacetime from './spacetime.js'
 
 const PLANET_NAMES = ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto']
 
-// Planet is a unit C-style enum; SATS JSON encodes a sum value as { Variant: [] }.
+// Planet is a unit C-style enum; SpacetimeDB 2.x encodes a sum value as
+// { camelCaseVariant: [] } (lower-first-letter: Mars→mars). PascalCase is rejected.
 function planetArg(idx) {
-  return { [PLANET_NAMES[idx] || 'Sun']: [] }
+  const n = PLANET_NAMES[idx] || 'Sun'
+  return { [n.charAt(0).toLowerCase() + n.slice(1)]: [] }
 }
 
 const sqlEscape = (s) => String(s).replace(/'/g, "''")

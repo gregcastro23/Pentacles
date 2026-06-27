@@ -8,10 +8,9 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-# Bump to match your installed `spacetime` CLI (`spacetime --version`).
-# Easiest path: run `spacetime init --lang rust pentacles-server` to get a
-# Cargo.toml pinned to your CLI, then drop these `src/*.rs` files in.
-spacetimedb = "1.0"
+# Pinned to the installed `spacetime` CLI / TS SDK (2.6.x). Keep these in lockstep:
+# server crate, `spacetime` CLI, and the `spacetimedb` npm client SDK all on 2.6.
+spacetimedb = "2.6"
 log = "0.4"
 alchm-astro-core = { path = "../../../planetary_agents-main/alchm-astro-core" }
 

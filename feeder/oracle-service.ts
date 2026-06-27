@@ -18,6 +18,7 @@ import { promisify } from "node:util";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import Anthropic from "@anthropic-ai/sdk";
+import { startFeed } from "./stdb-feed";
 
 const run = promisify(execFile);
 
@@ -38,7 +39,6 @@ if (!process.env.ANTHROPIC_API_KEY) {
 }
 
 const DB = process.env.SPACETIMEDB_DB ?? "cookingwithcastrollc";
-const POLL_INTERVAL_MS = Number(process.env.POLL_INTERVAL_MS ?? "3000");
 const SPACETIMEDB_URI = (process.env.SPACETIMEDB_URI ?? "https://maincloud.spacetimedb.com").replace(/\/+$/, "");
 const SPACETIME_TOKEN = process.env.SPACETIME_TOKEN || "";
 
@@ -56,44 +56,6 @@ const anthropic = new Anthropic({
 // re-sending it — leaving it unanswered would re-bill Claude every poll forever.
 const ORACLE_FALLBACK =
   "The Oracle's vision is clouded for now — rephrase your question and seek again.";
-
-function decodeSats(type: any, val: any): any {
-  if (!type) return val;
-  if (type.Sum) {
-    const variants = type.Sum.variants ?? [];
-    if (!Array.isArray(val)) return val;
-    const [tag, payload] = val;
-    const variant = variants[tag];
-    const vname = (variant && (variant.name?.some ?? variant.name)) ?? String(tag);
-    const isOption = variants.length === 2 && variants.some((v: any) => (v?.name?.some ?? v?.name) === "none");
-    if (isOption) return vname === "none" ? null : decodeSats(variant?.algebraic_type, payload);
-    return vname; // enum → variant name (e.g. "Mars")
-  }
-  return val; // Product (Identity → {__identity__}) + primitives pass through
-}
-
-async function queryRows(sql: string): Promise<Array<Record<string, any>>> {
-  const headers: Record<string, string> = { "Content-Type": "text/plain" };
-  if (SPACETIME_TOKEN) {
-    headers["Authorization"] = `Bearer ${SPACETIME_TOKEN}`;
-  }
-  const res = await fetch(`${SPACETIMEDB_URI}/v1/database/${DB}/sql`, {
-    method: "POST",
-    headers,
-    body: sql,
-  });
-  if (!res.ok) throw new Error(`sql ${res.status}: ${await res.text().catch(() => "")}`);
-  const json: any = await res.json();
-  const stmt = Array.isArray(json) ? json[json.length - 1] : json;
-  const els = stmt?.schema?.elements ?? [];
-  const cols = els.map((e: any, i: number) => (typeof e?.name === "string" ? e.name : e?.name?.some ?? `col${i}`));
-  const types = els.map((e: any) => e?.algebraic_type);
-  return (stmt?.rows ?? []).map((row: any[]) => {
-    const o: Record<string, any> = {};
-    row.forEach((v, i) => (o[cols[i] ?? `col${i}`] = decodeSats(types[i], v)));
-    return o;
-  });
-}
 
 // Push an answer back through the owner-gated reducer (same CLI owner auth as the feeder).
 async function answerOracle(requestId: number, text: string, modelTier: string): Promise<void> {
@@ -230,76 +192,15 @@ When responding:
 - Reference the user's specific context (their faction, owned zones, current planetary transits) to provide tailored strategy.
 - Always write in a consistent, atmospheric tone. Do not break character under any circumstances.`;
 
-// Parser for the plaintext fixed-width table format outputted by SpacetimeDB CLI's `spacetime sql` command.
-function parseTable(output: string): Array<Record<string, string>> {
-  const lines = output.split('\n').map(l => l.trimEnd());
-  // Find separator line (containing only dashes and pluses after trimming)
-  const separatorIndex = lines.findIndex(l => {
-    const trimmed = l.trim();
-    return trimmed.length > 0 && /^[-\+]+$/.test(trimmed);
-  });
-  if (separatorIndex === -1) return [];
-  const separatorLine = lines[separatorIndex];
-  
-  // Find column boundaries using '+'
-  const boundaries: number[] = [];
-  for (let i = 0; i < separatorLine.length; i++) {
-    if (separatorLine[i] === '+') {
-      boundaries.push(i);
-    }
-  }
-  
-  const headerLine = lines[separatorIndex - 1];
-  if (!headerLine) return [];
-  
-  const colRanges: { start: number; end: number }[] = [];
-  let start = 0;
-  for (const b of boundaries) {
-    colRanges.push({ start, end: b });
-    start = b + 1;
-  }
-  colRanges.push({ start, end: headerLine.length });
-  
-  const headers = colRanges.map(r => headerLine.substring(r.start, r.end).trim());
-  
-  const rows: Array<Record<string, string>> = [];
-  for (let i = separatorIndex + 1; i < lines.length; i++) {
-    const line = lines[i];
-    if (!line.trim()) continue;
-    
-    const row: Record<string, string> = {};
-    colRanges.forEach((r, idx) => {
-      const header = headers[idx];
-      const val = line.substring(r.start, r.end).trim();
-      row[header] = val;
-    });
-    rows.push(row);
-  }
-  return rows;
-}
+async function processRequest(row: Record<string, any>): Promise<void> {
+  // Rows arrive already normalized (snake_case keys, plain values) from the WS feed.
+  const question = String(row.question ?? "");
+  const context = String(row.context ?? "");
+  const isCacheable = row.cacheable === true;
 
-// Strips double quotes from SpacetimeDB SQL string values and decodes escaped content
-function parseValue(val: string): string {
-  const trimmed = val.trim();
-  if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
-    try {
-      return JSON.parse(trimmed);
-    } catch {
-      return trimmed.slice(1, -1);
-    }
-  }
-  return trimmed;
-}
-
-async function processRequest(row: Record<string, string>): Promise<void> {
-  const rawId = parseValue(row.request_id);
-  const question = parseValue(row.question);
-  const context = parseValue(row.context);
-  const isCacheable = parseValue(row.cacheable) === "true";
-  
-  const requestId = Number(rawId);
+  const requestId = Number(row.request_id);
   if (isNaN(requestId)) {
-    console.error(`[Oracle] Skipping invalid request ID: ${rawId}`);
+    console.error(`[Oracle] Skipping invalid request ID: ${row.request_id}`);
     return;
   }
 
@@ -386,36 +287,25 @@ async function processRequest(row: Record<string, string>): Promise<void> {
   }
 }
 
-async function checkPendingRequests(): Promise<void> {
-  try {
-    const rows = await queryRows(
-      "SELECT request_id, question, context, cacheable FROM oracle_request WHERE answered = false"
-    );
-    if (rows.length === 0) return;
-
-    console.log(`[Oracle] Found ${rows.length} pending request(s).`);
-    for (const row of rows) {
-      await processRequest(row);
-    }
-  } catch (err) {
-    console.error("[Oracle] Error checking pending requests:", (err as Error).message.split("\n")[0]);
-  }
-}
-
 async function main(): Promise<void> {
   console.log(`Pentacles Claude companion service starting.`);
   console.log(`  Database: ${DB}`);
-  console.log(`  Polling interval: ${POLL_INTERVAL_MS}ms`);
+  console.log(`  Transport: WebSocket subscription (reactive)`);
   console.log(`  API Key active: Yes`);
   console.log(`Press Ctrl+C to terminate.\n`);
 
-  // Start check loop
-  const runLoop = async () => {
-    await checkPendingRequests();
-    setTimeout(runLoop, POLL_INTERVAL_MS);
-  };
-  
-  runLoop();
+  // React to new unanswered Oracle requests as they arrive (plus the startup backlog).
+  startFeed({
+    uri: SPACETIMEDB_URI,
+    db: DB,
+    token: SPACETIME_TOKEN || undefined,
+    table: "oracle_request",
+    query: "SELECT * FROM oracle_request WHERE answered = false",
+    idField: "request_id",
+    accept: (r) => r.answered === false,
+    label: "Oracle",
+    onRow: processRequest,
+  });
 }
 
 main();

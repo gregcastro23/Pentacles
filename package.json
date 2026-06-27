@@ -8,20 +8,20 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "serve": "bun run serve.ts"
+    "test:chart": "node src/alchm-chart/__tests__/math.test.js",
+    "build:chart": "vite build --config vite.alchm.config.js",
+    "serve": "bun run serve.ts",
+    "gen": "spacetime generate --lang typescript --module-path server --out-dir src/module_bindings -y && node scripts/patch-bindings.mjs"
   },
   "devDependencies": {
     "vite": "^8.0.16"
   },
   "dependencies": {
-    "@clockworklabs/spacetimedb-sdk": "^1.3.3",
     "@dynamic-labs/ethereum": "^4.90.0",
     "@dynamic-labs/sdk-react-core": "^4.90.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
+    "spacetimedb": "^2.6.0",
     "viem": "^2.53.1"
-  },
-  "overrides": {
-    "ws": "^8.21.0"
   }
 }

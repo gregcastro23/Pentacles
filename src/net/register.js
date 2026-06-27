@@ -4,13 +4,15 @@
 // Online, onboarding also registers a server-side player so cast_word (and the
 // rest of the live game) works. The server overrides identity with ctx.sender
 // and recomputes house cusps, so we send a ZERO identity + None house Options.
-// Encoding validated against the live module: Identity is {__identity__:"0x…"},
-// enums are {Variant:[]}, Option None is {none:[]}.
+// Encoding for SpacetimeDB 2.x: Identity is {__identity__:"0x…"}, Option None is
+// {none:[]}, and unit-enum args use the camelCase (lower-first) variant name
+// (sun, placidus, …) — 2.x rejects PascalCase variant names.
 
 import spacetime from './spacetime.js'
 
 const PLANET_NAMES = ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto']
-const planetEnum = (idx) => ({ [PLANET_NAMES[idx] || 'Sun']: [] })
+const lowerFirst = (s) => s.charAt(0).toLowerCase() + s.slice(1)
+const planetEnum = (idx) => ({ [lowerFirst(PLANET_NAMES[idx] || 'Sun')]: [] })
 const ZERO_IDENTITY = { __identity__: '0x' + '0'.repeat(64) }
 
 /** Map the client's computed chart → the module's NatalChart SATS-JSON. */
@@ -32,7 +34,7 @@ export function chartToNatal(chart, observer) {
     ascendant: chart?.ascendant | 0,
     midheaven: chart?.midheaven | 0,
     house_cusps: { none: [] }, // server recomputes via populate_houses
-    house_system: { Placidus: [] },
+    house_system: { placidus: [] }, // 2.x camelCase variant (was Placidus)
     intercepted_signs: { none: [] },
   }
 }

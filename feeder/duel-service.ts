@@ -16,6 +16,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
+import { startFeed } from "./stdb-feed";
 
 const run = promisify(execFile);
 
@@ -31,7 +32,6 @@ const SPACETIMEDB_CLI = getSpacetimeCli();
 
 const DB = process.env.SPACETIMEDB_DB ?? "cookingwithcastrollc";
 const BACKEND_URL = process.env.PLANETARY_AGENTS_BACKEND_URL ?? "https://api.agents.alchm.kitchen";
-const POLL_INTERVAL_MS = Number(process.env.POLL_INTERVAL_MS ?? "3000");
 
 // Read via the HTTP SQL API (clean JSON). The CLI's ASCII-table output wraps long
 // string columns (e.g. the candidates JSON array), which the fixed-width
@@ -39,44 +39,6 @@ const POLL_INTERVAL_MS = Number(process.env.POLL_INTERVAL_MS ?? "3000");
 // decode by schema. Writes still go through `spacetime call` (owner-gated).
 const SPACETIMEDB_URI = (process.env.SPACETIMEDB_URI ?? "https://maincloud.spacetimedb.com").replace(/\/+$/, "");
 const SPACETIME_TOKEN = process.env.SPACETIME_TOKEN || "";
-
-function decodeSats(type: any, val: any): any {
-  if (!type) return val;
-  if (type.Sum) {
-    const variants = type.Sum.variants ?? [];
-    if (!Array.isArray(val)) return val;
-    const [tag, payload] = val;
-    const variant = variants[tag];
-    const vname = (variant && (variant.name?.some ?? variant.name)) ?? String(tag);
-    const isOption = variants.length === 2 && variants.some((v: any) => (v?.name?.some ?? v?.name) === "none");
-    if (isOption) return vname === "none" ? null : decodeSats(variant?.algebraic_type, payload);
-    return vname; // enum → variant name (e.g. "Mars")
-  }
-  return val; // Product (Identity → {__identity__}) + primitives pass through
-}
-
-async function queryRows(sql: string): Promise<Array<Record<string, any>>> {
-  const headers: Record<string, string> = { "Content-Type": "text/plain" };
-  if (SPACETIME_TOKEN) {
-    headers["Authorization"] = `Bearer ${SPACETIME_TOKEN}`;
-  }
-  const res = await fetch(`${SPACETIMEDB_URI}/v1/database/${DB}/sql`, {
-    method: "POST",
-    headers,
-    body: sql,
-  });
-  if (!res.ok) throw new Error(`sql ${res.status}: ${await res.text().catch(() => "")}`);
-  const json: any = await res.json();
-  const stmt = Array.isArray(json) ? json[json.length - 1] : json;
-  const els = stmt?.schema?.elements ?? [];
-  const cols = els.map((e: any, i: number) => (typeof e?.name === "string" ? e.name : e?.name?.some ?? `col${i}`));
-  const types = els.map((e: any) => e?.algebraic_type);
-  return (stmt?.rows ?? []).map((row: any[]) => {
-    const o: Record<string, any> = {};
-    row.forEach((v, i) => (o[cols[i] ?? `col${i}`] = decodeSats(types[i], v)));
-    return o;
-  });
-}
 
 // Push a move back through the owner-gated reducer.
 async function answerDuel(
@@ -111,71 +73,20 @@ async function answerDuel(
   }
 }
 
-// Parser for SpacetimeDB CLI's plaintext table format
-function parseTable(output: string): Array<Record<string, string>> {
-  const lines = output.split("\n").map((l) => l.trimEnd());
-  const separatorIndex = lines.findIndex((l) => {
-    const trimmed = l.trim();
-    return trimmed.length > 0 && /^[-\+]+$/.test(trimmed);
-  });
-  if (separatorIndex === -1) return [];
-  const separatorLine = lines[separatorIndex];
-
-  const boundaries: number[] = [];
-  for (let i = 0; i < separatorLine.length; i++) {
-    if (separatorLine[i] === "+") {
-      boundaries.push(i);
-    }
-  }
-
-  const headerLine = lines[separatorIndex - 1];
-  if (!headerLine) return [];
-
-  const colRanges: { start: number; end: number }[] = [];
-  let start = 0;
-  for (const b of boundaries) {
-    colRanges.push({ start, end: b });
-    start = b + 1;
-  }
-  colRanges.push({ start, end: headerLine.length });
-
-  const headers = colRanges.map((r) => headerLine.substring(r.start, r.end).trim());
-
-  const rows: Array<Record<string, string>> = [];
-  for (let i = separatorIndex + 1; i < lines.length; i++) {
-    const line = lines[i];
-    if (!line.trim()) continue;
-
-    const row: Record<string, string> = {};
-    colRanges.forEach((r, idx) => {
-      const header = headers[idx];
-      const val = line.substring(r.start, r.end).trim();
-      row[header] = val;
-    });
-    rows.push(row);
-  }
-  return rows;
-}
-
-// Decode SpacetimeDB SQL string quotes
-function parseValue(val: any): string {
-  if (val == null) return "";
-  if (typeof val === "object") return (val as any).__identity__ ?? JSON.stringify(val);
-  return String(val);
-}
-
 async function processChallenge(row: Record<string, any>): Promise<void> {
-  const rawId = parseValue(row.challenge_id);
-  const player = parseValue(row.player);
-  const opponent = parseValue(row.opponent);
-  const playerWord = parseValue(row.player_word);
-  const playerScore = Number(parseValue(row.player_score));
-  const agentRack = parseValue(row.agent_rack);
-  const rawCandidates = parseValue(row.candidates);
+  // Rows arrive already normalized (snake_case keys, plain values) from the WS feed:
+  // `player` is a hex identity string, `opponent` a Planet variant name, `candidates`
+  // the JSON-array string the server stored.
+  const player = String(row.player ?? "");
+  const opponent = String(row.opponent ?? "");
+  const playerWord = String(row.player_word ?? "");
+  const playerScore = Number(row.player_score);
+  const agentRack = String(row.agent_rack ?? "");
+  const rawCandidates = String(row.candidates ?? "");
 
-  const challengeId = Number(rawId);
+  const challengeId = Number(row.challenge_id);
   if (isNaN(challengeId)) {
-    console.error(`[WordDuel] Skipping invalid challenge ID: ${rawId}`);
+    console.error(`[WordDuel] Skipping invalid challenge ID: ${row.challenge_id}`);
     return;
   }
 
@@ -248,34 +159,24 @@ async function processChallenge(row: Record<string, any>): Promise<void> {
   }
 }
 
-async function checkPendingChallenges(): Promise<void> {
-  try {
-    const rows = await queryRows(
-      "SELECT challenge_id, player, opponent, player_word, player_score, agent_rack, candidates FROM duel_challenge WHERE answered = false"
-    );
-    if (rows.length === 0) return;
-
-    console.log(`[WordDuel] Found ${rows.length} pending challenge(s).`);
-    for (const row of rows) {
-      await processChallenge(row);
-    }
-  } catch (err) {
-    console.error("[WordDuel] Error checking pending challenges:", (err as Error).message.split("\n")[0]);
-  }
-}
-
 async function main(): Promise<void> {
   console.log(`Pentacles Word Duel Companion service starting.`);
   console.log(`  Database: ${DB}`);
   console.log(`  Backend URL: ${BACKEND_URL}`);
-  console.log(`  Polling interval: ${POLL_INTERVAL_MS}ms\n`);
+  console.log(`  Transport: WebSocket subscription (reactive)\n`);
 
-  const runLoop = async () => {
-    await checkPendingChallenges();
-    setTimeout(runLoop, POLL_INTERVAL_MS);
-  };
-
-  runLoop();
+  // React to new unanswered Word Duel challenges as they arrive (plus the startup backlog).
+  startFeed({
+    uri: SPACETIMEDB_URI,
+    db: DB,
+    token: SPACETIME_TOKEN || undefined,
+    table: "duel_challenge",
+    query: "SELECT * FROM duel_challenge WHERE answered = false",
+    idField: "challenge_id",
+    accept: (r) => r.answered === false,
+    label: "WordDuel",
+    onRow: processChallenge,
+  });
 }
 
 main();
