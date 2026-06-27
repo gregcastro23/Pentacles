@@ -101,6 +101,18 @@ function acProviders() {
     },
     wallet,
     trade: makeTradeProvider(),
+    // City search for the chart's Observer Selector (free, keyless Open-Meteo).
+    geocode: async (q) => {
+      const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=6&language=en&format=json`
+      const r = await fetch(url)
+      if (!r.ok) throw new Error('geocode http ' + r.status)
+      const j = await r.json()
+      return (j.results || []).map((c) => ({
+        name: c.name,
+        label: [c.name, c.admin1, c.country_code].filter(Boolean).join(', '),
+        lat: c.latitude, lon: c.longitude,
+      }))
+    },
   }
 }
 Pentacles.burner = burner
@@ -115,6 +127,17 @@ function openAlchmChart() {
         providers: acProviders(),
         pools: (window.PentaclesSky || {}).CONSTELLATIONS,
         observer: acObserver(),
+        // "Add birth chart" CTA (natal empty state) → close chart, open onboarding.
+        onRequestNatal: () => {
+          closeAlchmChart()
+          const ob = document.getElementById('onboarding-overlay')
+          if (ob) {
+            ob.style.display = 'flex'
+            const s1 = document.getElementById('onboarding-step-1'), s2 = document.getElementById('onboarding-step-2')
+            if (s1) s1.style.display = 'flex'
+            if (s2) s2.style.display = 'none'
+          }
+        },
       })
       Pentacles.chart.mount()
     } else {

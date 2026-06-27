@@ -91,8 +91,9 @@ class AlchmChartInstance {
     d.pop = h("div", { class: "ac-pop", hidden: true });
     // app-shell: header / 3-column body [temperament+reading · dome+transit · pools] / scrubber.
     // The render layer still targets d.smes/d.reading/d.track/etc.; only the wrappers are new.
+    d.empty = h("div", { class: "ac-empty", hidden: true });
     d.colLeft = h("div", { class: "ac-col ac-col--left", dataset: { pane: "temperament" } }, [d.smes, d.reading]);
-    d.colCenter = h("div", { class: "ac-col ac-col--center", dataset: { pane: "dome" } }, [d.track, d.transitStrip]);
+    d.colCenter = h("div", { class: "ac-col ac-col--center", dataset: { pane: "dome" } }, [d.track, d.transitStrip, d.empty]);
     d.colRight = h("div", { class: "ac-col ac-col--right", dataset: { pane: "pools" } }, [d.pools]);
     d.body = h("div", { class: "ac-body" }, [d.colLeft, d.colCenter, d.colRight]);
     host.appendChild(d.header);
@@ -123,7 +124,15 @@ class AlchmChartInstance {
       host.appendChild(this._buildLegend());
     }).catch((e) => {
       console.warn("[AlchmChart] dome failed to load", e);
-      clear(host); host.appendChild(h("div", { class: "ac-dome-loading", text: "sky unavailable" }));
+      clear(host);
+      host.appendChild(h("div", { class: "ac-dome-fail" }, [
+        h("div", { class: "ac-empty-card" }, [
+          h("div", { class: "ac-empty-glyph", text: "☁" }),
+          h("div", { class: "ac-empty-title", text: "Sky unavailable" }),
+          h("div", { class: "ac-empty-sub", text: "Couldn’t load the celestial renderer." }),
+          h("button", { class: "ac-empty-cta", text: "Retry", onclick: () => { clear(host); this._mountDome(); } }),
+        ]),
+      ]));
     });
   }
 
@@ -213,6 +222,25 @@ class AlchmChartInstance {
     const chips = h("div", { class: "ac-obs-presets" });
     for (const p of presets) chips.appendChild(h("button", { class: "ac-obs-preset", text: p.name, onclick: () => apply(p.lat, p.lon) }));
     pop.appendChild(h("div", { class: "ac-obs-title", text: "Observer" }));
+
+    // city search — only when a geocode provider is wired (host supplies it)
+    if (this.providers.geocode) {
+      const results = h("div", { class: "ac-obs-results", hidden: true });
+      const search = h("input", { class: "ac-obs-search", type: "text", placeholder: "Search city…", autocomplete: "off", spellcheck: "false" });
+      let to, seq = 0;
+      search.oninput = () => {
+        clearTimeout(to);
+        const q = search.value.trim();
+        if (q.length < 2) { results.hidden = true; clear(results); return; }
+        results.hidden = false; clear(results);
+        results.appendChild(h("div", { class: "ac-obs-result ac-dim", text: "searching…" }));
+        const my = ++seq;
+        to = setTimeout(() => this._geoSearch(q, results, apply, () => my === seq), 320);
+      };
+      pop.appendChild(h("div", { class: "ac-obs-search-wrap" }, [h("span", { class: "ac-obs-search-i", text: "⌕" }), search]));
+      pop.appendChild(results);
+    }
+
     pop.appendChild(h("button", {
       class: "ac-obs-geo", text: "📍 Use my location",
       onclick: () => {
@@ -232,6 +260,22 @@ class AlchmChartInstance {
       h("button", { class: "ac-obs-apply", text: "Set observer", onclick: () => apply(parseFloat(latIn.value), parseFloat(lonIn.value)) }),
     ]));
     pop.appendChild(h("div", { class: "ac-obs-note", text: "The observer anchors the live sky — every body above this horizon maps into the dome." }));
+  }
+
+  /** Resolve a city query via the injected geocode provider into clickable rows. */
+  async _geoSearch(q, box, apply, isCurrent) {
+    let res;
+    try { res = await this.providers.geocode(q); }
+    catch { if (isCurrent()) { clear(box); box.appendChild(h("div", { class: "ac-obs-result ac-dim", text: "Search unavailable." })); } return; }
+    if (!isCurrent()) return; // a newer keystroke superseded this query
+    clear(box);
+    if (!res || !res.length) { box.appendChild(h("div", { class: "ac-obs-result ac-dim", text: "No matches." })); return; }
+    for (const c of res.slice(0, 6)) {
+      box.appendChild(h("button", { class: "ac-obs-result", onclick: () => apply(c.lat, c.lon) }, [
+        h("span", { class: "ac-obs-result-name", text: c.label || c.name }),
+        h("span", { class: "ac-obs-result-ll", text: `${c.lat.toFixed(1)}°, ${c.lon.toFixed(1)}°` }),
+      ]));
+    }
   }
 
   // ── compute ──
@@ -290,8 +334,33 @@ class AlchmChartInstance {
     renderSmes(st.dom.smes, st);
     renderReading(st.dom.reading, st);
     renderPools(st.dom.pools, st);
+    this._updateEmptyState();
     this._updateHeader();
     syncScrubberThumb(st);
+  }
+
+  /** Prominent "no birth chart" CTA over the dome when the natal frame has no chart. */
+  _updateEmptyState() {
+    const st = this.state, d = st.dom;
+    if (!d.empty) return;
+    const cp = this.providers.chart;
+    let hasNatal = false;
+    try { hasNatal = !!(cp && cp.natal && cp.natal(st.date)); } catch { hasNatal = false; }
+    const show = st.frame === "natal" && !hasNatal;
+    d.empty.hidden = !show;
+    if (show && !d.empty.firstChild) {
+      d.empty.appendChild(h("div", { class: "ac-empty-card" }, [
+        h("div", { class: "ac-empty-glyph", text: "✶" }),
+        h("div", { class: "ac-empty-title", text: "No birth chart on file" }),
+        h("div", { class: "ac-empty-sub", text: "Set your birth time and place to read your natal sky and personal transits." }),
+        h("button", { class: "ac-empty-cta", text: "✦ Add birth chart", onclick: () => this._requestNatal() }),
+      ]));
+    }
+  }
+  _requestNatal() {
+    this._emit("requestnatal");
+    if (this.opts.onRequestNatal) { try { this.opts.onRequestNatal(); return; } catch {} }
+    if (window.toast) window.toast("Add your birth details to unlock natal & transit.", { type: "info" });
   }
 
   _updateHeader() {
@@ -331,10 +400,7 @@ class AlchmChartInstance {
   }
   setZoom(zoom) { this.state.zoom = zoom; syncScrubberThumb(this.state); this._updateHeader(); this._emit("scrub", this.state.date, zoom); }
   setFrame(frame) {
-    if (frame === "natal" && this.providers.chart && this.providers.chart.natal && !this.providers.chart.natal(this.state.date)) {
-      if (window.toast) window.toast("No birth chart on file yet.", { type: "warn" });
-      return;
-    }
+    // Natal with no chart on file is allowed — the dome shows the "add birth chart" CTA.
     this.state.frame = frame; this.recompute(); this.paint(); this._emit("framechange", frame);
   }
   setHouseSystem(sys) { this.state.houseSystem = sys; this.recompute(); this.paint(); }
