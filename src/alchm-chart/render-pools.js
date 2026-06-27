@@ -101,6 +101,87 @@ function buildContribution(state, esms, smes, planetGlyphs, planetNames) {
   ]);
 }
 
+/* ── Reading card: a data-driven narrative of the current sky ── */
+export function renderReading(container, state) {
+  clear(container);
+  const esms = state.esms, smes = state.smes;
+  if (!state.chart || !smes) return;
+  const pg = (state.glyphs && state.glyphs.planet) || [];
+  const pn = (state.glyphs && state.glyphs.planetName) || [];
+  const glyph = (b) => pg[b] || "✦", name = (b) => pn[b] || ("#" + b);
+
+  const pct = smes.pct, dom = pct.indexOf(Math.max(...pct));
+  const ruler = smes.ruler != null ? smes.ruler : 0;
+
+  // tightest aspect (mundane/natal: among sky; transit: transit→natal)
+  let aspLine = "—";
+  if (state.frame === "transit" && state.chart.transitAspects && state.chart.transitAspects[0]) {
+    const a = state.chart.transitAspects[0];
+    aspLine = `${glyph(a.t)} ${a.glyph} ${glyph(a.n)} · ${a.type} · orb ${a.orb}° · ${a.state}`;
+  } else if (state.chart.aspects && state.chart.aspects.length) {
+    const a = state.chart.aspects.slice().sort((x, y) => x.orb - y.orb)[0];
+    aspLine = `${glyph(a.a)} ${a.glyph} ${glyph(a.b)} · ${a.type} · orb ${a.orb}° · ${a.state}`;
+  }
+
+  // hottest pool
+  const pressures = state.pressures || {};
+  let topId = null, topPr = -1;
+  for (const id in pressures) if (pressures[id].pressure > topPr) { topPr = pressures[id].pressure; topId = id; }
+  const topPool = topId != null ? (state.poolMeta.find((m) => m.constId === Number(topId)) || {}) : null;
+
+  const row = (label, valueNode) => h("div", { class: "ac-read-row" }, [
+    h("span", { class: "ac-read-k", text: label }), valueNode,
+  ]);
+
+  const card = h("div", { class: "ac-reading" }, [
+    h("div", { class: "ac-reading-head" }, [
+      h("span", { class: "ac-reading-title", text: "Reading" }),
+      h("span", { class: "ac-reading-frame", text: state.frame }),
+    ]),
+    row("dominant", h("span", { style: { color: esms.colors[dom] }, text: `${esms.glyphs[dom]} ${esms.names[dom]} · ${ESMS_ELEMENT[dom]} ${Math.round(pct[dom])}%` })),
+    row("chart ruler", h("span", { class: "ac-read-v", text: `${glyph(ruler)} ${name(ruler)}` })),
+    row(state.frame === "transit" ? "tightest transit" : "tightest aspect", h("span", { class: "ac-read-v", text: aspLine })),
+    topPool ? row("hottest pool", h("span", {}, [
+      h("span", { class: "ac-read-v", text: `${topPool.abbr || topPool.name || "—"} ` }),
+      h("span", { class: "ac-read-pr" }, [h("span", { class: "ac-read-pr-fill", style: { width: Math.round(topPr * 100) + "%" } })]),
+      h("span", { class: "ac-read-v", text: ` ${Math.round(topPr * 100)}%` }),
+    ])) : null,
+    h("p", { class: "ac-reading-prose", text: readingProse(esms.names[dom], ESMS_ELEMENT[dom], Math.round(pct[dom]), name(ruler), topPool && (topPool.abbr || topPool.name)) }),
+  ]);
+  container.appendChild(card);
+}
+
+function readingProse(domName, domEl, domPct, rulerName, poolName) {
+  const tone = { Fire: "drive and expression run high", Water: "feeling and intuition dominate", Earth: "structure and persistence prevail", Air: "ideas and connection circulate" }[domEl] || "the elements are balanced";
+  return `The sky is ${domName}-leaning (${domPct}% ${domEl}) — ${tone}. ${rulerName} rules the chart, coloring how that energy expresses.${poolName ? ` Pressure concentrates on the ${poolName} pool right now.` : ""}`;
+}
+
+/* ── Transit strip: the tightest transit-to-natal aspects ── */
+export function renderTransitStrip(container, state) {
+  clear(container);
+  if (state.frame !== "transit") return;
+  const pg = (state.glyphs && state.glyphs.planet) || [];
+  const glyph = (b) => pg[b] || "✦";
+  const chart = state.chart;
+  if (!chart || !chart.natalPositions) {
+    container.appendChild(h("div", { class: "ac-transit-empty" }, [
+      h("span", { text: "No birth chart on file — set a birth time to read transits." }),
+    ]));
+    return;
+  }
+  const tops = (chart.transitAspects || []).slice(0, 3);
+  const strip = h("div", { class: "ac-transit-strip" });
+  if (!tops.length) strip.appendChild(h("div", { class: "ac-transit-empty", text: "No close transits to your natal chart right now." }));
+  for (const a of tops) {
+    strip.appendChild(h("div", { class: "ac-transit-pill ac-transit-pill--" + (a.state === "applying" ? "app" : a.state === "separating" ? "sep" : "exact") }, [
+      h("span", { class: "ac-tp-glyphs", text: `${glyph(a.t)} ${a.glyph} ${glyph(a.n)}` }),
+      h("span", { class: "ac-tp-orb", text: `orb ${a.orb}°` }),
+      h("span", { class: "ac-tp-state", text: a.state }),
+    ]));
+  }
+  container.appendChild(strip);
+}
+
 function depthCell(pool, state) {
   const esms = state.esms;
   if (!state.pools) return h("div", { class: "ac-depth ac-depth--muted", text: "live depth loading…" });

@@ -198,6 +198,23 @@ export function createDome(container, state, hooks) {
     line.userData = { kind: "pool", constId };
     dyn.add(line); pickList.push(line);
   }
+  // Transit mode: faint natal body on the zodiac ring.
+  function addNatalNode(pos, v) {
+    const core = new THREE.Mesh(
+      new THREE.SphereGeometry(0.16, 12, 12),
+      new THREE.MeshBasicMaterial({ color: new THREE.Color(pos.color || goldDeep), transparent: true, opacity: 0.5 }),
+    );
+    core.position.copy(v); core.userData = { kind: "body", pos };
+    dyn.add(core); pickList.push(core);
+  }
+  // Transit mode: a line from a transiting body to the natal point it aspects.
+  function addTransitLine(v1, v2, a, pa, pb) {
+    const inf = a.influence || 0, sep = a.state === "separating";
+    const colHex = hexOf(a.state === "applying" ? applyingHex : sep ? separatingHex : goldBright);
+    const line = makeLine([v1.x, v1.y, v1.z, v2.x, v2.y, v2.z], colHex, 1 + inf * 3, 0.28 + 0.5 * inf, sep);
+    line.userData = { kind: "aspect", asp: a, a: pa, b: pb };
+    dyn.add(line); pickList.push(line);
+  }
 
   // ── reconcile data layer ──
   function update(st) {
@@ -228,6 +245,21 @@ export function createDome(container, state, hooks) {
       const va = vecByBody[a.a], vb = vecByBody[a.b];
       if (!va || !vb) continue;
       addAspect(va, vb, a, chart.byBody && chart.byBody[a.a], chart.byBody && chart.byBody[a.b]);
+    }
+
+    // Transit frame: faint natal ring + lines from transiting bodies to natal points.
+    if (st.frame === "transit" && chart.natalPositions) {
+      const natalVec = {};
+      for (const p of chart.natalPositions) {
+        const v = eclipticToVec(p.eclLon, ECL_RADIUS);
+        natalVec[p.body] = v;
+        addNatalNode(p, v);
+      }
+      for (const a of chart.transitAspects || []) {
+        const vt = vecByBody[a.t], vn = natalVec[a.n];
+        if (!vt || !vn) continue;
+        addTransitLine(vt, vn, a, chart.byBody && chart.byBody[a.t], chart.natalByBody && chart.natalByBody[a.n]);
+      }
     }
     requestRender();
   }

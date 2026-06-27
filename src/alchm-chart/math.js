@@ -140,6 +140,34 @@ export function enrichAspects(positions, velByBody) {
   return out;
 }
 
+/**
+ * Transit-to-natal aspects: each transiting body vs each (fixed) natal body.
+ * Natal is stationary, so the transiting body's velocity alone drives applying/
+ * separating. `velByBody` maps the TRANSITING body → deg/day. Sorted tightest-first.
+ */
+export function transitAspects(transit, natal, velByBody) {
+  const vel = velByBody || {};
+  const out = [];
+  for (const T of transit) {
+    for (const N of natal) {
+      const sep = shortestSep(T.eclLon, N.eclLon);
+      for (const asp of ASPECTS) {
+        const orb = Math.abs(sep - asp.angle);
+        if (orb <= asp.orb) {
+          const state = applyingState(T.eclLon, N.eclLon, vel[T.body] || 0, 0, asp.angle);
+          out.push({
+            t: T.body, n: N.body, type: asp.type, glyph: asp.glyph,
+            orb: +orb.toFixed(2), exact: orb < 1, applying: state === "applying",
+            state, influence: +aspectInfluence(asp, orb, state).toFixed(4),
+          });
+          break;
+        }
+      }
+    }
+  }
+  return out.sort((a, b) => a.orb - b.orb);
+}
+
 // ── chart ruler + blended SMES ──────────────────────────────────────────────
 export function chartRuler(ascDeg) {
   if (ascDeg == null || !isFinite(ascDeg)) return 0; // anchor to Sun if no Asc
@@ -269,7 +297,7 @@ export function thumbFromDate(date, zoom, anchor) {
 }
 
 export const compute = {
-  shortestSep, bodyVelocity, applyingState, aspectInfluence, enrichAspects,
+  shortestSep, bodyVelocity, applyingState, aspectInfluence, enrichAspects, transitAspects,
   chartRuler, blendedBodyWeight, blendedSMES, elementalComposition, compToEsms,
   footprintsFromMembers, poolPressure, dateFromThumb, thumbFromDate,
   ASPECTS, DEFAULT_WEIGHTS, ESMS_OF_ELEMENT, ELEMENT_OF_ESMS, n360, clamp, clamp01,

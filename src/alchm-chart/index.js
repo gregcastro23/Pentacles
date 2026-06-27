@@ -10,10 +10,10 @@
    ============================================================ */
 import { h, clear } from "./dom.js";
 import {
-  enrichAspects, blendedSMES, poolPressure, footprintsFromMembers, bodyVelocity,
+  enrichAspects, transitAspects, blendedSMES, poolPressure, footprintsFromMembers, bodyVelocity,
   DEFAULT_WEIGHTS, compute,
 } from "./math.js";
-import { renderSmes, renderPools } from "./render-pools.js";
+import { renderSmes, renderPools, renderReading, renderTransitStrip } from "./render-pools.js";
 import { renderScrubber, syncScrubberThumb, setScrubberDate } from "./scrubber.js";
 
 const DEFAULT_ESMS = {
@@ -83,13 +83,17 @@ class AlchmChartInstance {
     const d = this.state.dom;
     d.header = h("div", { class: "ac-header" });
     d.track = h("div", { class: "ac-track ac-dome-host" });
+    d.transitStrip = h("div", { class: "ac-transit" });
     d.smes = h("div", { class: "ac-smes" });
+    d.reading = h("div", { class: "ac-reading-host" });
     d.pools = h("div", { class: "ac-pools" });
     d.scrubber = h("div", { class: "ac-scrubber" });
     d.pop = h("div", { class: "ac-pop", hidden: true });
     host.appendChild(d.header);
     host.appendChild(d.track);
+    host.appendChild(d.transitStrip);
     host.appendChild(d.smes);
+    host.appendChild(d.reading);
     host.appendChild(d.pools);
     host.appendChild(d.scrubber);
     host.appendChild(d.pop);
@@ -114,17 +118,40 @@ class AlchmChartInstance {
       if (this._destroyed) return;
       this._dome = createDome(host, this.state, this.state.hooks);
       this._dome.update(this.state);
+      host.appendChild(this._buildLegend());
     }).catch((e) => {
       console.warn("[AlchmChart] dome failed to load", e);
       clear(host); host.appendChild(h("div", { class: "ac-dome-loading", text: "sky unavailable" }));
     });
   }
 
+  _buildLegend() {
+    const items = [
+      ["ac-lg-horizon", "gold ellipse — the horizon"],
+      ["ac-lg-above", "bright dot — above horizon"],
+      ["ac-lg-below", "dim dot — below horizon"],
+      ["ac-lg-size", "dot size — chart salience"],
+      ["ac-lg-applying", "gold curve — applying aspect"],
+      ["ac-lg-separating", "dashed grey — separating"],
+      ["ac-lg-pool", "colored arc — pool pressure"],
+    ];
+    const body = h("div", { class: "ac-legend-body", hidden: true });
+    for (const [cls, label] of items) {
+      body.appendChild(h("div", { class: "ac-legend-row" }, [h("span", { class: "ac-legend-key " + cls }), h("span", { text: label })]));
+    }
+    const chip = h("button", { class: "ac-legend-chip", "aria-label": "Toggle legend" }, [
+      h("span", { class: "ac-legend-i", text: "ⓘ" }), h("span", { text: "Legend" }),
+    ]);
+    const wrap = h("div", { class: "ac-legend" }, [chip, body]);
+    chip.onclick = () => { body.hidden = !body.hidden; wrap.classList.toggle("is-open", !body.hidden); };
+    return wrap;
+  }
+
   _buildHeader() {
     const d = this.state.dom;
     clear(d.header);
     const frames = h("div", { class: "ac-frames" });
-    for (const f of [{ id: "mundane", label: "Mundane · now" }, { id: "natal", label: "Natal" }]) {
+    for (const f of [{ id: "mundane", label: "Mundane" }, { id: "natal", label: "Natal" }, { id: "transit", label: "Transit" }]) {
       frames.appendChild(h("button", {
         class: "ac-frame-pill" + (this.state.frame === f.id ? " is-active" : ""), text: f.label, dataset: { frame: f.id },
         onclick: () => this.setFrame(f.id),
@@ -138,11 +165,71 @@ class AlchmChartInstance {
     ]);
     d.accuracy = h("span", { class: "ac-badge", hidden: true });
     d.caveat = h("span", { class: "ac-badge ac-badge--warn", hidden: true, text: "low-precision at this range" });
+    d.observerChip = h("button", {
+      class: "ac-observer-chip", title: "Set observer location", onclick: () => this._toggleObserver(),
+    }, [h("span", { class: "ac-obs-pin", text: "📍" }), h("span", { class: "ac-obs-label" })]);
+    d.observerPop = h("div", { class: "ac-obs-pop", hidden: true });
     d.header.appendChild(h("div", { class: "ac-title", text: "✦ Alchm Chart" }));
     d.header.appendChild(frames);
     d.header.appendChild(houses);
     d.header.appendChild(d.accuracy);
     d.header.appendChild(d.caveat);
+    d.header.appendChild(h("div", { class: "ac-obs-wrap" }, [d.observerChip, d.observerPop]));
+    this._updateObserverChip();
+  }
+
+  _updateObserverChip() {
+    const o = this.state.observer, el = this.state.dom.observerChip;
+    if (el) el.querySelector(".ac-obs-label").textContent = `${o.lat.toFixed(2)}°, ${o.lon.toFixed(2)}°`;
+  }
+
+  // ── observer selector popover ──
+  _toggleObserver() {
+    const pop = this.state.dom.observerPop;
+    if (!pop.hidden) { pop.hidden = true; return; }
+    this._buildObserverPop(pop);
+    pop.hidden = false;
+  }
+  _buildObserverPop(pop) {
+    clear(pop);
+    const o = this.state.observer;
+    const latIn = h("input", { class: "ac-obs-input", type: "number", step: "0.0001", value: String(o.lat.toFixed(4)) });
+    const lonIn = h("input", { class: "ac-obs-input", type: "number", step: "0.0001", value: String(o.lon.toFixed(4)) });
+    const apply = (lat, lon) => {
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+      lat = Math.max(-90, Math.min(90, lat)); lon = Math.max(-180, Math.min(180, lon));
+      this.setObserver({ lat, lon });
+      this._updateObserverChip();
+      if (window.state) { window.state.observer = { lat, lon }; if (window.state.recomputeSky) try { window.state.recomputeSky(); } catch {} }
+      pop.hidden = true;
+    };
+    const presets = [
+      { name: "New York", lat: 40.7128, lon: -74.006 }, { name: "London", lat: 51.5074, lon: -0.1278 },
+      { name: "Reykjavík", lat: 64.1466, lon: -21.9426 }, { name: "Cairo", lat: 30.0444, lon: 31.2357 },
+      { name: "Tokyo", lat: 35.6762, lon: 139.6503 }, { name: "Equator", lat: 0, lon: 0 },
+    ];
+    const chips = h("div", { class: "ac-obs-presets" });
+    for (const p of presets) chips.appendChild(h("button", { class: "ac-obs-preset", text: p.name, onclick: () => apply(p.lat, p.lon) }));
+    pop.appendChild(h("div", { class: "ac-obs-title", text: "Observer" }));
+    pop.appendChild(h("button", {
+      class: "ac-obs-geo", text: "📍 Use my location",
+      onclick: () => {
+        if (!navigator.geolocation) { if (window.toast) window.toast("Geolocation unavailable.", { type: "warn" }); return; }
+        navigator.geolocation.getCurrentPosition(
+          (pos) => apply(pos.coords.latitude, pos.coords.longitude),
+          () => { if (window.toast) window.toast("Location denied — enter coordinates manually.", { type: "warn" }); },
+        );
+      },
+    }));
+    pop.appendChild(h("div", { class: "ac-obs-coords" }, [
+      h("label", {}, ["Lat", latIn]), h("label", {}, ["Lon", lonIn]),
+    ]));
+    pop.appendChild(chips);
+    pop.appendChild(h("div", { class: "ac-obs-actions" }, [
+      h("button", { class: "ac-obs-cancel", text: "Cancel", onclick: () => { pop.hidden = true; } }),
+      h("button", { class: "ac-obs-apply", text: "Set observer", onclick: () => apply(parseFloat(latIn.value), parseFloat(lonIn.value)) }),
+    ]));
+    pop.appendChild(h("div", { class: "ac-obs-note", text: "The observer anchors the live sky — every body above this horizon maps into the dome." }));
   }
 
   // ── compute ──
@@ -161,14 +248,32 @@ class AlchmChartInstance {
     const st = this.state, cp = this.providers.chart;
     let chart = null;
     try {
-      chart = st.frame === "natal" && cp && cp.natal ? cp.natal(st.date)
-        : cp && cp.mundane ? cp.mundane(st.observer.lat, st.observer.lon, st.date, { system: st.houseSystem })
-          : null;
+      if (st.frame === "natal" && cp && cp.natal) {
+        chart = cp.natal(st.date);
+      } else if (st.frame === "transit") {
+        chart = cp && cp.mundane ? cp.mundane(st.observer.lat, st.observer.lon, st.date, { system: st.houseSystem }) : null;
+        const natal = cp && cp.natal ? cp.natal(st.date) : null;
+        if (chart) {
+          chart.frame = "transit";
+          if (natal && natal.positions) {
+            chart.natalPositions = natal.positions;
+            chart.natalByBody = {}; natal.positions.forEach((p) => { chart.natalByBody[p.body] = p; });
+          }
+        }
+      } else if (cp && cp.mundane) {
+        chart = cp.mundane(st.observer.lat, st.observer.lon, st.date, { system: st.houseSystem });
+      }
     } catch (e) { console.warn("[AlchmChart] chart compute failed", e); }
     st.chart = chart;
     if (!chart) return;
     if (!chart.byBody) { chart.byBody = {}; chart.positions.forEach((p) => { chart.byBody[p.body] = p; }); }
-    chart.aspects = enrichAspects(chart.positions, this._velocities(chart));
+    const vel = this._velocities(chart);
+    if (st.frame === "transit" && chart.natalPositions) {
+      chart.aspects = [];
+      chart.transitAspects = transitAspects(chart.positions, chart.natalPositions, vel);
+    } else {
+      chart.aspects = enrichAspects(chart.positions, vel);
+    }
     if (!st.footprints && this.providers.sky && this.providers.sky.starByHip && this.providers.sky.equatorialToEcliptic) {
       st.footprints = footprintsFromMembers(st.poolMeta, this.providers.sky.starByHip, this.providers.sky.equatorialToEcliptic);
     }
@@ -179,7 +284,9 @@ class AlchmChartInstance {
   paint() {
     const st = this.state;
     if (this._dome) this._dome.update(st);
+    renderTransitStrip(st.dom.transitStrip, st);
     renderSmes(st.dom.smes, st);
+    renderReading(st.dom.reading, st);
     renderPools(st.dom.pools, st);
     this._updateHeader();
     syncScrubberThumb(st);
@@ -213,7 +320,9 @@ class AlchmChartInstance {
       this.state.date = this._pendingDate;
       this.recompute();
       if (this._dome) this._dome.update(this.state);
+      renderTransitStrip(this.state.dom.transitStrip, this.state);
       renderSmes(this.state.dom.smes, this.state);
+      renderReading(this.state.dom.reading, this.state);
       renderPools(this.state.dom.pools, this.state);
       this._updateHeader();
     });
@@ -227,7 +336,7 @@ class AlchmChartInstance {
     this.state.frame = frame; this.recompute(); this.paint(); this._emit("framechange", frame);
   }
   setHouseSystem(sys) { this.state.houseSystem = sys; this.recompute(); this.paint(); }
-  setObserver(o) { this.state.observer = o; if (this.state.frame === "mundane") { this.recompute(); this.paint(); } }
+  setObserver(o) { this.state.observer = o; this._updateObserverChip(); if (this.state.frame !== "natal") { this.recompute(); this.paint(); } }
   setDate(date) { this.state.date = date; this.recompute(); this.paint(); }
   now() { const n = new Date(); this.state.anchor = new Date(n.getTime()); this.state.date = n; this.recompute(); this.paint(); }
 
