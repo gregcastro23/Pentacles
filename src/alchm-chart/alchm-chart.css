@@ -78,12 +78,35 @@ body.alchm-open #pentacles-net { display: none; }
 .alchm-chart .ac-badge { font-size: 11px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--ac-line); color: var(--ac-gold-bright); }
 .alchm-chart .ac-badge--warn { color: #f0c674; border-color: rgba(240, 198, 116, 0.4); }
 
-/* ---- landscape track ---- */
+/* ---- observer's horizon dome (3D centerpiece) ---- */
 .alchm-chart .ac-track {
-  background: linear-gradient(180deg, rgba(8,10,20,0.5), rgba(8,10,20,0.15));
+  background: radial-gradient(120% 90% at 50% 8%, rgba(20,24,46,0.55), rgba(5,6,12,0.85) 70%);
   border: 1px solid var(--ac-line);
   border-radius: 12px;
-  padding: 6px;
+}
+.alchm-chart .ac-dome-host {
+  position: relative;
+  overflow: hidden;
+  min-height: clamp(360px, 52vh, 600px);
+}
+.alchm-chart .ac-dome-host canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 12px;
+  cursor: grab;
+}
+.alchm-chart .ac-dome-host canvas:active { cursor: grabbing; }
+.alchm-chart .ac-dome-loading {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--ac-dim);
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  text-transform: lowercase;
+  pointer-events: none;
 }
 .alchm-chart .ac-svg { width: 100%; height: auto; display: block; }
 .alchm-chart .ac-sign { fill: rgba(255,255,255,0.015); stroke: var(--ac-line); stroke-width: 0.5; }
@@ -111,17 +134,39 @@ body.alchm-open #pentacles-net { display: none; }
 .alchm-chart .ac-node:hover .ac-node-disc, .alchm-chart .ac-node:focus .ac-node-disc { filter: drop-shadow(0 0 6px var(--ac-gold-bright)); }
 .alchm-chart .ac-node-glyph { fill: var(--ac-gold-bright); font-weight: 600; pointer-events: none; }
 
-/* ---- SMES strip ---- */
+/* ---- Tetractys — Alchemical Temperament instrument ---- */
 .alchm-chart .ac-section-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--ac-dim); margin: 2px 0 6px; }
-.alchm-chart .ac-smes-bar { display: flex; height: 26px; border-radius: 8px; overflow: hidden; border: 1px solid var(--ac-line); }
-.alchm-chart .ac-smes-seg { height: 100%; opacity: 0.72; transition: opacity 0.2s; }
-.alchm-chart .ac-smes-seg--dom { opacity: 1; }
-.alchm-chart .ac-smes-legend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 7px; }
-.alchm-chart .ac-smes-key { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; }
 .alchm-chart .ac-swatch { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
 .alchm-chart .ac-swatch--sm { width: 9px; height: 9px; }
-.alchm-chart .ac-smes-name { color: var(--ac-text); }
-.alchm-chart .ac-smes-pct { color: var(--ac-gold-bright); font-weight: 600; }
+
+.alchm-chart .ac-temp-hero { text-align: center; margin: 2px 0 4px; }
+.alchm-chart .ac-temp-dom { font-family: "Cormorant Garamond", Georgia, serif; font-size: 26px; font-weight: 600; color: var(--ac-gold-bright); text-shadow: 0 0 14px rgba(241,219,161,0.35); }
+.alchm-chart .ac-temp-dom-glyph { font-size: 22px; }
+.alchm-chart .ac-temp-sub { font-size: 12px; color: var(--ac-dim); margin-top: 2px; }
+.alchm-chart .ac-temp-crown { display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; padding: 3px 11px; border: 1px solid rgba(216,180,106,0.4); border-radius: 999px; background: rgba(0,0,0,0.25); font-size: 11.5px; color: var(--ac-gold-bright); box-shadow: 0 0 12px rgba(241,219,161,0.12); }
+.alchm-chart .ac-crown-mark { color: var(--ac-gold-bright); }
+
+.alchm-chart .ac-diamond-wrap { display: grid; place-items: center; padding: 14px 0 6px; }
+.alchm-chart .ac-diamond { width: min(280px, 78%); height: auto; overflow: visible; }
+.alchm-chart .ac-ring { fill: none; stroke: rgba(208,197,180,0.10); stroke-width: 1; stroke-dasharray: 2 4; }
+.alchm-chart .ac-axis2 { stroke: rgba(208,197,180,0.14); stroke-width: 1; }
+.alchm-chart .ac-spoke { stroke-width: 1; stroke-opacity: 0.35; }
+.alchm-chart .ac-poly { stroke-width: 1.6; filter: drop-shadow(0 0 8px rgba(241,219,161,0.25)); transition: points 0.25s; }
+.alchm-chart .ac-tip { font-family: "Space Grotesk", sans-serif; font-size: 11px; font-weight: 500; }
+.alchm-chart .ac-tip--dom { font-weight: 700; filter: drop-shadow(0 0 5px currentColor); }
+
+.alchm-chart .ac-contrib { margin-top: 6px; }
+.alchm-chart .ac-contrib-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ac-dim); margin-bottom: 8px; }
+.alchm-chart .ac-contrib-list { display: flex; flex-direction: column; gap: 7px; max-height: 196px; overflow-y: auto; padding-right: 2px; }
+.alchm-chart .ac-contrib-row { display: flex; align-items: center; gap: 10px; }
+.alchm-chart .ac-contrib-glyph { position: relative; width: 22px; text-align: center; font-size: 16px; color: var(--ac-text); flex: none; }
+.alchm-chart .ac-contrib-row--ruler .ac-contrib-glyph { color: var(--ac-gold-bright); text-shadow: 0 0 8px rgba(241,219,161,0.6); }
+.alchm-chart .ac-contrib-crown { position: absolute; top: -9px; left: 50%; transform: translateX(-50%); font-size: 9px; color: var(--ac-gold-bright); }
+.alchm-chart .ac-contrib-retro { position: absolute; right: -4px; top: -1px; font-size: 8px; color: var(--ac-dim); }
+.alchm-chart .ac-contrib-track { flex: 1; height: 7px; border-radius: 999px; background: rgba(0,0,0,0.35); overflow: hidden; }
+.alchm-chart .ac-contrib-bar { display: flex; height: 100%; border-radius: 999px; overflow: hidden; min-width: 3px; }
+.alchm-chart .ac-contrib-bar > span { height: 100%; }
+.alchm-chart .ac-contrib-row--ruler .ac-contrib-bar { box-shadow: 0 0 0 1px var(--ac-gold-bright), 0 0 8px rgba(241,219,161,0.35); }
 
 /* ---- pool rail ---- */
 .alchm-chart .ac-pool-list { display: flex; flex-direction: column; gap: 4px; max-height: 220px; overflow-y: auto; }
