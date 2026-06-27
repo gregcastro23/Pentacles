@@ -116,15 +116,37 @@ body.alchm-open #pentacles-net { display: none; }
 /* dome load failure (sky unavailable + retry) */
 .alchm-chart .ac-dome-fail { position: absolute; inset: 0; display: grid; place-items: center; padding: 20px; }
 
+/* mobile bottom nav is hidden on desktop */
+.alchm-chart .ac-mobile-nav { display: none; }
+
 /* mobile: stack into one scrolling column, dome on top.
    Use flex (not grid) so rows take natural height — a definite-height grid would
    stretch its auto rows equally and the dome would overflow onto the panels. */
 @media (max-width: 860px) {
   #alchm-overlay .ac-window { width: 100vw; height: 100dvh; max-height: none; border: 0; border-radius: 0; padding: 10px 12px; }
-  .alchm-chart .ac-body { display: flex; flex-direction: column; overflow-y: auto; gap: 12px; }
+  .alchm-chart .ac-body { display: flex; flex-direction: column; overflow-y: auto; gap: 12px; padding-bottom: 70px; }
   .alchm-chart .ac-col { overflow: visible; flex: 0 0 auto; }
   .alchm-chart .ac-col--center { order: -1; }
   .alchm-chart .ac-col--center .ac-track { height: 46vh; min-height: 300px; flex: none; }
+
+  /* persistent bottom nav */
+  .alchm-chart .ac-mobile-nav { display: flex; position: fixed; left: 0; right: 0; bottom: 0; height: 60px; z-index: 60;
+    background: rgba(10,12,22,0.94); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-top: 1px solid var(--ac-line); }
+  .alchm-chart .ac-mnav-btn { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    background: transparent; border: 0; color: var(--ac-dim); font: inherit; cursor: pointer; transition: color 0.15s; }
+  .alchm-chart .ac-mnav-btn.is-active { color: var(--ac-gold-bright); text-shadow: 0 0 8px rgba(241,219,161,0.4); }
+  .alchm-chart .ac-mnav-glyph { font-size: 17px; line-height: 1; }
+  .alchm-chart .ac-mnav-label { font-size: 9.5px; letter-spacing: 0.04em; text-transform: uppercase; }
+
+  /* scrubber becomes a slide-up sheet toggled by the "Scrubber" nav item */
+  .alchm-chart .ac-scrubber { position: fixed; left: 0; right: 0; bottom: 60px; z-index: 55; padding: 12px 14px 16px;
+    background: rgba(10,12,22,0.97); backdrop-filter: blur(16px); border-top: 1px solid var(--ac-line);
+    transform: translateY(130%); transition: transform 0.26s ease; }
+  .alchm-chart.ac-scrub-open .ac-scrubber { transform: translateY(0); box-shadow: 0 -14px 34px rgba(0,0,0,0.55); }
+
+  /* observer popover: a centered fixed card on mobile (the desktop right:0 anchor clips) */
+  .alchm-chart .ac-obs-pop { position: fixed; left: 50%; top: 50%; right: auto; transform: translate(-50%, -50%);
+    width: min(340px, calc(100vw - 24px)); max-width: none; max-height: 82vh; overflow-y: auto; z-index: 70; }
 }
 
 /* ---- observer's horizon dome (3D centerpiece) ---- */
@@ -338,6 +360,9 @@ body.alchm-open #pentacles-net { display: none; }
 .alchm-chart .ac-obs-title { font-family: "Cormorant Garamond", Georgia, serif; font-size: 17px; color: var(--ac-gold-bright); }
 .alchm-chart .ac-obs-geo { background: rgba(241,219,161,0.08); border: 1px solid var(--ac-line); color: var(--ac-gold-bright); border-radius: 8px; font: inherit; font-size: 12px; padding: 7px; cursor: pointer; }
 .alchm-chart .ac-obs-geo:hover { border-color: var(--ac-gold-bright); }
+.alchm-chart .ac-obs-geostatus { font-size: 11px; line-height: 1.4; color: var(--ac-dim); padding: 0 2px; }
+.alchm-chart .ac-obs-geostatus[hidden] { display: none; }
+.alchm-chart .ac-obs-geostatus--err { color: var(--ac-error, #f0a8a0); }
 .alchm-chart .ac-obs-coords { display: flex; gap: 8px; }
 .alchm-chart .ac-obs-coords label { flex: 1; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ac-dim); display: flex; flex-direction: column; gap: 3px; }
 .alchm-chart .ac-obs-input { background: rgba(0,0,0,0.35); border: 1px solid var(--ac-line); color: var(--ac-text); border-radius: 8px; padding: 6px 8px; font: inherit; font-size: 13px; font-variant-numeric: tabular-nums; }

@@ -9,6 +9,18 @@ import { elementalComposition, compToEsms } from "./math.js";
 const ESMS_ELEMENT = ["Fire", "Water", "Earth", "Air"];
 const ESMS_VIBE = ["warm & expressive", "fluid & feeling", "grounded & enduring", "airy & connective"];
 
+/* Body glyph/name resolver that prefers each chart position's own glyph/name —
+   so Chiron (idx 10, deliberately absent from the 10-planet arrays) shows ☄, not ✦. */
+function bodyLabels(state) {
+  const pg = (state.glyphs && state.glyphs.planet) || [];
+  const pn = (state.glyphs && state.glyphs.planetName) || [];
+  const gmap = {}, nmap = {};
+  const add = (arr) => { for (const p of arr || []) if (p) { if (p.glyph != null) gmap[p.body] = p.glyph; if (p.name != null) nmap[p.body] = p.name; } };
+  add(state.chart && state.chart.positions);
+  add(state.chart && state.chart.natalPositions);
+  return { glyph: (b) => gmap[b] || pg[b] || "✦", name: (b) => nmap[b] || pn[b] || ("#" + b) };
+}
+
 export function renderSmes(container, state) {
   clear(container);
   const esms = state.esms;
@@ -106,9 +118,7 @@ export function renderReading(container, state) {
   clear(container);
   const esms = state.esms, smes = state.smes;
   if (!state.chart || !smes) return;
-  const pg = (state.glyphs && state.glyphs.planet) || [];
-  const pn = (state.glyphs && state.glyphs.planetName) || [];
-  const glyph = (b) => pg[b] || "✦", name = (b) => pn[b] || ("#" + b);
+  const { glyph, name } = bodyLabels(state);
 
   const pct = smes.pct, dom = pct.indexOf(Math.max(...pct));
   const ruler = smes.ruler != null ? smes.ruler : 0;
@@ -160,8 +170,7 @@ function readingProse(domName, domEl, domPct, rulerName, poolName) {
 export function renderTransitStrip(container, state) {
   clear(container);
   if (state.frame !== "transit") return;
-  const pg = (state.glyphs && state.glyphs.planet) || [];
-  const glyph = (b) => pg[b] || "✦";
+  const { glyph } = bodyLabels(state);
   const chart = state.chart;
   if (!chart || !chart.natalPositions) {
     container.appendChild(h("div", { class: "ac-transit-empty" }, [

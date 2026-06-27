@@ -100,6 +100,8 @@ class AlchmChartInstance {
     host.appendChild(d.body);
     host.appendChild(d.scrubber);
     host.appendChild(d.pop);
+    d.mobileNav = this._buildMobileNav();
+    host.appendChild(d.mobileNav);
 
     this._buildHeader();
     renderScrubber(d.scrubber, this.state);
@@ -156,6 +158,46 @@ class AlchmChartInstance {
     const wrap = h("div", { class: "ac-legend" }, [chip, body]);
     chip.onclick = () => { body.hidden = !body.hidden; wrap.classList.toggle("is-open", !body.hidden); };
     return wrap;
+  }
+
+  // ── mobile bottom nav (CSS-hidden on desktop) ──
+  _buildMobileNav() {
+    const items = [
+      { id: "live", glyph: "◉", label: "Live View" },
+      { id: "scrubber", glyph: "⏱", label: "Scrubber" },
+      { id: "presets", glyph: "📍", label: "Presets" },
+      { id: "data", glyph: "≣", label: "Data Feed" },
+    ];
+    const nav = h("div", { class: "ac-mobile-nav" });
+    this.state.dom.navBtns = {};
+    for (const it of items) {
+      const btn = h("button", {
+        class: "ac-mnav-btn" + (it.id === "live" ? " is-active" : ""), dataset: { nav: it.id },
+        "aria-label": it.label, onclick: () => this._mobileAction(it.id),
+      }, [h("span", { class: "ac-mnav-glyph", text: it.glyph }), h("span", { class: "ac-mnav-label", text: it.label })]);
+      this.state.dom.navBtns[it.id] = btn;
+      nav.appendChild(btn);
+    }
+    return nav;
+  }
+  _setMobileNavActive(which) {
+    const btns = this.state.dom.navBtns || {};
+    for (const k in btns) btns[k].classList.toggle("is-active", k === which);
+  }
+  _closeScrubSheet() { if (this.state.el) this.state.el.classList.remove("ac-scrub-open"); }
+  _mobileAction(which) {
+    const d = this.state.dom;
+    const scrollTo = (el) => el && el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    if (which === "scrubber") {
+      const open = this.state.el.classList.toggle("ac-scrub-open");
+      this._setMobileNavActive(open ? "scrubber" : "live");
+      return;
+    }
+    this._closeScrubSheet();
+    if (which === "live") { this.now(); scrollTo(d.colCenter); }
+    else if (which === "presets") { this._toggleObserver(); }
+    else if (which === "data") { scrollTo(d.colRight); }
+    this._setMobileNavActive(which);
   }
 
   _buildHeader() {
@@ -241,16 +283,20 @@ class AlchmChartInstance {
       pop.appendChild(results);
     }
 
+    const geoStatus = h("div", { class: "ac-obs-geostatus", hidden: true });
+    const setGeo = (msg, err) => { geoStatus.hidden = false; geoStatus.className = "ac-obs-geostatus" + (err ? " ac-obs-geostatus--err" : ""); geoStatus.textContent = msg; };
     pop.appendChild(h("button", {
       class: "ac-obs-geo", text: "📍 Use my location",
       onclick: () => {
-        if (!navigator.geolocation) { if (window.toast) window.toast("Geolocation unavailable.", { type: "warn" }); return; }
+        if (!navigator.geolocation) { setGeo("⊘ Geolocation unavailable in this browser.", true); return; }
+        setGeo("locating…", false);
         navigator.geolocation.getCurrentPosition(
           (pos) => apply(pos.coords.latitude, pos.coords.longitude),
-          () => { if (window.toast) window.toast("Location denied — enter coordinates manually.", { type: "warn" }); },
+          () => setGeo("⊘ Location access denied — enter coordinates or pick a preset.", true),
         );
       },
     }));
+    pop.appendChild(geoStatus);
     pop.appendChild(h("div", { class: "ac-obs-coords" }, [
       h("label", {}, ["Lat", latIn]), h("label", {}, ["Lon", lonIn]),
     ]));
