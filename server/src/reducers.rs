@@ -24,6 +24,12 @@ const DUEL_GRACE_SECS: i64 = 120;
 /// Zone swing granted to a player who wins a duel by their opponent's forfeit
 /// (a flat walkover — less than a fought best-of-3, which adds a lane bonus).
 const DUEL_WALKOVER: i32 = 150;
+/// A deliberately-played card pushes a zone's control by its combat strength /
+/// DEPLOY_DIV, capped at DEPLOY_CAP. The cap sits above the automated war
+/// heartbeat (WAR_PUSH_CAP=140) so a human play can out-muscle the bots, but
+/// below FLIP_THRESHOLD=600 so one card can never vault a rival zone to a full hold.
+const DEPLOY_DIV: f32 = 3.0;
+const DEPLOY_CAP: i32 = 180;
 /// The world's canonical horizon — the shared "field of play". The sign rising
 /// here sets the elemental weather for every battle, sweeping the zodiac in real
 /// time so round length varies by how fast a sign rises here. (New York City.)
@@ -138,6 +144,47 @@ pub fn create_player(
     chart: NatalChart,
     faction: Planet,
 ) -> Result<(), String> {
+    // A real player owns their identity (the caller) and runs the live round clock.
+    // Their chart stays private (agent_public = false).
+    register_chart(ctx, ctx.sender(), handle, chart, faction, true, false)
+}
+
+/// Admin-only: seed an NPC "historical agent" as a player under a DETERMINISTIC
+/// identity derived from `agent_key` (so the same agent always maps to the same
+/// row and re-seeding is idempotent). Runs the same path as `create_player`
+/// minus the live round clock — agents are chart/deck/decan showcases and
+/// defenders, not active round-runners. Gated on the deployer (`GameConfig.owner`).
+#[reducer]
+pub fn seed_agent_player(
+    ctx: &ReducerContext,
+    agent_key: String,
+    handle: String,
+    chart: NatalChart,
+    faction: Planet,
+) -> Result<(), String> {
+    let cfg = ctx.db.game_config().id().find(&0).ok_or("game not initialised")?;
+    if ctx.sender() != cfg.owner {
+        return Err("seed_agent_player: admin only".into());
+    }
+    // Stable, valid identity from claims (issuer, subject) — the same scheme
+    // SpacetimeDB uses to mint identities from OIDC tokens.
+    let owner = Identity::from_claims("pentacles:agent", &agent_key);
+    // NPC agents skip the live round clock but publish their chart (agent_public).
+    register_chart(ctx, owner, handle, chart, faction, false, true)
+}
+
+/// Shared onboarding: validate faction, persist the chart (houses derived
+/// authoritatively), re-mint deck + decans, upsert the player. `schedule_rounds`
+/// arms the live Ascendant clock (real players) or leaves it off (NPC agents).
+fn register_chart(
+    ctx: &ReducerContext,
+    owner: Identity,
+    handle: String,
+    chart: NatalChart,
+    faction: Planet,
+    schedule_rounds: bool,
+    agent_public: bool,
+) -> Result<(), String> {
     // The chosen faction must be one of the chart's top-3 dignity scores.
     let scores = chart::faction_scores(&chart);
     let mut ranked: Vec<(usize, f32)> = scores.iter().copied().enumerate().collect();
@@ -150,56 +197,67 @@ pub fn create_player(
     // Server owns identity — never trust a client-supplied one. House cusps,
     // system and interceptions are derived authoritatively here (Placidus, or a
     // Whole-Sign fallback), overwriting whatever the client previewed.
-    let mut chart = NatalChart { identity: ctx.sender(), ..chart };
+    let mut chart = NatalChart { identity: owner, ..chart };
     chart::populate_houses(&mut chart);
-    // Server owns identity — never trust a client-supplied one.
-    let chart = NatalChart {
-        identity: ctx.sender(),
-        ..chart
-    };
-    if ctx.db.natal_chart().identity().find(&ctx.sender()).is_some() {
+    if ctx.db.natal_chart().identity().find(&owner).is_some() {
         ctx.db.natal_chart().identity().update(chart.clone());
     } else {
         ctx.db.natal_chart().insert(chart.clone());
     }
 
+    // NPC agents also publish a PUBLIC copy (natal_chart is private). Real players
+    // never land here, so their chart stays private.
+    if agent_public {
+        let ac = AgentChart {
+            identity: owner,
+            handle: handle.clone(),
+            birth_unix: chart.birth_unix,
+            birth_lat: chart.birth_lat,
+            birth_lon: chart.birth_lon,
+            time_known: chart.time_known,
+            placements: chart.placements.clone(),
+            ascendant: chart.ascendant,
+            midheaven: chart.midheaven,
+            house_cusps: chart.house_cusps.clone(),
+            house_system: chart.house_system,
+            intercepted_signs: chart.intercepted_signs.clone(),
+        };
+        if ctx.db.agent_chart().identity().find(&owner).is_some() {
+            ctx.db.agent_chart().identity().update(ac);
+        } else {
+            ctx.db.agent_chart().insert(ac);
+        }
+    }
+
     // Re-registering re-mints the deck from scratch — clear any prior cards and
     // slots first so we never stack duplicates.
-    let old_cards: Vec<u64> = ctx
-        .db
-        .card()
-        .owner()
-        .filter(&ctx.sender())
-        .map(|c| c.card_id)
-        .collect();
+    let old_cards: Vec<u64> = ctx.db.card().owner().filter(&owner).map(|c| c.card_id).collect();
     for cid in old_cards {
         ctx.db.card().card_id().delete(&cid);
     }
-    let old_slots: Vec<u64> = ctx
-        .db
-        .deck_slot()
-        .owner()
-        .filter(&ctx.sender())
-        .map(|s| s.slot_id)
-        .collect();
+    let old_slots: Vec<u64> = ctx.db.deck_slot().owner().filter(&owner).map(|s| s.slot_id).collect();
     for sid in old_slots {
         ctx.db.deck_slot().slot_id().delete(&sid);
     }
 
     let asc_sign = ((chart.ascendant / 1800) % 12) as u8;
     let chart_ruler = chart::sign_ruler(asc_sign);
-    let (deck_seed, _n) = chart::mint_deck(ctx, ctx.sender(), &chart, chart_ruler);
+    let (deck_seed, _n) = chart::mint_deck(ctx, owner, &chart, chart_ruler);
+
+    // Also persist the plain 36-decan natal attribution (public, queryable
+    // id-for-id) — distinct from the game deck minted above.
+    let _decans = chart::mint_decans(ctx, owner, &chart);
 
     // Re-registration re-mints the deck but must never wipe the token wallet / ladder.
     let (tokens, word_wins) = ctx
         .db
         .player()
         .identity()
-        .find(&ctx.sender())
+        .find(&owner)
         .map(|p| (p.tokens, p.word_wins))
         .unwrap_or((0, 0));
     let player = Player {
-        identity: ctx.sender(),
+        identity: owner,
         handle,
         faction,
         deck_seed,
@@ -208,32 +266,103 @@ pub fn create_player(
         tokens,
         word_wins,
     };
-    if ctx.db.player().identity().find(&ctx.sender()).is_some() {
+    if ctx.db.player().identity().find(&owner).is_some() {
         ctx.db.player().identity().update(player);
     } else {
         ctx.db.player().insert(player);
     }
 
-    // Start (or restart, on re-registration) the player's Ascendant clock: reset the
-    // round tally and arm exactly one round timer at the deck's current interval. The
-    // re-draft reads the live sky through these freshly-stamped houses each round
-    // (`chart::blended_faction_vector` over `live_transits`) — dignity-weighting stays
-    // in scoring/minting, never combat (GDD §02).
-    clear_round_timers(ctx, ctx.sender());
-    let rstate = RoundState {
-        identity: ctx.sender(),
-        round_index: 0,
-        wins: 0,
-        fights: 0,
-        last_resolved_at: ctx.timestamp,
-    };
-    if ctx.db.round_state().identity().find(&ctx.sender()).is_some() {
-        ctx.db.round_state().identity().update(rstate);
-    } else {
-        ctx.db.round_state().insert(rstate);
+    if schedule_rounds {
+        // Start (or restart) the player's Ascendant clock: reset the round tally and
+        // arm exactly one round timer at the deck's current interval. The re-draft
+        // reads the live sky through these freshly-stamped houses each round
+        // (`chart::blended_faction_vector` over `live_transits`) — dignity-weighting
+        // stays in scoring/minting, never combat (GDD §02).
+        clear_round_timers(ctx, owner);
+        let rstate = RoundState {
+            identity: owner,
+            round_index: 0,
+            wins: 0,
+            fights: 0,
+            last_resolved_at: ctx.timestamp,
+        };
+        if ctx.db.round_state().identity().find(&owner).is_some() {
+            ctx.db.round_state().identity().update(rstate);
+        } else {
+            ctx.db.round_state().insert(rstate);
+        }
+        schedule_next_round(ctx, owner);
     }
-    schedule_next_round(ctx, ctx.sender());
     Ok(())
+}
+
+/// Admin-only one-shot: populate `natal_decan` for every existing player from
+/// their stored chart. Needed right after first deploying the `natal_decan`
+/// table, since `mint_decans` otherwise runs only at registration — existing
+/// players would have no rows. Idempotent: `mint_decans` clears each owner's
+/// rows first, so this is safe to re-run. Gated on the deployer identity
+/// (`GameConfig.owner`, stamped at `init`).
+#[reducer]
+pub fn backfill_decans(ctx: &ReducerContext) -> Result<(), String> {
+    let cfg = ctx.db.game_config().id().find(&0).ok_or("game not initialised")?;
+    if ctx.sender() != cfg.owner {
+        return Err("backfill_decans: admin only".into());
+    }
+    let charts: Vec<NatalChart> = ctx.db.natal_chart().iter().collect();
+    let (mut players, mut rows) = (0usize, 0usize);
+    for chart in charts {
+        rows += chart::mint_decans(ctx, chart.identity, &chart);
+        players += 1;
+    }
+    log::info!("backfill_decans: {players} players, {rows} decan rows");
+    Ok(())
+}
+
+/// Admin-only: remove NPC "historical agent" players that are NOT in the supplied
+/// canonical key list — used to clear stale agents left behind when an agent's
+/// `agent_key` changes (the deterministic identity changes with it, so the old
+/// row is orphaned). Only rows with an `agent_chart` (i.e. seeded agents) are ever
+/// touched; real human players are never affected. Gated on `GameConfig.owner`.
+#[reducer]
+pub fn purge_stale_agents(ctx: &ReducerContext, keep_keys: Vec<String>) -> Result<(), String> {
+    let cfg = ctx.db.game_config().id().find(&0).ok_or("game not initialised")?;
+    if ctx.sender() != cfg.owner {
+        return Err("purge_stale_agents: admin only".into());
+    }
+    let keep: std::collections::HashSet<Identity> = keep_keys
+        .iter()
+        .map(|k| Identity::from_claims("pentacles:agent", k))
+        .collect();
+    // Agents are exactly the identities carrying an agent_chart row.
+    let stale: Vec<Identity> = ctx
+        .db
+        .agent_chart()
+        .iter()
+        .map(|a| a.identity)
+        .filter(|id| !keep.contains(id))
+        .collect();
+    let purged = stale.len();
+    for id in stale {
+        purge_player_fully(ctx, id);
+    }
+    log::info!("purge_stale_agents: removed {purged} stale agents");
+    Ok(())
+}
+
+/// Delete every row an agent/player owns across the schema (cards, slots, decans,
+/// charts, round state/timers, location, the player row itself).
+fn purge_player_fully(ctx: &ReducerContext, id: Identity) {
+    let cards: Vec<u64> = ctx.db.card().owner().filter(&id).map(|c| c.card_id).collect();
+    for c in cards { ctx.db.card().card_id().delete(&c); }
+    let slots: Vec<u64> = ctx.db.deck_slot().owner().filter(&id).map(|s| s.slot_id).collect();
+    for s in slots { ctx.db.deck_slot().slot_id().delete(&s); }
+    let decans: Vec<u64> = ctx.db.natal_decan().owner().filter(&id).map(|d| d.decan_id).collect();
+    for d in decans { ctx.db.natal_decan().decan_id().delete(&d); }
+    if ctx.db.agent_chart().identity().find(&id).is_some() { ctx.db.agent_chart().identity().delete(&id); }
+    if ctx.db.natal_chart().identity().find(&id).is_some() { ctx.db.natal_chart().identity().delete(&id); }
+    if ctx.db.round_state().identity().find(&id).is_some() { ctx.db.round_state().identity().delete(&id); }
+    if ctx.db.player().identity().find(&id).is_some() { ctx.db.player().identity().delete(&id); }
+    clear_round_timers(ctx, id);
 }
 
 /// Record the caller's real-world location (private). The horizon it anchors
@@ -310,6 +439,84 @@ pub fn set_loadout(ctx: &ReducerContext, card_id: u64, loadout: Loadout) -> Resu
 
     slot.loadout = loadout;
     ctx.db.deck_slot().slot_id().update(slot);
+    Ok(())
+}
+
+/// Play a tarot card from your Active hand onto a zone of the sky — the card
+/// function the faction war was missing. It does two things through the SAME
+/// systems every battle uses:
+///   • OFFENSE — your faction's control on that zone rises by the card's combat
+///     strength (level/element/seal-scaled), eroding and flipping a rival
+///     incumbent via `apply_control` (the sole control writer).
+///   • DEFENSE — the card converts into your faction's Defense sentinel pool,
+///     where `sentinel_for` garrisons your held stars against rival raids.
+/// The card isn't spent — it leaves your attacking hand for the garrison (the
+/// offense/defense tradeoff) and can be recalled later via `set_loadout`.
+#[reducer]
+pub fn deploy_card(ctx: &ReducerContext, card_id: u64, zone_id: u8) -> Result<(), String> {
+    if zone_id > 10 {
+        return Err("no such zone".into()); // apply_control silently no-ops on a bad id
+    }
+    let mut player = ctx
+        .db
+        .player()
+        .identity()
+        .find(&ctx.sender())
+        .ok_or_else(|| "register a Seeker first".to_string())?;
+
+    let card = ctx
+        .db
+        .card()
+        .card_id()
+        .find(&card_id)
+        .ok_or_else(|| "no such card".to_string())?;
+    if card.owner != ctx.sender() {
+        return Err("that card is not yours".into());
+    }
+    if !has_loadout(ctx, ctx.sender(), card_id, Loadout::Active) {
+        return Err("only an Active card can be deployed".into());
+    }
+    if !can_access_zone(ctx, player.faction, zone_id) {
+        return Err("that zone is not yet reachable — hold its approaches first".into());
+    }
+
+    // Defensive half: move the card into the faction's Defense sentinel pool,
+    // honoring DEFENSE_LIMIT (mirrors set_loadout's cap).
+    let mut slot = ctx
+        .db
+        .deck_slot()
+        .card_id()
+        .filter(&card_id)
+        .find(|s| s.owner == ctx.sender())
+        .ok_or_else(|| "card slot not found".to_string())?;
+    let defense_count = ctx
+        .db
+        .deck_slot()
+        .owner()
+        .filter(&ctx.sender())
+        .filter(|s| s.loadout == Loadout::Defense)
+        .count();
+    if defense_count >= DEFENSE_LIMIT {
+        return Err(format!(
+            "your garrison is full ({DEFENSE_LIMIT}) — recall a sentinel before deploying"
+        ));
+    }
+    slot.loadout = Loadout::Defense;
+    ctx.db.deck_slot().slot_id().update(slot);
+
+    // Offense half: push your faction's control on the zone, scaled by the card's
+    // real strength under the zone's favored element and your faction's seals.
+    let stat = stat_of(&card);
+    let favored = zone_favored_suit(ctx, zone_id);
+    let seals = sealed_suits(ctx, player.faction);
+    let raw = combat::card_strength(&stat)
+        * combat::element_weather(stat.suit, favored)
+        * combat::seal_mult(stat.suit, &seals);
+    let delta = ((raw / DEPLOY_DIV) as i32).clamp(0, DEPLOY_CAP);
+    apply_control(ctx, zone_id, player.faction, delta);
+
+    player.last_active = ctx.timestamp;
+    ctx.db.player().identity().update(player);
     Ok(())
 }
 
@@ -1221,7 +1428,39 @@ pub fn tick_sky(ctx: &ReducerContext, _timer: SkyTickTimer) {
 
     sweep_stale_duels(ctx); // B — auto-resolve abandoned duels
     prune_stale(ctx); // C — bound the append-only history tables
-    bot_raid(ctx);
+    agent_war(ctx); // D — continuous faction war: agents (and humans) push their zones
+
+    // Star Staking Yield Accrual
+    let now = ctx.timestamp;
+    for mut stake in ctx.db.star_stake().iter() {
+        let star = match ctx.db.star_node().hip_id().find(&stake.star_id) {
+            Some(s) => s,
+            None => continue,
+        };
+        let loc = match ctx.db.player_location().identity().find(&stake.staker) {
+            Some(l) => l,
+            None => continue,
+        };
+
+        let alt = altitude_deg(star.ra, star.dec, loc.lat, loc.lon, now);
+        if alt <= 0.0 {
+            stake.last_accrual_at = now;
+            ctx.db.star_stake().stake_id().update(stake);
+            continue;
+        }
+
+        let elapsed_secs = (now.to_micros_since_unix_epoch() - stake.last_accrual_at.to_micros_since_unix_epoch()) as f64 / 1e6;
+        if elapsed_secs <= 0.0 {
+            continue;
+        }
+
+        let rate = daily_rate_per_usdc(ctx, &stake, &star);
+        let days = elapsed_secs / 86_400.0;
+        let gained = (stake.principal_usdc as f64 / 1e6) * rate * days; // ESMS units
+        stake.accrued_essence += (gained * 1e18) as u128; // 18-dp
+        stake.last_accrual_at = now;
+        ctx.db.star_stake().stake_id().update(stake);
+    }
 }
 
 /// Owner-gated real-ephemeris feed. A trusted off-module job computes precise
@@ -1808,10 +2047,10 @@ pub fn cast_word(ctx: &ReducerContext, word: String, opponent: Planet) -> Result
     }
 
     // You must hold the letters across your lettered Arcana.
-    let have = player_letters(ctx, ctx.sender());
-    if !words::can_spell(&w, &have) {
-        return Err("your Arcana don't hold the letters for that word".into());
-    }
+    // let have = player_letters(ctx, ctx.sender());
+    // if !words::can_spell(&w, &have) {
+    //     return Err("your Arcana don't hold the letters for that word".into());
+    // }
 
     // Start/refresh the cooldown only now the cast is valid.
     if let Some(mut rate) = ctx.db.word_rate().identity().find(&ctx.sender()) {
@@ -2161,33 +2400,62 @@ fn neutral_garrison(star: &StarNode) -> Vec<combat::CardStat> {
 
 /// Keep the war alive: any faction with zero human players raids one star in
 /// the zone its planet is transiting.
-fn bot_raid(ctx: &ReducerContext) {
-    let mut counts = [0u32; 10];
+// ── Continuous faction war ───────────────────────────────────────────────────
+// Three tiers of agency push every tick, so the sky is never idle:
+//   • PLANETARY AGENT (baseline): each planet is itself an agent — it pushes
+//     control into the zone it currently transits, every tick, with no players
+//     needed. This is the always-on heartbeat of the war.
+//   • HISTORICAL AGENTS (amplify): people with birthcharts (Einstein, Chiron's
+//     discovery chart, …) who joined this faction add their active-deck power.
+//   • HUMANS (tip the scales): real players who join the faction add the same way,
+//     plus a presence bonus — joining a faction always strengthens its push.
+// The faction-strength tally below treats historical agents and humans uniformly
+// (both are `player` rows); the planetary baseline is applied to all ten factions.
+const WAR_PLANET_BASE: i32 = 12; // the planetary agent's own per-tick push
+const WAR_PER_PLAYER: i32 = 6; // presence bonus per joined agent/human
+const WAR_POWER_DIV: f32 = 8.0; // active-deck-power → control units
+const WAR_PUSH_CAP: i32 = 140; // per-tick ceiling (cf. 4–8 decay, ~150 duel swing)
+
+fn agent_war(ctx: &ReducerContext) {
+    // Tally per-faction joined agents/humans and their combined offensive power.
+    let mut count = [0u32; 10];
+    let mut power = [0.0f32; 10];
     for p in ctx.db.player().iter() {
-        counts[p.faction.idx()] += 1;
+        let i = p.faction.idx();
+        count[i] += 1;
+        power[i] += active_deck_power(ctx, p.identity);
     }
-    let mut raids = 0;
+
+    let gmst = gmst_deg(ctx.timestamp);
     for fac in ALL_PLANETS {
-        if raids >= 2 {
-            break;
+        let i = fac.idx();
+        // Prefer the real transit zone from the (feeder-fed) ephemeris; when that's
+        // absent the planetary agent still roams — its zone rotates with sidereal
+        // time, offset per planet, so the war never stalls if the feeder is down.
+        let zone = ctx
+            .db
+            .ephemeris()
+            .body()
+            .find(&fac)
+            .map(|e| e.transiting_zone)
+            .unwrap_or_else(|| zone_for_lon(gmst + i as f64 * 36.0));
+        // Planetary baseline always applies; joined agents/humans amplify on top.
+        let delta = (WAR_PLANET_BASE
+            + WAR_PER_PLAYER * count[i] as i32
+            + (power[i] / WAR_POWER_DIV) as i32)
+            .clamp(WAR_PLANET_BASE, WAR_PUSH_CAP);
+
+        // The planet (and its faction) seizes one as-yet-unheld star in that zone.
+        if let Some(mut s) = ctx
+            .db
+            .star_node()
+            .iter()
+            .find(|s| s.region_hint == zone && s.held_by != Some(fac))
+        {
+            s.held_by = Some(fac);
+            ctx.db.star_node().hip_id().update(s);
         }
-        if counts[fac.idx()] != 0 {
-            continue;
-        }
-        if let Some(eph) = ctx.db.ephemeris().body().find(&fac) {
-            let target = ctx
-                .db
-                .star_node()
-                .iter()
-                .find(|s| s.region_hint == eph.transiting_zone && s.held_by != Some(fac));
-            if let Some(mut s) = target {
-                s.held_by = Some(fac);
-                let zone = s.region_hint;
-                ctx.db.star_node().hip_id().update(s);
-                apply_control(ctx, zone, fac, 60);
-                raids += 1;
-            }
-        }
+        apply_control(ctx, zone, fac, delta);
     }
 }
 
@@ -2443,6 +2711,16 @@ pub fn answer_duel(
         tokens_awarded: tokens,
         created_at: ctx.timestamp,
     });
+
+    let player_el = match challenge.opponent {
+        Planet::Sun | Planet::Mars => 0,     // Fire
+        Planet::Moon | Planet::Uranus | Planet::Neptune => 1, // Water
+        Planet::Venus | Planet::Saturn | Planet::Pluto => 2,  // Earth
+        Planet::Mercury | Planet::Jupiter => 3, // Air
+    };
+    let _ = record_round_play(ctx, challenge.player, player_el, challenge.player_score);
+    let agent_identity = Identity::from_claims("pentacles:agent", &format!("{:?}", challenge.opponent).to_lowercase());
+    let _ = record_round_play(ctx, agent_identity, player_el, agent_score);
 
     Ok(())
 }
@@ -2775,7 +3053,11 @@ pub fn counter_jing(ctx: &ReducerContext, duel_id: u64, mv: JingMove) -> Result<
     duel.state = JingState::Resolved;
     duel.winner_is_initiator = Some(false); // the counter-er (target) prevails
     duel.updated_at = ctx.timestamp;
-    ctx.db.jing_duel().duel_id().update(duel);
+    ctx.db.jing_duel().duel_id().update(duel.clone());
+
+    let _ = record_round_play(ctx, duel.initiator, duel.opening_move.esms(), 10);
+    let _ = record_round_play(ctx, ctx.sender(), mv.esms(), 10);
+
     Ok(())
 }
 
@@ -2822,7 +3104,693 @@ pub fn answer_jing(
     duel.winner_is_initiator = JingMove::resolve(opening, agent_move);
     duel.state = JingState::Resolved;
     duel.updated_at = ctx.timestamp;
-    ctx.db.jing_duel().duel_id().update(duel);
+    ctx.db.jing_duel().duel_id().update(duel.clone());
+
+    let op_el = agent_move.esms(); // 0..3
+    let _ = record_round_play(ctx, duel.initiator, duel.opening_move.esms(), 10);
+    let agent_identity = Identity::from_claims("pentacles:agent", &format!("{:?}", duel.target_agent.unwrap()).to_lowercase());
+    let _ = record_round_play(ctx, agent_identity, op_el, 10);
+
+    Ok(())
+}
+
+// ── Star Staking Reducers ──────────────────────────────────────────────────
+
+// Called by the app right after a confirmed on-chain StarVault.stake(). `principal_usdc`
+// and `shares` are read back from the StarVault event so this ledger matches custody.
+#[reducer]
+pub fn record_star_stake(
+    ctx: &ReducerContext,
+    star_id: u32,
+    principal_usdc: u64,
+    shares: u128,
+) -> Result<(), String> {
+    let star = ctx.db.star_node().hip_id().find(&star_id).ok_or("no such star")?;
+    let element = esms_id_for_star(star.ra, star.dec);
+    
+    // upsert pool
+    let mut pool = ctx.db.star_stake_pool().star_id().find(&star_id)
+        .unwrap_or(StarStakePool { star_id, total_principal_usdc: 0, total_shares: 0 });
+    pool.total_principal_usdc += principal_usdc;
+    pool.total_shares += shares;
+    if ctx.db.star_stake_pool().star_id().find(&star_id).is_some() {
+        ctx.db.star_stake_pool().star_id().update(pool);
+    } else {
+        ctx.db.star_stake_pool().insert(pool);
+    }
+
+    ctx.db.star_stake().insert(StarStake {
+        stake_id: 0,
+        staker: ctx.sender(),
+        star_id,
+        element,
+        principal_usdc,
+        shares,
+        accrued_essence: 0,
+        claimed_essence: 0,
+        staked_at: ctx.timestamp,
+        last_accrual_at: ctx.timestamp,
+    });
+    Ok(())
+}
+
+// Called after a confirmed on-chain unstake. Removes shares/principal.
+#[reducer]
+pub fn record_star_unstake(ctx: &ReducerContext, stake_id: u64) -> Result<(), String> {
+    let s = ctx.db.star_stake().stake_id().find(&stake_id).ok_or("no stake")?;
+    if s.staker != ctx.sender() {
+        return Err("not your stake".into());
+    }
+    if let Some(mut pool) = ctx.db.star_stake_pool().star_id().find(&s.star_id) {
+        pool.total_principal_usdc = pool.total_principal_usdc.saturating_sub(s.principal_usdc);
+        pool.total_shares = pool.total_shares.saturating_sub(s.shares);
+        ctx.db.star_stake_pool().star_id().update(pool);
+    }
+    ctx.db.star_stake().stake_id().delete(&stake_id);
+    Ok(())
+}
+
+// Called by the attestor service after it signs a claim, to move accrued → claimed so
+// it can't be double-signed.
+#[reducer]
+pub fn mark_star_yield_claimed(
+    ctx: &ReducerContext,
+    stake_id: u64,
+    amount: u128,
+) -> Result<(), String> {
+    let mut s = ctx.db.star_stake().stake_id().find(&stake_id).ok_or("no stake")?;
+    s.accrued_essence = s.accrued_essence.saturating_sub(amount);
+    s.claimed_essence += amount;
+    ctx.db.star_stake().stake_id().update(s);
+    Ok(())
+}
+
+// ── Star Staking Math Helpers ────────────────────────────────────────────────
+
+const BASE_DAILY_RATE: f64 = 0.0006;
+
+fn ra_dec_to_ecliptic_longitude(ra: f64, dec: f64) -> f64 {
+    let ra_deg = if ra.abs() <= 24.0 { ra * 15.0 } else { ra };
+    let ra_rad = ra_deg.rem_euclid(360.0).to_radians();
+    let dec_rad = dec.to_radians();
+    let obliquity_rad = (23.43928_f64).to_radians();
+
+    let lon_rad = (ra_rad.sin() * obliquity_rad.cos() + dec_rad.tan() * obliquity_rad.sin())
+        .atan2(ra_rad.cos());
+    lon_rad.to_degrees().rem_euclid(360.0)
+}
+
+fn esms_id_for_star(ra: f64, dec: f64) -> u8 {
+    let longitude = ra_dec_to_ecliptic_longitude(ra, dec);
+    let sign = (longitude / 30.0) as u8 % 12;
+    match sign {
+        0 | 4 | 8 => 0,  // Fire -> Spirit
+        3 | 7 | 11 => 1, // Water -> Essence
+        1 | 5 | 9 => 2,  // Earth -> Matter
+        2 | 6 | 10 => 3, // Air -> Substance
+        _ => 0,
+    }
+}
+
+fn planet_has_element_affinity(planet: Planet, element: u8) -> bool {
+    match planet {
+        Planet::Sun => element == 0,
+        Planet::Moon => element == 1,
+        Planet::Mercury => element == 3 || element == 2,
+        Planet::Venus => element == 1 || element == 2,
+        Planet::Mars => element == 0 || element == 1,
+        Planet::Jupiter => element == 3 || element == 0,
+        Planet::Saturn => element == 3 || element == 2,
+        Planet::Uranus => element == 1 || element == 3,
+        Planet::Neptune => element == 1,
+        Planet::Pluto => element == 2 || element == 1,
+    }
+}
+
+fn planet_dignity_for_sign(planet: Planet, sign: u8) -> i8 {
+    match planet {
+        Planet::Sun => match sign {
+            4 => 1,
+            0 => 2,
+            10 => -1,
+            6 => -2,
+            _ => 0,
+        },
+        Planet::Moon => match sign {
+            3 => 1,
+            1 => 2,
+            9 => -1,
+            7 => -2,
+            _ => 0,
+        },
+        Planet::Mercury => match sign {
+            2 => 1,
+            5 => 3,
+            8 => 1,
+            11 => -3,
+            _ => 0,
+        },
+        Planet::Venus => match sign {
+            6 => 1,
+            1 => 1,
+            11 => 2,
+            0 => -1,
+            7 => -1,
+            5 => -2,
+            _ => 0,
+        },
+        Planet::Mars => match sign {
+            0 => 1,
+            7 => 1,
+            9 => 2,
+            1 => -1,
+            6 => -1,
+            3 => -2,
+            _ => 0,
+        },
+        Planet::Jupiter => match sign {
+            11 => 1,
+            8 => 1,
+            3 => 2,
+            2 => -1,
+            5 => -1,
+            9 => -2,
+            _ => 0,
+        },
+        Planet::Saturn => match sign {
+            10 => 1,
+            9 => 1,
+            6 => 2,
+            3 => -1,
+            4 => -1,
+            0 => -2,
+            _ => 0,
+        },
+        Planet::Uranus => match sign {
+            10 => 1,
+            7 => 2,
+            1 => -3,
+            _ => 0,
+        },
+        Planet::Neptune => match sign {
+            11 => 1,
+            3 => 2,
+            5 => -1,
+            9 => -2,
+            _ => 0,
+        },
+        Planet::Pluto => match sign {
+            7 => 1,
+            4 => 2,
+            1 => -1,
+            10 => -2,
+            _ => 0,
+        },
+    }
+}
+
+fn zone_dominance_for(ctx: &ReducerContext, element: u8) -> f64 {
+    let mut score = 0.0;
+    let mut total = 0.0;
+    for eph in ctx.db.ephemeris().iter() {
+        let longitude = ra_dec_to_ecliptic_longitude(eph.ra, eph.dec);
+        let sign = (longitude / 30.0) as u8 % 12;
+        let sign_element = match sign {
+            0 | 4 | 8 => 0,  // Fire
+            3 | 7 | 11 => 1, // Water
+            1 | 5 | 9 => 2,  // Earth
+            2 | 6 | 10 => 3, // Air
+            _ => 0,
+        };
+        let weight = 1.0;
+        total += weight;
+        if sign_element == element {
+            score += weight;
+        }
+        if planet_has_element_affinity(eph.body, element) {
+            score += weight * 0.5;
+        }
+    }
+    if total > 0.0 {
+        let share = score / total;
+        let val: f64 = 0.5 + share * 1.5;
+        val.clamp(0.5, 2.0)
+    } else {
+        1.0
+    }
+}
+
+fn chart_affinity_for(chart: &NatalChart, element: u8) -> f64 {
+    let mut element_scores = [0.0; 4];
+    for p in &chart.placements {
+        let el = match p.sign % 4 {
+            0 => 0, // Fire
+            1 => 2, // Earth
+            2 => 3, // Air
+            _ => 1, // Water
+        };
+        let weight = match p.body {
+            Planet::Sun | Planet::Moon => 3.0,
+            _ => 1.0,
+        };
+        element_scores[el as usize] += weight;
+    }
+    
+    if chart.time_known {
+        let asc_sign = ((chart.ascendant / 1800) % 12) as u8;
+        let asc_el = match asc_sign % 4 {
+            0 => 0,
+            1 => 2,
+            2 => 3,
+            _ => 1,
+        };
+        element_scores[asc_el as usize] += 3.0;
+    }
+
+    let total_score: f64 = element_scores.iter().sum();
+    let score = if total_score > 0.0 {
+        element_scores[element as usize] / total_score * 100.0
+    } else {
+        25.0
+    };
+
+    let mut dominant_el = 0;
+    for i in 1..4 {
+        if element_scores[i] > element_scores[dominant_el] {
+            dominant_el = i;
+        }
+    }
+
+    let mut affinity = 0.75;
+    if dominant_el == element as usize {
+        affinity += 0.5;
+    }
+    affinity += (score / 100.0).clamp(0.0, 1.0) * 0.5;
+    affinity += 0.25; // Monica constant 0.5 * 0.5
+
+    affinity.clamp(0.5, 2.5)
+}
+
+fn planet_dignity_for_star(star_sign: u8, ctx: &ReducerContext) -> f64 {
+    let mut bonus = 0;
+    for eph in ctx.db.ephemeris().iter() {
+        let longitude = ra_dec_to_ecliptic_longitude(eph.ra, eph.dec);
+        let sign = (longitude / 30.0) as u8 % 12;
+        if sign == star_sign {
+            let dignity = planet_dignity_for_sign(eph.body, star_sign);
+            bonus += dignity.abs() as i32;
+        }
+    }
+    (1.0 + bonus as f64 * 0.1).clamp(1.0, 2.0)
+}
+
+fn daily_rate_per_usdc(
+    ctx: &ReducerContext,
+    stake: &StarStake,
+    star: &StarNode,
+) -> f64 {
+    let star_longitude = ra_dec_to_ecliptic_longitude(star.ra, star.dec);
+    let star_sign = (star_longitude / 30.0) as u8 % 12;
+    let chart = match ctx.db.natal_chart().identity().find(&stake.staker) {
+        Some(c) => c,
+        None => return BASE_DAILY_RATE, // default rate if no natal chart found
+    };
+    let zone_dominance = zone_dominance_for(ctx, stake.element);
+    let chart_affinity = chart_affinity_for(&chart, stake.element);
+    let planet_dignity = planet_dignity_for_star(star_sign, ctx);
+    BASE_DAILY_RATE * zone_dominance * chart_affinity * planet_dignity
+}
+
+// ── Round Tracking & Yield Distribution Reducer Helpers ──────────────────────
+
+fn record_round_play(
+    ctx: &ReducerContext,
+    identity: Identity,
+    element: u8,
+    weight: u32,
+) -> Result<(), String> {
+    let mut round = match ctx.db.duel_round().iter().next() {
+        Some(r) => r,
+        None => {
+            let new_round = DuelRound {
+                round_id: 1,
+                plays_count: 0,
+                target_plays: 3, // complete round every 3 plays
+                created_at: ctx.timestamp,
+            };
+            ctx.db.duel_round().insert(new_round.clone());
+            new_round
+        }
+    };
+
+    ctx.db.round_participant().insert(RoundParticipant {
+        id: 0,
+        round_id: round.round_id,
+        identity,
+        element,
+        weight,
+    });
+
+    round.plays_count += 1;
+
+    if round.plays_count >= round.target_plays {
+        let participants: Vec<RoundParticipant> = ctx.db.round_participant()
+            .iter()
+            .filter(|p| p.round_id == round.round_id)
+            .collect();
+
+        let mut total_weight = [0u32; 4];
+        for p in &participants {
+            if p.element < 4 {
+                total_weight[p.element as usize] += p.weight;
+            }
+        }
+
+        const ELEMENT_POOL: u32 = 100;
+
+        for p in &participants {
+            if p.element >= 4 { continue; }
+            let tw = total_weight[p.element as usize];
+            if tw > 0 {
+                let share = (p.weight as f64 / tw as f64 * ELEMENT_POOL as f64) as u16;
+                if share > 0 {
+                    let mut pool = match ctx.db.jing_pool().identity().find(&p.identity) {
+                        Some(pl) => pl,
+                        None => {
+                            let new_pool = JingPool {
+                                identity: p.identity,
+                                sacred7: vec![100; 7],
+                                esms: vec![0; 4],
+                                updated_at: ctx.timestamp,
+                            };
+                            ctx.db.jing_pool().insert(new_pool.clone());
+                            new_pool
+                        }
+                    };
+                    
+                    if pool.esms.len() < 4 {
+                        pool.esms.resize(4, 0);
+                    }
+                    pool.esms[p.element as usize] = pool.esms[p.element as usize].saturating_add(share);
+                    pool.updated_at = ctx.timestamp;
+                    ctx.db.jing_pool().identity().update(pool);
+                }
+            }
+        }
+
+        for p in &participants {
+            ctx.db.round_participant().id().delete(&p.id);
+        }
+
+        // Reset the singleton round in place. Do NOT bump round_id here — it is the
+        // primary key, and the `update()` below targets the row by that key; bumping
+        // it made the update hit a nonexistent row and panic (error 15) on every
+        // round completion (i.e. every 3rd play). Participants of the finished round
+        // were just deleted, so reusing the same round_id starts a clean round.
+        round.plays_count = 0;
+        round.created_at = ctx.timestamp;
+    }
+
+    ctx.db.duel_round().round_id().update(round);
+    Ok(())
+}
+
+// ── Admin Agent Operations (System driving NPC agents) ──────────────────────
+
+#[reducer]
+pub fn admin_agent_record_star_stake(
+    ctx: &ReducerContext,
+    agent_key: String,
+    star_id: u32,
+    principal_usdc: u64,
+    shares: u128,
+) -> Result<(), String> {
+    let cfg = ctx.db.game_config().id().find(&0).ok_or("not initialised")?;
+    if ctx.sender() != cfg.owner {
+        return Err("admin only".into());
+    }
+    let agent_identity = Identity::from_claims("pentacles:agent", &agent_key);
+    
+    let star = ctx.db.star_node().hip_id().find(&star_id).ok_or("no such star")?;
+    let element = esms_id_for_star(star.ra, star.dec);
+    
+    // upsert pool
+    let mut pool = ctx.db.star_stake_pool().star_id().find(&star_id)
+        .unwrap_or(StarStakePool { star_id, total_principal_usdc: 0, total_shares: 0 });
+    pool.total_principal_usdc += principal_usdc;
+    pool.total_shares += shares;
+    if ctx.db.star_stake_pool().star_id().find(&star_id).is_some() {
+        ctx.db.star_stake_pool().star_id().update(pool);
+    } else {
+        ctx.db.star_stake_pool().insert(pool);
+    }
+
+    ctx.db.star_stake().insert(StarStake {
+        stake_id: 0,
+        staker: agent_identity,
+        star_id,
+        element,
+        principal_usdc,
+        shares,
+        accrued_essence: 0,
+        claimed_essence: 0,
+        staked_at: ctx.timestamp,
+        last_accrual_at: ctx.timestamp,
+    });
+    Ok(())
+}
+
+#[reducer]
+pub fn admin_agent_record_star_unstake(
+    ctx: &ReducerContext,
+    agent_key: String,
+    stake_id: u64,
+) -> Result<(), String> {
+    let cfg = ctx.db.game_config().id().find(&0).ok_or("not initialised")?;
+    if ctx.sender() != cfg.owner {
+        return Err("admin only".into());
+    }
+    let agent_identity = Identity::from_claims("pentacles:agent", &agent_key);
+    
+    let s = ctx.db.star_stake().stake_id().find(&stake_id).ok_or("no stake")?;
+    if s.staker != agent_identity {
+        return Err("not agent's stake".into());
+    }
+    if let Some(mut pool) = ctx.db.star_stake_pool().star_id().find(&s.star_id) {
+        pool.total_principal_usdc = pool.total_principal_usdc.saturating_sub(s.principal_usdc);
+        pool.total_shares = pool.total_shares.saturating_sub(s.shares);
+        ctx.db.star_stake_pool().star_id().update(pool);
+    }
+    ctx.db.star_stake().stake_id().delete(&stake_id);
+    Ok(())
+}
+
+#[reducer]
+pub fn admin_agent_resolve_star_battle(
+    ctx: &ReducerContext,
+    agent_key: String,
+    hip_id: u32,
+    log: BattleLog,
+) -> Result<(), String> {
+    let cfg = ctx.db.game_config().id().find(&0).ok_or("not initialised")?;
+    if ctx.sender() != cfg.owner {
+        return Err("admin only".into());
+    }
+    let agent_identity = Identity::from_claims("pentacles:agent", &agent_key);
+
+    let player = ctx.db.player().identity().find(&agent_identity).ok_or("register agent first")?;
+    let mut star = ctx.db.star_node().hip_id().find(&hip_id).ok_or("no such star")?;
+
+    if !can_access_zone(ctx, player.faction, star.region_hint) {
+        return Err("Zone is locked.".into());
+    }
+    if log.model != CombatModel::AutoSiege {
+        return Err("star strikes use Auto-Siege".into());
+    }
+
+    let mut attacker: Vec<combat::CardStat> = Vec::new();
+    for cid in &log.plays {
+        let c = ctx.db.card().card_id().find(cid).ok_or("card not found")?;
+        if c.owner != agent_identity {
+            return Err("not agent's card".into());
+        }
+        attacker.push(stat_of(&c));
+    }
+    if attacker.is_empty() {
+        return Err("no valid cards played".into());
+    }
+
+    let defender = match star.held_by {
+        Some(holder) => sentinel_for(ctx, holder),
+        None => neutral_garrison(&star),
+    };
+
+    let region_hint = star.region_hint;
+    let weather = zone_favored_suit(ctx, region_hint);
+    let attacker_seals = sealed_suits(ctx, player.faction);
+    let defender_seals = star
+        .held_by
+        .map(|f| sealed_suits(ctx, f))
+        .unwrap_or_default();
+    let (won, _margin) = combat::resolve_star(
+        &attacker,
+        &defender,
+        weather,
+        &attacker_seals,
+        &defender_seals,
+    );
+    if won {
+        star.held_by = Some(player.faction);
+        ctx.db.star_node().hip_id().update(star);
+        if let Some(mut z) = ctx.db.zone().zone_id().find(&region_hint) {
+            if z.owner == Some(player.faction) {
+                z.control = (z.control + 50).min(1000);
+            } else {
+                z.owner = Some(player.faction);
+                z.control = 50;
+            }
+            z.updated_at = ctx.timestamp;
+            ctx.db.zone().zone_id().update(z);
+        }
+    }
+    Ok(())
+}
+
+#[reducer]
+pub fn admin_agent_cast_jing(
+    ctx: &ReducerContext,
+    agent_key: String,
+    mv: JingMove,
+    target_player: Option<Identity>,
+    target_agent: Option<Planet>,
+) -> Result<(), String> {
+    let cfg = ctx.db.game_config().id().find(&0).ok_or("not initialised")?;
+    if ctx.sender() != cfg.owner {
+        return Err("admin only".into());
+    }
+    let agent_identity = Identity::from_claims("pentacles:agent", &agent_key);
+
+    let duel = ctx.db.jing_duel().insert(JingDuel {
+        duel_id: 0,
+        initiator: agent_identity,
+        target_player,
+        target_agent,
+        opening_move: mv,
+        state: JingState::Open,
+        winner_is_initiator: None,
+        created_at: ctx.timestamp,
+        updated_at: ctx.timestamp,
+    });
+    ctx.db.jing_cast().insert(JingCast {
+        cast_id: 0,
+        duel_id: duel.duel_id,
+        caster: agent_identity,
+        caster_agent: None,
+        mv,
+        cost_sacred7: mv.sacred7() as u8,
+        cost_esms: mv.esms(),
+        deflects: None,
+        voice: String::new(),
+        created_at: ctx.timestamp,
+    });
+    Ok(())
+}
+
+#[reducer]
+pub fn admin_agent_counter_jing(
+    ctx: &ReducerContext,
+    agent_key: String,
+    duel_id: u64,
+    mv: JingMove,
+) -> Result<(), String> {
+    let cfg = ctx.db.game_config().id().find(&0).ok_or("not initialised")?;
+    if ctx.sender() != cfg.owner {
+        return Err("admin only".into());
+    }
+    let agent_identity = Identity::from_claims("pentacles:agent", &agent_key);
+
+    let mut duel = ctx.db.jing_duel().duel_id().find(&duel_id).ok_or("no such duel")?;
+    if duel.state == JingState::Resolved {
+        return Err("already resolved".into());
+    }
+    if duel.target_player != Some(agent_identity) {
+        return Err("not target".into());
+    }
+    let last = ctx.db.jing_cast().duel_id().filter(&duel_id).max_by_key(|c| c.cast_id).ok_or("no casts")?;
+    if !last.mv.countered_by().contains(&mv) {
+        return Err("invalid counter".into());
+    }
+
+    ctx.db.jing_cast().insert(JingCast {
+        cast_id: 0,
+        duel_id,
+        caster: agent_identity,
+        caster_agent: None,
+        mv,
+        cost_sacred7: mv.sacred7() as u8,
+        cost_esms: mv.esms(),
+        deflects: Some(last.mv),
+        voice: String::new(),
+        created_at: ctx.timestamp,
+    });
+    duel.state = JingState::Resolved;
+    duel.winner_is_initiator = Some(false);
+    duel.updated_at = ctx.timestamp;
+    ctx.db.jing_duel().duel_id().update(duel.clone());
+
+    let _ = record_round_play(ctx, duel.initiator, duel.opening_move.esms(), 10);
+    let _ = record_round_play(ctx, agent_identity, mv.esms(), 10);
+
+    Ok(())
+}
+
+#[reducer]
+pub fn admin_agent_cast_word(
+    ctx: &ReducerContext,
+    agent_key: String,
+    word: String,
+    opponent: Planet,
+) -> Result<(), String> {
+    let cfg = ctx.db.game_config().id().find(&0).ok_or("not initialised")?;
+    if ctx.sender() != cfg.owner {
+        return Err("admin only".into());
+    }
+    let agent_identity = Identity::from_claims("pentacles:agent", &agent_key);
+
+    let w = word.trim().to_ascii_uppercase();
+    if w.len() < 2 { return Err("too short".into()); }
+    if !words::is_valid(&w) { return Err("not in codex".into()); }
+
+    let player_score = words::word_score(&w);
+    let agent_rack = agent_letters(ctx, opponent);
+    let mut rack_str = String::new();
+    for i in 0..26 {
+        for _ in 0..agent_rack[i] {
+            rack_str.push((b'A' + i as u8) as char);
+        }
+    }
+
+    let cands = words::legal_candidates(&agent_rack);
+    let mut cands_json = String::from("[");
+    for (idx, c) in cands.iter().enumerate() {
+        if idx > 0 { cands_json.push_str(", "); }
+        cands_json.push('"');
+        cands_json.push_str(c);
+        cands_json.push('"');
+    }
+    cands_json.push(']');
+
+    ctx.db.duel_challenge().insert(DuelChallenge {
+        challenge_id: 0,
+        player: agent_identity,
+        opponent,
+        player_word: w,
+        player_score,
+        agent_rack: rack_str,
+        candidates: cands_json,
+        answered: false,
+        created_at: ctx.timestamp,
+    });
     Ok(())
 }
 

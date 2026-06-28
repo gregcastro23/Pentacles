@@ -13,6 +13,13 @@
       "runtimeExecutable": "bun",
       "runtimeArgs": ["serve.ts", "8090"],
       "port": 8090
+    },
+    {
+      "name": "alchm-agents-dev",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd /Users/cookingwithcastro/Desktop/EthGlobalHackathon/AlchmAgentsETH-main && exec bun run dev"],
+      "port": 3000,
+      "autoPort": false
     }
   ]
 }

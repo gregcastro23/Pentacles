@@ -39,7 +39,7 @@ pub fn element_weather(suit: Suit, favored: Suit) -> f32 {
     }
 }
 
-fn card_strength(c: &CardStat) -> f32 {
+pub fn card_strength(c: &CardStat) -> f32 {
     c.attack as f32 + c.health as f32 * 0.5 + c.armour as f32 * 0.4
 }
 
@@ -48,7 +48,7 @@ fn card_strength(c: &CardStat) -> f32 {
 /// fights a notch harder, wherever the contest is.
 pub const SEAL_BONUS: f32 = 1.15;
 
-fn seal_mult(suit: Suit, sealed: &[Suit]) -> f32 {
+pub fn seal_mult(suit: Suit, sealed: &[Suit]) -> f32 {
     if sealed.contains(&suit) { SEAL_BONUS } else { 1.0 }
 }
 

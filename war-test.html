@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Faction War — Harness</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Space+Grotesk:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    html, body { margin: 0; min-height: 100%; background: #05060c; }
+    #host { width: min(1180px, 96vw); margin: 0 auto; }
+    /* Mounts the REAL FactionWar module with mock rows (no SpacetimeDB). */
+  </style>
+</head>
+<body>
+  <div id="host"></div>
+  <script type="module">
+    import "/src/alchm-chart/alchm-chart.css";
+    import FactionWar from "/src/alchm-chart/faction-war.js";
+
+    // ── mock normalized rows (snake_case, as ws-normalize.js emits) ──────────
+    // zone control mirrors a real pentacles2xtest snapshot.
+    const zones = [
+      { zone_id: 0, kind: "house", owner: "Pluto",   control: 28 },
+      { zone_id: 1, kind: "house", owner: "Sun",     control: 308 },
+      { zone_id: 2, kind: "house", owner: "Moon",    control: 618 },
+      { zone_id: 3, kind: "house", owner: "Mercury", control: 120 }, // weak → contested
+      { zone_id: 4, kind: "house", owner: "Venus",   control: 303 },
+      { zone_id: 5, kind: "spire", owner: "Mars",    control: 288 },
+      { zone_id: 6, kind: "spire", owner: "Jupiter", control: 668 },
+      { zone_id: 7, kind: "spire", owner: "Saturn",  control: 44 },
+      { zone_id: 8, kind: "spire", owner: "Uranus",  control: 28 },
+      { zone_id: 9, kind: "spire", owner: null,      control: 0 },
+      { zone_id: 10, kind: "crown", owner: "Neptune", control: 313 },
+    ];
+    // Albert Einstein carries a full AgentChart (placements/asc/mc) so the Codex
+    // popover can be exercised; the rest are roster-only for this harness.
+    const P = (body, sign, deg, retro, dignity) => ({ body, sign, arc_minutes: Math.round(deg * 60), retrograde: !!retro, dignity: dignity || 0 });
+    const agents = [
+      { identity: "0xein", handle: "Albert Einstein",
+        birth_unix: Math.round(Date.UTC(1879, 2, 14, 10, 50, 0) / 1000),
+        birth_lat: 48.7833, birth_lon: 9.1833, time_known: true,
+        ascendant: 3 * 1800 + 11 * 60, midheaven: 11 * 1800 + 17 * 60, // ASC Cancer 11°, MC Pisces 17°
+        placements: [
+          P("Sun", 11, 23), P("Moon", 8, 14), P("Mercury", 0, 4), P("Venus", 0, 18, false, -5),
+          P("Mars", 9, 28, false, 4), P("Jupiter", 10, 29), P("Saturn", 0, 5),
+          P("Uranus", 5, 2, true), P("Neptune", 1, 9), P("Pluto", 1, 26),
+        ] },
+      { identity: "0xfri", handle: "Frida Kahlo" },
+      { identity: "0xjun", handle: "Carl Jung" },
+      { identity: "0xvan", handle: "Vincent van Gogh" },
+      { identity: "0xsag", handle: "Carl Sagan" },
+      { identity: "0xchi", handle: "Chiron" },
+      { identity: "0xgan", handle: "Mahatma Gandhi" },
+      { identity: "0xtes", handle: "Nikola Tesla" },
+      { identity: "0xcur", handle: "Marie Curie" },
+    ];
+    const players = [
+      { identity: "0xein", faction: "Moon" },
+      { identity: "0xfri", faction: "Moon" },
+      { identity: "0xjun", faction: "Sun" },
+      { identity: "0xvan", faction: "Jupiter" },
+      { identity: "0xsag", faction: "Jupiter" },
+      { identity: "0xchi", faction: "Jupiter" },
+      { identity: "0xgan", faction: "Venus" },
+      { identity: "0xtes", faction: "Neptune" },
+      { identity: "0xcur", faction: "Mars" },
+      { identity: "0xada", faction: "Moon", handle: "Ada Lovelace" }, // a human ally
+    ];
+
+    const war = FactionWar.create({
+      el: document.getElementById("host"),
+      myFaction: 1, // viewer rides with the Moon
+      hooks: { onJoin: (idx, name) => console.log("[harness] join", idx, name) },
+    });
+    war.mount();
+    war.setData({ zones, players, agents });
+    window.__war = war;
+
+    // a second snapshot ~1.2s later → exercises the live ticker (capture / rise / join)
+    setTimeout(() => {
+      const z2 = zones.map((z) => ({ ...z }));
+      z2[10].owner = "Jupiter"; z2[10].control = 80;   // Jupiter seizes the Crown
+      z2[2].control = 720;                              // Moon tightens House III
+      z2[7].control = 0; z2[7].owner = null;           // Saturn loses Spire III
+      const p2 = players.concat([{ identity: "0xneo", faction: "Venus", handle: "New Ally" }]);
+      war.setData({ zones: z2, players: p2 });
+    }, 1200);
+  </script>
+</body>
+</html>

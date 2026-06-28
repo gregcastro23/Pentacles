@@ -52,6 +52,59 @@ pub struct NatalChart {
     pub intercepted_signs: Option<Vec<u8>>,
 }
 
+/// PUBLIC chart projection for NPC "historical agent" players only. `natal_chart`
+/// is private (per-owner RLS), so a seeded agent's chart would otherwise be
+/// invisible to everyone; this mirrors it (plus a denormalized `handle`) for
+/// agents that opt in via `seed_agent_player`. Real players are never written
+/// here — their chart stays private. Same shape as NatalChart.
+#[spacetimedb::table(accessor = agent_chart, public)]
+#[derive(Clone)]
+pub struct AgentChart {
+    #[primary_key]
+    pub identity: Identity,
+    pub handle: String,       // denormalized display name (the figure)
+    pub birth_unix: i64,
+    pub birth_lat: f64,
+    pub birth_lon: f64,
+    pub time_known: bool,
+    pub placements: Vec<Placement>,
+    pub ascendant: u16,
+    pub midheaven: u16,
+    #[default(None::<Vec<u16>>)]
+    pub house_cusps: Option<Vec<u16>>,
+    #[default(HouseSystem::WholeSign)]
+    pub house_system: HouseSystem,
+    #[default(None::<Vec<u8>>)]
+    pub intercepted_signs: Option<Vec<u8>>,
+}
+
+/// A player's 36-decan natal attribution — one row per placement, the raw
+/// Golden Dawn Minor-Arcana card for each body by degree. PUBLIC and queryable
+/// id-for-id, so any alchm surface (agents site, constellation LP) can read a
+/// player's decan cards without touching the private `natal_chart`.
+///
+/// Distinct from the game `Card` deck: `mint_deck` elevates the chart ruler to
+/// an Ace and angular / sign-ruling bodies to courts; this table is the plain
+/// astrological truth (always a 2..10 pip). Mirrors the client `decanCard()` in
+/// src/alchm-chart/decans.js, which mirrors `pip_rank`/`decan` in chart.rs.
+#[spacetimedb::table(accessor = natal_decan, public)]
+#[derive(Clone)]
+pub struct NatalDecan {
+    #[primary_key]
+    #[auto_inc]
+    pub decan_id: u64,
+    #[index(btree)]
+    pub owner: Identity,      // indexed: per-player lookups are O(player's placements)
+    pub body: Planet,         // the placement this decan card belongs to
+    pub sign: u8,             // 0..11 (Aries..Pisces)
+    pub decan: u8,            // 0..2 within the sign (0–9° · 10–19° · 20–29°)
+    pub abs_decan: u8,        // 0..35 across the wheel (sign*3 + decan) — title key
+    pub suit: Suit,           // the sign's triplicity
+    pub rank: u8,             // 2..10 — the Minor pip
+    pub decan_ruler: Planet,  // Chaldean "face" ruler of the decan
+    pub retrograde: bool,     // mirrors the placement
+}
+
 #[spacetimedb::table(accessor = player_location)] // private to owner (not public)
 #[derive(Clone)]
 pub struct PlayerLocation {
@@ -620,3 +673,62 @@ pub struct JingRate {
     pub last_at: Timestamp,
     pub casts: u32,
 }
+
+// ── Star Staking & Yield Accrual (EIP-712 Arc gateway integration) ───────────
+
+/// One staker's position on one star. Mirrors the on-chain StarVault stake.
+#[spacetimedb::table(accessor = star_stake, public)]
+#[derive(Clone)]
+pub struct StarStake {
+    #[primary_key]
+    #[auto_inc]
+    pub stake_id: u64,
+    #[index(btree)]
+    pub staker: Identity,
+    #[index(btree)]
+    pub star_id: u32,            // Hipparcos hip_id (FK → star_node)
+    pub element: u8,             // 0..3, the star's ESMS id (frozen at stake time)
+    pub principal_usdc: u64,     // 6-dp USDC mirrored from the on-chain stake
+    pub shares: u128,            // pool shares (pro-rata)
+    pub accrued_essence: u128,   // 18-dp ESMS accrued and not yet claimed
+    pub claimed_essence: u128,   // 18-dp ESMS already settled on Arc
+    pub staked_at: Timestamp,
+    pub last_accrual_at: Timestamp,
+}
+
+/// Per-star aggregate (shared pool).
+#[spacetimedb::table(accessor = star_stake_pool, public)]
+#[derive(Clone)]
+pub struct StarStakePool {
+    #[primary_key]
+    pub star_id: u32,
+    pub total_principal_usdc: u64,
+    pub total_shares: u128,
+}
+
+// ── Round Tracking & Yield Distribution ──────────────────────────────────────
+
+/// Tracker for duel rounds.
+#[spacetimedb::table(accessor = duel_round, public)]
+#[derive(Clone)]
+pub struct DuelRound {
+    #[primary_key]
+    pub round_id: u64,
+    pub plays_count: u32,
+    pub target_plays: u32,
+    pub created_at: Timestamp,
+}
+
+/// Contributions within the current active round.
+#[spacetimedb::table(accessor = round_participant, public)]
+#[derive(Clone)]
+pub struct RoundParticipant {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub round_id: u64,
+    pub identity: Identity,
+    pub element: u8,             // 0..3 (Spirit, Essence, Matter, Substance)
+    pub weight: u32,             // Word score or Jing weight
+}
+

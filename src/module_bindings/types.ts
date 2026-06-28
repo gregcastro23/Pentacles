@@ -10,6 +10,26 @@ import {
   type Infer as __Infer,
 } from "spacetimedb";
 
+export const AgentChart = __t.object("AgentChart", {
+  identity: __t.identity(),
+  handle: __t.string(),
+  birthUnix: __t.i64(),
+  birthLat: __t.f64(),
+  birthLon: __t.f64(),
+  timeKnown: __t.bool(),
+  get placements() {
+    return __t.array(Placement);
+  },
+  ascendant: __t.u16(),
+  midheaven: __t.u16(),
+  houseCusps: __t.option(__t.array(__t.u16())),
+  get houseSystem() {
+    return HouseSystem;
+  },
+  interceptedSigns: __t.option(__t.byteArray()),
+});
+export type AgentChart = __Infer<typeof AgentChart>;
+
 export const Battle = __t.object("Battle", {
   battleId: __t.u64(),
   starId: __t.u32(),
@@ -180,6 +200,14 @@ export const DuelQueue = __t.object("DuelQueue", {
 });
 export type DuelQueue = __Infer<typeof DuelQueue>;
 
+export const DuelRound = __t.object("DuelRound", {
+  roundId: __t.u64(),
+  playsCount: __t.u32(),
+  targetPlays: __t.u32(),
+  createdAt: __t.timestamp(),
+});
+export type DuelRound = __Infer<typeof DuelRound>;
+
 // The tagged union or sum type for the algebraic type `DuelState`.
 export const DuelState = __t.enum("DuelState", ["Active", "Resolved"]);
 export type DuelState = __Infer<typeof DuelState>;
@@ -296,6 +324,26 @@ export const NatalChart = __t.object("NatalChart", {
 });
 export type NatalChart = __Infer<typeof NatalChart>;
 
+export const NatalDecan = __t.object("NatalDecan", {
+  decanId: __t.u64(),
+  owner: __t.identity(),
+  get body() {
+    return Planet;
+  },
+  sign: __t.u8(),
+  decan: __t.u8(),
+  absDecan: __t.u8(),
+  get suit() {
+    return Suit;
+  },
+  rank: __t.u8(),
+  get decanRuler() {
+    return Planet;
+  },
+  retrograde: __t.bool(),
+});
+export type NatalDecan = __Infer<typeof NatalDecan>;
+
 export const OracleCache = __t.object("OracleCache", {
   qhash: __t.u64(),
   question: __t.string(),
@@ -370,6 +418,15 @@ export const PlayerLocation = __t.object("PlayerLocation", {
 });
 export type PlayerLocation = __Infer<typeof PlayerLocation>;
 
+export const RoundParticipant = __t.object("RoundParticipant", {
+  id: __t.u64(),
+  roundId: __t.u64(),
+  identity: __t.identity(),
+  element: __t.u8(),
+  weight: __t.u32(),
+});
+export type RoundParticipant = __Infer<typeof RoundParticipant>;
+
 export const RoundState = __t.object("RoundState", {
   identity: __t.identity(),
   roundIndex: __t.u64(),
@@ -414,6 +471,27 @@ export const StarNode = __t.object("StarNode", {
   regionHint: __t.u8(),
 });
 export type StarNode = __Infer<typeof StarNode>;
+
+export const StarStake = __t.object("StarStake", {
+  stakeId: __t.u64(),
+  staker: __t.identity(),
+  starId: __t.u32(),
+  element: __t.u8(),
+  principalUsdc: __t.u64(),
+  shares: __t.u128(),
+  accruedEssence: __t.u128(),
+  claimedEssence: __t.u128(),
+  stakedAt: __t.timestamp(),
+  lastAccrualAt: __t.timestamp(),
+});
+export type StarStake = __Infer<typeof StarStake>;
+
+export const StarStakePool = __t.object("StarStakePool", {
+  starId: __t.u32(),
+  totalPrincipalUsdc: __t.u64(),
+  totalShares: __t.u128(),
+});
+export type StarStakePool = __Infer<typeof StarStakePool>;
 
 // The tagged union or sum type for the algebraic type `Suit`.
 export const Suit = __t.enum("Suit", ["Cups", "Swords", "Pentacles", "Wands"]);

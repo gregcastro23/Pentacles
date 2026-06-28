@@ -10,6 +10,9 @@ Thumbs.db
 # Node / Bun
 node_modules/
 bun.lockb
+
+# Local DB export snapshots (spacetime backups)
+backups/
 bun.lock
 .npm/
 

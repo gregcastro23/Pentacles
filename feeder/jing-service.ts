@@ -28,7 +28,9 @@ function getSpacetimeCli(): string {
 }
 const SPACETIMEDB_CLI = getSpacetimeCli();
 const DB = process.env.SPACETIMEDB_DB ?? "cookingwithcastrollc";
-const BACKEND_URL = process.env.PLANETARY_AGENTS_BACKEND_URL ?? "";
+// AlchmAgents Next.js jing brain (app/api/agents/jing). Defaults to the deployed
+// app; if unreachable, jing-service still answers from its local counter graph.
+const BACKEND_URL = process.env.PLANETARY_AGENTS_BACKEND_URL ?? "https://alchm-agents-eth.vercel.app";
 const SPACETIMEDB_URI = (process.env.SPACETIMEDB_URI ?? "https://maincloud.spacetimedb.com").replace(/\/+$/, "");
 const SPACETIME_TOKEN = process.env.SPACETIME_TOKEN || "";
 

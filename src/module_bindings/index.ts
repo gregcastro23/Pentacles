@@ -35,11 +35,18 @@ import {
 
 // Import all reducer arg schemas
 import AddStarToConstellationReducer from "./add_star_to_constellation_reducer";
+import AdminAgentCastJingReducer from "./admin_agent_cast_jing_reducer";
+import AdminAgentCastWordReducer from "./admin_agent_cast_word_reducer";
+import AdminAgentCounterJingReducer from "./admin_agent_counter_jing_reducer";
+import AdminAgentRecordStarStakeReducer from "./admin_agent_record_star_stake_reducer";
+import AdminAgentRecordStarUnstakeReducer from "./admin_agent_record_star_unstake_reducer";
+import AdminAgentResolveStarBattleReducer from "./admin_agent_resolve_star_battle_reducer";
 import AnswerDuelReducer from "./answer_duel_reducer";
 import AnswerJingReducer from "./answer_jing_reducer";
 import AnswerOracleReducer from "./answer_oracle_reducer";
 import AnswerTraceReducer from "./answer_trace_reducer";
 import AskOracleReducer from "./ask_oracle_reducer";
+import BackfillDecansReducer from "./backfill_decans_reducer";
 import CancelTradeReducer from "./cancel_trade_reducer";
 import CastJingReducer from "./cast_jing_reducer";
 import CastWordReducer from "./cast_word_reducer";
@@ -49,10 +56,16 @@ import CommitDuelReducer from "./commit_duel_reducer";
 import ConfirmTradeReducer from "./confirm_trade_reducer";
 import CounterJingReducer from "./counter_jing_reducer";
 import CreatePlayerReducer from "./create_player_reducer";
+import DeployCardReducer from "./deploy_card_reducer";
 import EnqueueDuelReducer from "./enqueue_duel_reducer";
+import MarkStarYieldClaimedReducer from "./mark_star_yield_claimed_reducer";
 import ProposeTradeReducer from "./propose_trade_reducer";
+import PurgeStaleAgentsReducer from "./purge_stale_agents_reducer";
 import PushEphemerisReducer from "./push_ephemeris_reducer";
+import RecordStarStakeReducer from "./record_star_stake_reducer";
+import RecordStarUnstakeReducer from "./record_star_unstake_reducer";
 import ResolveStarBattleReducer from "./resolve_star_battle_reducer";
+import SeedAgentPlayerReducer from "./seed_agent_player_reducer";
 import SetLoadoutReducer from "./set_loadout_reducer";
 import SetLocationReducer from "./set_location_reducer";
 import TraceConstellationReducer from "./trace_constellation_reducer";
@@ -60,6 +73,7 @@ import TraceConstellationReducer from "./trace_constellation_reducer";
 // Import all procedure arg schemas
 
 // Import all table schema definitions
+import AgentChartRow from "./agent_chart_table";
 import BattleRow from "./battle_table";
 import CardRow from "./card_table";
 import CometRow from "./comet_table";
@@ -72,18 +86,23 @@ import DeckSlotRow from "./deck_slot_table";
 import DuelRow from "./duel_table";
 import DuelChallengeRow from "./duel_challenge_table";
 import DuelQueueRow from "./duel_queue_table";
+import DuelRoundRow from "./duel_round_table";
 import EphemerisRow from "./ephemeris_table";
 import GameConfigRow from "./game_config_table";
 import JingCastRow from "./jing_cast_table";
 import JingDuelRow from "./jing_duel_table";
 import JingPoolRow from "./jing_pool_table";
+import NatalDecanRow from "./natal_decan_table";
 import OracleCacheRow from "./oracle_cache_table";
 import OracleReplyRow from "./oracle_reply_table";
 import OracleRequestRow from "./oracle_request_table";
 import PlayerRow from "./player_table";
+import RoundParticipantRow from "./round_participant_table";
 import RoundStateRow from "./round_state_table";
 import StarAgentRow from "./star_agent_table";
 import StarNodeRow from "./star_node_table";
+import StarStakeRow from "./star_stake_table";
+import StarStakePoolRow from "./star_stake_pool_table";
 import TraceAttestationRow from "./trace_attestation_table";
 import TraceIntentRow from "./trace_intent_table";
 import TradeRow from "./trade_table";
@@ -94,6 +113,17 @@ import ZoneRow from "./zone_table";
 
 /** The schema information for all tables in this module. This is defined the same was as the tables would have been defined in the server. */
 const tablesSchema = __schema({
+  agent_chart: __table({
+    name: 'agent_chart',
+    indexes: [
+      { accessor: 'identity', name: 'agent_chart_identity_idx_btree', algorithm: 'btree', columns: [
+        'identity',
+      ] },
+    ],
+    constraints: [
+      { name: 'agent_chart_identity_key', constraint: 'unique', columns: ['identity'] },
+    ],
+  }, AgentChartRow),
   battle: __table({
     name: 'battle',
     indexes: [
@@ -247,6 +277,17 @@ const tablesSchema = __schema({
       { name: 'duel_queue_ticket_id_key', constraint: 'unique', columns: ['ticketId'] },
     ],
   }, DuelQueueRow),
+  duel_round: __table({
+    name: 'duel_round',
+    indexes: [
+      { accessor: 'round_id', name: 'duel_round_round_id_idx_btree', algorithm: 'btree', columns: [
+        'roundId',
+      ] },
+    ],
+    constraints: [
+      { name: 'duel_round_round_id_key', constraint: 'unique', columns: ['roundId'] },
+    ],
+  }, DuelRoundRow),
   ephemeris: __table({
     name: 'ephemeris',
     indexes: [
@@ -308,6 +349,20 @@ const tablesSchema = __schema({
       { name: 'jing_pool_identity_key', constraint: 'unique', columns: ['identity'] },
     ],
   }, JingPoolRow),
+  natal_decan: __table({
+    name: 'natal_decan',
+    indexes: [
+      { accessor: 'decan_id', name: 'natal_decan_decan_id_idx_btree', algorithm: 'btree', columns: [
+        'decanId',
+      ] },
+      { accessor: 'owner', name: 'natal_decan_owner_idx_btree', algorithm: 'btree', columns: [
+        'owner',
+      ] },
+    ],
+    constraints: [
+      { name: 'natal_decan_decan_id_key', constraint: 'unique', columns: ['decanId'] },
+    ],
+  }, NatalDecanRow),
   oracle_cache: __table({
     name: 'oracle_cache',
     indexes: [
@@ -352,6 +407,17 @@ const tablesSchema = __schema({
       { name: 'player_identity_key', constraint: 'unique', columns: ['identity'] },
     ],
   }, PlayerRow),
+  round_participant: __table({
+    name: 'round_participant',
+    indexes: [
+      { accessor: 'id', name: 'round_participant_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'round_participant_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, RoundParticipantRow),
   round_state: __table({
     name: 'round_state',
     indexes: [
@@ -385,6 +451,34 @@ const tablesSchema = __schema({
       { name: 'star_node_hip_id_key', constraint: 'unique', columns: ['hipId'] },
     ],
   }, StarNodeRow),
+  star_stake: __table({
+    name: 'star_stake',
+    indexes: [
+      { accessor: 'stake_id', name: 'star_stake_stake_id_idx_btree', algorithm: 'btree', columns: [
+        'stakeId',
+      ] },
+      { accessor: 'staker', name: 'star_stake_staker_idx_btree', algorithm: 'btree', columns: [
+        'staker',
+      ] },
+      { accessor: 'star_id', name: 'star_stake_star_id_idx_btree', algorithm: 'btree', columns: [
+        'starId',
+      ] },
+    ],
+    constraints: [
+      { name: 'star_stake_stake_id_key', constraint: 'unique', columns: ['stakeId'] },
+    ],
+  }, StarStakeRow),
+  star_stake_pool: __table({
+    name: 'star_stake_pool',
+    indexes: [
+      { accessor: 'star_id', name: 'star_stake_pool_star_id_idx_btree', algorithm: 'btree', columns: [
+        'starId',
+      ] },
+    ],
+    constraints: [
+      { name: 'star_stake_pool_star_id_key', constraint: 'unique', columns: ['starId'] },
+    ],
+  }, StarStakePoolRow),
   trace_attestation: __table({
     name: 'trace_attestation',
     indexes: [
@@ -460,11 +554,18 @@ const tablesSchema = __schema({
 /** The schema information for all reducers in this module. This is defined the same way as the reducers would have been defined in the server, except the body of the reducer is omitted in code generation. */
 const reducersSchema = __reducers(
   __reducerSchema("add_star_to_constellation", AddStarToConstellationReducer),
+  __reducerSchema("admin_agent_cast_jing", AdminAgentCastJingReducer),
+  __reducerSchema("admin_agent_cast_word", AdminAgentCastWordReducer),
+  __reducerSchema("admin_agent_counter_jing", AdminAgentCounterJingReducer),
+  __reducerSchema("admin_agent_record_star_stake", AdminAgentRecordStarStakeReducer),
+  __reducerSchema("admin_agent_record_star_unstake", AdminAgentRecordStarUnstakeReducer),
+  __reducerSchema("admin_agent_resolve_star_battle", AdminAgentResolveStarBattleReducer),
   __reducerSchema("answer_duel", AnswerDuelReducer),
   __reducerSchema("answer_jing", AnswerJingReducer),
   __reducerSchema("answer_oracle", AnswerOracleReducer),
   __reducerSchema("answer_trace", AnswerTraceReducer),
   __reducerSchema("ask_oracle", AskOracleReducer),
+  __reducerSchema("backfill_decans", BackfillDecansReducer),
   __reducerSchema("cancel_trade", CancelTradeReducer),
   __reducerSchema("cast_jing", CastJingReducer),
   __reducerSchema("cast_word", CastWordReducer),
@@ -474,10 +575,16 @@ const reducersSchema = __reducers(
   __reducerSchema("confirm_trade", ConfirmTradeReducer),
   __reducerSchema("counter_jing", CounterJingReducer),
   __reducerSchema("create_player", CreatePlayerReducer),
+  __reducerSchema("deploy_card", DeployCardReducer),
   __reducerSchema("enqueue_duel", EnqueueDuelReducer),
+  __reducerSchema("mark_star_yield_claimed", MarkStarYieldClaimedReducer),
   __reducerSchema("propose_trade", ProposeTradeReducer),
+  __reducerSchema("purge_stale_agents", PurgeStaleAgentsReducer),
   __reducerSchema("push_ephemeris", PushEphemerisReducer),
+  __reducerSchema("record_star_stake", RecordStarStakeReducer),
+  __reducerSchema("record_star_unstake", RecordStarUnstakeReducer),
   __reducerSchema("resolve_star_battle", ResolveStarBattleReducer),
+  __reducerSchema("seed_agent_player", SeedAgentPlayerReducer),
   __reducerSchema("set_loadout", SetLoadoutReducer),
   __reducerSchema("set_location", SetLocationReducer),
   __reducerSchema("trace_constellation", TraceConstellationReducer),

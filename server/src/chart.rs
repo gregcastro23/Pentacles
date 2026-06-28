@@ -92,6 +92,17 @@ fn pip_rank(sign: u8, degree: u8) -> u8 {
     base + decan(degree)
 }
 
+/// Chaldean "face" ruler of a decan — the 36 faces cycle Mars · Sun · Venus ·
+/// Mercury · Moon · Saturn · Jupiter, continuous from Mars at Aries 0–10°.
+fn decan_ruler(sign: u8, degree: u8) -> Planet {
+    const FACES: [Planet; 7] = [
+        Planet::Mars, Planet::Sun, Planet::Venus, Planet::Mercury,
+        Planet::Moon, Planet::Saturn, Planet::Jupiter,
+    ];
+    let abs = (sign % 12) as usize * 3 + decan(degree) as usize;
+    FACES[abs % 7]
+}
+
 /// Court (Page 11 / Knight 12 / Queen 13 / King 14) for an elevated body, by the
 /// strength of its dignity.
 fn court_for_dignity(dignity: i8) -> u8 {
@@ -153,14 +164,19 @@ pub fn calculate_reception_boosts(chart: &NatalChart) -> [f32; 10] {
 /// Weighted dignity vector → a score per planet (index by `Planet::idx`).
 pub fn faction_scores(chart: &NatalChart) -> [f32; 10] {
     let mut s = [0.0f32; 10];
-    let asc_sign = ((chart.ascendant / 1800) % 12) as u8;
 
-    // Chart ruler (Ascendant lord) ×3.
-    s[sign_ruler(asc_sign).idx()] += 3.0;
+    // The Ascendant (and angularity) only carry weight when the birth time is
+    // known. For a solar / time-unknown chart the Asc is a placeholder (0° Aries),
+    // so the chart-ruler ×3 and the angular bonus are suppressed — otherwise every
+    // undated figure would falsely score Mars (Aries' ruler) as its faction.
+    if chart.time_known {
+        let asc_sign = ((chart.ascendant / 1800) % 12) as u8;
+        s[sign_ruler(asc_sign).idx()] += 3.0;
+    }
 
     for p in &chart.placements {
         s[p.body.idx()] += 1.0 + p.dignity as f32 * 0.4;
-        if angular(p, chart) {
+        if chart.time_known && angular(p, chart) {
             s[p.body.idx()] += 1.5;
         }
         // Sun & Moon sign rulers ×2.
@@ -261,6 +277,37 @@ pub fn mint_deck(
     }
 
     (seed, count)
+}
+
+/// Mint (or refresh) a player's 36-decan natal cards — the plain Golden Dawn
+/// decan attribution, one row per placement. Unlike `mint_deck` this applies NO
+/// Ace/court elevation: every row is its 2..10 pip. Idempotent — clears the
+/// owner's prior rows first, so re-registration never stacks duplicates.
+/// Returns the number of decan rows written.
+pub fn mint_decans(ctx: &ReducerContext, owner: Identity, chart: &NatalChart) -> usize {
+    let old: Vec<u64> = ctx.db.natal_decan().owner().filter(&owner).map(|d| d.decan_id).collect();
+    for id in old {
+        ctx.db.natal_decan().decan_id().delete(&id);
+    }
+
+    let mut count = 0;
+    for p in &chart.placements {
+        let d = decan(p.degree());
+        ctx.db.natal_decan().insert(NatalDecan {
+            decan_id: 0,
+            owner,
+            body: p.body,
+            sign: p.sign,
+            decan: d,
+            abs_decan: (p.sign % 12) * 3 + d,
+            suit: sign_element(p.sign),
+            rank: pip_rank(p.sign, p.degree()),
+            decan_ruler: decan_ruler(p.sign, p.degree()),
+            retrograde: p.retrograde,
+        });
+        count += 1;
+    }
+    count
 }
 
 /// First 8 cards land in the Active loadout, the rest on the Bench.

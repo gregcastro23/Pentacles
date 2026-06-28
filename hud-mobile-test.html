@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HUD launcher row — mobile harness</title>
+  <link rel="stylesheet" href="/public/client.css" />
+  <style>
+    html, body { margin: 0; min-height: 100%; background: #0a0c14; }
+    /* mimic the center viewport the .hud-bar is absolutely positioned within */
+    .viewport-center { position: relative; height: 600px; background:
+      radial-gradient(circle at 50% 40%, rgba(22,32,58,0.5), #05060c); }
+    .note { position: absolute; bottom: 12px; left: 12px; right: 12px; color: #9aa0b0;
+      font-family: system-ui, sans-serif; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <!-- real .hud-bar markup from index.html (the launcher row) -->
+  <main class="viewport-center">
+    <div class="hud-bar">
+      <div id="player-banner" style="display:flex; flex-direction:column; text-shadow:0 2px 4px #000; pointer-events:auto; color:#f1dba1; font-family:system-ui;">
+        <strong>Seeker</strong><span style="font-size:11px; color:#9aa0b0;">Sun · Lv 1</span>
+      </div>
+      <div id="sky-status" style="align-self:center; font-size:11px; color:#f1dba1;">live sky</div>
+      <div class="hud-btn-group">
+        <button class="btn" onclick="toggleSound&&toggleSound()">🔊 Sound: ON</button>
+        <button class="btn">📹 Toggle AR Mode</button>
+        <button class="btn" id="alchm-chart-btn">✦ Alchm Chart</button>
+        <button class="btn" id="faction-war-btn">⚔ Faction War</button>
+      </div>
+    </div>
+    <div class="note">Harness: real .hud-bar / .hud-btn-group + client.css — verifying the launcher row wraps and stays tappable on mobile.</div>
+  </main>
+</body>
+</html>

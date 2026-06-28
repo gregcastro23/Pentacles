@@ -19,11 +19,14 @@ import spacetime from './net/spacetime.js'
 import { initNetBadge } from './net/status-badge.js'
 import duels from './net/duels.js'
 import register from './net/register.js'
+import deploy from './net/deploy.js'
 import { installDashboards } from './net/dashboards.js'
 import wallet from './web3/wallet.js'
 import { initEsmsHud } from './web3/hud.js'
 import { installPoolsUI } from './web3/pools-ui.js'
 import AlchmChart from './alchm-chart/index.js'
+import FactionWar from './alchm-chart/faction-war.js'
+import MyCodex from './alchm-chart/my-codex.js'
 import './alchm-chart/alchm-chart.css'
 import * as dex from './web3/dex.js'
 import { ESMS_DECIMALS } from './web3/esms.js'
@@ -62,6 +65,10 @@ Pentacles.duels = duels
 
 // Live player registration (create_player) wired into onboarding by app.js.
 Pentacles.register = register
+
+// Live card deploy (deploy_card) — drag an Active card onto a zone to push your
+// faction's control + garrison it. app.js routes zone-drops here when live.
+Pentacles.deploy = deploy
 
 // Wallet façade (injected now; Dynamic island layers on top in dynamic.js).
 Pentacles.wallet = wallet
@@ -164,6 +171,165 @@ function closeAlchmChart() {
 window.openAlchmChart = openAlchmChart
 window.closeAlchmChart = closeAlchmChart
 Pentacles.openChart = openAlchmChart
+
+// ── ✦ Faction War: the always-on planetary-agent war, in its own overlay ──
+const WAR_PLANETS = ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto']
+let warInst = null, warEsc = null
+/** The local player's faction idx (0–9), or null — read from the classic app state. */
+function warMyFaction() {
+  try {
+    const f = window.state && window.state.player && window.state.player.faction
+    if (f == null) return null
+    if (typeof f === 'number') return f >= 0 && f < 10 ? f : null
+    const i = WAR_PLANETS.findIndex((n) => n.toLowerCase() === String(f).toLowerCase())
+    return i >= 0 ? i : null
+  } catch { return null }
+}
+/** The local player's Active hand (full card objects) — the deployable cards. */
+function warActiveCards() {
+  try {
+    const st = window.state
+    if (!st || !Array.isArray(st.deck) || !Array.isArray(st.collection)) return []
+    const activeIds = new Set(st.deck.filter((d) => d.loadout === 'active').map((d) => Number(d.card_id)))
+    return st.collection.filter((c) => activeIds.has(Number(c.card_id)))
+  } catch { return null }
+}
+/** Deploy a card onto a zone; keep local loadout state in sync (card → Defense). */
+async function warDeploy(cardId, zoneId) {
+  if (!Pentacles.deploy || !(spacetime && spacetime.isLive)) {
+    if (window.toast) window.toast('Deploy needs a live connection — running local simulation.', { type: 'info', title: 'Faction War' })
+    return { ok: false, reason: 'offline' }
+  }
+  await Pentacles.deploy.deployCardLive(cardId, zoneId)
+  // Mirror the server: the deployed card leaves Active for the Defense garrison.
+  try {
+    const slot = window.state && window.state.deck && window.state.deck.find((d) => Number(d.card_id) === Number(cardId))
+    if (slot) { slot.loadout = 'defense'; if (typeof window.state.save === 'function') window.state.save() }
+  } catch {}
+  return { ok: true }
+}
+function openFactionWar() {
+  let ov = document.getElementById('aw-overlay')
+  if (!ov) {
+    ov = document.createElement('div')
+    ov.id = 'aw-overlay'
+    const win = document.createElement('div'); win.className = 'aw-window'
+    const close = document.createElement('button'); close.className = 'aw-window-close'; close.textContent = '✕'
+    close.setAttribute('aria-label', 'Close'); close.onclick = closeFactionWar
+    const host = document.createElement('div'); host.id = 'aw-host'
+    win.appendChild(close); win.appendChild(host); ov.appendChild(win)
+    document.body.appendChild(ov)
+  }
+  try {
+    if (warInst) warInst.destroy()
+    warInst = FactionWar.create({
+      el: document.getElementById('aw-host'),
+      spacetime,
+      myFaction: warMyFaction(),
+      myCards: warActiveCards(),
+      hooks: {
+        // Drag a card onto a zone → deploy_card (control push + Defense garrison).
+        onDeploy: (cardId, zoneId) => warDeploy(cardId, zoneId),
+        // Faction is bound at registration (create_player); there is no live
+        // switch reducer, so "join" routes a non-player to onboarding.
+        onJoin: (idx, name) => {
+          closeFactionWar()
+          if (window.toast) window.toast(`Forge your chart to ride with ${name}.`, { type: 'info', title: 'Faction War' })
+          const ob = document.getElementById('onboarding-overlay')
+          if (ob) {
+            ob.style.display = 'flex'
+            const s1 = document.getElementById('onboarding-step-1'), s2 = document.getElementById('onboarding-step-2')
+            if (s1) s1.style.display = 'flex'
+            if (s2) s2.style.display = 'none'
+          }
+        },
+      },
+    })
+    warInst.mount()
+    // Belt-and-suspenders initial paint if a one-shot read is available.
+    if (spacetime && spacetime.isLive && spacetime.fetchTable) {
+      Promise.all(['zone', 'player', 'agent_chart'].map((t) => spacetime.fetchTable(t).catch(() => [])))
+        .then(([zones, players, agents]) => warInst && warInst.setData({ zones, players, agents }))
+        .catch(() => {})
+    }
+  } catch (e) {
+    console.error('[Pentacles] Faction War failed to mount', e)
+    if (window.toast) window.toast('Faction War failed to open — see console.', { type: 'error' })
+    return
+  }
+  ov.classList.add('is-open')
+  document.body.classList.add('alchm-open')
+  ov.onclick = (e) => { if (e.target === ov) closeFactionWar() }
+  warEsc = (e) => { if (e.key === 'Escape') closeFactionWar() }
+  document.addEventListener('keydown', warEsc)
+}
+function closeFactionWar() {
+  const ov = document.getElementById('aw-overlay')
+  if (ov) ov.classList.remove('is-open')
+  document.body.classList.remove('alchm-open')
+  if (warInst) { try { warInst.destroy() } catch {} warInst = null }
+  if (warEsc) { document.removeEventListener('keydown', warEsc); warEsc = null }
+}
+window.openFactionWar = openFactionWar
+window.closeFactionWar = closeFactionWar
+Pentacles.openWar = openFactionWar
+
+// ── ✦ My Codex: the player's own natal profile + deck, in its own overlay ──
+let codexInst = null, codexEsc = null
+function openMyCodex() {
+  let ov = document.getElementById('mc-overlay')
+  if (!ov) {
+    ov = document.createElement('div')
+    ov.id = 'mc-overlay'
+    const win = document.createElement('div'); win.className = 'mc-window'
+    const close = document.createElement('button'); close.className = 'mc-window-close'; close.textContent = '✕'
+    close.setAttribute('aria-label', 'Close'); close.onclick = closeMyCodex
+    const host = document.createElement('div'); host.id = 'mc-host'
+    win.appendChild(close); win.appendChild(host); ov.appendChild(win)
+    document.body.appendChild(ov)
+  }
+  try {
+    if (codexInst) codexInst.destroy()
+    codexInst = MyCodex.create({
+      el: document.getElementById('mc-host'),
+      hooks: {
+        // "Tip the Scales" → carry the player into the live war board (deploy lives there).
+        onTip: () => { closeMyCodex(); openFactionWar() },
+        // No chart yet → route to onboarding to forge one.
+        onForge: () => {
+          closeMyCodex()
+          const ob = document.getElementById('onboarding-overlay')
+          if (ob) {
+            ob.style.display = 'flex'
+            const s1 = document.getElementById('onboarding-step-1'), s2 = document.getElementById('onboarding-step-2')
+            if (s1) s1.style.display = 'flex'
+            if (s2) s2.style.display = 'none'
+          }
+        },
+      },
+    })
+    codexInst.mount()
+  } catch (e) {
+    console.error('[Pentacles] My Codex failed to mount', e)
+    if (window.toast) window.toast('My Codex failed to open — see console.', { type: 'error' })
+    return
+  }
+  ov.classList.add('is-open')
+  document.body.classList.add('alchm-open')
+  ov.onclick = (e) => { if (e.target === ov) closeMyCodex() }
+  codexEsc = (e) => { if (e.key === 'Escape') closeMyCodex() }
+  document.addEventListener('keydown', codexEsc)
+}
+function closeMyCodex() {
+  const ov = document.getElementById('mc-overlay')
+  if (ov) ov.classList.remove('is-open')
+  document.body.classList.remove('alchm-open')
+  if (codexInst) { try { codexInst.destroy() } catch {} codexInst = null }
+  if (codexEsc) { document.removeEventListener('keydown', codexEsc); codexEsc = null }
+}
+window.openMyCodex = openMyCodex
+window.closeMyCodex = closeMyCodex
+Pentacles.openCodex = openMyCodex
 
 function boot() {
   initA11y()

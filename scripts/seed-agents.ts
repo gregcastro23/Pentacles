@@ -105,23 +105,33 @@ function buildChart(fig: Figure) {
   };
 
   // faction = top of faction_scores (mirrors server) → always passes top-3 gate
-  const faction = topFaction(positions, ascendant, midheaven);
+  const faction = topFaction(positions, ascendant, midheaven, fig.timeKnown);
   return { chart, faction, positions, ascDeg, mcDeg };
 }
 
-/** Exact mirror of server chart::faction_scores (incl. its solar-chart quirks:
- *  ascendant=0 → Aries ruler bonus); returns the highest-scoring body idx, which
- *  is therefore guaranteed inside the reducer's top-3 gate. */
-function topFaction(pos: { body: number; sign: number; deg: number; dig: number }[], ascMin: number, mcMin: number): number {
+/** Mirror of server chart::faction_scores; returns the highest-scoring body idx,
+ *  which is therefore inside the reducer's top-3 gate. The Ascendant ×3 and the
+ *  angular bonus only apply when the birth time is known — for solar charts the
+ *  Asc is a 0° placeholder, so faction is driven by Sun/Moon rulers + dignities
+ *  (otherwise every undated figure would default to Mars, Aries' ruler). */
+function topFaction(pos: { body: number; sign: number; deg: number; dig: number }[], ascMin: number, mcMin: number, timeKnown: boolean): number {
   const s = new Array(10).fill(0);
-  s[SIGN_RULERS[Math.floor((ascMin / 1800) % 12)]] += 3.0; // chart-ruler ×3 (uses ascendant as-passed)
+  if (timeKnown) s[SIGN_RULERS[Math.floor((ascMin / 1800) % 12)]] += 3.0; // chart-ruler ×3
   for (const p of pos) {
     s[p.body] += 1.0 + p.dig * 0.4;
     const absMin = p.sign * 1800 + Math.round(p.deg * 60);
-    if (circDist(absMin, ascMin) < 600 || circDist(absMin, mcMin) < 600) s[p.body] += 1.5;
+    if (timeKnown && (circDist(absMin, ascMin) < 600 || circDist(absMin, mcMin) < 600)) s[p.body] += 1.5;
     if (p.body === 0) s[SIGN_RULERS[p.sign]] += 2.0; // Sun's sign ruler
     if (p.body === 1) s[SIGN_RULERS[p.sign]] += 2.0; // Moon's sign ruler
   }
+  // reception boosts (mirror calculate_reception_boosts): a planet outside its own
+  // domicile is "received" (+0.5); a mutual-reception pair gets +1.5 each.
+  for (const p of pos) if (SIGN_RULERS[p.sign] !== p.body) s[p.body] += 0.5;
+  for (let i = 0; i < pos.length; i++)
+    for (let j = i + 1; j < pos.length; j++)
+      if (SIGN_RULERS[pos[i].sign] === pos[j].body && SIGN_RULERS[pos[j].sign] === pos[i].body) {
+        s[pos[i].body] += 1.5; s[pos[j].body] += 1.5;
+      }
   let best = 0;
   for (let i = 1; i < 10; i++) if (s[i] > s[best]) best = i;
   return best;
@@ -157,6 +167,22 @@ async function seed(fig: Figure, token: string, dry: boolean) {
 
 const args = process.argv.slice(2);
 const dry = args.includes("--dry");
+const purge = args.includes("--purge");
+
+// --purge: remove any seeded agent NOT in the current roster (clears stale
+// duplicates from renamed keys), then exit. Keeps the live set == FIGURES.
+if (purge) {
+  const token = ownerToken();
+  const res = await fetch(`${URI}/v1/database/${DB}/call/purge_stale_agents`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify([FIGURES.map((f) => f.key)]),
+  });
+  if (!res.ok) { console.error(`purge failed → ${res.status}: ${await res.text().catch(() => "")}`); process.exit(1); }
+  console.log(`Purged stale agents → kept ${FIGURES.length} canonical keys on ${DB}.`);
+  process.exit(0);
+}
+
 const keys = args.filter((a) => !a.startsWith("--"));
 const roster = keys.length ? FIGURES.filter((f) => keys.includes(f.key)) : FIGURES;
 if (!roster.length) { console.error("no matching figures"); process.exit(1); }
