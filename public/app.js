@@ -2110,6 +2110,21 @@
     };
 
     window.playCardIntoRitual = function(cardId, targetType, targetId) {
+      // LIVE: a card dragged onto a ZONE deploys into the faction war via the
+      // deploy_card reducer (pushes your faction's control + garrisons the card),
+      // instead of the offline ritual-chain. Other targets keep the local path.
+      const net = window.Pentacles && window.Pentacles.net;
+      if (targetType === "zone" && net && net.isLive && window.Pentacles.deploy) {
+        if (synth.playSelect) synth.playSelect();
+        window.Pentacles.deploy.deployCardLive(cardId, targetId)
+          .then((r) => {
+            if (r && r.ok === false) return; // offline guard — shouldn't hit when isLive
+            toast(`Deployed to Zone ${targetId} — your faction pushes the meter and the card joins the garrison.`, { type: "success", title: "Faction War" });
+            renderActiveHand();
+          })
+          .catch((e) => toast((e && e.message) || "Deploy failed", { type: "error", title: "Faction War" }));
+        return;
+      }
       const result = state.playCardIntoRitual(cardId, targetType, targetId);
       if (result.error) {
         toast(result.error, { type: "warn", title: "Ritual Chain" });

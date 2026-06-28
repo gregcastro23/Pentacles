@@ -4,6 +4,7 @@
    pressure meter, always walletless; live on-chain depth in three states). */
 import { h, s, clear } from "./dom.js";
 import { elementalComposition, compToEsms } from "./math.js";
+import { decanCard } from "./decans.js";
 
 // Classical element + a one-word vibe per ESMS id (Spirit/Essence/Matter/Substance).
 const ESMS_ELEMENT = ["Fire", "Water", "Earth", "Air"];
@@ -123,6 +124,10 @@ export function renderReading(container, state) {
   const pct = smes.pct, dom = pct.indexOf(Math.max(...pct));
   const ruler = smes.ruler != null ? smes.ruler : 0;
 
+  // the chart ruler's own decan card (Minor Arcana) — a one-line tarot touch
+  const rulerPos = (state.chart.byBody || {})[ruler];
+  const rulerDc = rulerPos ? decanCard(rulerPos.sign, rulerPos.degInSign) : null;
+
   // tightest aspect (mundane/natal: among sky; transit: transit→natal)
   let aspLine = "—";
   if (state.frame === "transit" && state.chart.transitAspects && state.chart.transitAspects[0]) {
@@ -150,6 +155,10 @@ export function renderReading(container, state) {
     ]),
     row("dominant", h("span", { style: { color: esms.colors[dom] }, text: `${esms.glyphs[dom]} ${esms.names[dom]} · ${ESMS_ELEMENT[dom]} ${Math.round(pct[dom])}%` })),
     row("chart ruler", h("span", { class: "ac-read-v", text: `${glyph(ruler)} ${name(ruler)}` })),
+    rulerDc ? row("ruler's card", h("span", { class: "ac-read-v" }, [
+      h("span", { style: { color: esms.colors[rulerDc.esms] }, text: `🎴 ${rulerDc.card}` }),
+      h("span", { class: "ac-dim", text: ` · ${rulerDc.title}` }),
+    ])) : null,
     row(state.frame === "transit" ? "tightest transit" : "tightest aspect", h("span", { class: "ac-read-v", text: aspLine })),
     topPool ? row("hottest pool", h("span", {}, [
       h("span", { class: "ac-read-v", text: `${topPool.abbr || topPool.name || "—"} ` }),
@@ -164,6 +173,41 @@ export function renderReading(container, state) {
 function readingProse(domName, domEl, domPct, rulerName, poolName) {
   const tone = { Fire: "drive and expression run high", Water: "feeling and intuition dominate", Earth: "structure and persistence prevail", Air: "ideas and connection circulate" }[domEl] || "the elements are balanced";
   return `The sky is ${domName}-leaning (${domPct}% ${domEl}) — ${tone}. ${rulerName} rules the chart, coloring how that energy expresses.${poolName ? ` Pressure concentrates on the ${poolName} pool right now.` : ""}`;
+}
+
+/* ── Decan cards: each placement's Minor Arcana (Golden Dawn decans) ──
+   Shows the user's natal cards (or the current sky's, in mundane). In the
+   transit frame the user's own natal placements are the meaningful set, so
+   we read those when present. */
+export function renderDecans(container, state) {
+  clear(container);
+  const chart = state.chart;
+  if (!chart) return;
+  const positions = state.frame === "transit" && chart.natalPositions ? chart.natalPositions : chart.positions;
+  if (!positions || !positions.length) return;
+  const { glyph, name } = bodyLabels(state);
+  const esms = state.esms;
+  const sub = state.frame === "mundane" ? "the current sky" : "your natal placements";
+
+  container.appendChild(h("div", { class: "ac-section-label", text: "Decan cards — minor arcana" }));
+  const list = h("div", { class: "ac-decan-list" });
+  for (const p of positions) {
+    const dc = decanCard(p.sign, p.degInSign);
+    list.appendChild(h("div", { class: "ac-decan-row", title: `${name(p.body)} · ${p.signName || ""} ${Math.floor(p.degInSign)}° (decan ${dc.range[0]}–${dc.range[1]}°)` }, [
+      h("span", { class: "ac-decan-planet" }, [glyph(p.body)]),
+      h("span", { class: "ac-decan-pos ac-dim", text: `${p.signGlyph || ""}${Math.floor(p.degInSign)}°` }),
+      h("span", { class: "ac-decan-card", style: { borderColor: esms.colors[dc.esms] } }, [
+        h("span", { class: "ac-decan-rank", style: { color: esms.colors[dc.esms] }, text: dc.card }),
+        h("span", { class: "ac-decan-title ac-dim", text: dc.title }),
+      ]),
+      h("span", { class: "ac-decan-ruler", title: `decan ruler — ${name(dc.ruler)}` }, [
+        h("span", { class: "ac-decan-ruler-glyph", text: glyph(dc.ruler) }),
+        h("span", { class: "ac-decan-ruler-name ac-dim", text: name(dc.ruler) }),
+      ]),
+    ]));
+  }
+  container.appendChild(h("div", { class: "ac-decan-sub ac-dim", text: sub }));
+  container.appendChild(list);
 }
 
 /* ── Transit strip: the tightest transit-to-natal aspects ── */
@@ -181,11 +225,20 @@ export function renderTransitStrip(container, state) {
   const tops = (chart.transitAspects || []).slice(0, 3);
   const strip = h("div", { class: "ac-transit-strip" });
   if (!tops.length) strip.appendChild(h("div", { class: "ac-transit-empty", text: "No close transits to your natal chart right now." }));
+  const natalByBody = chart.natalByBody || {};
   for (const a of tops) {
+    const np = natalByBody[a.n];
+    const ndc = np ? decanCard(np.sign, np.degInSign) : null;
     strip.appendChild(h("div", { class: "ac-transit-pill ac-transit-pill--" + (a.state === "applying" ? "app" : a.state === "separating" ? "sep" : "exact") }, [
-      h("span", { class: "ac-tp-glyphs", text: `${glyph(a.t)} ${a.glyph} ${glyph(a.n)}` }),
-      h("span", { class: "ac-tp-orb", text: `orb ${a.orb}°` }),
-      h("span", { class: "ac-tp-state", text: a.state }),
+      h("div", { class: "ac-tp-line" }, [
+        h("span", { class: "ac-tp-glyphs", text: `${glyph(a.t)} ${a.glyph} ${glyph(a.n)}` }),
+        h("span", { class: "ac-tp-orb", text: `orb ${a.orb}°` }),
+        h("span", { class: "ac-tp-state", text: a.state }),
+      ]),
+      ndc ? h("div", { class: "ac-tp-card ac-dim", title: `your natal ${glyph(a.n)} decan card` }, [
+        h("span", { text: `🎴 ${ndc.card}` }),
+        h("span", { text: ` · ${ndc.title}` }),
+      ]) : null,
     ]));
   }
   container.appendChild(strip);

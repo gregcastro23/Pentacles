@@ -322,12 +322,28 @@ body.alchm-open #pentacles-net { display: none; }
 .alchm-chart .ac-read-pr-fill { display: block; height: 100%; background: linear-gradient(90deg, var(--ac-gold-deep), var(--ac-gold-bright)); }
 .alchm-chart .ac-reading-prose { margin-top: 10px; font-size: 12.5px; line-height: 1.6; color: var(--ac-dim); }
 
+/* ---- Decan cards (Minor Arcana per placement) ---- */
+.alchm-chart .ac-decans { margin-top: 12px; }
+.alchm-chart .ac-decan-sub { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px; }
+.alchm-chart .ac-decan-list { display: flex; flex-direction: column; gap: 5px; max-height: 240px; overflow-y: auto; padding-right: 2px; }
+.alchm-chart .ac-decan-row { display: flex; align-items: center; gap: 9px; padding: 4px 8px; border: 1px solid var(--ac-line); border-radius: 9px; background: rgba(0,0,0,0.22); }
+.alchm-chart .ac-decan-planet { width: 18px; flex: none; text-align: center; font-size: 15px; color: var(--ac-text); }
+.alchm-chart .ac-decan-pos { width: 46px; flex: none; font-size: 11px; }
+.alchm-chart .ac-decan-card { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; border-left: 2px solid var(--ac-line); padding-left: 8px; }
+.alchm-chart .ac-decan-rank { font-size: 12.5px; font-weight: 600; white-space: nowrap; }
+.alchm-chart .ac-decan-title { font-size: 10.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.alchm-chart .ac-decan-ruler { flex: none; display: flex; flex-direction: column; align-items: center; gap: 0; width: 46px; }
+.alchm-chart .ac-decan-ruler-glyph { font-size: 13px; opacity: 0.8; line-height: 1.2; }
+.alchm-chart .ac-decan-ruler-name { font-size: 8px; text-transform: uppercase; letter-spacing: 0.04em; }
+
 /* ---- Transit strip ---- */
 .alchm-chart .ac-transit { margin-top: 4px; }
 .alchm-chart .ac-transit-strip { display: flex; gap: 8px; flex-wrap: wrap; }
-.alchm-chart .ac-transit-pill { display: inline-flex; align-items: center; gap: 8px; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--ac-line); background: rgba(0,0,0,0.25); font-size: 12px; }
+.alchm-chart .ac-transit-pill { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 3px; padding: 6px 13px; border-radius: 14px; border: 1px solid var(--ac-line); background: rgba(0,0,0,0.25); font-size: 12px; }
 .alchm-chart .ac-transit-pill--app { border-color: rgba(241,219,161,0.5); box-shadow: 0 0 10px rgba(241,219,161,0.12); }
 .alchm-chart .ac-transit-pill--sep { opacity: 0.78; }
+.alchm-chart .ac-tp-line { display: inline-flex; align-items: center; gap: 8px; }
+.alchm-chart .ac-tp-card { font-size: 10.5px; }
 .alchm-chart .ac-tp-glyphs { font-size: 14px; color: var(--ac-gold-bright); }
 .alchm-chart .ac-tp-orb { color: var(--ac-text); font-variant-numeric: tabular-nums; }
 .alchm-chart .ac-tp-state { color: var(--ac-dim); text-transform: uppercase; font-size: 10px; letter-spacing: 0.08em; }
@@ -392,3 +408,345 @@ body.alchm-open #pentacles-net { display: none; }
 .alchm-chart .ac-obs-result.ac-dim:hover { background: transparent; }
 .alchm-chart .ac-obs-result-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .alchm-chart .ac-obs-result-ll { color: var(--ac-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* ============================================================
+   Faction War view (.alchm-war) — Sky Board · Standings · Detail · Ticker
+   ============================================================ */
+.alchm-war {
+  --ac-bg: rgba(13, 16, 28, 0.82);
+  --ac-line: rgba(216, 180, 106, 0.18);
+  --ac-gold: #d8b46a;
+  --ac-gold-bright: #f1dba1;
+  --ac-gold-deep: #9c7e42;
+  --ac-text: #e8e3d4;
+  --ac-dim: #9aa0b0;
+  color: var(--ac-text);
+  font-family: "Space Grotesk", system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  background:
+    radial-gradient(circle at 50% -10%, rgba(224,162,58,0.06), transparent 55%),
+    #0d101c;
+  padding: 20px 22px 28px;
+  box-sizing: border-box;
+  min-height: 100%;
+}
+.alchm-war * { box-sizing: border-box; }
+.alchm-war .aw-dim { color: var(--ac-dim); }
+.alchm-war .aw-section-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--ac-dim); margin: 2px 0 10px; display: flex; align-items: center; gap: 7px; }
+
+/* header */
+.alchm-war .aw-header { display: flex; flex-direction: column; gap: 3px; border-bottom: 1px solid var(--ac-line); padding-bottom: 14px; margin-bottom: 18px; position: relative; }
+.alchm-war .aw-title { font-family: "Cormorant Garamond", Georgia, serif; font-size: 30px; font-weight: 600; color: var(--ac-gold-bright); display: flex; align-items: center; gap: 10px; letter-spacing: 0.02em; }
+.alchm-war .aw-title-mark { font-size: 22px; color: var(--ac-gold); text-shadow: 0 0 14px rgba(241,219,161,0.4); }
+.alchm-war .aw-sub { font-size: 12px; color: var(--ac-dim); }
+.alchm-war .aw-champ { position: absolute; right: 0; top: 4px; display: flex; align-items: center; gap: 7px; border: 1px solid var(--ac-line); border-radius: 999px; padding: 5px 13px; background: rgba(0,0,0,0.25); }
+.alchm-war .aw-champ-k { font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--ac-dim); }
+.alchm-war .aw-champ-glyph { font-size: 17px; text-shadow: 0 0 10px currentColor; }
+.alchm-war .aw-champ-name { font-weight: 600; color: var(--ac-gold-bright); }
+
+/* layout */
+.alchm-war .aw-body { display: grid; grid-template-columns: 1fr; gap: 22px; }
+@media (min-width: 880px) { .alchm-war .aw-body { grid-template-columns: 1.55fr 1fr; align-items: start; } }
+.alchm-war .aw-col { display: flex; flex-direction: column; gap: 22px; min-width: 0; }
+
+/* sky board */
+.alchm-war .aw-zone-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.alchm-war .aw-zone { background: rgba(18,20,31,0.7); border: 1px solid var(--ac-line); border-radius: 12px; padding: 11px 12px; display: flex; flex-direction: column; gap: 8px; cursor: pointer; transition: border-color 0.2s, transform 0.1s, box-shadow 0.2s; backdrop-filter: blur(6px); }
+.alchm-war .aw-zone:hover { border-color: rgba(241,219,161,0.45); transform: translateY(-1px); }
+.alchm-war .aw-zone:focus-visible { outline: 2px solid var(--ac-gold); outline-offset: 2px; }
+.alchm-war .aw-zone--crown { grid-column: 1 / -1; background: linear-gradient(135deg, rgba(224,162,58,0.10), rgba(18,20,31,0.7)); border-color: rgba(241,219,161,0.4); box-shadow: 0 0 18px rgba(216,180,106,0.12); }
+.alchm-war .aw-zone--crown .aw-zone-glyph { width: 44px; height: 44px; font-size: 24px; }
+.alchm-war .aw-zone--crown .aw-zone-name { font-size: 18px; }
+.alchm-war .aw-zone.is-neutral { opacity: 0.72; }
+.alchm-war .aw-zone.is-contested { animation: aw-contested 2s infinite; }
+@keyframes aw-contested { 0%,100% { border-color: var(--ac-line); box-shadow: none; } 50% { border-color: rgba(224,162,58,0.8); box-shadow: 0 0 14px rgba(224,162,58,0.35); } }
+.alchm-war .aw-zone-top { display: flex; justify-content: space-between; align-items: center; }
+.alchm-war .aw-zone-kind { font-size: 9px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--ac-dim); }
+.alchm-war .aw-zone-flag { font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em; color: #ffb4ab; }
+.alchm-war .aw-zone-mid { display: flex; align-items: center; gap: 10px; }
+.alchm-war .aw-zone-glyph { flex: none; width: 34px; height: 34px; border-radius: 999px; border: 1px solid; display: flex; align-items: center; justify-content: center; font-size: 18px; background: rgba(0,0,0,0.3); }
+.alchm-war .aw-zone-name { font-family: "Cormorant Garamond", Georgia, serif; font-size: 16px; color: var(--ac-text); line-height: 1.1; }
+.alchm-war .aw-zone-owner { font-size: 11px; }
+.alchm-war .aw-zone-meter { height: 5px; border-radius: 999px; background: rgba(255,255,255,0.07); overflow: hidden; }
+.alchm-war .aw-zone-fill { display: block; height: 100%; border-radius: 999px; box-shadow: 0 0 8px currentColor; }
+.alchm-war .aw-zone-ctrl { font-size: 10px; text-align: right; font-variant-numeric: tabular-nums; }
+
+/* standings */
+.alchm-war .aw-rank-list { display: flex; flex-direction: column; gap: 6px; }
+.alchm-war .aw-rank { display: flex; align-items: center; gap: 11px; padding: 8px 11px; border: 1px solid var(--ac-line); border-radius: 10px; background: rgba(18,20,31,0.6); cursor: pointer; transition: background 0.15s, border-color 0.15s; }
+.alchm-war .aw-rank:hover { background: rgba(30,34,50,0.8); }
+.alchm-war .aw-rank:focus-visible { outline: 2px solid var(--ac-gold); outline-offset: 1px; }
+.alchm-war .aw-rank.is-selected { border-color: rgba(241,219,161,0.5); }
+.alchm-war .aw-rank.is-champ { background: linear-gradient(90deg, rgba(224,162,58,0.10), rgba(18,20,31,0.6)); border-color: rgba(241,219,161,0.4); box-shadow: inset 0 0 14px rgba(216,180,106,0.06); }
+.alchm-war .aw-rank-n { font-size: 18px; font-weight: 300; color: var(--ac-dim); width: 26px; text-align: center; font-variant-numeric: tabular-nums; }
+.alchm-war .aw-rank.is-champ .aw-rank-n { color: var(--ac-gold-bright); }
+.alchm-war .aw-rank-glyph { flex: none; width: 30px; height: 30px; border-radius: 999px; border: 1px solid; display: flex; align-items: center; justify-content: center; font-size: 16px; background: rgba(0,0,0,0.3); }
+.alchm-war .aw-rank-id { flex: 1 1 auto; min-width: 0; }
+.alchm-war .aw-rank-name { font-family: "Cormorant Garamond", Georgia, serif; font-size: 17px; color: var(--ac-text); }
+.alchm-war .aw-rank-crown { color: var(--ac-gold-bright); }
+.alchm-war .aw-rank-sub { font-size: 10.5px; }
+.alchm-war .aw-rank-meter { flex: none; width: 80px; height: 4px; border-radius: 999px; background: rgba(255,255,255,0.07); overflow: hidden; }
+.alchm-war .aw-rank-fill { display: block; height: 100%; border-radius: 999px; }
+.alchm-war .aw-rank-trend { width: 16px; text-align: center; font-size: 11px; }
+.alchm-war .aw-trend--up { color: #5fb37a; }
+.alchm-war .aw-trend--down { color: #ffb4ab; }
+.alchm-war .aw-trend--flat { color: var(--ac-dim); opacity: 0.6; }
+
+/* detail */
+.alchm-war .aw-detail { background: rgba(18,20,31,0.7); border: 1px solid var(--ac-line); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.alchm-war .aw-detail-empty { padding: 24px; text-align: center; }
+.alchm-war .aw-detail-hero { display: flex; align-items: center; gap: 12px; }
+.alchm-war .aw-detail-glyph { flex: none; width: 52px; height: 52px; border-radius: 999px; border: 1px solid; display: flex; align-items: center; justify-content: center; font-size: 28px; background: rgba(0,0,0,0.3); box-shadow: 0 0 18px -4px currentColor; }
+.alchm-war .aw-detail-name { font-family: "Cormorant Garamond", Georgia, serif; font-size: 26px; color: var(--ac-text); line-height: 1.1; }
+.alchm-war .aw-detail-passive { font-size: 11.5px; }
+.alchm-war .aw-detail-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; border-top: 1px solid var(--ac-line); border-bottom: 1px solid var(--ac-line); padding: 10px 0; }
+.alchm-war .aw-stat { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.alchm-war .aw-stat-v { font-size: 22px; font-weight: 300; color: var(--ac-text); font-variant-numeric: tabular-nums; }
+.alchm-war .aw-stat-k { font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em; }
+.alchm-war .aw-roster { display: flex; flex-direction: column; gap: 6px; max-height: 220px; overflow-y: auto; }
+.alchm-war .aw-roster-row { display: flex; align-items: center; gap: 10px; padding: 5px 4px; }
+.alchm-war .aw-roster-mark { flex: none; width: 28px; height: 28px; border-radius: 999px; border: 1px solid; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; background: rgba(0,0,0,0.3); }
+.alchm-war .aw-roster-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.alchm-war .aw-roster-tag { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; }
+.alchm-war .aw-join { margin-top: 4px; width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--ac-gold); background: linear-gradient(135deg, rgba(246,207,131,0.12), rgba(224,162,58,0.18)); color: var(--ac-gold-bright); font: inherit; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; cursor: pointer; transition: box-shadow 0.2s, background 0.2s; }
+.alchm-war .aw-join:hover { box-shadow: 0 0 20px rgba(224,162,58,0.3); }
+.alchm-war .aw-join.is-mine { opacity: 0.6; cursor: default; border-color: var(--ac-line); background: rgba(0,0,0,0.25); color: var(--ac-dim); }
+
+/* ticker */
+.alchm-war .aw-ticker { background: rgba(11,14,25,0.7); border: 1px solid var(--ac-line); border-radius: 14px; padding: 14px 16px; }
+.alchm-war .aw-live-dot { width: 8px; height: 8px; border-radius: 999px; background: #ffb4ab; box-shadow: 0 0 8px #ffb4ab; animation: aw-blink 1.4s infinite; }
+@keyframes aw-blink { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+.alchm-war .aw-feed { display: flex; flex-direction: column; gap: 7px; max-height: 280px; overflow-y: auto; }
+.alchm-war .aw-feed-empty { padding: 16px 4px; font-style: italic; }
+.alchm-war .aw-feed-row { display: flex; align-items: center; gap: 10px; padding: 5px 6px; border-radius: 8px; font-size: 13px; }
+.alchm-war .aw-feed-row:hover { background: rgba(255,255,255,0.03); }
+.alchm-war .aw-feed-t { font-size: 10px; font-variant-numeric: tabular-nums; flex: none; width: 54px; }
+.alchm-war .aw-feed-glyph { font-size: 15px; flex: none; }
+.alchm-war .aw-feed-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.alchm-war .aw-feed--capture .aw-feed-text { color: var(--ac-gold-bright); }
+.alchm-war .aw-feed--loss .aw-feed-text { color: #ffb4ab; }
+
+.alchm-war ::-webkit-scrollbar { width: 5px; }
+.alchm-war ::-webkit-scrollbar-thumb { background: rgba(216,180,106,0.3); border-radius: 4px; }
+
+/* Faction War — narrow screens: let the champion chip flow under the title */
+@media (max-width: 620px) {
+  .alchm-war { padding: 16px 14px 24px; }
+  .alchm-war .aw-title { font-size: 26px; }
+  .alchm-war .aw-champ { position: static; align-self: flex-start; margin-top: 8px; }
+}
+
+/* Faction War launcher overlay (mirrors #alchm-overlay) */
+#aw-overlay { position: fixed; inset: 0; z-index: 120; display: none; align-items: center; justify-content: center;
+  padding: 24px; background: rgba(4,5,10,0.78); backdrop-filter: blur(8px); }
+#aw-overlay.is-open { display: flex; }
+#aw-overlay .aw-window { position: relative; width: min(1400px, 96vw); height: min(900px, 94vh); overflow: hidden auto;
+  background: rgba(13,16,28,0.92); border: 1px solid rgba(216,180,106,0.18); border-radius: 16px;
+  backdrop-filter: blur(16px); box-shadow: 0 24px 80px rgba(0,0,0,0.6); }
+#aw-overlay .aw-window-close { position: absolute; top: 12px; right: 14px; width: 30px; height: 30px; border-radius: 50%;
+  border: 1px solid rgba(216,180,106,0.18); background: rgba(0,0,0,0.3); color: #f1dba1; font-size: 14px; cursor: pointer; z-index: 5; }
+#aw-overlay .aw-window-close:hover { border-color: #f1dba1; }
+#aw-overlay #aw-host { min-height: 100%; }
+@media (max-width: 860px) {
+  #aw-overlay { padding: 0; }
+  #aw-overlay .aw-window { width: 100vw; height: 100dvh; max-height: none; border: 0; border-radius: 0; }
+}
+
+/* ── Faction War — Agent Codex popover (birth chart + Tarot deck) ── */
+.alchm-war .aw-roster-row.is-open { cursor: pointer; border-radius: 8px; transition: background 0.15s; }
+.alchm-war .aw-roster-row.is-open:hover { background: rgba(255,255,255,0.04); }
+.alchm-war .aw-roster-row.is-open:focus-visible { outline: 2px solid var(--ac-gold); outline-offset: 1px; }
+.alchm-war .aw-roster-go { margin-left: auto; color: var(--ac-dim); font-size: 12px; opacity: 0.6; }
+.alchm-war .aw-roster-row.is-open:hover .aw-roster-go { opacity: 1; color: var(--ac-gold-bright); }
+
+.alchm-war .aw-pop { position: fixed; inset: 0; z-index: 130; display: flex; align-items: flex-start; justify-content: center;
+  padding: 40px 16px; overflow-y: auto; background: rgba(4,5,10,0.74); backdrop-filter: blur(8px); }
+.alchm-war .aw-pop[hidden] { display: none; }
+.alchm-war .aw-pop-close { position: fixed; top: 18px; right: 22px; width: 34px; height: 34px; border-radius: 50%;
+  border: 1px solid var(--ac-line); background: rgba(0,0,0,0.4); color: var(--ac-gold-bright); font-size: 15px; cursor: pointer; z-index: 2; }
+.alchm-war .aw-pop-close:hover { border-color: var(--ac-gold-bright); }
+.alchm-war .aw-pop-card { width: min(920px, 100%); background: rgba(18,20,31,0.94); border: 1px solid var(--ac-line);
+  border-radius: 16px; box-shadow: 0 24px 80px rgba(0,0,0,0.6); padding: 22px 24px 28px; backdrop-filter: blur(16px); }
+
+.alchm-war .aw-pop-head { position: relative; display: flex; align-items: center; gap: 14px; border-bottom: 1px solid var(--ac-line); padding-bottom: 16px; margin-bottom: 16px; flex-wrap: wrap; }
+.alchm-war .aw-pop-head::before { content: ""; position: absolute; inset: -22px -22px 0; pointer-events: none; z-index: -1;
+  background: radial-gradient(120% 140% at 14% -30%, rgba(216,180,106,0.10), transparent 60%); }
+.alchm-war .aw-pop-medallion { position: relative; flex: none; width: 56px; height: 56px; border-radius: 999px; border: 1px solid; display: flex; align-items: center; justify-content: center; font-size: 30px; background: rgba(0,0,0,0.3); box-shadow: 0 0 20px -4px currentColor; }
+.alchm-war .aw-pop-medallion::after { content: ""; position: absolute; inset: -6px; border-radius: 999px; border: 1px dashed currentColor; opacity: 0.35; animation: aw-orbit 48s linear infinite; }
+@keyframes aw-orbit { to { transform: rotate(360deg); } }
+.ac-reduced .alchm-war .aw-pop-medallion::after, .alchm-war.ac-reduced .aw-pop-medallion::after { animation: none; }
+.alchm-war .aw-pop-id { flex: 1 1 auto; min-width: 0; }
+.alchm-war .aw-pop-name { font-family: "Cormorant Garamond", Georgia, serif; font-size: 30px; color: var(--ac-text); line-height: 1.05; }
+.alchm-war .aw-pop-faction { font-size: 12px; margin-top: 2px; }
+.alchm-war .aw-pop-birth { font-size: 11.5px; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.alchm-war .aw-pop-angles { display: flex; gap: 10px; align-items: center; }
+.alchm-war .aw-pop-angle { display: flex; flex-direction: column; align-items: center; border: 1px solid var(--ac-line); border-radius: 10px; padding: 6px 12px; background: rgba(0,0,0,0.25); }
+.alchm-war .aw-pop-angle-k { font-size: 9px; text-transform: uppercase; letter-spacing: 0.12em; }
+.alchm-war .aw-pop-angle-v { font-size: 16px; color: var(--ac-text); }
+.alchm-war .aw-pop-solar { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ac-dim); border: 1px solid var(--ac-line); border-radius: 999px; padding: 4px 10px; }
+
+/* decan table */
+.alchm-war .aw-decan-tbl { display: flex; flex-direction: column; gap: 1px; margin-bottom: 20px; font-size: 12px; }
+.alchm-war .aw-decan-h, .alchm-war .aw-decan-r { display: grid; grid-template-columns: 1.4fr 0.9fr 0.8fr 0.5fr 1.3fr 1fr; gap: 8px; align-items: center; padding: 5px 6px; }
+.alchm-war .aw-decan-h { font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em; border-bottom: 1px solid var(--ac-line); }
+.alchm-war .aw-decan-r { border-bottom: 1px solid rgba(216,180,106,0.07); font-variant-numeric: tabular-nums; }
+.alchm-war .aw-decan-r:hover { background: rgba(255,255,255,0.03); }
+
+/* the deck grid + tarot cards (matches public .web-card) */
+.alchm-war .aw-deck-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 12px; }
+.alchm-war .aw-card { position: relative; aspect-ratio: 2 / 3; min-height: 162px; border-radius: 5px; background: rgba(8,10,20,0.92); border: 1.5px solid rgba(216,180,106,0.2);
+  display: flex; flex-direction: column; align-items: center; text-align: center; padding: 11px 8px; transition: transform 0.25s cubic-bezier(0.165,0.84,0.44,1), border-color 0.25s; }
+.alchm-war .aw-card:hover { transform: translateY(-5px); border-color: rgba(216,180,106,0.55); }
+.alchm-war .aw-card--wands { border-color: rgba(219,122,71,0.4); }
+.alchm-war .aw-card--cups { border-color: rgba(95,147,216,0.4); }
+.alchm-war .aw-card--swords { border-color: rgba(174,187,214,0.4); }
+.alchm-war .aw-card--pentacles { border-color: rgba(116,171,108,0.4); }
+.alchm-war .aw-card--trump { border-color: var(--ac-gold-bright); background: linear-gradient(135deg, rgba(16,13,6,0.96), rgba(6,8,15,0.98)); }
+.alchm-war .aw-card--trump::before { content: ""; position: absolute; inset: -1px; border-radius: 5px; padding: 1px;
+  background: linear-gradient(135deg, var(--ac-gold-bright), var(--ac-gold-deep));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none; }
+.alchm-war .aw-card--inv .aw-card-glyph { transform: rotate(180deg); }
+.alchm-war .aw-card-glyph { font-size: 20px; line-height: 1; margin-bottom: 5px; }
+.alchm-war .aw-card-title { font-family: "Cormorant Garamond", Georgia, serif; font-size: 15px; color: var(--ac-text); line-height: 1.1; }
+.alchm-war .aw-card-sub { font-size: 10px; margin-top: 3px; min-height: 24px; }
+.alchm-war .aw-card-sep { width: 60%; height: 1px; background: var(--ac-line); margin: 8px 0 6px; margin-top: auto; }
+.alchm-war .aw-card-foot { font-size: 9px; text-transform: uppercase; letter-spacing: 0.04em; }
+
+@media (max-width: 620px) {
+  .alchm-war .aw-pop { padding: 0; }
+  .alchm-war .aw-pop-card { border: 0; border-radius: 0; min-height: 100dvh; }
+  .alchm-war .aw-decan-h, .alchm-war .aw-decan-r { grid-template-columns: 1.2fr 0.8fr 0.7fr 0.4fr 1.1fr 0.9fr; font-size: 11px; }
+}
+
+/* ── Deploy card-tray (drag a card onto a zone) ── */
+.alchm-war .aw-card-tray { margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--ac-line); }
+.alchm-war .aw-tray-hint { font-size: 11px; }
+.alchm-war .aw-tray-strip { display: flex; gap: 10px; overflow-x: auto; padding: 12px 2px 6px; scrollbar-width: thin; }
+.alchm-war .aw-tray-empty { padding: 14px 2px; font-size: 12px; }
+.alchm-war .aw-tray-card { position: relative; flex: 0 0 auto; width: 116px; border-radius: 8px; cursor: grab;
+  background: rgba(8,10,20,0.92); border: 1.5px solid rgba(216,180,106,0.2); padding: 9px 9px 8px;
+  display: flex; flex-direction: column; gap: 5px; transition: transform 0.2s cubic-bezier(0.165,0.84,0.44,1), border-color 0.2s, box-shadow 0.2s; }
+.alchm-war .aw-tray-card:hover { transform: translateY(-6px); border-color: rgba(241,219,161,0.6); box-shadow: 0 8px 22px rgba(0,0,0,0.4); }
+.alchm-war .aw-tray-card:active { cursor: grabbing; }
+.alchm-war .aw-tray-card.aw-card--wands { border-color: rgba(219,122,71,0.45); }
+.alchm-war .aw-tray-card.aw-card--cups { border-color: rgba(95,147,216,0.45); }
+.alchm-war .aw-tray-card.aw-card--swords { border-color: rgba(174,187,214,0.45); }
+.alchm-war .aw-tray-card.aw-card--pentacles { border-color: rgba(116,171,108,0.45); }
+.alchm-war .aw-tray-card.aw-card--trump { border-color: var(--ac-gold-bright); background: linear-gradient(135deg, rgba(16,13,6,0.96), rgba(6,8,15,0.98)); }
+.alchm-war .aw-tray-card.aw-card--inv .aw-tray-glyph { transform: rotate(180deg); }
+.alchm-war .aw-tray-top { display: flex; justify-content: space-between; align-items: baseline; }
+.alchm-war .aw-tray-glyph { font-size: 17px; line-height: 1; }
+.alchm-war .aw-tray-rank { font-size: 9px; text-transform: uppercase; letter-spacing: 0.05em; }
+.alchm-war .aw-tray-title { font-family: "Cormorant Garamond", Georgia, serif; font-size: 13px; color: var(--ac-text); line-height: 1.05; }
+.alchm-war .aw-tray-stats { display: flex; gap: 7px; font-size: 10px; color: var(--ac-text); font-variant-numeric: tabular-nums; }
+.alchm-war .aw-tray-foot { display: flex; align-items: center; gap: 5px; font-size: 9px; text-transform: uppercase; letter-spacing: 0.04em; margin-top: 2px; }
+.alchm-war .aw-tray-letter { margin-left: auto; min-width: 14px; height: 14px; padding: 0 3px; border-radius: 3px; display: inline-flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, var(--ac-gold-bright), var(--ac-gold-deep)); color: #1a1206; font-weight: 700; font-size: 9px; }
+/* drop affordances */
+.alchm-war .aw-board.is-deploy-mode .aw-zone { border-style: dashed; }
+.alchm-war .aw-zone.is-drop-active { border-color: var(--ac-gold-bright) !important; border-style: solid; box-shadow: 0 0 14px rgba(241,219,161,0.4); transform: translateY(-2px); }
+
+/* ============================================================
+   My Codex — the player's profile (overlay mirrors #aw-overlay)
+   ============================================================ */
+#mc-overlay { position: fixed; inset: 0; z-index: 120; display: none; align-items: center; justify-content: center;
+  padding: 24px; background: rgba(4,5,10,0.78); backdrop-filter: blur(8px); }
+#mc-overlay.is-open { display: flex; }
+#mc-overlay .mc-window { position: relative; width: min(1200px, 96vw); height: min(900px, 94vh); overflow: hidden auto;
+  background: rgba(13,16,28,0.92); border: 1px solid rgba(216,180,106,0.18); border-radius: 16px;
+  backdrop-filter: blur(16px); box-shadow: 0 24px 80px rgba(0,0,0,0.6); }
+#mc-overlay .mc-window-close { position: absolute; top: 12px; right: 14px; width: 30px; height: 30px; border-radius: 50%;
+  border: 1px solid rgba(216,180,106,0.18); background: rgba(0,0,0,0.3); color: #f1dba1; font-size: 14px; cursor: pointer; z-index: 5; }
+#mc-overlay .mc-window-close:hover { border-color: #f1dba1; }
+#mc-overlay #mc-host { min-height: 100%; }
+@media (max-width: 860px) {
+  #mc-overlay { padding: 0; }
+  #mc-overlay .mc-window { width: 100vw; height: 100dvh; max-height: none; border: 0; border-radius: 0; }
+}
+
+.alchm-codex { color: var(--ac-text); font-family: "Space Grotesk", system-ui, sans-serif; }
+.alchm-codex .mc-root { padding: 26px clamp(16px, 3vw, 34px) 40px; display: flex; flex-direction: column; gap: 20px; }
+.alchm-codex .mc-dim { color: var(--ac-dim); }
+.alchm-codex .mc-section-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--ac-dim);
+  display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.alchm-codex .mc-section-label::before { content: ""; width: 16px; height: 1px; background: var(--ac-gold-deep); }
+.alchm-codex .mc-panel { background: rgba(18,20,31,0.6); border: 1px solid var(--ac-line); border-radius: 14px; padding: 18px 18px 20px; backdrop-filter: blur(6px); }
+.alchm-codex .mc-panel-head { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px; }
+.alchm-codex .mc-cta { margin-top: 14px; padding: 11px 22px; border-radius: 9px; cursor: pointer;
+  background: linear-gradient(135deg, var(--ac-gold-bright), var(--ac-gold-deep)); color: #1a1206; font-weight: 600; font-family: inherit; border: 1px solid rgba(255,255,255,0.18); transition: transform 0.12s, filter 0.2s; }
+.alchm-codex .mc-cta:hover { transform: translateY(-1px); filter: brightness(1.06); }
+
+/* header */
+.alchm-codex .mc-header { display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+  background: linear-gradient(135deg, rgba(216,180,106,0.07), rgba(18,20,31,0.6)); border: 1px solid var(--ac-line); border-radius: 14px; padding: 20px; }
+.alchm-codex .mc-medallion { width: 58px; height: 58px; flex: 0 0 auto; border: 1.5px solid; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; font-size: 28px; background: rgba(0,0,0,0.3); }
+.alchm-codex .mc-head-id { flex: 1; min-width: 160px; }
+.alchm-codex .mc-handle { font-family: "Cormorant Garamond", Georgia, serif; font-size: 30px; line-height: 1; color: var(--ac-text); }
+.alchm-codex .mc-faction { font-size: 13px; margin-top: 5px; }
+.alchm-codex .mc-trophies { display: flex; gap: 22px; }
+.alchm-codex .mc-trophy { text-align: center; }
+.alchm-codex .mc-trophy-v { display: block; font-size: 24px; font-weight: 300; color: var(--ac-gold-bright); font-variant-numeric: tabular-nums; }
+.alchm-codex .mc-trophy-k { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; }
+
+/* chart */
+.alchm-codex .mc-angles { display: flex; gap: 8px; }
+.alchm-codex .mc-angle { display: flex; flex-direction: column; align-items: center; padding: 3px 10px; border: 1px solid var(--ac-line); border-radius: 7px; }
+.alchm-codex .mc-angle-k { font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; }
+.alchm-codex .mc-angle-v { font-size: 14px; color: var(--ac-gold-bright); }
+.alchm-codex .mc-solar { font-size: 11px; font-style: italic; color: var(--ac-dim); }
+.alchm-codex .mc-placements { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 9px; }
+.alchm-codex .mc-place { background: rgba(8,10,20,0.55); border: 1px solid var(--ac-line); border-radius: 9px; padding: 9px 10px; display: flex; flex-direction: column; gap: 5px; }
+.alchm-codex .mc-place-top { display: flex; justify-content: space-between; align-items: baseline; }
+.alchm-codex .mc-place-glyph { font-size: 19px; line-height: 1; }
+.alchm-codex .mc-place-pos { font-size: 11px; font-variant-numeric: tabular-nums; }
+.alchm-codex .mc-place-name { font-size: 12px; color: var(--ac-text); }
+.alchm-codex .mc-dignity { align-self: flex-start; font-size: 8px; text-transform: uppercase; letter-spacing: 0.04em; padding: 1px 6px; border-radius: 4px; border: 1px solid; }
+.alchm-codex .mc-dignity--favor { color: #5fb37a; border-color: rgba(95,179,122,0.4); background: rgba(95,179,122,0.1); }
+.alchm-codex .mc-dignity--diff { color: #ffb4ab; border-color: rgba(255,180,171,0.4); background: rgba(255,180,171,0.1); }
+.alchm-codex .mc-dignity--none { font-size: 8px; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.5; }
+
+/* deck */
+.alchm-codex .mc-deck { display: grid; grid-template-columns: 1fr; gap: 16px; }
+@media (min-width: 760px) { .alchm-codex .mc-deck { grid-template-columns: repeat(3, 1fr); } }
+.alchm-codex .mc-col { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.alchm-codex .mc-col-head { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid var(--ac-line); padding-bottom: 5px; }
+.alchm-codex .mc-col-title { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ac-gold); }
+.alchm-codex .mc-col.is-full .mc-col-count { color: #ffb4ab; }
+.alchm-codex .mc-col-hint { font-size: 9px; text-transform: uppercase; letter-spacing: 0.04em; margin: 4px 0 6px; }
+.alchm-codex .mc-col-cards { display: flex; flex-direction: column; gap: 8px; }
+.alchm-codex .mc-col-empty { padding: 6px 0; }
+.alchm-codex .mc-card { position: relative; border: 1.5px solid rgba(216,180,106,0.2); border-radius: 9px; background: rgba(8,10,20,0.85); padding: 9px 11px; display: flex; flex-direction: column; gap: 5px; }
+.alchm-codex .mc-card--trump { border-color: var(--ac-gold-bright); background: linear-gradient(135deg, rgba(16,13,6,0.96), rgba(6,8,15,0.98)); }
+.alchm-codex .mc-card--inv .mc-card-glyph { transform: rotate(180deg); }
+.alchm-codex .mc-card-top { display: flex; justify-content: space-between; align-items: baseline; }
+.alchm-codex .mc-card-glyph { font-size: 17px; line-height: 1; }
+.alchm-codex .mc-card-rank { font-size: 9px; text-transform: uppercase; letter-spacing: 0.05em; }
+.alchm-codex .mc-card-title { font-family: "Cormorant Garamond", Georgia, serif; font-size: 15px; line-height: 1.05; color: var(--ac-text); }
+.alchm-codex .mc-card-stats { display: flex; gap: 9px; font-size: 11px; color: var(--ac-text); font-variant-numeric: tabular-nums; }
+.alchm-codex .mc-card-foot { display: flex; align-items: center; gap: 6px; font-size: 9px; text-transform: uppercase; letter-spacing: 0.04em; }
+.alchm-codex .mc-card-letter { margin-left: auto; min-width: 15px; height: 15px; padding: 0 3px; border-radius: 3px; display: inline-flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, var(--ac-gold-bright), var(--ac-gold-deep)); color: #1a1206; font-weight: 700; font-size: 9px; }
+
+/* decan cards */
+.alchm-codex .mc-decan-note { font-size: 11px; margin-bottom: 12px; }
+.alchm-codex .mc-decan-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.alchm-codex .mc-decan { border: 1px solid var(--ac-line); border-left-width: 3px; border-radius: 9px; background: rgba(8,10,20,0.55); padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; }
+.alchm-codex .mc-decan-top { display: flex; align-items: baseline; gap: 7px; }
+.alchm-codex .mc-decan-glyph { font-size: 16px; }
+.alchm-codex .mc-decan-card { font-family: "Cormorant Garamond", Georgia, serif; font-size: 15px; }
+.alchm-codex .mc-decan-lord { font-size: 12px; color: var(--ac-text); }
+.alchm-codex .mc-decan-sub { font-size: 11px; }
+
+/* allegiance */
+.alchm-codex .mc-allegiance { display: flex; flex-direction: column; }
+.alchm-codex .mc-alleg-hero { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+.alchm-codex .mc-alleg-name { font-family: "Cormorant Garamond", Georgia, serif; font-size: 20px; color: var(--ac-text); }
+.alchm-codex .mc-contrib { display: flex; gap: 26px; margin-bottom: 6px; }
+.alchm-codex .mc-tip { align-self: flex-start; }
+
+/* empty state */
+.alchm-codex .mc-empty { text-align: center; padding: 80px 24px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.alchm-codex .mc-empty-mark { font-size: 44px; color: var(--ac-gold-deep); }
+.alchm-codex .mc-empty-title { font-family: "Cormorant Garamond", Georgia, serif; font-size: 26px; color: var(--ac-text); }

@@ -8,6 +8,7 @@
     "once": "bun run push-ephemeris.ts --once",
     "oracle": "bun run oracle-service.ts",
     "duel": "bun run duel-service.ts",
+    "jing": "bun run jing-service.ts",
     "constellation": "bun run constellation-service.ts"
   },
   "dependencies": {

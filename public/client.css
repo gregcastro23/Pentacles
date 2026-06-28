@@ -320,6 +320,7 @@ body {
 }
 .hud-btn-group {
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   pointer-events: auto;
 }
@@ -794,6 +795,25 @@ body {
   .hud-card-footer {
     position: static;
     width: 100%;
+  }
+  /* HUD control row: wrap + compact so all launchers (Alchm Chart, ⚔ Faction War)
+     stay reachable and tappable on phones instead of overflowing one flat row. */
+  .hud-bar {
+    flex-wrap: wrap;
+    gap: 8px;
+    top: 10px;
+    left: 10px;
+    right: 10px;
+  }
+  .hud-btn-group {
+    gap: 8px;
+    width: 100%;
+    justify-content: flex-end;
+  }
+  .hud-btn-group .btn {
+    padding: 9px 12px;
+    font-size: 11px;
+    min-height: 40px; /* comfortable touch target */
   }
 }
 

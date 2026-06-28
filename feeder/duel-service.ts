@@ -9,7 +9,7 @@
 //
 // Environment options:
 //   SPACETIMEDB_DB (default: cookingwithcastrollc)
-//   PLANETARY_AGENTS_BACKEND_URL (default: https://api.agents.alchm.kitchen)
+//   PLANETARY_AGENTS_BACKEND_URL (default: https://alchm-agents-eth.vercel.app)
 //   POLL_INTERVAL_MS (default: 3000)
 
 import { execFile } from "node:child_process";
@@ -31,7 +31,9 @@ function getSpacetimeCli(): string {
 const SPACETIMEDB_CLI = getSpacetimeCli();
 
 const DB = process.env.SPACETIMEDB_DB ?? "cookingwithcastrollc";
-const BACKEND_URL = process.env.PLANETARY_AGENTS_BACKEND_URL ?? "https://api.agents.alchm.kitchen";
+// The AlchmAgents Next.js move-brain (app/api/agents/word-duel). NOT the Python
+// FastAPI at api.agents.alchm.kitchen — that host has no move endpoint.
+const BACKEND_URL = process.env.PLANETARY_AGENTS_BACKEND_URL ?? "https://alchm-agents-eth.vercel.app";
 
 // Read via the HTTP SQL API (clean JSON). The CLI's ASCII-table output wraps long
 // string columns (e.g. the candidates JSON array), which the fixed-width
@@ -47,6 +49,11 @@ async function answerDuel(
   rationale: string,
   score: number
 ): Promise<void> {
+  // Clamp to a valid u32 — the reducer's agent_score is u32, so a negative,
+  // fractional, or over-range score from the brain would reject the call and
+  // wedge the queue. The backend's scorer is a positive int in practice; this
+  // is defense-in-depth so a malformed move can never stall the duel.
+  score = Math.max(0, Math.min(0xffffffff, Math.round(Number(score) || 0)));
   if (SPACETIME_TOKEN) {
     const res = await fetch(`${SPACETIMEDB_URI}/v1/database/${DB}/call/answer_duel`, {
       method: "POST",

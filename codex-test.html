@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Codex + Deploy Tray — Harness</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Space+Grotesk:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    html, body { margin: 0; min-height: 100%; background: #05060c; color: #e8e3d4; font-family: "Space Grotesk", sans-serif; }
+    .wrap { width: min(1200px, 96vw); margin: 0 auto; padding: 18px 0 60px; }
+    h2.k { font-family: "Cormorant Garamond", serif; color: #d8b46a; font-weight: 500; margin: 26px 0 8px; }
+    #codex, #war { background: rgba(13,16,28,0.6); border: 1px solid rgba(216,180,106,0.18); border-radius: 14px; overflow: hidden; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h2 class="k">My Codex</h2>
+    <div id="codex"></div>
+    <h2 class="k">Faction War — deploy card-tray (drag a card onto a zone)</h2>
+    <div id="war"></div>
+  </div>
+  <script type="module">
+    import "/src/alchm-chart/alchm-chart.css";
+    import FactionWar from "/src/alchm-chart/faction-war.js";
+    import MyCodex from "/src/alchm-chart/my-codex.js";
+
+    const P = (body, sign, deg, retro, dignity) => ({ body, sign, arc_minutes: Math.round(deg * 60), retrograde: !!retro, dignity: dignity || 0 });
+    const card = (id, suit, rank, source_body, atk, hp, arm, lvl, letter, opt = {}) => ({
+      card_id: id, suit, rank, source_body, attack: atk, health: hp, armour: arm, level: lvl,
+      letter, inverted: !!opt.inv, is_trump: !!opt.trump, title: opt.title,
+    });
+
+    // ── Player deck (full Card rows) + loadout slots ──
+    const collection = [
+      card(7421, "cups", 1, 1, 9, 18, 4, 3, "R", { title: "Ace of Cups" }),
+      card(7422, "pentacles", 13, 9, 11, 22, 7, 2, "E", { title: "Queen of Pentacles" }),
+      card(7423, "wands", 4, 4, 18, 12, 3, 1, "T", { title: "Four of Wands" }),
+      card(7424, "swords", 10, 7, 14, 8, 2, 1, "A", { title: "Ten of Swords", inv: true }),
+      card(7425, "wands", 16, 4, 20, 16, 6, 2, "T", { trump: true, title: "The Tower" }),
+      card(7426, "cups", 7, 1, 6, 20, 3, 1, "S", { title: "Seven of Cups" }),
+      card(7427, "swords", 13, 2, 13, 10, 4, 4, "K", { title: "King of Swords" }),
+      card(7428, "pentacles", 8, 6, 5, 16, 9, 1, "N", { title: "Eight of Pentacles" }),
+      card(7429, "wands", 19, 0, 15, 22, 5, 1, "S", { trump: true, title: "The Sun" }),
+      card(7430, "cups", 12, 3, 7, 14, 3, 1, "O", { title: "Knight of Cups" }),
+    ];
+    const deck = [
+      { card_id: 7421, loadout: "active" }, { card_id: 7422, loadout: "active" },
+      { card_id: 7423, loadout: "active" }, { card_id: 7424, loadout: "active" },
+      { card_id: 7425, loadout: "active" }, { card_id: 7426, loadout: "active" },
+      { card_id: 7427, loadout: "defense" }, { card_id: 7428, loadout: "defense" },
+      { card_id: 7429, loadout: "bench" }, { card_id: 7430, loadout: "bench" },
+    ];
+
+    window.state = {
+      player: {
+        handle: "Castro", faction: 9 /* Pluto */, tokens: 2450, word_wins: 7,
+        chart: {
+          time_known: true,
+          ascendant: 7 * 1800 + 14 * 60, // Scorpio 14°
+          midheaven: 4 * 1800 + 2 * 60,  // Leo 2°
+          placements: [
+            P("Sun", 4, 22), P("Moon", 3, 3, false, 5), P("Mercury", 5, 5, false, 5),
+            P("Venus", 6, 22, false, 5), P("Mars", 7, 19, true, 5), P("Jupiter", 9, 29, false, 5),
+            P("Saturn", 11, 18, true), P("Uranus", 10, 14, true), P("Neptune", 11, 8, false, 4), P("Pluto", 7, 26, false, 5),
+          ],
+        },
+      },
+      collection, deck,
+      save() {},
+    };
+    window.toast = (m, o) => console.log("[toast]", (o && o.title) || "", m);
+
+    const codex = MyCodex.create({ el: document.getElementById("codex"), hooks: { onTip: () => console.log("[harness] tip→war"), onForge: () => console.log("[harness] forge") } });
+    codex.mount();
+    window.__codex = codex;
+
+    // ── Faction War with the deploy tray (active cards = the 6 Active loadout) ──
+    const activeCards = collection.filter((c) => deck.find((d) => d.card_id === c.card_id && d.loadout === "active"));
+    const zones = [
+      { zone_id: 0, kind: "house", owner: "Uranus", control: 991 },
+      { zone_id: 1, kind: "house", owner: "Sun", control: 308 },
+      { zone_id: 2, kind: "house", owner: "Moon", control: 618 },
+      { zone_id: 3, kind: "house", owner: "Mercury", control: 120 },
+      { zone_id: 4, kind: "house", owner: "Pluto", control: 240 },
+      { zone_id: 5, kind: "spire", owner: "Mars", control: 288 },
+      { zone_id: 6, kind: "spire", owner: "Jupiter", control: 668 },
+      { zone_id: 7, kind: "spire", owner: null, control: 0 },
+      { zone_id: 8, kind: "spire", owner: "Pluto", control: 410 },
+      { zone_id: 9, kind: "spire", owner: null, control: 0 },
+      { zone_id: 10, kind: "crown", owner: "Neptune", control: 313 },
+    ];
+    const players = [{ identity: "0xme", faction: "Pluto", handle: "Castro" }];
+    const war = FactionWar.create({
+      el: document.getElementById("war"),
+      myFaction: 9,
+      myCards: activeCards,
+      hooks: { onDeploy: (cardId, zoneId) => { console.log("[harness] deploy", cardId, "→ zone", zoneId); return Promise.resolve({ ok: true }); } },
+    });
+    war.mount();
+    war.setData({ zones, players, agents: [] });
+    window.__war = war;
+  </script>
+</body>
+</html>
