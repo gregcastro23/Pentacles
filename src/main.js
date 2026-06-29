@@ -27,6 +27,7 @@ import { installPoolsUI } from './web3/pools-ui.js'
 import AlchmChart from './alchm-chart/index.js'
 import FactionWar from './alchm-chart/faction-war.js'
 import MyCodex from './alchm-chart/my-codex.js'
+import AdminTelemetry from './alchm-chart/admin-telemetry.js'
 import './alchm-chart/alchm-chart.css'
 import * as dex from './web3/dex.js'
 import { ESMS_DECIMALS } from './web3/esms.js'
@@ -331,9 +332,114 @@ window.openMyCodex = openMyCodex
 window.closeMyCodex = closeMyCodex
 Pentacles.openCodex = openMyCodex
 
+// ── ✦ The Observatory: admin-only telemetry console ──
+// Expose the live client so the telemetry model can default to it (console use).
+window.__spacetime = spacetime
+const ADMIN_EMAIL = 'gregcastro23@gmail.com'
+const ADMIN_KEY = 'pentacles_admin'
+// Authoritative gate: this client IS the SpacetimeDB module owner. Verified live
+// against game_config.owner on connect (see verifyOwnerIdentity). The email /
+// localStorage / ?admin paths remain as a convenience for offline/dev use.
+let ownerUnlocked = false
+
+const sameId = (a, b) =>
+  !!a && !!b && String(a).replace(/^0x/, '').toLowerCase() === String(b).replace(/^0x/, '').toLowerCase()
+
+/** Already-unlocked? Owner-identity match (authoritative), env allowlist, or email. */
+function isAdmin() {
+  try {
+    if (ownerUnlocked) return true
+    const envId = import.meta.env && import.meta.env.VITE_ADMIN_IDENTITY
+    if (envId && sameId(spacetime.identity, envId)) return true
+    if (localStorage.getItem(ADMIN_KEY) === ADMIN_EMAIL) return true
+    const qp = new URLSearchParams(location.search)
+    if (qp.has('admin') && qp.get('admin') === ADMIN_EMAIL) { localStorage.setItem(ADMIN_KEY, ADMIN_EMAIL); return true }
+  } catch {}
+  return false
+}
+
+/** Live owner check: if our identity == game_config.owner, this is the real admin. */
+async function verifyOwnerIdentity() {
+  try {
+    if (!spacetime.isLive || !spacetime.identity) return false
+    const rows = await spacetime.query('SELECT owner FROM game_config')
+    const owner = rows && rows[0] && (rows[0].owner?.__identity__ ?? rows[0].owner)
+    if (sameId(spacetime.identity, owner)) {
+      ownerUnlocked = true
+      revealAdminButton()
+      return true
+    }
+  } catch {}
+  return false
+}
+/** Gate: unlock if already admin, else prompt once for the admin email. */
+function ensureAdmin() {
+  if (isAdmin()) return true
+  let entered = null
+  try { entered = window.prompt('Admin email to unlock The Observatory:') } catch {}
+  if (entered && entered.trim().toLowerCase() === ADMIN_EMAIL) {
+    try { localStorage.setItem(ADMIN_KEY, ADMIN_EMAIL) } catch {}
+    revealAdminButton()
+    return true
+  }
+  if (entered != null && window.toast) window.toast('Not authorized for the admin console.', { type: 'error', title: 'The Observatory' })
+  return false
+}
+/** Show the gated nav button once we know this client is the admin. */
+function revealAdminButton() {
+  const btn = document.getElementById('observatory-btn')
+  if (btn) btn.style.display = ''
+}
+
+let obsInst = null, obsEsc = null
+function openAdminTelemetry() {
+  if (!ensureAdmin()) return
+  let ov = document.getElementById('obs-overlay')
+  if (!ov) {
+    ov = document.createElement('div')
+    ov.id = 'obs-overlay'
+    const win = document.createElement('div'); win.className = 'obs-window'
+    const close = document.createElement('button'); close.className = 'obs-window-close'; close.textContent = '✕'
+    close.setAttribute('aria-label', 'Close'); close.onclick = closeAdminTelemetry
+    const host = document.createElement('div'); host.id = 'obs-host'
+    win.appendChild(close); win.appendChild(host); ov.appendChild(win)
+    document.body.appendChild(ov)
+  }
+  try {
+    if (obsInst) obsInst.destroy()
+    obsInst = AdminTelemetry.create({ el: document.getElementById('obs-host'), spacetime })
+    obsInst.mount()
+  } catch (e) {
+    console.error('[Pentacles] The Observatory failed to mount', e)
+    if (window.toast) window.toast('The Observatory failed to open — see console.', { type: 'error' })
+    return
+  }
+  ov.classList.add('is-open')
+  document.body.classList.add('alchm-open')
+  ov.onclick = (e) => { if (e.target === ov) closeAdminTelemetry() }
+  obsEsc = (e) => { if (e.key === 'Escape') closeAdminTelemetry() }
+  document.addEventListener('keydown', obsEsc)
+}
+function closeAdminTelemetry() {
+  const ov = document.getElementById('obs-overlay')
+  if (ov) ov.classList.remove('is-open')
+  document.body.classList.remove('alchm-open')
+  if (obsInst) { try { obsInst.destroy() } catch {} obsInst = null }
+  if (obsEsc) { document.removeEventListener('keydown', obsEsc); obsEsc = null }
+}
+window.openAdminTelemetry = openAdminTelemetry
+window.closeAdminTelemetry = closeAdminTelemetry
+Pentacles.openObservatory = openAdminTelemetry
+// Hidden hotkey: ⌘/Ctrl + Shift + O opens the console from anywhere.
+document.addEventListener('keydown', (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'O' || e.key === 'o')) { e.preventDefault(); openAdminTelemetry() }
+})
+
 function boot() {
   initA11y()
   initNetBadge()
+  // Reveal the admin console entry only for the unlocked admin client.
+  if (isAdmin()) revealAdminButton()
   // Attempt the live connection in the background; the badge reflects the result
   // and the game keeps running on local simulation either way.
   spacetime.connect()
@@ -343,6 +449,8 @@ function boot() {
           .then((m) => m.restoreProfileFromSpacetimeDB(spacetime, window.state))
           .catch((e) => console.warn('[Pentacles] Profile restore failed', e))
       }
+      // Authoritative admin unlock: are we the module owner identity?
+      if (isLive) verifyOwnerIdentity().catch(() => {})
     })
     .catch(() => {})
 

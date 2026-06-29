@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>The Observatory — Pentacles admin telemetry</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='13'>%F0%9F%94%AD</text></svg>" />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    html, body { margin: 0; min-height: 100%; height: 100%; background: #0b0e19; color: #e0e1f3; font-family: "Space Grotesk", system-ui, sans-serif; }
+    #obs-host { position: fixed; inset: 0; }
+    #gate { position: fixed; inset: 0; display: grid; place-items: center; background: #0b0e19; z-index: 10; }
+    #gate .card { width: min(440px, 90vw); text-align: center; padding: 32px; border: 1px solid rgba(231,194,118,.2); border-radius: 12px; background: rgba(24,27,39,.66); }
+    #gate h1 { font-family: "Cormorant Garamond", serif; color: #f6cf83; font-weight: 500; font-size: 30px; margin: 8px 0 4px; }
+    #gate p { color: #cdbfa8; font-size: 13px; line-height: 1.6; }
+    #gate .sp { font-size: 40px; }
+    #gate.hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div id="gate"><div class="card">
+    <div class="sp">🔭</div>
+    <h1>The Observatory</h1>
+    <p id="gate-msg">Connecting to the live module…</p>
+  </div></div>
+  <div id="obs-host"></div>
+
+  <script type="module">
+    import "/src/alchm-chart/alchm-chart.css";
+    import spacetime from "/src/net/spacetime.js";
+    import AdminTelemetry from "/src/alchm-chart/admin-telemetry.js";
+
+    window.__spacetime = spacetime;
+    const gate = document.getElementById("gate");
+    const msg = document.getElementById("gate-msg");
+    const sameId = (a, b) => !!a && !!b && String(a).replace(/^0x/, "").toLowerCase() === String(b).replace(/^0x/, "").toLowerCase();
+
+    // Mount the panel against the REAL client. Reads flow over HTTP /sql (version-
+    // tolerant), so data populates even if the WebSocket can't negotiate. We still
+    // try connect() for live auto-refresh + identity.
+    function mount() {
+      gate.classList.add("hidden");
+      const inst = AdminTelemetry.create({ el: document.getElementById("obs-host"), spacetime });
+      inst.mount();
+      window.__obs = inst;
+    }
+
+    (async () => {
+      try {
+        await spacetime.ensureIdentity().catch(() => {});
+        // Probe the module over HTTP — proves the DB is reachable regardless of WS.
+        msg.textContent = "Reaching the module over HTTP…";
+        const cfg = await spacetime.query("SELECT owner FROM game_config").catch((e) => { throw e; });
+        const owner = cfg && cfg[0] && (cfg[0].owner?.__identity__ ?? cfg[0].owner);
+        const isOwner = sameId(spacetime.identity, owner);
+        console.log("[observatory] reachable. identity=", spacetime.identity, "owner=", owner, "isOwner=", isOwner);
+        // Kick off the live WebSocket in the background (best-effort).
+        spacetime.connect().catch(() => {});
+        mount();
+      } catch (e) {
+        console.error("[observatory] module unreachable", e);
+        msg.innerHTML = "Could not reach the module.<br><span style='opacity:.7'>" + String(e.message || e) + "</span>";
+      }
+    })();
+  </script>
+</body>
+</html>
