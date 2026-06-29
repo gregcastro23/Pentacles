@@ -46,7 +46,10 @@ export function chartToNatal(chart, observer) {
 export async function registerLive(handle, chart, factionIdx, observer) {
   if (!spacetime.isLive) return { ok: false, reason: 'offline' }
   if (observer && Number.isFinite(observer.lat) && Number.isFinite(observer.lon)) {
-    await spacetime.callReducer('set_location', [observer.lat, observer.lon]).catch(() => {})
+    // Best-effort: registration shouldn't fail if location can't be set, but a silent
+    // failure here surfaces later as a cryptic trace/region-commit error — so log it.
+    await spacetime.callReducer('set_location', [observer.lat, observer.lon])
+      .catch((e) => console.warn('[Pentacles] set_location failed — trace/seed may need a manual location set:', e?.message || e))
   }
   await spacetime.callReducer('create_player', [handle, chartToNatal(chart, observer), planetEnum(factionIdx)])
   return { ok: true }

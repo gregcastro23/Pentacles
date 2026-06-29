@@ -2047,10 +2047,10 @@ pub fn cast_word(ctx: &ReducerContext, word: String, opponent: Planet) -> Result
     }
 
     // You must hold the letters across your lettered Arcana.
-    // let have = player_letters(ctx, ctx.sender());
-    // if !words::can_spell(&w, &have) {
-    //     return Err("your Arcana don't hold the letters for that word".into());
-    // }
+    let have = player_letters(ctx, ctx.sender());
+    if !words::can_spell(&w, &have) {
+        return Err("your Arcana don't hold the letters for that word".into());
+    }
 
     // Start/refresh the cooldown only now the cast is valid.
     if let Some(mut rate) = ctx.db.word_rate().identity().find(&ctx.sender()) {

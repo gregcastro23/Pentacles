@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Telemetry — Observatory Harness</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Space+Grotesk:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    html, body { margin: 0; min-height: 100%; background: #05060c; color: #e8e3d4; font-family: "Space Grotesk", sans-serif; }
+    .wrap { width: min(1300px, 97vw); margin: 0 auto; padding: 18px 0 60px; }
+    h2.k { font-family: "Cormorant Garamond", serif; color: #d8b46a; font-weight: 500; margin: 18px 0 8px; }
+    #obs { background: rgba(13,16,28,0.6); border: 1px solid rgba(216,180,106,0.18); border-radius: 14px; overflow: hidden; height: 78vh; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h2 class="k">The Observatory — admin telemetry (mock live data)</h2>
+    <div id="obs"></div>
+  </div>
+  <script type="module">
+    import "/src/alchm-chart/alchm-chart.css";
+    import AdminTelemetry from "/src/alchm-chart/admin-telemetry.js";
+
+    // ── A mock SpacetimeDB client: pattern-matches `FROM <table>` and returns
+    //    realistic rows so every panel populates without a live host. ──
+    const nowMicros = () => ({ __timestamp_micros_since_unix_epoch__: Date.now() * 1000 });
+    const agoMicros = (ms) => ({ __timestamp_micros_since_unix_epoch__: (Date.now() - ms) * 1000 });
+    const P = ["Sun","Moon","Mercury","Venus","Mars","Jupiter","Saturn","Uranus","Neptune","Pluto"];
+    const rnd = (n) => Math.floor(Math.random() * n);
+    const pick = (a) => a[rnd(a.length)];
+
+    const players = Array.from({ length: 137 }, (_, i) => ({
+      identity: { __identity__: "0x" + (1000 + i).toString(16).padStart(8, "0") },
+      handle: ["Castro","Vega","Lyra","Orion","Nyx","Sol","Mira","Rigel","Atlas","Juno","Caelum","Draco"][i % 12] + (i > 11 ? i : ""),
+      faction: pick(P), tokens: rnd(5000), word_wins: rnd(40),
+      created_at: agoMicros(rnd(20) * 24 * 3600e3), last_active: agoMicros(rnd(48) * 3600e3),
+    }));
+    const zones = Array.from({ length: 11 }, (_, i) => ({
+      zone_id: i, kind: i < 5 ? "House" : i < 10 ? "Spire" : "Crown",
+      owner: i === 7 || i === 9 ? null : pick(P), control: rnd(2000) - 1000, updated_at: nowMicros(),
+    }));
+    const oracleReq = Array.from({ length: 64 }, (_, i) => ({
+      request_id: i, asker: players[i % players.length].identity, question: "What should I draft for zone " + (i % 11) + "?",
+      answered: i < 58, cacheable: i % 3 === 0, created_at: agoMicros(rnd(6) * 3600e3),
+    }));
+    const oracleRep = oracleReq.filter((r) => r.answered).map((r) => ({
+      request_id: r.request_id, model: pick(["cache","haiku","haiku","sonnet"]),
+      created_at: { __timestamp_micros_since_unix_epoch__: (Date.now() - rnd(6) * 3600e3 + (3000 + rnd(12000))) * 1000 },
+    }));
+    const wordDuels = Array.from({ length: 210 }, (_, i) => ({
+      duel_id: i, player: players[i % players.length].identity, won: Math.random() > 0.45,
+      tokens_awarded: rnd(120), player_score: rnd(40), agent_score: rnd(40),
+      player_word: pick(["AETHER","QUARTZ","NEBULA","ZENITH","ORACLE"]), created_at: agoMicros(rnd(36) * 3600e3),
+    }));
+    const stakes = Array.from({ length: 23 }, (_, i) => ({
+      stake_id: i, element: rnd(4), principal_usdc: (100 + rnd(900)) * 1e6,
+      accrued_essence: BigInt(rnd(50)) * 10n ** 18n + "", claimed_essence: BigInt(rnd(20)) * 10n ** 18n + "",
+    }));
+    const SUITS = ["Wands","Cups","Swords","Pentacles"];
+    const cards = Array.from({ length: 820 }, (_, i) => ({
+      suit: pick(SUITS), is_trump: Math.random() < 0.06, inverted: Math.random() < 0.18,
+      letter: Math.random() < 0.85 ? 65 + rnd(26) : 0, level: 1 + (Math.random() < 0.5 ? 0 : rnd(5)),
+    }));
+    const consts = Array.from({ length: 88 }, (_, i) => ({ constellation_id: i, abbr: "C" + i, name: pick(["Orion","Lyra","Draco","Cygnus","Aquila","Pegasus","Andromeda"]) + " " + i, elem_a: rnd(4), elem_b: rnd(4), degenerate: Math.random() < 0.15, fee_bps: pick([5,15,30,30,100]), member_count: 5 + rnd(15) }));
+    const blocks = Array.from({ length: 41 }, (_, i) => ({ block_id: i, constellation_id: rnd(88), onchain_block: i % 3 ? 19000000 + i : null }));
+    const resolutions = Array.from({ length: 12 }, (_, i) => ({ constellation_id: i, resolution_level: rnd(6), added_members: rnd(18) }));
+    const intents = Array.from({ length: 30 }, (_, i) => ({ intent_id: i, attested: i < 26 }));
+    const ephem = P.map((b, i) => ({ body: b, ra: Math.random() * 360, dec: Math.random() * 120 - 60, transiting_zone: rnd(11), retrograde: i > 5 && Math.random() > 0.6, tick: agoMicros(rnd(90) * 1000) }));
+
+    const tableData = {
+      game_config: [{ id: 0, owner: { __identity__: "0xowner00admin" }, season_degree: 124, ascendant_degree: 271, seeded: true, star_seed_cursor: 9110, constellations_seeded: true }],
+      ephemeris: ephem,
+      sky_tick_timer: [{ scheduled_id: 1 }],
+      player: players,
+      card: cards, deck_slot: { count: 2310 }, natal_decan: { count: 1644 }, jing_pool: { count: 96 },
+      trade: Array.from({ length: 38 }, (_, i) => ({ trade_id: i, state: pick(["Open","Open","Accepted","Cancelled"]), offer: Array.from({ length: 1 + rnd(3) }, () => rnd(9999)), request: Array.from({ length: 1 + rnd(3) }, () => rnd(9999)), created_at: agoMicros(rnd(48) * 3600e3) })),
+      star_stake: stakes,
+      zone: zones,
+      star_node: Array.from({ length: 540 }, () => ({ held_by: Math.random() > 0.5 ? pick(P) : null })),
+      battle: Array.from({ length: 420 }, () => ({ battle_id: 0, won: Math.random() > 0.4, attacker_score: rnd(100), defense_rating: rnd(100) })),
+      duel: Array.from({ length: 12 }, (_, i) => ({ duel_id: i, state: pick(["Open","Committed","Resolved"]) })),
+      duel_queue: { count: 3 },
+      word_duel: wordDuels,
+      jing_duel: Array.from({ length: 47 }, (_, i) => ({ duel_id: i, state: pick(["Open","Countered","Resolved","Resolved"]), created_at: nowMicros() })),
+      jing_cast: { count: 188 },
+      oracle_request: oracleReq, oracle_reply: oracleRep, oracle_cache: { count: 31 },
+      duel_challenge: Array.from({ length: 9 }, (_, i) => ({ challenge_id: i, answered: i > 3 })),
+      agent_chart: Array.from({ length: 72 }, (_, i) => ({ identity: { __identity__: "0xa" + i }, handle: pick(["Carl Jung","Hypatia","Chiron","Nikola Tesla","Ada Lovelace","Pythagoras","Marie Curie","Galileo"]) + (i > 7 ? " " + i : ""), time_known: true })),
+      star_agent: Array.from({ length: 30 }, (_, i) => ({ hip_id: i, display_name: pick(["Sirius","Vega","Polaris","Rigel","Betelgeuse","Altair"]), element: rnd(4), active: i < 28 })),
+      comet: [{ comet_id: 0, name: "Chiron", active: true }],
+      constellation: consts, constellation_star: { count: 612 }, constellation_block: blocks, constellation_resolution: resolutions,
+      trace_intent: intents, trace_attestation: { count: 26 },
+    };
+
+    function tableOf(sql) {
+      const m = /from\s+([a-z_]+)/i.exec(sql);
+      return m ? m[1] : null;
+    }
+    const mock = {
+      isLive: true, status: "live",
+      async query(sql) {
+        const t = tableOf(sql);
+        const d = tableData[t];
+        if (!d) return [];
+        if (/count\s*\(\s*\*\s*\)/i.test(sql)) return [{ n: Array.isArray(d) ? d.length : d.count }];
+        if (Array.isArray(d)) return d;
+        // a count-stub table queried with SELECT * — synthesize that many blank rows
+        return Array.from({ length: Math.min(d.count, 500) }, () => ({}));
+      },
+      subscribe() { return () => {}; },
+    };
+    window.__spacetime = mock;
+
+    const obs = AdminTelemetry.create({ el: document.getElementById("obs"), spacetime: mock });
+    obs.mount();
+    window.__obs = obs;
+  </script>
+</body>
+</html>
