@@ -1,36 +1,26 @@
 // Pentacles — Jing Arena Companion Service.
 //
-// Polls SpacetimeDB for OPEN Jing duels aimed at a planetary agent and answers
-// each via the owner-gated `answer_jing` reducer: the agent declares a counter
-// move (a move that beats the opening, from the Jing counter graph) and a voice
-// line, which resolves the duel. Mirrors duel-service.ts.
+// Subscribes to SpacetimeDB over WebSocket for OPEN Jing duels aimed at a
+// planetary agent (plus a periodic /sql re-sweep for duels a transient failure
+// left open), asks the agent brain for the counter via brainCall (primary
+// FastAPI backend, then the Vercel Next.js fallback — see brain.ts), and
+// answers each via the owner-gated `answer_jing` reducer: the agent declares a
+// counter move (a move that beats the opening, from the Jing counter graph)
+// and a voice line, which resolves the duel. If BOTH brains fail, the local
+// counter-graph pick still wins the duel (no persona voice). Mirrors
+// duel-service.ts.
 //
 // Usage:   bun run jing-service.ts
-// Env:     SPACETIMEDB_DB (default cookingwithcastrollc), POLL_INTERVAL_MS (3000),
-//          PLANETARY_AGENTS_BACKEND_URL (optional — if its /api/agents/jing
-//          endpoint answers, that move/voice is used instead of the local pick).
+// Env:     SPACETIMEDB_DB (default cookingwithcastrollc), RESWEEP_MS (300000),
+//          PLANETARY_AGENTS_BACKEND_URL (default https://api.agents.alchm.kitchen)
+//          primary brain, BRAIN_FALLBACK_URL (default
+//          https://alchm-agents-eth.vercel.app) fallback brain.
 
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
-import { existsSync } from "node:fs";
-import { join } from "node:path";
 import { startFeed } from "./stdb-feed";
+import { cliCall } from "./spacetime-cli";
+import { brainCall, BRAIN_PRIMARY_URL, BRAIN_FALLBACK_URL } from "./brain";
 
-const run = promisify(execFile);
-
-function getSpacetimeCli(): string {
-  if (process.env.SPACETIMEDB_CLI) return process.env.SPACETIMEDB_CLI;
-  if (process.env.HOME) {
-    const localBin = join(process.env.HOME, ".local", "bin", "spacetime");
-    if (existsSync(localBin)) return localBin;
-  }
-  return "spacetime";
-}
-const SPACETIMEDB_CLI = getSpacetimeCli();
 const DB = process.env.SPACETIMEDB_DB ?? "cookingwithcastrollc";
-// AlchmAgents Next.js jing brain (app/api/agents/jing). Defaults to the deployed
-// app; if unreachable, jing-service still answers from its local counter graph.
-const BACKEND_URL = process.env.PLANETARY_AGENTS_BACKEND_URL ?? "https://alchm-agents-eth.vercel.app";
 const SPACETIMEDB_URI = (process.env.SPACETIMEDB_URI ?? "https://maincloud.spacetimedb.com").replace(/\/+$/, "");
 const SPACETIME_TOKEN = process.env.SPACETIME_TOKEN || "";
 
@@ -71,31 +61,34 @@ async function answerJing(duelId: number, move: string, voice: string): Promise<
       throw new Error(`HTTP answer_jing failed: ${await res.text().catch(() => "")}`);
     }
   } else {
-    // Enum args pass as SATS-JSON sum values: { "Variant": [] }.
-    await run(SPACETIMEDB_CLI, [
-      "call", DB, "answer_jing", "--",
-      String(duelId), JSON.stringify(argMove), voice,
-    ]);
+    // Enum args pass as SATS-JSON sum values: { "variant": [] }. The sum is
+    // pre-encoded, so it goes through as {raw} to reach the CLI verbatim (its
+    // param type is a sum, not String); the voice line is a plain string and
+    // gets JSON-encoded by cliCall (it can contain quotes).
+    await cliCall(DB, "answer_jing", [duelId, { raw: JSON.stringify(argMove) }, voice]);
   }
 }
 
-// Optional: ask the planetary-agents backend for the move/voice. Falls back to
-// the local counter pick on any failure.
+// Ask the agent brain (primary → fallback, see brain.ts) for the move/voice.
+// Returns null when both brains fail, so the caller uses the local counter pick.
+// Contract: 200 {success, planet, move, voice, element, source, timestamp};
+// a move the counter graph doesn't know is contract-violating (never play a
+// move the server would reject).
 async function backendMove(planet: string, opening: string): Promise<{ move: string; voice: string } | null> {
-  if (!BACKEND_URL) return null;
-  try {
-    const res = await fetch(`${BACKEND_URL}/api/agents/jing`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ planet, opening, source: "pentacles-jing-feeder" }),
-    });
-    if (!res.ok) return null;
-    const data = (await res.json()) as { move?: string; voice?: string };
-    if (data.move && COUNTER_OF[data.move] !== undefined) return { move: data.move, voice: data.voice ?? "" };
-    return null;
-  } catch {
-    return null;
-  }
+  return brainCall<{ move: string; voice: string }>({
+    path: "/api/agents/jing",
+    label: "Jing",
+    body: { planet, opening, source: "pentacles-jing-feeder" },
+    // Object.hasOwn (not a truthiness/undefined check): COUNTER_OF is a plain
+    // object literal, so inherited Object.prototype keys ("constructor",
+    // "toString", …) coming back as json.move would otherwise pass validation,
+    // get posted as an unknown JingMove variant, be rejected by the server, and
+    // wedge the duel with the local fallback bypassed.
+    validate: (json) =>
+      json?.success === true && typeof json.move === "string" && Object.hasOwn(COUNTER_OF, json.move)
+        ? { move: json.move, voice: String(json.voice ?? "") }
+        : null,
+  });
 }
 
 // Open agent-targeted duel: state Open AND target_agent is a Planet variant name.
@@ -110,7 +103,7 @@ async function processDuel(row: Record<string, any>): Promise<void> {
   const duelId = Number(row.duel_id);
   const opening = String(row.opening_move ?? "");
   const agent = typeof row.target_agent === "string" ? row.target_agent : "";
-  if (isNaN(duelId) || !COUNTER_OF[opening]) {
+  if (isNaN(duelId) || !Object.hasOwn(COUNTER_OF, opening)) {
     console.error(`[Jing] Skipping duel ${row.duel_id} (opening "${opening}")`);
     return;
   }
@@ -123,6 +116,7 @@ async function processDuel(row: Record<string, any>): Promise<void> {
     await answerJing(duelId, move, voice);
     console.log(`[Jing] Duel #${duelId} answered with ${move}.`);
   } catch (err) {
+    // Duel stays Open — the RESWEEP_MS re-sweep re-delivers it.
     console.error(`[Jing] Failed to answer #${duelId}:`, (err as Error).message.split("\n")[0]);
   }
 }
@@ -130,8 +124,8 @@ async function processDuel(row: Record<string, any>): Promise<void> {
 async function main(): Promise<void> {
   console.log(`Pentacles Jing Arena companion starting.`);
   console.log(`  Database: ${DB}`);
-  console.log(`  Backend:  ${BACKEND_URL || "(local counter pick)"}`);
-  console.log(`  Transport: WebSocket subscription (reactive)\n`);
+  console.log(`  Brain: ${BRAIN_PRIMARY_URL} (fallback ${BRAIN_FALLBACK_URL}; local counter graph last)`);
+  console.log(`  Transport: WebSocket subscription (reactive) + periodic /sql re-sweep\n`);
 
   // React to open agent-targeted Jing duels. Subscribe to the whole table and
   // filter client-side (enum + Option predicates aren't expressed in the query).

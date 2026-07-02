@@ -1,32 +1,19 @@
 // Pentacles — real-ephemeris feeder.
 //
 // Computes the live geocentric position of all ten bodies and pushes them into
-// SpacetimeDB via the owner-gated `push_ephemeris` reducer. It shells out to the
-// `spacetime` CLI, so it authenticates as your logged-in owner identity
-// (c2007058…ddb52) — no token plumbing required.
+// SpacetimeDB via the owner-gated `push_ephemeris` reducer. Writes go over HTTP
+// POST /call with `Authorization: Bearer SPACETIME_TOKEN` (the primary path for
+// hosting); when the token is blank it falls back to shelling out to the
+// `spacetime` CLI, which authenticates as your logged-in owner identity
+// (c2007058…ddb52).
 //
 //   bun run push-ephemeris.ts          # loop forever (default 15 min)
 //   bun run push-ephemeris.ts --once   # single pass (for an external cron)
 //
 // Env: SPACETIMEDB_DB (default cookingwithcastrollc), FEED_INTERVAL_MIN (15).
 
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
-import { existsSync } from "node:fs";
-import { join } from "node:path";
 import { bodyEquatorial, geocentricEclipticLon, julianDay } from "./ephemeris.ts";
-
-const run = promisify(execFile);
-
-function getSpacetimeCli(): string {
-  if (process.env.SPACETIMEDB_CLI) return process.env.SPACETIMEDB_CLI;
-  if (process.env.HOME) {
-    const localBin = join(process.env.HOME, ".local", "bin", "spacetime");
-    if (existsSync(localBin)) return localBin;
-  }
-  return "spacetime";
-}
-const SPACETIMEDB_CLI = getSpacetimeCli();
+import { cliCall } from "./spacetime-cli";
 
 const DB = process.env.SPACETIMEDB_DB ?? "cookingwithcastrollc";
 const INTERVAL_MIN = Number(process.env.FEED_INTERVAL_MIN ?? "15");
@@ -73,9 +60,10 @@ async function pushOnce(): Promise<void> {
           throw new Error(`HTTP push_ephemeris failed: ${await res.text().catch(() => "")}`);
         }
       } else {
-        await run(SPACETIMEDB_CLI, [
-          "call", DB, "push_ephemeris", "--",
-          String(idx), ra.toFixed(5), dec.toFixed(5), String(zone), String(retro),
+        // All-numeric/bool args — pass as bare literals (a JS string here would
+        // be JSON-quoted by cliCall and no longer parse as an f64).
+        await cliCall(DB, "push_ephemeris", [
+          idx, Number(ra.toFixed(5)), Number(dec.toFixed(5)), zone, retro,
         ]);
       }
       console.log(`✦ ${BODIES[idx].padEnd(8)} RA ${ra.toFixed(2)}°  Dec ${dec.toFixed(2)}°  → zone ${zone}${retro ? "  ℞" : ""}`);

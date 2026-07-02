@@ -90,6 +90,14 @@
       comet: [{ comet_id: 0, name: "Chiron", active: true }],
       constellation: consts, constellation_star: { count: 612 }, constellation_block: blocks, constellation_resolution: resolutions,
       trace_intent: intents, trace_attestation: { count: 26 },
+      // Service heartbeats (report_service_health): one fresh+healthy, one fresh
+      // self-report, one fresh+unhealthy, one STALE (>15m — presumed dead).
+      service_status: [
+        { service: "planetary-agents", healthy: true, detail: "5/5 children up", latency_ms: 42, updated_at: agoMicros(20e3) },
+        { service: "wten", healthy: true, detail: "db connected", latency_ms: 0, updated_at: agoMicros(3 * 60e3) },
+        { service: "feeders", healthy: false, detail: "HTTP 503 from ephemeris upstream", latency_ms: 118, updated_at: agoMicros(45e3) },
+        { service: "attestor", healthy: true, detail: "signer key loaded", latency_ms: 0, updated_at: agoMicros(38 * 60e3) },
+      ],
     };
 
     function tableOf(sql) {

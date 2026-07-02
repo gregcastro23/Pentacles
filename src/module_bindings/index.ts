@@ -64,6 +64,7 @@ import PurgeStaleAgentsReducer from "./purge_stale_agents_reducer";
 import PushEphemerisReducer from "./push_ephemeris_reducer";
 import RecordStarStakeReducer from "./record_star_stake_reducer";
 import RecordStarUnstakeReducer from "./record_star_unstake_reducer";
+import ReportServiceHealthReducer from "./report_service_health_reducer";
 import ResolveStarBattleReducer from "./resolve_star_battle_reducer";
 import SeedAgentPlayerReducer from "./seed_agent_player_reducer";
 import SetLoadoutReducer from "./set_loadout_reducer";
@@ -99,6 +100,7 @@ import OracleRequestRow from "./oracle_request_table";
 import PlayerRow from "./player_table";
 import RoundParticipantRow from "./round_participant_table";
 import RoundStateRow from "./round_state_table";
+import ServiceStatusRow from "./service_status_table";
 import StarAgentRow from "./star_agent_table";
 import StarNodeRow from "./star_node_table";
 import StarStakeRow from "./star_stake_table";
@@ -230,6 +232,9 @@ const tablesSchema = __schema({
       { accessor: 'card_id', name: 'deck_slot_card_id_idx_btree', algorithm: 'btree', columns: [
         'cardId',
       ] },
+      { accessor: 'loadout', name: 'deck_slot_loadout_idx_btree', algorithm: 'btree', columns: [
+        'loadout',
+      ] },
       { accessor: 'owner', name: 'deck_slot_owner_idx_btree', algorithm: 'btree', columns: [
         'owner',
       ] },
@@ -271,6 +276,9 @@ const tablesSchema = __schema({
     indexes: [
       { accessor: 'ticket_id', name: 'duel_queue_ticket_id_idx_btree', algorithm: 'btree', columns: [
         'ticketId',
+      ] },
+      { accessor: 'zone_id', name: 'duel_queue_zone_id_idx_btree', algorithm: 'btree', columns: [
+        'zoneId',
       ] },
     ],
     constraints: [
@@ -413,6 +421,9 @@ const tablesSchema = __schema({
       { accessor: 'id', name: 'round_participant_id_idx_btree', algorithm: 'btree', columns: [
         'id',
       ] },
+      { accessor: 'round_id', name: 'round_participant_round_id_idx_btree', algorithm: 'btree', columns: [
+        'roundId',
+      ] },
     ],
     constraints: [
       { name: 'round_participant_id_key', constraint: 'unique', columns: ['id'] },
@@ -429,6 +440,17 @@ const tablesSchema = __schema({
       { name: 'round_state_identity_key', constraint: 'unique', columns: ['identity'] },
     ],
   }, RoundStateRow),
+  service_status: __table({
+    name: 'service_status',
+    indexes: [
+      { accessor: 'service', name: 'service_status_service_idx_btree', algorithm: 'btree', columns: [
+        'service',
+      ] },
+    ],
+    constraints: [
+      { name: 'service_status_service_key', constraint: 'unique', columns: ['service'] },
+    ],
+  }, ServiceStatusRow),
   star_agent: __table({
     name: 'star_agent',
     indexes: [
@@ -583,6 +605,7 @@ const reducersSchema = __reducers(
   __reducerSchema("push_ephemeris", PushEphemerisReducer),
   __reducerSchema("record_star_stake", RecordStarStakeReducer),
   __reducerSchema("record_star_unstake", RecordStarUnstakeReducer),
+  __reducerSchema("report_service_health", ReportServiceHealthReducer),
   __reducerSchema("resolve_star_battle", ResolveStarBattleReducer),
   __reducerSchema("seed_agent_player", SeedAgentPlayerReducer),
   __reducerSchema("set_loadout", SetLoadoutReducer),

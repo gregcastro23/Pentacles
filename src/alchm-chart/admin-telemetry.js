@@ -20,7 +20,7 @@
    ============================================================ */
 import { h, clear } from './dom.js';
 import {
-  TelemetryModel, fmtAge, fmtNum, toMs,
+  TelemetryModel, fmtAge, fmtNum, toMs, SERVICE_STALE_MS,
   PLANET_NAMES, PLANET_GLYPHS, PLANET_COLORS, ESMS_NAMES,
 } from './telemetry-model.js';
 
@@ -33,6 +33,7 @@ const SECTIONS = [
   { id: 'agents', label: 'Agents', glyph: '☿' },
   { id: 'dex', label: 'Constellation DEX', glyph: '♁' },
   { id: 'sky', label: 'Sky', glyph: '☽' },
+  { id: 'services', label: 'Services', glyph: '⚚' },
   { id: 'console', label: 'SQL Console', glyph: '⌘' },
 ];
 
@@ -58,6 +59,8 @@ class AdminTelemetryInstance {
     this._unsub = [];
     this._firedAlerts = new Set(); // alert keys already toasted (dedupe across refreshes)
     this.alerts = [];
+    this._svcTableMissing = false; // service_status probe failed → module predates the table
+    this._destroyed = false;
   }
 
   mount(el) {
@@ -83,6 +86,39 @@ class AdminTelemetryInstance {
     for (const t of ['player', 'zone', 'oracle_request', 'oracle_reply', 'word_duel', 'trade', 'ephemeris']) {
       try { this._unsub.push(st.subscribe(t, ping)); } catch {}
     }
+    // service_status only exists from the 2.x module republish onward — during
+    // the mixed-version window the deployed module may not have it yet, and a
+    // blind subscribe would make the server reject the app's WHOLE combined
+    // query set. Probe cheaply over the one-shot /sql path first; only subscribe
+    // live once the table answers.
+    this._probeServiceStatus(st, ping);
+  }
+
+  /** Probe service_status over HTTP /sql before joining the live subscription. */
+  async _probeServiceStatus(st, ping) {
+    let missing = false;
+    // Only probe clients that can actually answer (the real client throws
+    // "not configured" when offline — that's not a missing table, so mocks and
+    // offline sims keep the old direct-subscribe behavior).
+    if (typeof st.query === 'function' && st.configured !== false) {
+      try {
+        await st.query('SELECT service FROM service_status LIMIT 1'); // cheap: 0–1 rows
+      } catch (e) {
+        // e.g. "no such table: `service_status`" until the republish lands. Any
+        // probe failure means the same thing operationally: don't subscribe blind.
+        missing = true;
+        console.warn('[observatory] service_status probe failed — skipping its live subscription (module republish pending?):', e.message || e);
+      }
+    }
+    if (this._destroyed) return;
+    this._svcTableMissing = missing;
+    if (!missing) {
+      try { this._unsub.push(st.subscribe('service_status', ping)); } catch {}
+    } else if (this.snap) {
+      // Surface it through the standing alert/checklist mechanism right away.
+      this._computeAlerts(this.snap);
+      this._paintBody();
+    }
   }
 
   async refresh() {
@@ -103,7 +139,7 @@ class AdminTelemetryInstance {
 
   /** Derive threshold alerts and fire a one-shot toast as each turns active. */
   _computeAlerts(snap) {
-    const d = snap.duels || {}, dx = snap.dex || {}, hh = snap.health || {};
+    const d = snap.duels || {}, dx = snap.dex || {}, hh = snap.health || {}, sv = snap.services || {};
     const alerts = [];
     if ((d.oracleBacklog || 0) > THRESHOLDS.oracleBacklog)
       alerts.push({ key: 'oracle', msg: `Oracle backlog: ${d.oracleBacklog} unanswered (> ${THRESHOLDS.oracleBacklog}). The companion service may be down.` });
@@ -113,6 +149,17 @@ class AdminTelemetryInstance {
       alerts.push({ key: 'tick', msg: `Sky tick is stale (${fmtAge(hh.lastTickAgeMs)} old). tick_sky / the ephemeris feeder may have stalled.` });
     if (hh.skyTimerArmed === false)
       alerts.push({ key: 'timer', msg: 'Sky tick timer is NOT armed — scheduled ticks have stopped.' });
+    if (this._svcTableMissing)
+      alerts.push({ key: 'svc-table', msg: 'The service_status table is missing from the connected module — Services telemetry is disabled until the module republish lands (live subscription skipped).' });
+    // Service heartbeats (service_status): a dead service stops reporting, so a
+    // stale row is as loud an alarm as an explicit unhealthy report. Keys are
+    // per-service so each transition toasts once.
+    for (const s of sv.list || []) {
+      if (s.stale)
+        alerts.push({ key: `svc-stale-${s.service}`, msg: `Service "${s.service}" has gone quiet — last heartbeat ${fmtAge(s.ageMs)} ago (> ${fmtAge(SERVICE_STALE_MS)}). It may be down.` });
+      else if (!s.healthy)
+        alerts.push({ key: `svc-down-${s.service}`, msg: `Service "${s.service}" reports UNHEALTHY: ${s.detail || 'no detail'}.` });
+    }
     this.alerts = alerts;
     const active = new Set(alerts.map((a) => a.key));
     // Fire a toast only on the active-transition; clear the memo when it resolves.
@@ -238,7 +285,7 @@ class AdminTelemetryInstance {
   // ════════ SECTIONS ════════
 
   _sec_overview(body, snap) {
-    const hh = snap.health || {}, p = snap.players || {}, w = snap.war || {}, d = snap.duels || {}, dx = snap.dex || {};
+    const hh = snap.health || {}, p = snap.players || {}, w = snap.war || {}, d = snap.duels || {}, dx = snap.dex || {}, sv = snap.services || {};
     const tickWarn = hh.lastTickAgeMs != null && hh.lastTickAgeMs > 5 * 60_000;
     body.appendChild(this._kpiGrid([
       { label: 'Players', value: fmtNum(p.total), sub: `${fmtNum(p.active24)} active 24h` },
@@ -259,6 +306,9 @@ class AdminTelemetryInstance {
       ['Constellations seeded', hh.constellationsSeeded, dx.pools ? `${dx.pools} pools` : ''],
       ['Oracle service keeping up', (d.oracleBacklog || 0) === 0, `${fmtNum(d.oracleBacklog)} pending`],
       ['Attestor service keeping up', (dx.traceBacklog || 0) === 0, `${fmtNum(dx.traceBacklog)} pending`],
+      ['Service heartbeats fresh', (sv.total || 0) > 0 && (sv.stale || 0) === 0 && (sv.unhealthy || 0) === 0,
+        this._svcTableMissing ? 'awaiting module publish (no service_status table)'
+          : (sv.total || 0) ? `${fmtNum(sv.healthy)}/${fmtNum(sv.total)} healthy${sv.stale ? ` · ${fmtNum(sv.stale)} stale` : ''}` : 'none reporting'],
     ];
     body.appendChild(this._panel('System health', h('div', { class: 'at-checks' }, checks.map(([label, ok, note]) =>
       h('div', { class: 'at-check' }, [
@@ -433,6 +483,43 @@ class AdminTelemetryInstance {
       ])) : h('div', { class: 'at-dim', text: 'Empty — no live positions.' })));
   }
 
+  // Service heartbeats (service_status rows, fed by `report_service_health`).
+  // A dead feeder cannot report its own death — it just stops upserting — so a
+  // row older than SERVICE_STALE_MS is flagged STALE: staleness IS the signal.
+  _sec_services(body, snap) {
+    const sv = snap.services || {};
+    const list = sv.list || [];
+    if (this._svcTableMissing) {
+      body.appendChild(h('div', { class: 'at-banner', text: 'The service_status table is not in the connected module yet — awaiting module publish. Its live subscription was skipped (probe failed); this panel populates once the republish lands.' }));
+    }
+    body.appendChild(this._kpiGrid([
+      { label: 'Services reporting', value: fmtNum(sv.total), sub: 'via report_service_health' },
+      { label: 'Healthy', value: fmtNum(sv.healthy), sub: 'fresh + healthy' },
+      { label: 'Unhealthy', value: fmtNum(sv.unhealthy), warn: (sv.unhealthy || 0) > 0, sub: 'self-reported down' },
+      { label: `Stale (>${fmtAge(SERVICE_STALE_MS)})`, value: fmtNum(sv.stale), warn: (sv.stale || 0) > 0, sub: 'no heartbeat — presumed down' },
+    ]));
+    const badge = (s) => {
+      if (s.stale) return h('span', {}, [
+        h('span', { class: 'at-check-mark bad', text: '✕' }),
+        h('span', { text: ` STALE — last said ${s.healthy ? 'healthy' : 'unhealthy'}` }),
+      ]);
+      return h('span', {}, [
+        h('span', { class: 'at-check-mark ' + (s.healthy ? 'ok' : 'bad'), text: s.healthy ? '✓' : '✕' }),
+        h('span', { text: s.healthy ? ' Healthy' : ' Unhealthy' }),
+      ]);
+    };
+    body.appendChild(this._panel('Service heartbeats', list.length
+      ? this._table(['Service', 'Status', 'Detail', 'Latency', 'Last report'], list.map((s) => [
+          s.service,
+          badge(s),
+          s.detail || '—',
+          s.latencyMs > 0 ? `${fmtNum(s.latencyMs)} ms` : 'self-report',
+          h('span', { class: s.stale ? '' : 'at-dim', text: s.ageMs != null ? `${fmtAge(s.ageMs)} ago` : '—' }),
+        ]))
+      : h('div', { class: 'at-dim', text: 'No services have reported yet — the feeders call report_service_health on their heartbeat.' }),
+      `a row goes STALE after ${fmtAge(SERVICE_STALE_MS)} without a heartbeat`));
+  }
+
   _sec_console(body) {
     body.appendChild(h('div', { class: 'at-banner', text: 'Read-only SQL against the live module. SELECT only — writes are rejected here.' }));
     const input = h('textarea', { class: 'at-sql', rows: '3', placeholder: 'SELECT handle, tokens FROM player' });
@@ -515,6 +602,7 @@ class AdminTelemetryInstance {
   }
 
   destroy() {
+    this._destroyed = true; // stops a still-in-flight service_status probe from subscribing late
     if (this._timer) { clearInterval(this._timer); this._timer = null; }
     for (const u of this._unsub) { try { u(); } catch {} }
     this._unsub = [];

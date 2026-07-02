@@ -9,7 +9,8 @@
     "oracle": "bun run oracle-service.ts",
     "duel": "bun run duel-service.ts",
     "jing": "bun run jing-service.ts",
-    "constellation": "bun run constellation-service.ts"
+    "constellation": "bun run constellation-service.ts",
+    "all": "bun run all.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "latest",

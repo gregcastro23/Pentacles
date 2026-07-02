@@ -44,6 +44,12 @@ export const STATUS = Object.freeze({
   ERROR: 'error',
 })
 
+// Bounded budget for subscription-error recovery (see _onSubscribeError): each
+// missing-table drop consumes one; a clean apply or a fresh connect resets it.
+// Past the cap we fall back to the old fail-hard STATUS.ERROR behavior instead
+// of looping.
+const MAX_SUB_RETRIES = 4
+
 class SpacetimeClient {
   constructor() {
     this.base = normalizeBase(RAW_URI)
@@ -59,6 +65,8 @@ class SpacetimeClient {
     this._subscribed = new Set() // table names with at least one listener
     this._boundTables = new Set() // tables whose onInsert/onUpdate/onDelete are wired
     this._subHandle = null // active SubscriptionHandle (covers all subscribed tables)
+    this._droppedTables = new Set() // tables the module rejected ("no such table") — retried on reconnect
+    this._subRetries = 0 // error-recovery re-subscribes since the last clean apply/connect (bounded)
     this._wantLive = false // intent: keep trying to stay connected
     this._reconnectTimer = null
     this._reconnectAttempts = 0
@@ -127,6 +135,7 @@ class SpacetimeClient {
               }
             } catch {}
             this._reconnectAttempts = 0
+            this._restoreDroppedTables()
             this._setStatus(STATUS.LIVE)
             this._resubscribe()
             done(true)
@@ -248,6 +257,9 @@ class SpacetimeClient {
   subscribe(table, cb) {
     if (!this._tableListeners.has(table)) this._tableListeners.set(table, new Set())
     this._tableListeners.get(table).add(cb)
+    // An explicit (re-)subscribe gives a previously dropped table another chance
+    // (e.g. the module has been republished with it since).
+    this._droppedTables.delete(table)
     const isNewTable = !this._subscribed.has(table)
     this._subscribed.add(table)
     if (this.isLive && this.conn) {
@@ -278,17 +290,78 @@ class SpacetimeClient {
       this._boundTables.add(table)
     }
     // Replace the active subscription with one covering all registered tables.
+    // An errored handle has already ended server-side — unsubscribing it again
+    // throws / sends a bogus Unsubscribe — so only tear down a still-live one.
     const queries = [...this._subscribed].map((t) => `SELECT * FROM ${t}`)
-    try { this._subHandle?.unsubscribe?.() } catch {}
+    const prev = this._subHandle
+    this._subHandle = null
+    try { if (prev && !prev.isEnded?.()) prev.unsubscribe?.() } catch {}
     try {
-      this._subHandle = this.conn
+      let handle = null
+      handle = this.conn
         .subscriptionBuilder()
-        .onApplied(() => { for (const t of this._subscribed) this._emitTable(t) })
-        .onError((ctx) => { this._setStatus(STATUS.ERROR, ctx?.event || new Error('subscription error')) })
+        .onApplied(() => {
+          this._subRetries = 0 // clean apply → reset the recovery budget
+          for (const t of this._subscribed) this._emitTable(t)
+        })
+        // The SDK calls onError(ctx, err) with ctx.event = the server Error.
+        .onError((ctx, err) => this._onSubscribeError(handle, ctx?.event || err))
         .subscribe(queries)
+      this._subHandle = handle
     } catch (e) {
       this._setStatus(STATUS.ERROR, e)
     }
+  }
+
+  /**
+   * The server rejected (or dropped) our combined subscription. The failure mode
+   * this must survive is a MIXED-VERSION window: the client bindings know a table
+   * the deployed module does not have yet (e.g. `service_status` before a module
+   * republish). The server rejects the WHOLE query set in that case, the old
+   * handle is already gone, and without recovery every live table silently
+   * freezes for the rest of the session (the WS stays open, so no reconnect
+   * fires). Recovery: when the error names a table we subscribe to, drop just
+   * that table, warn once, and re-issue the remaining queries — status stays
+   * LIVE. Dropped tables get retried on the next (re)connect: a module republish
+   * severs the WS, so the reconnect lands exactly when the table is likely to
+   * exist. An error that names no table, or more than MAX_SUB_RETRIES recoveries
+   * without a clean apply, keeps the old fail-hard behavior (STATUS.ERROR).
+   */
+  _onSubscribeError(handle, err) {
+    // A late error from a handle we already replaced — the current subscription
+    // is what matters; ignore the stale one.
+    if (handle && this._subHandle && handle !== this._subHandle) return
+    this._subHandle = null // an errored handle is dead; never unsubscribe it again
+    const error = err instanceof Error ? err : new Error(String(err || 'subscription error'))
+    const table = unknownTableFromError(error)
+    if (table && this._subscribed.has(table) && this._subRetries < MAX_SUB_RETRIES) {
+      this._subRetries += 1
+      this._subscribed.delete(table)
+      this._droppedTables.add(table)
+      // NOTE: deliberately KEEP the _boundTables entry — the delta handlers are
+      // registered on this connection's client cache and stay valid, so a later
+      // successful subscribe (republish + reconnect, or an explicit subscribe())
+      // must not double-bind them. _tableListeners also stays put: listeners
+      // resume firing as soon as the table subscribes cleanly again.
+      console.warn(
+        `[spacetime] module "${this.db}" has no table "${table}" (module older than the client bindings?) — ` +
+          `dropped it from the live subscription; keeping the other ${this._subscribed.size} table(s) live. ` +
+          `It will be retried on the next reconnect. Server said: ${error.message}`,
+      )
+      if (this._subscribed.size) this._resubscribe()
+      return
+    }
+    this._setStatus(STATUS.ERROR, error)
+  }
+
+  /**
+   * Give tables dropped in a previous mixed-version window another chance on a
+   * fresh connection, and reset the recovery budget. Called from onConnect.
+   */
+  _restoreDroppedTables() {
+    this._subRetries = 0
+    for (const t of this._droppedTables) this._subscribed.add(t)
+    this._droppedTables.clear()
   }
 
   /** Read the current cache for a table, normalize, and fan out to listeners. */
@@ -440,6 +513,20 @@ function planetVariant(idx) {
 }
 const sameIdentity = (a, b) =>
   !!a && !!b && String(a).toLowerCase().replace(/^0x/, '') === String(b).toLowerCase().replace(/^0x/, '')
+
+// Parse the offending table name out of a server subscription error, defensively
+// across SpacetimeDB versions. Verified live against maincloud (1.12 /sql):
+//   "no such table: `service_status`. If the table exists, it may be marked private."
+// Returns the table name, or null when the error doesn't name one (in which case
+// the caller keeps the fail-hard STATUS.ERROR path).
+function unknownTableFromError(err) {
+  const msg = String((err && (err.message ?? err)) || '')
+  const m =
+    msg.match(/no such table:?\s*`?([A-Za-z_][A-Za-z0-9_]*)`?/i) ||
+    msg.match(/unknown table:?\s*`?([A-Za-z_][A-Za-z0-9_]*)`?/i) ||
+    msg.match(/table\s+`?([A-Za-z_][A-Za-z0-9_]*)`?\s+(?:does not exist|doesn't exist|not found|is not known)/i)
+  return m ? m[1] : null
+}
 
 // ---- SQL response normalization --------------------------------------------
 // SpacetimeDB's /sql returns an array of statement results. Across versions a
