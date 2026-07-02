@@ -1,7 +1,8 @@
 // Pentacles — Constellation Pool Visibility Attestor.
 //
 // The trusted bridge between the authoritative sky (SpacetimeDB) and the on-chain
-// Constellation AMM (Base). It polls SpacetimeDB for `trace_intent` rows the module
+// Constellation AMM (Base). It subscribes over WebSocket (plus a periodic /sql
+// re-sweep) for `trace_intent` rows the module
 // has produced — each one is proof that the module itself confirmed the constellation
 // was risen over the trader's real horizon (the `trace_constellation` reducer gates on
 // the same `altitude_deg` / `MIN_ALT_DEG` the star strikes use). For each, it signs an
@@ -25,14 +26,10 @@
 //   ESMS_CHAIN             base | base-sepolia            (default: base-sepolia)
 //   BASE_SEPOLIA_RPC_URL / BASE_RPC_URL                   (default: public RPC)
 //   SPACETIMEDB_DB         (default: cookingwithcastrollc)
-//   POLL_INTERVAL_MS       (default: 3000)
+//   RESWEEP_MS             (default: 300000) un-attested-row re-sweep period
 //   ATTESTATION_TTL_SECS   (default: 120) how long a signature stays valid
 //   REGION_SALT            (default: "pentacles") salt for the location commitment
 
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
-import { existsSync } from "node:fs";
-import { join } from "node:path";
 import {
   createPublicClient,
   http,
@@ -45,19 +42,8 @@ import {
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { base, baseSepolia } from "viem/chains";
-import { startFeed } from "./stdb-feed";
-
-const run = promisify(execFile);
-
-function getSpacetimeCli(): string {
-  if (process.env.SPACETIMEDB_CLI) return process.env.SPACETIMEDB_CLI;
-  if (process.env.HOME) {
-    const localBin = join(process.env.HOME, ".local", "bin", "spacetime");
-    if (existsSync(localBin)) return localBin;
-  }
-  return "spacetime";
-}
-const SPACETIMEDB_CLI = getSpacetimeCli();
+import { startFeed, sqlOneShot } from "./stdb-feed";
+import { cliCall } from "./spacetime-cli";
 
 const DB = process.env.SPACETIMEDB_DB ?? "cookingwithcastrollc";
 const ATTESTATION_TTL_SECS = Number(process.env.ATTESTATION_TTL_SECS ?? "120");
@@ -106,7 +92,8 @@ const EIP712_TYPES = {
 } as const;
 
 // ── SpacetimeDB plumbing — one-shot HTTP /sql reads still used by regionCommit ─
-// (the trace_intent trigger now arrives over the WebSocket feed; see main()).
+// (the trace_intent trigger arrives over the WebSocket feed — see main() — and
+// the SATS decode now lives in stdb-feed.ts, shared with every feeder's re-sweep).
 
 function parseValue(val: any): string {
   if (val == null) return "";
@@ -114,43 +101,7 @@ function parseValue(val: any): string {
   return String(val);
 }
 
-function decodeSats(type: any, val: any): any {
-  if (!type) return val;
-  if (type.Sum) {
-    const variants = type.Sum.variants ?? [];
-    if (!Array.isArray(val)) return val;
-    const [tag, payload] = val;
-    const variant = variants[tag];
-    const vname = (variant && (variant.name?.some ?? variant.name)) ?? String(tag);
-    const isOption = variants.length === 2 && variants.some((v: any) => (v?.name?.some ?? v?.name) === "none");
-    if (isOption) return vname === "none" ? null : decodeSats(variant?.algebraic_type, payload);
-    return vname;
-  }
-  return val;
-}
-
-async function sql(query: string): Promise<Array<Record<string, any>>> {
-  const headers: Record<string, string> = { "Content-Type": "text/plain" };
-  if (SPACETIME_TOKEN) {
-    headers["Authorization"] = `Bearer ${SPACETIME_TOKEN}`;
-  }
-  const res = await fetch(`${SPACETIMEDB_URI}/v1/database/${DB}/sql`, {
-    method: "POST",
-    headers,
-    body: query,
-  });
-  if (!res.ok) throw new Error(`sql ${res.status}: ${await res.text().catch(() => "")}`);
-  const json: any = await res.json();
-  const stmt = Array.isArray(json) ? json[json.length - 1] : json;
-  const els = stmt?.schema?.elements ?? [];
-  const cols = els.map((e: any, i: number) => (typeof e?.name === "string" ? e.name : e?.name?.some ?? `col${i}`));
-  const types = els.map((e: any) => e?.algebraic_type);
-  return (stmt?.rows ?? []).map((row: any[]) => {
-    const o: Record<string, any> = {};
-    row.forEach((v, i) => (o[cols[i] ?? `col${i}`] = decodeSats(types[i], v)));
-    return o;
-  });
-}
+const sql = (query: string) => sqlOneShot(SPACETIMEDB_URI, DB, SPACETIME_TOKEN || undefined, query);
 
 // ── Region commitment ────────────────────────────────────────────────────────
 //
@@ -230,16 +181,14 @@ async function answerTrace(
       throw new Error(`HTTP answer_trace failed: ${await res.text().catch(() => "")}`);
     }
   } else {
-    await run(SPACETIMEDB_CLI, [
-      "call",
-      DB,
-      "answer_trace",
-      "--",
-      intentId,
+    // cliCall JSON-encodes the hex strings (String params) and passes the
+    // numeric args (u64 id/nonce included) as bare literals.
+    await cliCall(DB, "answer_trace", [
+      Number(intentId),
       region,
-      String(visibleStars),
-      nonce.toString(),
-      String(deadline),
+      visibleStars,
+      nonce,
+      deadline,
       signature,
     ]);
   }
@@ -306,7 +255,7 @@ function main(): void {
   console.log(`  Chain:      ${CHAIN.name} (${CHAIN.id})`);
   console.log(`  AMM:        ${AMM_ADDRESS}`);
   console.log(`  Attestor:   ${account.address}`);
-  console.log(`  TTL:        ${ATTESTATION_TTL_SECS}s, transport: WebSocket subscription\n`);
+  console.log(`  TTL:        ${ATTESTATION_TTL_SECS}s, transport: WebSocket subscription + periodic /sql re-sweep\n`);
 
   // React to new un-attested trace intents the module produces (plus startup backlog).
   startFeed({

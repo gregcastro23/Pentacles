@@ -1,44 +1,32 @@
 // Pentacles — AI Planetary Agent Word Duel Companion Service.
 //
-// Periodically polls SpacetimeDB for unanswered Word Duel challenges,
-// calls the Planetary Agents AI backend's `/api/agents/word-duel` endpoint,
-// and pushes the agent's move back via the owner-gated `answer_duel` reducer.
+// Subscribes to SpacetimeDB over WebSocket for unanswered Word Duel challenges
+// (plus a periodic /sql re-sweep for rows a transient failure left behind),
+// asks the agent brain for a move via brainCall (primary FastAPI backend, then
+// the Vercel Next.js fallback — see brain.ts), and pushes the agent's move
+// back via the owner-gated `answer_duel` reducer. If BOTH brains fail, the
+// local greedy candidate closes the challenge so the queue never wedges.
 //
 // Usage:
 //   bun run duel-service.ts
 //
 // Environment options:
 //   SPACETIMEDB_DB (default: cookingwithcastrollc)
-//   PLANETARY_AGENTS_BACKEND_URL (default: https://alchm-agents-eth.vercel.app)
-//   POLL_INTERVAL_MS (default: 3000)
+//   PLANETARY_AGENTS_BACKEND_URL (default: https://api.agents.alchm.kitchen) primary brain
+//   BRAIN_FALLBACK_URL (default: https://alchm-agents-eth.vercel.app) fallback brain
+//   RESWEEP_MS (default: 300000) unanswered-row re-sweep period
 
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
-import { existsSync } from "node:fs";
-import { join } from "node:path";
 import { startFeed } from "./stdb-feed";
-
-const run = promisify(execFile);
-
-function getSpacetimeCli(): string {
-  if (process.env.SPACETIMEDB_CLI) return process.env.SPACETIMEDB_CLI;
-  if (process.env.HOME) {
-    const localBin = join(process.env.HOME, ".local", "bin", "spacetime");
-    if (existsSync(localBin)) return localBin;
-  }
-  return "spacetime";
-}
-const SPACETIMEDB_CLI = getSpacetimeCli();
+import { cliCall } from "./spacetime-cli";
+import { brainCall, BRAIN_PRIMARY_URL, BRAIN_FALLBACK_URL } from "./brain";
 
 const DB = process.env.SPACETIMEDB_DB ?? "cookingwithcastrollc";
-// The AlchmAgents Next.js move-brain (app/api/agents/word-duel). NOT the Python
-// FastAPI at api.agents.alchm.kitchen — that host has no move endpoint.
-const BACKEND_URL = process.env.PLANETARY_AGENTS_BACKEND_URL ?? "https://alchm-agents-eth.vercel.app";
 
-// Read via the HTTP SQL API (clean JSON). The CLI's ASCII-table output wraps long
-// string columns (e.g. the candidates JSON array), which the fixed-width
-// parseTable below can't recover; the HTTP rows are positional SATS values we
-// decode by schema. Writes still go through `spacetime call` (owner-gated).
+// Reads arrive over the WebSocket feed (stdb-feed.ts) already normalized to
+// snake_case rows — long string columns like the candidates JSON array come
+// through intact, unlike the CLI's wrapped ASCII tables of old. Writes go over
+// HTTP POST /call with the bearer token, falling back to `spacetime call`
+// (owner-gated) when the token is blank.
 const SPACETIMEDB_URI = (process.env.SPACETIMEDB_URI ?? "https://maincloud.spacetimedb.com").replace(/\/+$/, "");
 const SPACETIME_TOKEN = process.env.SPACETIME_TOKEN || "";
 
@@ -67,16 +55,9 @@ async function answerDuel(
       throw new Error(`HTTP answer_duel failed: ${await res.text().catch(() => "")}`);
     }
   } else {
-    await run(SPACETIMEDB_CLI, [
-      "call",
-      DB,
-      "answer_duel",
-      "--",
-      String(challengeId),
-      word,
-      rationale,
-      String(score),
-    ]);
+    // cliCall JSON-encodes the strings (rationales can contain quotes) and
+    // passes the numbers as bare literals.
+    await cliCall(DB, "answer_duel", [challengeId, word, rationale, score]);
   }
 }
 
@@ -110,67 +91,59 @@ async function processChallenge(row: Record<string, any>): Promise<void> {
   console.log(`  Agent Rack: "${agentRack}"`);
   console.log(`  Candidates Count: ${candidates.length}`);
 
-  try {
-    const targetUrl = `${BACKEND_URL}/api/agents/word-duel`;
-    const response = await fetch(targetUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
+  // Ask the brain: primary (FastAPI) → fallback (Vercel Next.js) → null.
+  // Contract: 200 {success, planet, move:{word,rationale,score,source,latencyMs}, timestamp}.
+  const brainMove = await brainCall<{ word: string; rationale: string; score: number }>({
+    path: "/api/agents/word-duel",
+    label: "WordDuel",
+    body: {
+      planet: opponent,
+      rack: agentRack,
+      candidates: candidates,
+      context: {
+        playerWord: playerWord,
+        playerScore: playerScore,
       },
-      body: JSON.stringify({
-        planet: opponent,
-        rack: agentRack,
-        candidates: candidates,
-        context: {
-          playerWord: playerWord,
-          playerScore: playerScore,
-        },
-        source: "pentacles-companion-feeder",
-      }),
-    });
+      source: "pentacles-companion-feeder",
+    },
+    validate: (json) =>
+      json?.success === true && json.move && typeof json.move.word === "string" && json.move.word
+        ? {
+            word: json.move.word,
+            rationale: String(json.move.rationale ?? ""),
+            score: Number(json.move.score ?? 0),
+          }
+        : null,
+  });
 
-    if (!response.ok) {
-      throw new Error(`AI Backend returned status ${response.status}: ${await response.text()}`);
-    }
-
-    const data = (await response.json()) as {
-      success: boolean;
-      move?: { word: string; rationale: string; score: number };
-      error?: string;
-    };
-
-    if (!data.success || !data.move) {
-      throw new Error(data.error ?? "AI Backend returned unsuccessful response");
-    }
-
-    const { word, rationale, score } = data.move;
+  // Pick the brain's move, or the local greedy candidate when BOTH brains failed
+  // (brainCall already logged the primary→fallback failure chain).
+  let word: string, rationale: string, score: number;
+  if (brainMove) {
+    ({ word, rationale, score } = brainMove);
     console.log(`[WordDuel] Agent selected "${word}" scoring ${score} pts.`);
     console.log(`  Rationale: "${rationale}"`);
-
-    await answerDuel(challengeId, word, rationale, score);
-    console.log(`[WordDuel] Challenge #${challengeId} successfully answered in SpacetimeDB.`);
-  } catch (err) {
-    console.error(`[WordDuel] Failed to process challenge #${challengeId}:`, err);
-    // On failure, fall back to the greedy move to prevent wedging the queue
+  } else {
     console.log(`[WordDuel] Invoking greedy fallback solver for #${challengeId}...`);
-    const fallbackWord = candidates[0] ?? "";
-    const fallbackScore = fallbackWord ? Math.round(fallbackWord.length * 1.5) : 0; // Simple fallback score
-    const fallbackRationale = `The cosmic alignments shift. ${opponent} relies on the structural path of least resistance.`;
-    
-    try {
-      await answerDuel(challengeId, fallbackWord, fallbackRationale, fallbackScore);
-      console.log(`[WordDuel] Challenge #${challengeId} closed via greedy fallback.`);
-    } catch (fallbackErr) {
-      console.error(`[WordDuel] Critical: Failed to write fallback for #${challengeId}:`, fallbackErr);
-    }
+    word = candidates[0] ?? "";
+    score = word ? Math.round(word.length * 1.5) : 0; // Simple fallback score
+    rationale = `The cosmic alignments shift. ${opponent} relies on the structural path of least resistance.`;
+  }
+
+  try {
+    await answerDuel(challengeId, word, rationale, score);
+    console.log(`[WordDuel] Challenge #${challengeId} answered in SpacetimeDB${brainMove ? "" : " (greedy fallback)"}.`);
+  } catch (err) {
+    // Row stays answered=false — the RESWEEP_MS re-sweep re-delivers it.
+    console.error(`[WordDuel] Failed to write answer for #${challengeId}:`, (err as Error).message.split("\n")[0]);
   }
 }
 
 async function main(): Promise<void> {
   console.log(`Pentacles Word Duel Companion service starting.`);
   console.log(`  Database: ${DB}`);
-  console.log(`  Backend URL: ${BACKEND_URL}`);
-  console.log(`  Transport: WebSocket subscription (reactive)\n`);
+  console.log(`  Brain: ${BRAIN_PRIMARY_URL} (fallback ${BRAIN_FALLBACK_URL})`);
+  console.log(`  Transport: WebSocket subscription (reactive) + periodic /sql re-sweep\n`);
 
   // React to new unanswered Word Duel challenges as they arrive (plus the startup backlog).
   startFeed({

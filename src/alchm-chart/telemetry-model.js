@@ -26,6 +26,10 @@ export const ESMS_NAMES = ['Spirit', 'Essence', 'Matter', 'Substance'];
 export const ZONE_KINDS = ['House', 'Spire', 'Crown'];
 
 const MIN = 60_000, HOUR = 60 * MIN, DAY = 24 * HOUR;
+/** A `service_status` heartbeat older than this is STALE. A dead service can't
+ *  report its own death — it just stops upserting, so staleness IS the failure
+ *  signal (see the ServiceStatus table doc in server/src/tables.rs). */
+export const SERVICE_STALE_MS = 15 * MIN;
 
 // ── value coercion ─────────────────────────────────────────────────────────
 /** Coerce any SpacetimeDB timestamp decoding to epoch-millis (or null). */
@@ -95,7 +99,7 @@ export class TelemetryModel {
   // ---- the full snapshot ----------------------------------------------------
   /** Pull every subsystem concurrently into one KPI snapshot. */
   async snapshot() {
-    const [health, players, economy, war, duels, agents, dex, sky] = await Promise.all([
+    const [health, players, economy, war, duels, agents, dex, sky, services] = await Promise.all([
       this.health().catch(() => null),
       this.players().catch(() => null),
       this.economy().catch(() => null),
@@ -104,12 +108,13 @@ export class TelemetryModel {
       this.agents().catch(() => null),
       this.dex().catch(() => null),
       this.sky().catch(() => null),
+      this.services().catch(() => null),
     ]);
     return {
       at: this.now(),
       live: this.live,
       status: this.status,
-      health, players, economy, war, duels, agents, dex, sky,
+      health, players, economy, war, duels, agents, dex, sky, services,
     };
   }
 
@@ -437,6 +442,36 @@ export class TelemetryModel {
     }).sort((a, b) => (a.body ?? 99) - (b.body ?? 99));
     return { bodies };
   }
+
+  // ── SERVICES: cross-service health heartbeats (service_status) ────────────
+  /** One row per companion service, written via the owner-gated
+   *  `report_service_health` reducer. A dead feeder stops reporting rather than
+   *  reporting itself dead, so a row whose `updated_at` is older than
+   *  SERVICE_STALE_MS is flagged `stale` — staleness IS the signal, and a stale
+   *  row's `healthy` flag is treated as unreliable (it's the last word of a
+   *  process that has since gone quiet). */
+  async services() {
+    const now = this.now();
+    const rows = await this._q('SELECT service, healthy, detail, latency_ms, updated_at FROM service_status');
+    const list = rows.map((r) => {
+      const t = toMs(r.updated_at);
+      const ageMs = t != null ? now - t : null;
+      return {
+        service: String(r.service ?? '—'),
+        healthy: r.healthy === true || r.healthy === 1,
+        detail: String(r.detail ?? ''),
+        latencyMs: num(r.latency_ms),
+        updatedMs: t,
+        ageMs,
+        // An unparseable/absent timestamp is treated as stale too — safe default.
+        stale: ageMs == null || ageMs > SERVICE_STALE_MS,
+      };
+    }).sort((a, b) => a.service.localeCompare(b.service));
+    const stale = list.filter((s) => s.stale).length;
+    const unhealthy = list.filter((s) => !s.stale && !s.healthy).length;
+    const healthy = list.filter((s) => !s.stale && s.healthy).length;
+    return { list, total: list.length, healthy, unhealthy, stale, staleAfterMs: SERVICE_STALE_MS };
+  }
 }
 
 export function create(opts) { return new TelemetryModel(opts); }
@@ -456,6 +491,6 @@ export function fmtNum(n) {
   if (Math.abs(n) >= 1e4) return (n / 1e3).toFixed(1) + 'k';
   return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
-const Telemetry = { create, TelemetryModel, toMs, planetIdx, fmtAge, fmtNum, PLANET_NAMES, PLANET_GLYPHS, PLANET_COLORS, ESMS_NAMES };
+const Telemetry = { create, TelemetryModel, toMs, planetIdx, fmtAge, fmtNum, SERVICE_STALE_MS, PLANET_NAMES, PLANET_GLYPHS, PLANET_COLORS, ESMS_NAMES };
 export default Telemetry;
 if (typeof window !== 'undefined') window.TelemetryModel = Telemetry;

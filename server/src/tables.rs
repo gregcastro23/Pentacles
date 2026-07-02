@@ -153,7 +153,8 @@ pub struct DeckSlot {
     pub owner: Identity,
     #[index(btree)]
     pub card_id: u64,
-    pub loadout: Loadout,
+    #[index(btree)]
+    pub loadout: Loadout, // indexed: sentinel sweeps touch only Defense slots, not every slot
 }
 
 /// A two-sided card trade: both parties stake card_ids and must confirm before
@@ -263,7 +264,8 @@ pub struct DuelQueue {
     #[primary_key]
     #[auto_inc]
     pub ticket_id: u64,
-    pub zone_id: u8,
+    #[index(btree)]
+    pub zone_id: u8, // indexed: matchmaking probes only this zone's tickets
     pub seeker: Identity,
     pub enqueued_at: Timestamp,
 }
@@ -425,7 +427,8 @@ pub struct RoundTimer {
     #[primary_key]
     #[auto_inc]
     pub scheduled_id: u64,
-    pub player: Identity,
+    #[index(btree)]
+    pub player: Identity, // indexed: re-register clears one player's clocks, not a full scan
     pub scheduled_at: ScheduleAt,
 }
 
@@ -632,7 +635,8 @@ pub struct JingDuel {
     pub updated_at: Timestamp,
 }
 
-/// One cast in a duel thread (cast or counter). Append-only; pruned with history.
+/// One cast in a duel thread (cast or counter). Append-only; pruned by `prune_stale`
+/// alongside its parent `jing_duel` when the duel ages out.
 #[spacetimedb::table(accessor = jing_cast, public)]
 #[derive(Clone)]
 pub struct JingCast {
@@ -726,9 +730,29 @@ pub struct RoundParticipant {
     #[primary_key]
     #[auto_inc]
     pub id: u64,
-    pub round_id: u64,
+    #[index(btree)]
+    pub round_id: u64, // indexed: round settlement reads only its own round's plays
     pub identity: Identity,
     pub element: u8,             // 0..3 (Spirit, Essence, Matter, Substance)
     pub weight: u32,             // Word score or Jing weight
+}
+
+// ── Service health (the Observatory's cross-service heartbeat) ──────────────
+
+/// One heartbeat row per companion service, upserted by the owner-gated
+/// `report_service_health` (the `answer_oracle` trusted-bridge pattern). The
+/// table stays a handful of rows — one per service, updated in place — so it
+/// never grows and needs no pruning. Note a dead service can't report its own
+/// death: it simply stops upserting, and the client flags the row STALE by
+/// `updated_at` age — staleness IS the signal.
+#[spacetimedb::table(accessor = service_status, public)]
+#[derive(Clone)]
+pub struct ServiceStatus {
+    #[primary_key]
+    pub service: String,      // e.g. "planetary-agents", "wten", "feeders"
+    pub healthy: bool,
+    pub detail: String,       // short human text, e.g. "db connected" or "HTTP 503"
+    pub latency_ms: u32,      // probe round-trip; 0 for self-reports
+    pub updated_at: Timestamp,
 }
 

@@ -57,6 +57,26 @@ const MAX_CATCHUP_ROUNDS: u64 = COLLECTION_CAP as u64;
 /// `oracle_cache` is never pruned — it's the asset we want to keep.
 const BATTLE_TTL_SECS: i64 = 7 * 24 * 3600;
 const ORACLE_TTL_SECS: i64 = 24 * 3600;
+/// A question/challenge the companion service never answered still ages out — after
+/// a full day the asker has long moved on, and the row is pure dead weight.
+const UNANSWERED_TTL_SECS: i64 = 24 * 3600;
+/// A month of word-duel history — the ladder is on the player row, the rows are flavor.
+const WORD_DUEL_TTL_SECS: i64 = 30 * 24 * 3600;
+/// Jing duels (and their casts) after a month: resolved threads are done telling
+/// their story, and an open thread nobody has touched in 30 days is abandoned.
+const JING_DUEL_TTL_SECS: i64 = 30 * 24 * 3600;
+/// Resolved 3-lane duels after a week (they resolve in minutes; the sweep and the
+/// walkover path guarantee nothing stays Active past the grace window).
+const DUEL_TTL_SECS: i64 = 7 * 24 * 3600;
+/// Settled (Committed/Cancelled) trades after a week; an Open trade neither side
+/// has touched in a month is abandoned and released too.
+const TRADE_TTL_SECS: i64 = 7 * 24 * 3600;
+const TRADE_OPEN_TTL_SECS: i64 = 30 * 24 * 3600;
+/// Trace intents and their attestations after a week — the on-chain `deadline` is
+/// unix-seconds scale, so a week-old attestation is unusable anyway.
+const TRACE_TTL_SECS: i64 = 7 * 24 * 3600;
+/// A matchmaking ticket nobody ever paired with — the seeker is gone after a day.
+const DUEL_TICKET_TTL_SECS: i64 = 24 * 3600;
 /// Word Duels of the Spheres: pace duels and size the (massive) token reward.
 const WORD_DUEL_COOLDOWN_SECS: i64 = 20;
 const TOKEN_PER_POINT: u64 = 50; // word_score × this is the base token reward
@@ -944,8 +964,9 @@ pub fn enqueue_duel(ctx: &ReducerContext, zone_id: u8) -> Result<(), String> {
     let waiting = ctx
         .db
         .duel_queue()
-        .iter()
-        .find(|t| t.zone_id == zone_id && t.seeker != ctx.sender());
+        .zone_id()
+        .filter(&zone_id)
+        .find(|t| t.seeker != ctx.sender());
 
     match waiting {
         Some(t) => {
@@ -991,8 +1012,9 @@ pub fn enqueue_duel(ctx: &ReducerContext, zone_id: u8) -> Result<(), String> {
             let dup = ctx
                 .db
                 .duel_queue()
-                .iter()
-                .any(|t| t.zone_id == zone_id && t.seeker == ctx.sender());
+                .zone_id()
+                .filter(&zone_id)
+                .any(|t| t.seeker == ctx.sender());
             if !dup {
                 ctx.db.duel_queue().insert(DuelQueue {
                     ticket_id: 0,
@@ -1185,6 +1207,8 @@ pub fn claim_duel_timeout(ctx: &ReducerContext, duel_id: u64) -> Result<(), Stri
 
 /// Scheduled backstop (driven by `tick_sky`): auto-resolve any duel left stalled
 /// past the grace window so a phone that quietly drops never freezes the zone.
+/// The full scan stays cheap: resolved rows are skipped on the first check, and
+/// `prune_stale` bounds the table to a week of them anyway.
 fn sweep_stale_duels(ctx: &ReducerContext) {
     for mut duel in ctx.db.duel().iter() {
         if duel.state != DuelState::Active {
@@ -1245,11 +1269,14 @@ fn elapsed_secs(later: Timestamp, earlier: Timestamp) -> i64 {
     (micros / 1_000_000).max(0)
 }
 
-/// Bound the append-only history tables. `battle` and answered `oracle_request` /
-/// `oracle_reply` rows are transient telemetry; past their TTL they only cost storage
-/// and subscription bandwidth. One global pass per `tick_sky` — linear in the *retained*
-/// window (which the prune itself keeps bounded), not the quadratic per-player scan #1
-/// removed. `oracle_cache` is never touched — it's the asset we want to keep.
+/// Bound the append-only history tables. Battle logs, answered (and abandoned)
+/// Oracle Q&A, finished duels of every kind, settled trades, spent trace intents
+/// and stale matchmaking tickets are transient telemetry; past their TTL they only
+/// cost storage and subscription bandwidth. One global pass per `tick_sky` — each
+/// scan is linear in the *retained* window (which the prune itself keeps bounded),
+/// not the quadratic per-player scan #1 removed. Two tables are intentionally
+/// permanent: `oracle_cache` (the answer cache is the asset we want to keep) and
+/// `constellation_block` (the append-only trophy ledger of raised resolution).
 fn prune_stale(ctx: &ReducerContext) {
     let now = ctx.timestamp;
     let stale_battles: Vec<u64> = ctx
@@ -1267,8 +1294,11 @@ fn prune_stale(ctx: &ReducerContext) {
         .db
         .oracle_request()
         .iter()
-        // never drop a question still awaiting the companion service
-        .filter(|r| r.answered && elapsed_secs(now, r.created_at) > ORACLE_TTL_SECS)
+        // a question awaiting the companion service gets a full day to be answered
+        .filter(|r| {
+            let ttl = if r.answered { ORACLE_TTL_SECS } else { UNANSWERED_TTL_SECS };
+            elapsed_secs(now, r.created_at) > ttl
+        })
         .map(|r| r.request_id)
         .collect();
     for id in stale_reqs {
@@ -1280,11 +1310,116 @@ fn prune_stale(ctx: &ReducerContext) {
         .db
         .duel_challenge()
         .iter()
-        .filter(|c| c.answered && elapsed_secs(now, c.created_at) > ORACLE_TTL_SECS)
+        // same grace: an unanswered challenge lives a day before it ages out
+        .filter(|c| {
+            let ttl = if c.answered { ORACLE_TTL_SECS } else { UNANSWERED_TTL_SECS };
+            elapsed_secs(now, c.created_at) > ttl
+        })
         .map(|c| c.challenge_id)
         .collect();
     for id in stale_challenges {
         ctx.db.duel_challenge().challenge_id().delete(&id);
+    }
+
+    let stale_words: Vec<u64> = ctx
+        .db
+        .word_duel()
+        .iter()
+        .filter(|w| elapsed_secs(now, w.created_at) > WORD_DUEL_TTL_SECS)
+        .map(|w| w.duel_id)
+        .collect();
+    for id in stale_words {
+        ctx.db.word_duel().duel_id().delete(&id);
+    }
+
+    // Jing duels: a resolved thread ages out a month after its last touch, and an
+    // open thread untouched that long is abandoned. Never an open duel inside the
+    // window. Each duel takes its casts with it — that's `jing_cast`'s only pruner.
+    let stale_jings: Vec<u64> = ctx
+        .db
+        .jing_duel()
+        .iter()
+        .filter(|d| elapsed_secs(now, d.updated_at) > JING_DUEL_TTL_SECS)
+        .map(|d| d.duel_id)
+        .collect();
+    for id in stale_jings {
+        let casts: Vec<u64> = ctx
+            .db
+            .jing_cast()
+            .duel_id()
+            .filter(&id)
+            .map(|c| c.cast_id)
+            .collect();
+        for cid in casts {
+            ctx.db.jing_cast().cast_id().delete(&cid);
+        }
+        ctx.db.jing_duel().duel_id().delete(&id);
+    }
+
+    // 3-lane duels: only resolved ones (the sweep resolves anything stalled, so
+    // nothing sits Active for long). `updated_at` is stamped at resolution.
+    let stale_duels: Vec<u64> = ctx
+        .db
+        .duel()
+        .iter()
+        .filter(|d| {
+            d.state == DuelState::Resolved && elapsed_secs(now, d.updated_at) > DUEL_TTL_SECS
+        })
+        .map(|d| d.duel_id)
+        .collect();
+    for id in stale_duels {
+        ctx.db.duel().duel_id().delete(&id);
+    }
+
+    // Trades: settled ones after a week; an Open trade neither side has touched
+    // in a month is abandoned (`updated_at` moves on every confirm/state change).
+    let stale_trades: Vec<u64> = ctx
+        .db
+        .trade()
+        .iter()
+        .filter(|t| {
+            let ttl = if t.state == TradeState::Open { TRADE_OPEN_TTL_SECS } else { TRADE_TTL_SECS };
+            elapsed_secs(now, t.updated_at) > ttl
+        })
+        .map(|t| t.trade_id)
+        .collect();
+    for id in stale_trades {
+        ctx.db.trade().trade_id().delete(&id);
+    }
+
+    // Trace intents + attestations: the EIP-712 deadline has long passed by a week,
+    // so both the intent and any signed attestation are spent paper.
+    let stale_intents: Vec<u64> = ctx
+        .db
+        .trace_intent()
+        .iter()
+        .filter(|i| elapsed_secs(now, i.created_at) > TRACE_TTL_SECS)
+        .map(|i| i.intent_id)
+        .collect();
+    for id in stale_intents {
+        ctx.db.trace_intent().intent_id().delete(&id);
+    }
+    let stale_atts: Vec<u64> = ctx
+        .db
+        .trace_attestation()
+        .iter()
+        .filter(|a| elapsed_secs(now, a.created_at) > TRACE_TTL_SECS)
+        .map(|a| a.intent_id)
+        .collect();
+    for id in stale_atts {
+        ctx.db.trace_attestation().intent_id().delete(&id);
+    }
+
+    // Matchmaking tickets nobody ever paired with — the seeker is gone.
+    let stale_tickets: Vec<u64> = ctx
+        .db
+        .duel_queue()
+        .iter()
+        .filter(|t| elapsed_secs(now, t.enqueued_at) > DUEL_TICKET_TTL_SECS)
+        .map(|t| t.ticket_id)
+        .collect();
+    for id in stale_tickets {
+        ctx.db.duel_queue().ticket_id().delete(&id);
     }
 }
 
@@ -1430,8 +1565,12 @@ pub fn tick_sky(ctx: &ReducerContext, _timer: SkyTickTimer) {
     prune_stale(ctx); // C — bound the append-only history tables
     agent_war(ctx); // D — continuous faction war: agents (and humans) push their zones
 
-    // Star Staking Yield Accrual
+    // Star Staking Yield Accrual. The ephemeris-derived rate inputs (element
+    // dominance, transit dignity) are the same for every stake this tick, so they
+    // are computed once here instead of re-scanning the ephemeris per stake.
     let now = ctx.timestamp;
+    let zone_dom: [f64; 4] = std::array::from_fn(|e| zone_dominance_for(ctx, e as u8));
+    let sign_dignity: [f64; 12] = std::array::from_fn(|s| planet_dignity_for_star(s as u8, ctx));
     for mut stake in ctx.db.star_stake().iter() {
         let star = match ctx.db.star_node().hip_id().find(&stake.star_id) {
             Some(s) => s,
@@ -1444,18 +1583,27 @@ pub fn tick_sky(ctx: &ReducerContext, _timer: SkyTickTimer) {
 
         let alt = altitude_deg(star.ra, star.dec, loc.lat, loc.lon, now);
         if alt <= 0.0 {
-            stake.last_accrual_at = now;
-            ctx.db.star_stake().stake_id().update(stake);
+            // Below the horizon the stake earns nothing, so there is nothing to
+            // record — rewriting `last_accrual_at` every tick only churned every
+            // subscriber. Touch it at most once per IDLE_STAKE_TOUCH_SECS instead.
+            // Accepted tradeoff (deliberate, to avoid a schema change): on rising,
+            // up to that window of below-horizon time is counted at the risen rate
+            // — negligible yield inflation. Cold-start stays exact for risen stars:
+            // they accrue from `last_accrual_at` across any server downtime.
+            if elapsed_secs(now, stake.last_accrual_at) > IDLE_STAKE_TOUCH_SECS {
+                stake.last_accrual_at = now;
+                ctx.db.star_stake().stake_id().update(stake);
+            }
             continue;
         }
 
-        let elapsed_secs = (now.to_micros_since_unix_epoch() - stake.last_accrual_at.to_micros_since_unix_epoch()) as f64 / 1e6;
-        if elapsed_secs <= 0.0 {
+        let elapsed = (now.to_micros_since_unix_epoch() - stake.last_accrual_at.to_micros_since_unix_epoch()) as f64 / 1e6;
+        if elapsed <= 0.0 {
             continue;
         }
 
-        let rate = daily_rate_per_usdc(ctx, &stake, &star);
-        let days = elapsed_secs / 86_400.0;
+        let rate = daily_rate_per_usdc(ctx, &stake, &star, &zone_dom, &sign_dignity);
+        let days = elapsed / 86_400.0;
         let gained = (stake.principal_usdc as f64 / 1e6) * rate * days; // ESMS units
         stake.accrued_essence += (gained * 1e18) as u128; // 18-dp
         stake.last_accrual_at = now;
@@ -1706,8 +1854,8 @@ fn clear_round_timers(ctx: &ReducerContext, player: Identity) {
     let ids: Vec<u64> = ctx
         .db
         .round_timer()
-        .iter()
-        .filter(|t| t.player == player)
+        .player()
+        .filter(&player)
         .map(|t| t.scheduled_id)
         .collect();
     for id in ids {
@@ -2348,12 +2496,12 @@ fn recompute_star_zones(ctx: &ReducerContext) {
 }
 
 /// Collect up to 8 Defense-loadout cards from members of the holding faction.
+/// Walks only Defense slots (indexed), not every slot of every player; the first
+/// 8 belonging to the holder's members win, and an empty garrison still falls
+/// back to the token guardian — same selection as the old full-table scan.
 fn sentinel_for(ctx: &ReducerContext, holder: Planet) -> Vec<combat::CardStat> {
     let mut out = Vec::new();
-    for slot in ctx.db.deck_slot().iter() {
-        if slot.loadout != Loadout::Defense {
-            continue;
-        }
+    for slot in ctx.db.deck_slot().loadout().filter(&Loadout::Defense) {
         if let Some(owner) = ctx.db.player().identity().find(&slot.owner) {
             if owner.faction != holder {
                 continue;
@@ -2427,35 +2575,56 @@ fn agent_war(ctx: &ReducerContext) {
     }
 
     let gmst = gmst_deg(ctx.timestamp);
+    // Prefer the real transit zone from the (feeder-fed) ephemeris; when that's
+    // absent the planetary agent still roams — its zone rotates with sidereal
+    // time, offset per planet, so the war never stalls if the feeder is down.
+    let mut zones = [0u8; 10];
     for fac in ALL_PLANETS {
         let i = fac.idx();
-        // Prefer the real transit zone from the (feeder-fed) ephemeris; when that's
-        // absent the planetary agent still roams — its zone rotates with sidereal
-        // time, offset per planet, so the war never stalls if the feeder is down.
-        let zone = ctx
+        zones[i] = ctx
             .db
             .ephemeris()
             .body()
             .find(&fac)
             .map(|e| e.transiting_zone)
             .unwrap_or_else(|| zone_for_lon(gmst + i as f64 * 36.0));
+    }
+
+    // Each planet (and its faction) seizes one as-yet-unheld star in its zone.
+    // ONE pass over the catalogue, keeping the first-seen match per faction — the
+    // same star the old per-faction `.find` (first match in iteration order)
+    // picked, without walking the ~5k-row table ten times. `region_hint` is
+    // deliberately unindexed (recompute_star_zones rewrites it constantly; index
+    // maintenance would cost more than this scan), and the pass bails out as soon
+    // as every faction has a target.
+    let mut targets: [Option<StarNode>; 10] = Default::default();
+    let mut missing = ALL_PLANETS.len();
+    for s in ctx.db.star_node().iter() {
+        for fac in ALL_PLANETS {
+            let i = fac.idx();
+            if targets[i].is_none() && s.region_hint == zones[i] && s.held_by != Some(fac) {
+                targets[i] = Some(s.clone());
+                missing -= 1;
+            }
+        }
+        if missing == 0 {
+            break;
+        }
+    }
+
+    for fac in ALL_PLANETS {
+        let i = fac.idx();
         // Planetary baseline always applies; joined agents/humans amplify on top.
         let delta = (WAR_PLANET_BASE
             + WAR_PER_PLAYER * count[i] as i32
             + (power[i] / WAR_POWER_DIV) as i32)
             .clamp(WAR_PLANET_BASE, WAR_PUSH_CAP);
 
-        // The planet (and its faction) seizes one as-yet-unheld star in that zone.
-        if let Some(mut s) = ctx
-            .db
-            .star_node()
-            .iter()
-            .find(|s| s.region_hint == zone && s.held_by != Some(fac))
-        {
+        if let Some(mut s) = targets[i].take() {
             s.held_by = Some(fac);
             ctx.db.star_node().hip_id().update(s);
         }
-        apply_control(ctx, zone, fac, delta);
+        apply_control(ctx, zones[i], fac, delta);
     }
 }
 
@@ -3188,6 +3357,10 @@ pub fn mark_star_yield_claimed(
 // ── Star Staking Math Helpers ────────────────────────────────────────────────
 
 const BASE_DAILY_RATE: f64 = 0.0006;
+/// How stale a below-horizon stake's `last_accrual_at` may grow before the tick
+/// touches it anyway. A set stake earns nothing, so stamping it every 10s was pure
+/// subscription churn — this caps the idle rewrite rate at once per 10 minutes.
+const IDLE_STAKE_TOUCH_SECS: i64 = 600;
 
 fn ra_dec_to_ecliptic_longitude(ra: f64, dec: f64) -> f64 {
     let ra_deg = if ra.abs() <= 24.0 { ra * 15.0 } else { ra };
@@ -3404,21 +3577,27 @@ fn planet_dignity_for_star(star_sign: u8, ctx: &ReducerContext) -> f64 {
     (1.0 + bonus as f64 * 0.1).clamp(1.0, 2.0)
 }
 
+/// The staker's daily ESMS rate per USDC. The ephemeris-derived factors are the
+/// same for every stake in a tick, so `tick_sky` precomputes them once and passes
+/// them in: `zone_dom` indexed by ESMS element (0..3), `sign_dignity` by the
+/// star's zodiac sign (0..11). Only the chart affinity is per-staker.
 fn daily_rate_per_usdc(
     ctx: &ReducerContext,
     stake: &StarStake,
     star: &StarNode,
+    zone_dom: &[f64; 4],
+    sign_dignity: &[f64; 12],
 ) -> f64 {
     let star_longitude = ra_dec_to_ecliptic_longitude(star.ra, star.dec);
-    let star_sign = (star_longitude / 30.0) as u8 % 12;
+    let star_sign = (star_longitude / 30.0) as usize % 12;
     let chart = match ctx.db.natal_chart().identity().find(&stake.staker) {
         Some(c) => c,
         None => return BASE_DAILY_RATE, // default rate if no natal chart found
     };
-    let zone_dominance = zone_dominance_for(ctx, stake.element);
     let chart_affinity = chart_affinity_for(&chart, stake.element);
-    let planet_dignity = planet_dignity_for_star(star_sign, ctx);
-    BASE_DAILY_RATE * zone_dominance * chart_affinity * planet_dignity
+    // `element` is frozen at stake time from `esms_id_for_star` (always 0..3);
+    // `.min(3)` just guards the table lookup.
+    BASE_DAILY_RATE * zone_dom[(stake.element as usize).min(3)] * chart_affinity * sign_dignity[star_sign]
 }
 
 // ── Round Tracking & Yield Distribution Reducer Helpers ──────────────────────
@@ -3455,8 +3634,8 @@ fn record_round_play(
 
     if round.plays_count >= round.target_plays {
         let participants: Vec<RoundParticipant> = ctx.db.round_participant()
-            .iter()
-            .filter(|p| p.round_id == round.round_id)
+            .round_id()
+            .filter(&round.round_id)
             .collect();
 
         let mut total_weight = [0u32; 4];
@@ -3791,6 +3970,56 @@ pub fn admin_agent_cast_word(
         answered: false,
         created_at: ctx.timestamp,
     });
+    Ok(())
+}
+
+// ── Service health (the Observatory's cross-service heartbeat) ──────────────
+
+/// `service_status.detail` is truncated (never rejected) past this many chars —
+/// a verbose probe message must never block a heartbeat.
+const SERVICE_DETAIL_MAX: usize = 200;
+
+/// A companion service (authenticated as the module owner) reports its own — or a
+/// probed sibling's — health. Owner-gated exactly like `answer_oracle`. Upserts
+/// the row keyed by service name and stamps `updated_at` from the reducer
+/// context, so staleness is measured on the module's clock, not the caller's.
+#[reducer]
+pub fn report_service_health(
+    ctx: &ReducerContext,
+    service: String,
+    healthy: bool,
+    detail: String,
+    latency_ms: u32,
+) -> Result<(), String> {
+    let cfg = ctx
+        .db
+        .game_config()
+        .id()
+        .find(&0)
+        .ok_or_else(|| "not initialised".to_string())?;
+    if ctx.sender() != cfg.owner {
+        return Err("owner-only reducer".into());
+    }
+    let service = service.trim().to_string();
+    if service.is_empty() {
+        return Err("service name required".into());
+    }
+    let mut detail = detail;
+    if detail.chars().count() > SERVICE_DETAIL_MAX {
+        detail = detail.chars().take(SERVICE_DETAIL_MAX).collect();
+    }
+    let row = ServiceStatus {
+        service: service.clone(),
+        healthy,
+        detail,
+        latency_ms,
+        updated_at: ctx.timestamp,
+    };
+    if ctx.db.service_status().service().find(&service).is_some() {
+        ctx.db.service_status().service().update(row);
+    } else {
+        ctx.db.service_status().insert(row);
+    }
     Ok(())
 }
 

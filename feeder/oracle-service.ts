@@ -1,9 +1,17 @@
 // Pentacles — Claude Oracle Companion Service.
 //
-// Periodically polls SpacetimeDB for unanswered Oracle requests,
+// Subscribes to SpacetimeDB over WebSocket for unanswered Oracle requests
+// (plus a periodic /sql re-sweep for rows a transient failure left behind),
 // calls the Anthropic API (tiering claude-haiku-4-5 for rules/lore and
 // claude-sonnet-4-6 for strategy with prompt caching enabled),
 // and pushes the answers back via the owner-gated `answer_oracle` reducer.
+//
+// LIVE-SKY ENRICHMENT: before each Claude call the current planetary positions
+// are fetched from the planetary-agents backend (GET ${PA_URL}/planetary/current,
+// 4s timeout, cached in memory 10 min) and injected as a compact plain-text
+// block into the USER message — never into the system prompt, whose
+// cache_control block must stay byte-stable for Anthropic prompt caching. On
+// fetch failure the enrichment is skipped silently.
 //
 // Usage:
 //   export ANTHROPIC_API_KEY="sk-ant-..."
@@ -11,26 +19,16 @@
 //
 // Environment options:
 //   SPACETIMEDB_DB (default: cookingwithcastrollc)
-//   POLL_INTERVAL_MS (default: 3000)
+//   ORACLE_RATE_PER_HOUR (default: 60) smoothing cap on Claude calls; excess
+//                        requests queue FIFO in memory until capacity frees
+//   RESWEEP_MS (default: 300000) unanswered-row re-sweep period
+//   PLANETARY_AGENTS_BACKEND_URL (default: https://api.agents.alchm.kitchen)
+//                        live-sky source for the user-message enrichment
 
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
-import { existsSync } from "node:fs";
-import { join } from "node:path";
 import Anthropic from "@anthropic-ai/sdk";
 import { startFeed } from "./stdb-feed";
-
-const run = promisify(execFile);
-
-function getSpacetimeCli(): string {
-  if (process.env.SPACETIMEDB_CLI) return process.env.SPACETIMEDB_CLI;
-  if (process.env.HOME) {
-    const localBin = join(process.env.HOME, ".local", "bin", "spacetime");
-    if (existsSync(localBin)) return localBin;
-  }
-  return "spacetime";
-}
-const SPACETIMEDB_CLI = getSpacetimeCli();
+import { cliCall } from "./spacetime-cli";
+import { BRAIN_PRIMARY_URL as PA_URL } from "./brain";
 
 if (!process.env.ANTHROPIC_API_KEY) {
   console.error("Error: ANTHROPIC_API_KEY environment variable is not set.");
@@ -52,12 +50,13 @@ const anthropic = new Anthropic({
 });
 
 // Shown to the player when a question can't be answered (refusal, malformed input,
-// or a persistent API error). Writing it *closes* the request so the poller stops
-// re-sending it — leaving it unanswered would re-bill Claude every poll forever.
+// or a persistent API error). Writing it *closes* the request so the re-sweep stops
+// re-sending it — leaving it unanswered would re-bill Claude on every sweep forever.
 const ORACLE_FALLBACK =
   "The Oracle's vision is clouded for now — rephrase your question and seek again.";
 
-// Push an answer back through the owner-gated reducer (same CLI owner auth as the feeder).
+// Push an answer back through the owner-gated reducer (HTTP with the bearer token,
+// or the spacetime CLI's logged-in owner identity when the token is blank).
 async function answerOracle(requestId: number, text: string, modelTier: string): Promise<void> {
   if (SPACETIME_TOKEN) {
     const res = await fetch(`${SPACETIMEDB_URI}/v1/database/${DB}/call/answer_oracle`, {
@@ -72,8 +71,120 @@ async function answerOracle(requestId: number, text: string, modelTier: string):
       throw new Error(`HTTP answer_oracle failed: ${await res.text().catch(() => "")}`);
     }
   } else {
-    await run(SPACETIMEDB_CLI, ["call", DB, "answer_oracle", "--", String(requestId), text, modelTier]);
+    // cliCall JSON-encodes the strings (Claude prose routinely contains quotes
+    // and newlines) and passes the id as a bare literal.
+    await cliCall(DB, "answer_oracle", [requestId, text, modelTier]);
   }
+}
+
+// ── Claude-call rate limiter (smoothing cap) ─────────────────────────────────
+//
+// At most ORACLE_RATE_PER_HOUR Anthropic calls in any rolling 60-minute window
+// (rolling was as simple as fixed here and never produces the 2× burst a fixed
+// window allows at the boundary). Requests over the cap are NOT answered with
+// the fallback and NOT dropped: processRequest parks on acquireClaudeSlot(),
+// which holds them in an in-memory FIFO queue. Because the parked request never
+// returns from onRow, its id stays in the feed's in-flight set (stdb-feed.ts),
+// so a WS reconnect backlog or the /sql re-sweep can't enqueue a duplicate.
+// A timer drains the queue in order as calls age out of the window.
+//
+// NOTE: the server will soon prune unanswered requests after 24h, so a request
+// that sat queued through a long backlog can outlive its row. When that happens
+// the answer write fails (answer_oracle returns Err("no such request"), which
+// the HTTP /call path surfaces as a non-OK status → answerOracle throws) and
+// processRequest logs and drops it gracefully — see the push site below.
+
+// Misconfiguration (NaN, negative, or 0 — which would park every request
+// forever) falls back to the default rather than silently wedging the Oracle.
+const rawRate = Number(process.env.ORACLE_RATE_PER_HOUR ?? "60");
+const ORACLE_RATE_PER_HOUR = Number.isFinite(rawRate) && rawRate >= 1 ? Math.floor(rawRate) : 60;
+const HOUR_MS = 3_600_000;
+
+const recentCalls: number[] = []; // Claude call timestamps in the last hour (ascending)
+const slotWaiters: Array<{ requestId: number; grant: () => void }> = []; // FIFO park queue
+let drainTimer: ReturnType<typeof setTimeout> | null = null;
+
+// Drop timestamps that have aged out of the rolling window.
+function pruneWindow(): void {
+  const cutoff = Date.now() - HOUR_MS;
+  while (recentCalls.length && recentCalls[0] <= cutoff) recentCalls.shift();
+}
+
+// Arm (once) a wake-up for when the oldest in-window call expires, then hand
+// freed slots to the queue head. Strictly FIFO: waiters only ever leave from
+// the front, and new arrivals can't jump them (see acquireClaudeSlot).
+function scheduleDrain(): void {
+  if (drainTimer) return;
+  pruneWindow();
+  const wakeMs = recentCalls.length ? Math.max(1_000, recentCalls[0] + HOUR_MS - Date.now()) : 1_000;
+  drainTimer = setTimeout(() => {
+    drainTimer = null;
+    pruneWindow();
+    while (slotWaiters.length && recentCalls.length < ORACLE_RATE_PER_HOUR) {
+      recentCalls.push(Date.now());
+      const w = slotWaiters.shift()!;
+      console.log(`[Oracle] Capacity freed; resuming queued request #${w.requestId} (${slotWaiters.length} still queued).`);
+      w.grant();
+    }
+    if (slotWaiters.length) scheduleDrain();
+  }, wakeMs);
+}
+
+// Resolve immediately if under the cap (and nobody is queued ahead), otherwise
+// park until the drain timer grants a slot. The returned promise never rejects.
+function acquireClaudeSlot(requestId: number): Promise<void> {
+  pruneWindow();
+  if (slotWaiters.length === 0 && recentCalls.length < ORACLE_RATE_PER_HOUR) {
+    recentCalls.push(Date.now());
+    return Promise.resolve();
+  }
+  console.log(
+    `[Oracle] Hourly cap (${ORACLE_RATE_PER_HOUR}/h) reached — queueing request #${requestId} ` +
+      `(position ${slotWaiters.length + 1}).`,
+  );
+  return new Promise<void>((grant) => {
+    slotWaiters.push({ requestId, grant });
+    scheduleDrain();
+  });
+}
+
+// ── Live-sky enrichment (planetary-agents backend) ──────────────────────────
+//
+// GET ${PA_URL}/planetary/current → {planetary_positions:{Sun:{sign,degree,
+// isRetrograde,…},…}}, rendered as a compact one-line block (~200 chars for 10
+// bodies, hard-capped at 600) that is appended to the USER message. It must
+// NEVER touch the system prompt: that block is cache_control-marked and any
+// byte drift would invalidate the Anthropic prompt cache. Cached (success or
+// failure) for 10 minutes so a dead backend costs at most one 4s stall per
+// window instead of one per request.
+
+const SKY_CACHE_MS = 600_000; // 10 min
+const SKY_FETCH_TIMEOUT_MS = 4_000;
+let skyCache: { text: string | null; fetchedAt: number } = { text: null, fetchedAt: 0 };
+
+async function liveSkyBlock(): Promise<string | null> {
+  if (Date.now() - skyCache.fetchedAt < SKY_CACHE_MS) return skyCache.text;
+  skyCache = { text: null, fetchedAt: Date.now() }; // negative-cache until proven otherwise
+  try {
+    const res = await fetch(`${PA_URL}/planetary/current`, {
+      signal: AbortSignal.timeout(SKY_FETCH_TIMEOUT_MS),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json: any = await res.json();
+    const positions = json?.planetary_positions;
+    if (!positions || typeof positions !== "object") throw new Error("no planetary_positions in body");
+    const parts: string[] = [];
+    for (const [body, p] of Object.entries<any>(positions)) {
+      if (!p || typeof p.sign !== "string") continue;
+      parts.push(`${body} ${Math.trunc(Number(p.degree) || 0)}°${p.sign}${p.isRetrograde ? " Rx" : ""}`);
+    }
+    if (!parts.length) throw new Error("no usable positions in body");
+    skyCache.text = `Live sky (planetary-agents): ${parts.join("; ")}`.slice(0, 600);
+  } catch (err) {
+    // Enrichment is best-effort — skip silently (single debug line per cache window).
+    console.debug(`[Oracle] live-sky fetch skipped (${(err as Error).message.split("\n")[0]}).`);
+  }
+  return skyCache.text;
 }
 
 // Rich system prompt outlining the game GDD guidelines for accurate Oracle responses.
@@ -207,9 +318,18 @@ async function processRequest(row: Record<string, any>): Promise<void> {
   const modelId = isCacheable ? "claude-haiku-4-5" : "claude-sonnet-4-6";
   const modelTier = isCacheable ? "haiku" : "sonnet";
 
+  // Smoothing cap: over ORACLE_RATE_PER_HOUR this parks (FIFO) until capacity
+  // frees. While parked the request stays in the feed's in-flight set, which is
+  // what dedupes it against reconnect backlogs and the re-sweep.
+  await acquireClaudeSlot(requestId);
+
   console.log(`\n[Oracle] Processing request #${requestId}...`);
   console.log(`  Question: "${question}"`);
   console.log(`  Model: ${modelId} (${isCacheable ? "cacheable rules/lore" : "live strategy"})`);
+
+  // Best-effort live-sky enrichment — goes into the USER message only (the
+  // system prompt's cache_control block must stay byte-stable). Null on failure.
+  const sky = await liveSkyBlock();
 
   try {
     const response = await anthropic.messages.create(
@@ -232,11 +352,12 @@ async function processRequest(row: Record<string, any>): Promise<void> {
         messages: [
           {
             role: "user",
-            content: `Context:\n${context}\n\nQuestion:\n${question}`,
+            content:
+              (sky ? `${sky}\n\n` : "") + `Context:\n${context}\n\nQuestion:\n${question}`,
           },
         ],
       },
-      { timeout: 30_000 }, // one wedged call can't stall the whole poll loop
+      { timeout: 30_000 }, // one wedged call can't hold its request slot forever
     );
 
     if (response.usage) {
@@ -253,8 +374,8 @@ async function processRequest(row: Record<string, any>): Promise<void> {
     // first block can be a `thinking` block, which would silently blank the reply.
     const replyText = response.content.find((b) => b.type === "text")?.text ?? "";
     if (!replyText) {
-      // No text block (e.g. a refusal). Close the request with a fallback so it
-      // isn't re-sent to Claude on every subsequent poll.
+      // No text block (e.g. a refusal). Close the request with a fallback so the
+      // re-sweep never re-sends it to Claude.
       console.warn(
         `[Oracle] No text for #${requestId} (stop_reason=${response.stop_reason}); closing with fallback.`,
       );
@@ -263,17 +384,33 @@ async function processRequest(row: Record<string, any>): Promise<void> {
     }
 
     console.log(`[Oracle] Reply generated; pushing to SpacetimeDB...`);
-    await answerOracle(requestId, replyText, modelTier);
+    try {
+      await answerOracle(requestId, replyText, modelTier);
+    } catch (pushErr) {
+      // The server will prune unanswered requests after 24h, so a request that
+      // waited in the rate-limit queue (or through a long outage) can outlive
+      // its row: answer_oracle then returns Err("no such request"), the HTTP
+      // /call path responds non-OK, and answerOracle throws (the CLI path exits
+      // non-zero — same throw). Nothing is left to answer, so log and drop.
+      // If the row DOES still exist (a transient write failure), it stays
+      // answered=false and the RESWEEP_MS re-sweep re-delivers it.
+      console.error(
+        `[Oracle] Answer write failed for #${requestId} (row pruned, or transient — re-sweep will retry); dropping:`,
+        (pushErr as Error).message,
+      );
+      return;
+    }
     console.log(`[Oracle] Request #${requestId} successfully answered.`);
   } catch (err) {
     // Transient — the SDK already retried with backoff. Leave the request
-    // unanswered so the next poll picks it up; don't burn a fallback on a blip.
+    // unanswered; the periodic re-sweep (RESWEEP_MS, default 5 min) or a WS
+    // reconnect backlog re-delivers it. Don't burn a fallback on a blip.
     if (
       err instanceof Anthropic.RateLimitError ||
       err instanceof Anthropic.InternalServerError ||
       err instanceof Anthropic.APIConnectionError
     ) {
-      console.warn(`[Oracle] Transient error on #${requestId} (${(err as Error).name}); will retry next poll.`);
+      console.warn(`[Oracle] Transient error on #${requestId} (${(err as Error).name}); the re-sweep will retry it.`);
       return;
     }
     // Non-retryable (400 / auth / refusal / bad input): close it with a fallback so
@@ -290,7 +427,8 @@ async function processRequest(row: Record<string, any>): Promise<void> {
 async function main(): Promise<void> {
   console.log(`Pentacles Claude companion service starting.`);
   console.log(`  Database: ${DB}`);
-  console.log(`  Transport: WebSocket subscription (reactive)`);
+  console.log(`  Transport: WebSocket subscription (reactive) + periodic /sql re-sweep`);
+  console.log(`  Claude cap: ${ORACLE_RATE_PER_HOUR} calls/hour (excess queues FIFO)`);
   console.log(`  API Key active: Yes`);
   console.log(`Press Ctrl+C to terminate.\n`);
 

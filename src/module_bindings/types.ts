@@ -443,6 +443,15 @@ export const RoundTimer = __t.object("RoundTimer", {
 });
 export type RoundTimer = __Infer<typeof RoundTimer>;
 
+export const ServiceStatus = __t.object("ServiceStatus", {
+  service: __t.string(),
+  healthy: __t.bool(),
+  detail: __t.string(),
+  latencyMs: __t.u32(),
+  updatedAt: __t.timestamp(),
+});
+export type ServiceStatus = __Infer<typeof ServiceStatus>;
+
 export const SkyTickTimer = __t.object("SkyTickTimer", {
   scheduledId: __t.u64(),
   scheduledAt: __t.scheduleAt(),
