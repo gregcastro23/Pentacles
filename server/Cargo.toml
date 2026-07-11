@@ -12,6 +12,7 @@ crate-type = ["cdylib"]
 # server crate, `spacetime` CLI, and the `spacetimedb` npm client SDK all on 2.6.
 spacetimedb = "2.6"
 log = "0.4"
+sha2 = "0.10" # claim_profile: hash the one-time identity-link code
 alchm-astro-core = { path = "../../../planetary_agents-main/alchm-astro-core" }
 
 [profile.release]

@@ -28,26 +28,31 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { startFeed } from "./stdb-feed";
 import { cliCall } from "./spacetime-cli";
-import { BRAIN_PRIMARY_URL as PA_URL } from "./brain";
+import { BRAIN_PRIMARY_URL as PA_URL, brainCall } from "./brain";
 
-if (!process.env.ANTHROPIC_API_KEY) {
-  console.error("Error: ANTHROPIC_API_KEY environment variable is not set.");
-  console.error("Usage: ANTHROPIC_API_KEY=sk-ant-... bun run oracle-service.ts");
-  process.exit(1);
+// The Oracle answers through the shared planetary-agents brain first (its
+// multi-provider fallback works even when a direct Anthropic key is
+// unavailable), and only falls back to a direct Anthropic call when the brain
+// is unreachable AND a key is configured. So the key is now OPTIONAL: without
+// it, the service still runs fully on the brain path.
+const anthropic = process.env.ANTHROPIC_API_KEY
+  ? new Anthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY,
+      // The SDK retries transient failures (429 / 5xx / connection) with
+      // exponential backoff. Bumped from the default 2 so a brief overload
+      // doesn't surface as a failed answer. Non-retryable errors (400 / auth /
+      // refusal) are handled in processRequest so a bad question is never
+      // re-sent to Claude in a loop.
+      maxRetries: 4,
+    })
+  : null;
+if (!anthropic) {
+  console.warn("[Oracle] No ANTHROPIC_API_KEY set — answering via the planetary-agents brain only.");
 }
 
 const DB = process.env.SPACETIMEDB_DB ?? "cookingwithcastrollc";
 const SPACETIMEDB_URI = (process.env.SPACETIMEDB_URI ?? "https://maincloud.spacetimedb.com").replace(/\/+$/, "");
 const SPACETIME_TOKEN = process.env.SPACETIME_TOKEN || "";
-
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-  // The SDK retries transient failures (429 / 5xx / connection) with exponential
-  // backoff. Bumped from the default 2 so a brief overload doesn't surface as a
-  // failed answer. Non-retryable errors (400 / auth / refusal) are handled in
-  // processRequest so a bad question is never re-sent to Claude in a loop.
-  maxRetries: 4,
-});
 
 // Shown to the player when a question can't be answered (refusal, malformed input,
 // or a persistent API error). Writing it *closes* the request so the re-sweep stops
@@ -330,6 +335,44 @@ async function processRequest(row: Record<string, any>): Promise<void> {
   // Best-effort live-sky enrichment — goes into the USER message only (the
   // system prompt's cache_control block must stay byte-stable). Null on failure.
   const sky = await liveSkyBlock();
+
+  // Primary path: the shared planetary-agents brain. Its provider chain
+  // (anthropic → groq → cerebras → gemini → openrouter → openai) answers even
+  // when the direct key is down, so the Oracle stays live.
+  const brainAnswer = await brainCall<string>({
+    path: "/api/agents/oracle",
+    label: "Oracle",
+    body: {
+      question,
+      context: (sky ? `${sky}\n\n` : "") + context,
+    },
+    validate: (j) => {
+      const a = j && typeof j.answer === "string" ? j.answer.trim() : "";
+      return a || null;
+    },
+    timeoutMs: 30_000,
+  });
+  if (brainAnswer) {
+    console.log(`[Oracle] Reply via brain; pushing to SpacetimeDB...`);
+    try {
+      await answerOracle(requestId, brainAnswer, "brain");
+      console.log(`[Oracle] Request #${requestId} successfully answered (brain).`);
+    } catch (pushErr) {
+      console.error(
+        `[Oracle] Answer write failed for #${requestId} (row pruned, or transient — re-sweep will retry); dropping:`,
+        (pushErr as Error).message,
+      );
+    }
+    return;
+  }
+
+  // The brain was unreachable. Without a direct Anthropic key there's nothing
+  // left to try — close with the fallback so the re-sweep stops re-delivering.
+  if (!anthropic) {
+    console.warn(`[Oracle] Brain unreachable and no Anthropic key for #${requestId}; closing with fallback.`);
+    await answerOracle(requestId, ORACLE_FALLBACK, "error");
+    return;
+  }
 
   try {
     const response = await anthropic.messages.create(

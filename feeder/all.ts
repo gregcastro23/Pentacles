@@ -226,11 +226,12 @@ async function healthPass(): Promise<void> {
     try {
       await reportServiceHealth(service, healthy, detail, latencyMs);
     } catch (err) {
-      // EXPECTED until the module publish that adds report_service_health —
-      // and on any transient write failure. Log and carry on; never crash.
+      // report_service_health is live on prod, so a failure here is a real
+      // (usually transient) write problem — e.g. a maincloud outage. Log and
+      // carry on; never crash. Persistent repeats deserve investigation.
       log(
         `health report "${service}" not written (${((err as Error).message || String(err)).split("\n")[0]}) — ` +
-          `expected until report_service_health is published.`,
+          `transient unless it repeats.`,
       );
     }
   }

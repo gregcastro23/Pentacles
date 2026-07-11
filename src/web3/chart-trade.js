@@ -10,33 +10,9 @@ import { formatUnits, encodeFunctionData } from 'viem'
 import { ADDRESSES } from './chain.js'
 import { AMM_ABI } from './abis.js'
 import { ESMS, ESMS_DECIMALS, readEsmsBalances } from './esms.js'
-import { quoteSwap, toEsms, minOut } from './dex.js'
+import { quoteSwap, toEsms, minOut, awaitAttestationFor } from './dex.js'
 import { burner } from './burner.js'
 import spacetime from '../net/spacetime.js'
-
-/** Poll trace_attestation for a fresh feeder signature for `trader`. */
-async function awaitAttestation(constId, trader, { timeoutMs = 30000, intervalMs = 2500 } = {}) {
-  const deadline = Date.now() + timeoutMs
-  while (Date.now() < deadline) {
-    const rows = await spacetime
-      .query(`SELECT * FROM trace_attestation WHERE constellation_id = ${constId}`)
-      .catch(() => [])
-    const row = rows.sort((a, b) => Number(b.created_at || 0) - Number(a.created_at || 0))[0]
-    if (row && row.signature) {
-      return {
-        trader,
-        constellationId: constId,
-        regionCommit: row.region_commit,
-        visibleStars: Number(row.visible_stars),
-        nonce: BigInt(row.nonce),
-        deadline: BigInt(row.deadline),
-        signature: row.signature,
-      }
-    }
-    await new Promise((r) => setTimeout(r, intervalMs))
-  }
-  throw new Error('Timed out waiting for the sky-feeder attestation.')
-}
 
 export function makeTradeProvider() {
   return {
@@ -45,10 +21,13 @@ export function makeTradeProvider() {
     traderAddress: () => burner.traderAddress(),
     esmsMeta: ESMS,
 
-    /** The burner's four ESMS balances as numbers. */
+    /** The trading account's four ESMS balances as numbers. Balances are read
+     * for traderAddress() — the smart account when sponsored gas is on — since
+     * that is the account the AMM debits (msg.sender), and soulbound ESMS can
+     * never be moved from the EOA to it. */
     async esmsBalances() {
       try {
-        const r = await readEsmsBalances(burner.address)
+        const r = await readEsmsBalances(await burner.traderAddress())
         return r.map((b, i) => ({ id: i, name: ESMS[i].name, glyph: ESMS[i].glyph, color: ESMS[i].color, raw: b.raw, num: Number(b.formatted) }))
       } catch {
         return ESMS.map((m, i) => ({ id: i, name: m.name, glyph: m.glyph, color: m.color, raw: 0n, num: 0, error: true }))
@@ -76,7 +55,7 @@ export function makeTradeProvider() {
       if (!spacetime.isLive) throw new Error('SpacetimeDB offline — can’t fetch a visibility attestation.')
       const trader = await burner.traderAddress()
       await spacetime.callReducer('trace_constellation', [pool.constId, trader])
-      const att = await awaitAttestation(pool.constId, trader)
+      const att = await awaitAttestationFor(pool.constId, trader)
       const inAmt = toEsms(inAmtHuman)
       const out = await quoteSwap(pool.constId, inId, inAmt)
       const minOutAmt = minOut(out ?? 0n, slippageBps)

@@ -913,7 +913,12 @@ pub fn resolve_star_battle(
         star.held_by = Some(player.faction);
         ctx.db.star_node().hip_id().update(star.clone());
         // Ingress double-control buff: active ingress zone corresponds to (season_degree / 30) % 12
-        let cfg = ctx.db.game_config().id().find(&0).unwrap();
+        let cfg = ctx
+            .db
+            .game_config()
+            .id()
+            .find(&0)
+            .ok_or("game_config missing")?;
         let ingress_zone = ((cfg.season_degree / 30) % 12) as u8 % 11;
         let delta = if star.region_hint == ingress_zone {
             combat::control_delta(star.magnitude, margin) * 2
@@ -1420,6 +1425,18 @@ fn prune_stale(ctx: &ReducerContext) {
         .collect();
     for id in stale_tickets {
         ctx.db.duel_queue().ticket_id().delete(&id);
+    }
+
+    // Identity-link grants that were opened but never claimed.
+    let stale_grants: Vec<String> = ctx
+        .db
+        .claim_grant()
+        .iter()
+        .filter(|g| g.expires_at < now)
+        .map(|g| g.code_hash.clone())
+        .collect();
+    for h in stale_grants {
+        ctx.db.claim_grant().code_hash().delete(&h);
     }
 }
 
@@ -4020,6 +4037,245 @@ pub fn report_service_health(
     } else {
         ctx.db.service_status().insert(row);
     }
+    Ok(())
+}
+
+// ── Identity linking: claim an anonymous profile after Google sign-in ────────
+/// A link grant lives this long before `claim_profile` must consume it.
+const CLAIM_GRANT_TTL_SECS: i64 = 600;
+
+/// Step 1 — called by the OLD (anonymous) identity while still connected with
+/// its token: stage a single-use grant keyed by sha256(code). The raw code
+/// never leaves the client until step 2, so nothing in this call lets a
+/// bystander claim the profile.
+#[reducer]
+pub fn open_identity_link(ctx: &ReducerContext, code_hash: String) -> Result<(), String> {
+    let code_hash = code_hash.trim().to_lowercase();
+    if code_hash.len() != 64 || !code_hash.bytes().all(|b| b.is_ascii_hexdigit()) {
+        return Err("code_hash must be a hex sha256".into());
+    }
+    let who = ctx.sender();
+    if ctx.db.player().identity().find(&who).is_none() {
+        return Err("No profile to link — register first.".into());
+    }
+    // Single live grant per identity: replace any earlier one.
+    let stale: Vec<String> = ctx
+        .db
+        .claim_grant()
+        .old_identity()
+        .filter(&who)
+        .map(|g| g.code_hash.clone())
+        .collect();
+    for h in stale {
+        ctx.db.claim_grant().code_hash().delete(&h);
+    }
+    let now_us = ctx.timestamp.to_micros_since_unix_epoch();
+    ctx.db.claim_grant().insert(ClaimGrant {
+        code_hash,
+        old_identity: who,
+        created_at: ctx.timestamp,
+        expires_at: Timestamp::from_micros_since_unix_epoch(
+            now_us + CLAIM_GRANT_TTL_SECS * 1_000_000,
+        ),
+    });
+    Ok(())
+}
+
+/// Step 2 — called by the NEW (OIDC) identity: consume the grant and move every
+/// identity-keyed row from the old anonymous identity to the caller, so the
+/// player keeps their chart, cards, loadout, pools, stakes, history and trophies
+/// under the signed-in identity. The new identity must not already have a
+/// profile (no merging). Deliberately left untouched: `battle` / classic `duel`
+/// logs (historical), and `trace_intent`/`trace_attestation` (EVM-addressed,
+/// TTL-pruned spent paper).
+#[reducer]
+pub fn claim_profile(ctx: &ReducerContext, code: String) -> Result<(), String> {
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    hasher.update(code.trim().as_bytes());
+    let hash = format!("{:x}", hasher.finalize());
+
+    let Some(grant) = ctx.db.claim_grant().code_hash().find(&hash) else {
+        return Err("Invalid or already-used link code.".into());
+    };
+    ctx.db.claim_grant().code_hash().delete(&grant.code_hash); // single-use
+    if grant.expires_at < ctx.timestamp {
+        return Err("Link code expired — sign in and try again.".into());
+    }
+    let old = grant.old_identity;
+    let new = ctx.sender();
+    if old == new {
+        return Err("Already linked.".into());
+    }
+    if ctx.db.player().identity().find(&new).is_some() {
+        return Err("This signed-in account already has a profile.".into());
+    }
+    let Some(player) = ctx.db.player().identity().find(&old) else {
+        return Err("The original profile no longer exists.".into());
+    };
+
+    // The anchor row moves first; the grant is already burned, so a mid-flight
+    // failure can never leave the profile claimable twice.
+    ctx.db.player().identity().delete(&old);
+    let mut p = player;
+    p.identity = new;
+    p.last_active = ctx.timestamp;
+    ctx.db.player().insert(p);
+
+    // PK-on-identity rows: delete + reinsert under the new identity.
+    if let Some(mut r) = ctx.db.natal_chart().identity().find(&old) {
+        ctx.db.natal_chart().identity().delete(&old);
+        r.identity = new;
+        ctx.db.natal_chart().insert(r);
+    }
+    if let Some(mut r) = ctx.db.player_location().identity().find(&old) {
+        ctx.db.player_location().identity().delete(&old);
+        r.identity = new;
+        ctx.db.player_location().insert(r);
+    }
+    if let Some(mut r) = ctx.db.round_state().identity().find(&old) {
+        ctx.db.round_state().identity().delete(&old);
+        r.identity = new;
+        ctx.db.round_state().insert(r);
+    }
+    if let Some(mut r) = ctx.db.jing_pool().identity().find(&old) {
+        ctx.db.jing_pool().identity().delete(&old);
+        r.identity = new;
+        ctx.db.jing_pool().insert(r);
+    }
+    // Rate/cooldown rows move too — linking must not reset anti-spam clocks.
+    if let Some(mut r) = ctx.db.oracle_rate().identity().find(&old) {
+        ctx.db.oracle_rate().identity().delete(&old);
+        r.identity = new;
+        ctx.db.oracle_rate().insert(r);
+    }
+    if let Some(mut r) = ctx.db.word_rate().identity().find(&old) {
+        ctx.db.word_rate().identity().delete(&old);
+        r.identity = new;
+        ctx.db.word_rate().insert(r);
+    }
+    if let Some(mut r) = ctx.db.jing_rate().identity().find(&old) {
+        ctx.db.jing_rate().identity().delete(&old);
+        r.identity = new;
+        ctx.db.jing_rate().insert(r);
+    }
+
+    // Identity-indexed columns: rewrite in place via each table's PK update.
+    for mut c in ctx.db.card().owner().filter(&old).collect::<Vec<_>>() {
+        c.owner = new;
+        ctx.db.card().card_id().update(c);
+    }
+    for mut s in ctx.db.deck_slot().owner().filter(&old).collect::<Vec<_>>() {
+        s.owner = new;
+        ctx.db.deck_slot().slot_id().update(s);
+    }
+    for mut d in ctx.db.natal_decan().owner().filter(&old).collect::<Vec<_>>() {
+        d.owner = new;
+        ctx.db.natal_decan().decan_id().update(d);
+    }
+    for mut t in ctx.db.round_timer().player().filter(&old).collect::<Vec<_>>() {
+        t.player = new;
+        ctx.db.round_timer().scheduled_id().update(t);
+    }
+    for mut s in ctx.db.star_stake().staker().filter(&old).collect::<Vec<_>>() {
+        s.staker = new;
+        ctx.db.star_stake().stake_id().update(s);
+    }
+    for mut w in ctx.db.word_duel().player().filter(&old).collect::<Vec<_>>() {
+        w.player = new;
+        ctx.db.word_duel().duel_id().update(w);
+    }
+    for mut c in ctx.db.duel_challenge().player().filter(&old).collect::<Vec<_>>() {
+        c.player = new;
+        ctx.db.duel_challenge().challenge_id().update(c);
+    }
+    for mut t in ctx.db.trade().proposer().filter(&old).collect::<Vec<_>>() {
+        t.proposer = new;
+        ctx.db.trade().trade_id().update(t);
+    }
+    for mut t in ctx.db.trade().partner().filter(&old).collect::<Vec<_>>() {
+        t.partner = new;
+        ctx.db.trade().trade_id().update(t);
+    }
+    for mut j in ctx.db.jing_duel().initiator().filter(&old).collect::<Vec<_>>() {
+        j.initiator = new;
+        ctx.db.jing_duel().duel_id().update(j);
+    }
+
+    // Small / TTL-pruned tables without an identity index: linear rewrite.
+    for mut j in ctx
+        .db
+        .jing_duel()
+        .iter()
+        .filter(|j| j.target_player == Some(old))
+        .collect::<Vec<_>>()
+    {
+        j.target_player = Some(new);
+        ctx.db.jing_duel().duel_id().update(j);
+    }
+    for mut c in ctx
+        .db
+        .jing_cast()
+        .iter()
+        .filter(|c| c.caster == old)
+        .collect::<Vec<_>>()
+    {
+        c.caster = new;
+        ctx.db.jing_cast().cast_id().update(c);
+    }
+    for mut q in ctx
+        .db
+        .duel_queue()
+        .iter()
+        .filter(|q| q.seeker == old)
+        .collect::<Vec<_>>()
+    {
+        q.seeker = new;
+        ctx.db.duel_queue().ticket_id().update(q);
+    }
+    for mut r in ctx
+        .db
+        .oracle_request()
+        .iter()
+        .filter(|r| r.asker == old)
+        .collect::<Vec<_>>()
+    {
+        r.asker = new;
+        ctx.db.oracle_request().request_id().update(r);
+    }
+    for mut r in ctx
+        .db
+        .oracle_reply()
+        .iter()
+        .filter(|r| r.asker == old)
+        .collect::<Vec<_>>()
+    {
+        r.asker = new;
+        ctx.db.oracle_reply().request_id().update(r);
+    }
+    for mut rp in ctx
+        .db
+        .round_participant()
+        .iter()
+        .filter(|p| p.identity == old)
+        .collect::<Vec<_>>()
+    {
+        rp.identity = new;
+        ctx.db.round_participant().id().update(rp);
+    }
+    // The trophy ledger follows the player (append-only, permanent).
+    for mut b in ctx
+        .db
+        .constellation_block()
+        .iter()
+        .filter(|b| b.minter == old)
+        .collect::<Vec<_>>()
+    {
+        b.minter = new;
+        ctx.db.constellation_block().block_id().update(b);
+    }
+
+    log::info!("claim_profile: migrated profile {old} -> {new}");
     Ok(())
 }
 

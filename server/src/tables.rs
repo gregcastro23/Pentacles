@@ -756,3 +756,22 @@ pub struct ServiceStatus {
     pub updated_at: Timestamp,
 }
 
+
+// ── Identity linking (Google sign-in claim flow) ─────────────────────────────
+
+/// A short-lived, single-use grant that lets a signed-in (OIDC) identity claim
+/// the profile of the anonymous identity that opened it. The client generates a
+/// random one-time code, calls `open_identity_link(sha256(code))` while still
+/// connected with the OLD anonymous token, then reconnects with the OIDC token
+/// and calls `claim_profile(code)`. Private: only the module reads codes. One
+/// grant per old identity; grants are deleted on claim and pruned on expiry.
+#[spacetimedb::table(accessor = claim_grant)]
+#[derive(Clone)]
+pub struct ClaimGrant {
+    #[primary_key]
+    pub code_hash: String, // lowercase hex sha256 of the client's one-time code
+    #[index(btree)]
+    pub old_identity: Identity,
+    pub created_at: Timestamp,
+    pub expires_at: Timestamp,
+}

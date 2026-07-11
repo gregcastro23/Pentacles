@@ -108,11 +108,14 @@ export async function readUsedNonce(constId, trader) {
 
 // ---- LP position discovery (Deed is NOT enumerable) ------------------------
 // Discover a wallet's deeds via the AMM's PoolSeeded(trader) event, then confirm
-// current ownerOf (handles Deed transfers). Block range is env-bounded because
-// public RPCs reject huge getLogs spans.
+// current ownerOf (handles Deed transfers). We scan from the AMM's deploy block
+// so no position is ever missed; public RPCs reject huge getLogs spans, so the
+// scan chunks the range (MAX_RANGE) up to the head.
+// Default is the live Base Sepolia AMM deploy block; env-overridable if redeployed.
+const AMM_DEPLOY_BLOCK = 42977141n
 const FROM_BLOCK = (() => {
   const b = import.meta.env.VITE_AMM_FROM_BLOCK
-  return b ? BigInt(b) : 0n
+  return b ? BigInt(b) : AMM_DEPLOY_BLOCK
 })()
 const MAX_RANGE = 2000n // Base Sepolia public RPC caps eth_getLogs at 2000 blocks
 const LOOKBACK = BigInt(import.meta.env.VITE_AMM_LOOKBACK_BLOCKS || 40000)
@@ -126,20 +129,26 @@ export async function discoverPositions(trader) {
   } catch {
     return []
   }
-  // Scan a bounded recent window in ≤2000-block chunks (set VITE_AMM_FROM_BLOCK
-  // to the deploy block for full history).
-  let from = FROM_BLOCK > 0n ? FROM_BLOCK : latest > LOOKBACK ? latest - LOOKBACK : 0n
+  // Scan from the deploy block (full history) in ≤2000-block chunks. The range
+  // spans the AMM's whole life, so fetch chunks with bounded concurrency rather
+  // than one slow sequential sweep.
+  const start = FROM_BLOCK > 0n ? FROM_BLOCK : latest > LOOKBACK ? latest - LOOKBACK : 0n
+  const ranges = []
+  for (let from = start; from <= latest; from += MAX_RANGE) {
+    const to = from + MAX_RANGE - 1n > latest ? latest : from + MAX_RANGE - 1n
+    ranges.push([from, to])
+  }
   const logs = []
   let failures = 0
-  while (from <= latest) {
-    const to = from + MAX_RANGE - 1n > latest ? latest : from + MAX_RANGE - 1n
-    try {
-      const part = await publicClient.getLogs({ address: ADDRESSES.amm, event, args: { trader }, fromBlock: from, toBlock: to })
-      logs.push(...part)
-    } catch {
-      failures++
-    }
-    from = to + 1n
+  const CONCURRENCY = 8
+  for (let i = 0; i < ranges.length; i += CONCURRENCY) {
+    const batch = ranges.slice(i, i + CONCURRENCY).map(([from, to]) =>
+      publicClient
+        .getLogs({ address: ADDRESSES.amm, event, args: { trader }, fromBlock: from, toBlock: to })
+        .then((part) => logs.push(...part))
+        .catch(() => { failures++ })
+    )
+    await Promise.all(batch)
   }
   if (failures && !logs.length) return []
   const deedIds = [...new Set(logs.map((l) => l.args.deedId))]
@@ -177,29 +186,59 @@ export async function requestTrace(constId) {
   await spacetime.callReducer('trace_constellation', [constId, evm])
 }
 
-/** Poll trace_attestation for a fresh signature for this constellation. */
-export async function awaitAttestation(constId, { timeoutMs = 30000, intervalMs = 2500 } = {}) {
+const identityHex = (v) => String(v?.__identity__ ?? v ?? '').toLowerCase().replace(/^0x/, '')
+const sameIdentity = (a, b) => !!a && !!b && identityHex(a) === identityHex(b)
+
+/** My newest trace_intent for this constellation — the row requestTrace just created. */
+async function myLatestIntentId(constId) {
+  const me = spacetime.identity
+  if (!me) return null
+  const rows = await spacetime
+    .query(`SELECT * FROM trace_intent WHERE constellation_id = ${constId}`)
+    .catch(() => [])
+  const mine = rows
+    .filter((r) => sameIdentity(r.trader, me))
+    .sort((a, b) => Number(b.created_at || 0) - Number(a.created_at || 0))[0]
+  return mine != null ? Number(mine.intent_id) : null
+}
+
+/**
+ * Poll for the attestation answering *my* trace of this constellation, for the
+ * given EVM trader address. Matching goes through my newest trace_intent's
+ * intent_id (1:1 with trace_attestation) so a concurrent trace by another
+ * player — or a stale attestation from an earlier trade — can never be
+ * picked up (either would revert on-chain with a trader/nonce mismatch).
+ */
+export async function awaitAttestationFor(constId, trader, { timeoutMs = 30000, intervalMs = 2500 } = {}) {
   const deadline = Date.now() + timeoutMs
+  let intentId = null
   while (Date.now() < deadline) {
-    // SpacetimeDB SQL has no ORDER BY; fetch + pick the newest client-side.
-    const rows = await spacetime
-      .query(`SELECT * FROM trace_attestation WHERE constellation_id = ${constId}`)
-      .catch(() => [])
-    const row = rows.sort((a, b) => Number(b.created_at || 0) - Number(a.created_at || 0))[0]
-    if (row && row.signature) {
-      return {
-        trader: wallet.address,
-        constellationId: constId,
-        regionCommit: row.region_commit,
-        visibleStars: Number(row.visible_stars),
-        nonce: BigInt(row.nonce),
-        deadline: BigInt(row.deadline),
-        signature: row.signature,
+    if (intentId == null) intentId = await myLatestIntentId(constId)
+    if (intentId != null) {
+      const rows = await spacetime
+        .query(`SELECT * FROM trace_attestation WHERE intent_id = ${intentId}`)
+        .catch(() => [])
+      const row = rows[0]
+      if (row && row.signature) {
+        return {
+          trader,
+          constellationId: constId,
+          regionCommit: row.region_commit,
+          visibleStars: Number(row.visible_stars),
+          nonce: BigInt(row.nonce),
+          deadline: BigInt(row.deadline),
+          signature: row.signature,
+        }
       }
     }
     await new Promise((r) => setTimeout(r, intervalMs))
   }
   throw new Error('Timed out waiting for the sky-feeder attestation.')
+}
+
+/** Poll trace_attestation for a fresh signature for this constellation (wallet path). */
+export async function awaitAttestation(constId, opts = {}) {
+  return awaitAttestationFor(constId, wallet.address, opts)
 }
 
 // ---- on-chain writes (wallet required) -------------------------------------

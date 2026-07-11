@@ -28,6 +28,12 @@ import { normalizeWsRow } from './ws-normalize.js'
 const RAW_URI = (import.meta.env.VITE_SPACETIMEDB_URI || '').trim()
 const DB_NAME = (import.meta.env.VITE_SPACETIMEDB_DB || 'cookingwithcastrollc').trim()
 const TOKEN_KEY = 'pentacles_stdb_token'
+// A signed-in OIDC token (minted by the Pentacles OIDC issuer from a Google
+// session). When present it takes precedence over the anonymous token, so the
+// SpacetimeDB identity becomes Identity::from_claims(issuer, user-id) — stable
+// across devices. The anonymous token is always kept as a fallback and is never
+// overwritten by the signed-in session.
+const OIDC_TOKEN_KEY = 'pentacles_oidc_token'
 
 // Normalize the host into an http(s) base URL (accept ws/wss/host forms).
 function normalizeBase(uri) {
@@ -57,6 +63,7 @@ class SpacetimeClient {
     this.status = STATUS.OFFLINE
     this.lastError = null
     this.token = localStorage.getItem(TOKEN_KEY) || null
+    this.authToken = localStorage.getItem(OIDC_TOKEN_KEY) || null // signed-in OIDC token
     this.identity = null
     this._statusListeners = new Set()
     this._tableListeners = new Map() // table -> Set<cb>
@@ -78,6 +85,14 @@ class SpacetimeClient {
   }
   get isLive() {
     return this.status === STATUS.LIVE
+  }
+  /** True when connected under a Google/OIDC identity (vs. anonymous). */
+  get signedIn() {
+    return !!this.authToken
+  }
+  /** The token to connect with: the signed-in OIDC token wins over anonymous. */
+  get activeToken() {
+    return this.authToken || this.token
   }
 
   onStatus(cb) {
@@ -125,7 +140,11 @@ class SpacetimeClient {
             this.conn = conn
             try {
               this.identity = identity?.toHexString?.() || this.identity
-              if (token) {
+              // Persist the echoed token only when connecting ANONYMOUSLY — the
+              // server mints a long-lived token for anonymous connects. When
+              // signed in, onConnect echoes back our own OIDC token, which must
+              // NOT overwrite the stable anonymous fallback token.
+              if (token && !this.authToken) {
                 this.token = token
                 if (window.CookieSync) {
                   window.CookieSync.persist(TOKEN_KEY, token)
@@ -157,7 +176,7 @@ class SpacetimeClient {
             }
             done(false)
           })
-        if (this.token) builder = builder.withToken(this.token)
+        if (this.activeToken) builder = builder.withToken(this.activeToken)
         builder.build()
       } catch (e) {
         this._setStatus(STATUS.ERROR, e)
@@ -204,14 +223,53 @@ class SpacetimeClient {
         }
       }
     }
-    // Always derive the identity from the JWT (hex_identity claim) so it's set
-    // even when a token was restored from localStorage.
-    if (this.token && !this.identity) this.identity = identityFromToken(this.token)
-    return this.token
+    // Derive the identity from the active JWT (signed-in OIDC token if present,
+    // else anonymous). For an OIDC token the hex_identity claim is absent, so
+    // this stays null here and is set authoritatively from onConnect's identity.
+    if (this.activeToken && !this.identity) this.identity = identityFromToken(this.activeToken)
+    return this.activeToken
   }
 
   _authHeaders(extra = {}) {
-    return this.token ? { Authorization: `Bearer ${this.token}`, ...extra } : { ...extra }
+    const t = this.activeToken
+    return t ? { Authorization: `Bearer ${t}`, ...extra } : { ...extra }
+  }
+
+  /**
+   * Sign in with an OIDC token (minted by the Pentacles issuer from a Google
+   * session): persist it, then reconnect so the SDK presents it and the module
+   * sees the signed-in identity. Callers that want to keep the current
+   * anonymous profile should run the link/claim flow (see net/auth.js) BEFORE
+   * calling this, while still connected anonymously.
+   */
+  async signInWithToken(oidcToken) {
+    if (!oidcToken) throw new Error('No token.')
+    this.authToken = oidcToken
+    try { localStorage.setItem(OIDC_TOKEN_KEY, oidcToken) } catch {}
+    this.identity = identityFromToken(oidcToken) || this.identity
+    return this._reconnectFresh()
+  }
+
+  /** Sign out: drop the OIDC token and reconnect as the anonymous identity. */
+  async signOut() {
+    this.authToken = null
+    try { localStorage.removeItem(OIDC_TOKEN_KEY) } catch {}
+    this.identity = this.token ? identityFromToken(this.token) : null
+    return this._reconnectFresh()
+  }
+
+  /** Fully tear down and re-establish the live connection with the current token. */
+  async _reconnectFresh() {
+    const wasLive = this._wantLive
+    try { this._subHandle?.unsubscribe?.() } catch {}
+    try { this.conn?.disconnect?.() } catch {}
+    this.conn = null
+    this._subHandle = null
+    this._boundTables.clear()
+    if (this._reconnectTimer) { clearTimeout(this._reconnectTimer); this._reconnectTimer = null }
+    this._reconnectAttempts = 0
+    if (!wasLive && !this.configured) return false
+    return this.connect()
   }
 
   /**

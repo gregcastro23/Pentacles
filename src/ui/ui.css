@@ -165,6 +165,11 @@
 .pt-net--error .pt-net__dot { color: #e88a8a; }
 @keyframes pt-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
 
+/* Sign-in pill: sits just above the connection badge, same visual language. */
+.pt-auth { bottom: 52px; }
+.pt-auth--in .pt-net__dot { color: var(--gold, #d8b46a); }
+.pt-auth--in { color: var(--text, #ece9e0); }
+
 /* ---- ESMS balance HUD (top-right) ---- */
 .pt-esms {
   position: fixed;
