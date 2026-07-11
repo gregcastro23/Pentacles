@@ -51,6 +51,7 @@ import CancelTradeReducer from "./cancel_trade_reducer";
 import CastJingReducer from "./cast_jing_reducer";
 import CastWordReducer from "./cast_word_reducer";
 import ClaimDuelTimeoutReducer from "./claim_duel_timeout_reducer";
+import ClaimProfileReducer from "./claim_profile_reducer";
 import CombineCardsReducer from "./combine_cards_reducer";
 import CommitDuelReducer from "./commit_duel_reducer";
 import ConfirmTradeReducer from "./confirm_trade_reducer";
@@ -59,6 +60,7 @@ import CreatePlayerReducer from "./create_player_reducer";
 import DeployCardReducer from "./deploy_card_reducer";
 import EnqueueDuelReducer from "./enqueue_duel_reducer";
 import MarkStarYieldClaimedReducer from "./mark_star_yield_claimed_reducer";
+import OpenIdentityLinkReducer from "./open_identity_link_reducer";
 import ProposeTradeReducer from "./propose_trade_reducer";
 import PurgeStaleAgentsReducer from "./purge_stale_agents_reducer";
 import PushEphemerisReducer from "./push_ephemeris_reducer";
@@ -592,6 +594,7 @@ const reducersSchema = __reducers(
   __reducerSchema("cast_jing", CastJingReducer),
   __reducerSchema("cast_word", CastWordReducer),
   __reducerSchema("claim_duel_timeout", ClaimDuelTimeoutReducer),
+  __reducerSchema("claim_profile", ClaimProfileReducer),
   __reducerSchema("combine_cards", CombineCardsReducer),
   __reducerSchema("commit_duel", CommitDuelReducer),
   __reducerSchema("confirm_trade", ConfirmTradeReducer),
@@ -600,6 +603,7 @@ const reducersSchema = __reducers(
   __reducerSchema("deploy_card", DeployCardReducer),
   __reducerSchema("enqueue_duel", EnqueueDuelReducer),
   __reducerSchema("mark_star_yield_claimed", MarkStarYieldClaimedReducer),
+  __reducerSchema("open_identity_link", OpenIdentityLinkReducer),
   __reducerSchema("propose_trade", ProposeTradeReducer),
   __reducerSchema("purge_stale_agents", PurgeStaleAgentsReducer),
   __reducerSchema("push_ephemeris", PushEphemerisReducer),

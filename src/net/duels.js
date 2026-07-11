@@ -6,11 +6,12 @@
 // feeder asks the planetary agent and calls answer_duel, which writes a word_duel
 // row that we poll for. Offline, app.js falls back to the bundled solver.
 //
-// NOTE: the Planet enum SATS-JSON encoding and the word_duel match query are
-// SpacetimeDB-version-specific and must be validated against a live host + a
-// running duel-service feeder before this path is trusted.
+// The Planet enum SATS-JSON encoding and the word_duel match query were
+// validated against the live 2.6 module + running duel-service feeder
+// (prod cookingwithcastrollc, 2026-07).
 
 import spacetime from './spacetime.js'
+import { letterFor } from './letters.js'
 
 const PLANET_NAMES = ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto']
 
@@ -22,22 +23,6 @@ function planetArg(idx) {
 }
 
 const sqlEscape = (s) => String(s).replace(/'/g, "''")
-
-// The 98-tile bag — mirrors words::letter_for / the client letterFor so we can
-// compute the player's rack from their (public) card ids.
-const LETTER_BAG = [
-  ['A', 9], ['B', 2], ['C', 2], ['D', 4], ['E', 12], ['F', 2], ['G', 3], ['H', 2], ['I', 9],
-  ['J', 1], ['K', 1], ['L', 4], ['M', 2], ['N', 6], ['O', 8], ['P', 2], ['Q', 1], ['R', 6],
-  ['S', 4], ['T', 6], ['U', 4], ['V', 2], ['W', 2], ['X', 1], ['Y', 2], ['Z', 1],
-]
-function letterFor(cardId) {
-  let n = ((cardId % 98) + 98) % 98
-  for (const [ch, c] of LETTER_BAG) {
-    if (n < c) return ch
-    n -= c
-  }
-  return 'E'
-}
 const sameIdentity = (a, b) =>
   a && b && String(a).toLowerCase().replace(/^0x/, '') === String(b).toLowerCase().replace(/^0x/, '')
 
@@ -80,10 +65,17 @@ export async function castWordLive(word, opponentIdx, { timeoutMs = 35000, inter
   while (Date.now() < deadline) {
     await new Promise((r) => setTimeout(r, intervalMs))
     // SpacetimeDB SQL has no ORDER BY; fetch matches and find the unseen one.
+    // Filter to MY duels — two players casting the same word within the poll
+    // window must not cross-attribute each other's results.
     const rows = await spacetime
       .query(`SELECT * FROM word_duel WHERE player_word = '${sqlEscape(w)}'`)
       .catch(() => [])
-    const fresh = rows.find((r) => !seen.has(String(r.duel_id)))
+    const me = spacetime.identity
+    const fresh = rows.find(
+      (r) =>
+        !seen.has(String(r.duel_id)) &&
+        (!me || !r.player || sameIdentity(r.player.__identity__ ?? r.player, me))
+    )
     if (fresh) {
       return {
         opponent: opponentIdx,

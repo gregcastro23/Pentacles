@@ -17,6 +17,8 @@ import { toast, confirmToast } from './ui/toast.js'
 import { initA11y } from './ui/a11y.js'
 import spacetime from './net/spacetime.js'
 import { initNetBadge } from './net/status-badge.js'
+import { initAuth } from './net/auth.js'
+import { initAuthButton } from './net/auth-button.js'
 import duels from './net/duels.js'
 import register from './net/register.js'
 import deploy from './net/deploy.js'
@@ -198,7 +200,7 @@ function warActiveCards() {
 /** Deploy a card onto a zone; keep local loadout state in sync (card → Defense). */
 async function warDeploy(cardId, zoneId) {
   if (!Pentacles.deploy || !(spacetime && spacetime.isLive)) {
-    if (window.toast) window.toast('Deploy needs a live connection — running local simulation.', { type: 'info', title: 'Faction War' })
+    if (window.toast) window.toast('Deploying a card needs a live connection — reconnect and try again.', { type: 'info', title: 'Faction War' })
     return { ok: false, reason: 'offline' }
   }
   await Pentacles.deploy.deployCardLive(cardId, zoneId)
@@ -438,19 +440,25 @@ document.addEventListener('keydown', (e) => {
 function boot() {
   initA11y()
   initNetBadge()
+  initAuthButton()
   // Reveal the admin console entry only for the unlocked admin client.
   if (isAdmin()) revealAdminButton()
   // Attempt the live connection in the background; the badge reflects the result
   // and the game keeps running on local simulation either way.
   spacetime.connect()
-    .then((isLive) => {
-      if (isLive && window.state) {
+    .then(async (isLive) => {
+      // If a shared Google session exists, adopt it and carry the anonymous
+      // profile over (link/claim) BEFORE restore, then continue with whichever
+      // identity we end up on. Best-effort: stays anonymous if anything fails.
+      try { await initAuth() } catch (e) { console.warn('[Pentacles] Auth init failed', e) }
+      const live = spacetime.isLive
+      if (live && window.state) {
         import('./net/restore.js')
           .then((m) => m.restoreProfileFromSpacetimeDB(spacetime, window.state))
           .catch((e) => console.warn('[Pentacles] Profile restore failed', e))
       }
       // Authoritative admin unlock: are we the module owner identity?
-      if (isLive) verifyOwnerIdentity().catch(() => {})
+      if (live) verifyOwnerIdentity().catch(() => {})
     })
     .catch(() => {})
 

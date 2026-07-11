@@ -71,6 +71,14 @@ export const Card = __t.object("Card", {
 });
 export type Card = __Infer<typeof Card>;
 
+export const ClaimGrant = __t.object("ClaimGrant", {
+  codeHash: __t.string(),
+  oldIdentity: __t.identity(),
+  createdAt: __t.timestamp(),
+  expiresAt: __t.timestamp(),
+});
+export type ClaimGrant = __Infer<typeof ClaimGrant>;
+
 // The tagged union or sum type for the algebraic type `CombatModel`.
 export const CombatModel = __t.enum("CombatModel", ["LaneSkirmish", "AutoSiege"]);
 export type CombatModel = __Infer<typeof CombatModel>;

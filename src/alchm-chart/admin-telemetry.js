@@ -104,10 +104,10 @@ class AdminTelemetryInstance {
       try {
         await st.query('SELECT service FROM service_status LIMIT 1'); // cheap: 0–1 rows
       } catch (e) {
-        // e.g. "no such table: `service_status`" until the republish lands. Any
-        // probe failure means the same thing operationally: don't subscribe blind.
+        // service_status is live on prod; a probe failure here means an older
+        // module or a transient error. Either way: don't subscribe blind.
         missing = true;
-        console.warn('[observatory] service_status probe failed — skipping its live subscription (module republish pending?):', e.message || e);
+        console.warn('[observatory] service_status probe failed — skipping its live subscription:', e.message || e);
       }
     }
     if (this._destroyed) return;
@@ -150,7 +150,7 @@ class AdminTelemetryInstance {
     if (hh.skyTimerArmed === false)
       alerts.push({ key: 'timer', msg: 'Sky tick timer is NOT armed — scheduled ticks have stopped.' });
     if (this._svcTableMissing)
-      alerts.push({ key: 'svc-table', msg: 'The service_status table is missing from the connected module — Services telemetry is disabled until the module republish lands (live subscription skipped).' });
+      alerts.push({ key: 'svc-table', msg: 'The service_status table is missing from the connected module — Services telemetry is disabled (live subscription skipped). The connected module may be older than prod.' });
     // Service heartbeats (service_status): a dead service stops reporting, so a
     // stale row is as loud an alarm as an explicit unhealthy report. Keys are
     // per-service so each transition toasts once.

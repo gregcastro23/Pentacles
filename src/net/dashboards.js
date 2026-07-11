@@ -6,9 +6,9 @@
 // are DERIVED from zone ownership/control + per-star holdings (faction = Planet).
 // Offline, the classic local renderers are kept intact as the fallback.
 //
-// NOTE: the SATS-JSON decoding of Option<Planet>/ZoneKind and the region→zone
-// mapping (via star_node.region_hint) are version-specific and should be
-// validated against a live host.
+// The SATS-JSON decoding of Option<Planet>/ZoneKind and the region→zone
+// mapping (via star_node.region_hint) were validated against the live 2.6
+// module (prod cookingwithcastrollc, 2026-07).
 
 import spacetime from './spacetime.js'
 
