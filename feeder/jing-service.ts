@@ -91,13 +91,20 @@ async function backendMove(planet: string, opening: string): Promise<{ move: str
   });
 }
 
+export interface JingDuelRow {
+  duel_id: number | string;
+  opening_move?: string;
+  target_agent?: string | null;
+  state?: string;
+}
+
 // Open agent-targeted duel: state Open AND target_agent is a Planet variant name.
-function isOpenAgentDuel(row: Record<string, any>): boolean {
+function isOpenAgentDuel(row: JingDuelRow): boolean {
   const agent = row.target_agent;
   return row.state === "Open" && typeof agent === "string" && /^[A-Za-z]+$/.test(agent);
 }
 
-async function processDuel(row: Record<string, any>): Promise<void> {
+async function processDuel(row: JingDuelRow): Promise<void> {
   // Rows arrive normalized: opening_move/target_agent are variant-name strings
   // ("Meltdown" / "Mars"), target_agent is null for player-vs-player duels.
   const duelId = Number(row.duel_id);

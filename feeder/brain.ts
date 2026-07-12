@@ -37,7 +37,7 @@ export interface BrainCallOptions<T> {
   label: string;
   /** Contract check: extract the usable result from the response JSON, or
    *  return null to treat the body as contract-violating (counts as failure). */
-  validate: (json: any) => T | null;
+  validate: (json: unknown) => T | null;
   /** Per-attempt timeout override in ms (default BRAIN_TIMEOUT_MS). */
   timeoutMs?: number;
 }

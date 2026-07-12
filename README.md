@@ -253,6 +253,22 @@ A lightweight Vite web client (entry `index.html`) is provided to play and test 
 - **Synthesized Audio**: Leverages the browser Web Audio API to play ambient cosmic drones, card flip chimes, and combat explosion sfx.
 - **Local Persistence & Bots**: Syncs state directly to browser `localStorage`. Runs a background simulation that decays controlled zones and triggers periodic bot attacks to keep the map contested.
 
+## ESMS Economy (Staking & Duels)
+
+The ESMS (Spirit 🜂, Essence 🜄, Matter 🜃, Substance 🜁) elements serve as the fuel and rewards of the Pentacles economy. The game runs a dual-layer ESMS structure:
+
+### 1. On-Chain Soulbound Tokens (ERC-1155)
+*   **Purpose**: Used to seed liquidity and swap in the 12 constellation pools on the `ConstellationAMM` contract on Circle Arc / Base Sepolia.
+*   **Staking USDC**: Players stake USDC on individual stars via `StarVault.sol`.
+*   **Horizon-Gated Yield**: Yield only accrues when the staked star is above the player's horizon (`altitude_deg > 0`). The rate is multiplicative: $\text{BASE\_DAILY\_RATE (0.0006)} \times \text{Zone Dominance} \times \text{Chart Affinity} \times \text{Planet Dignity}$.
+*   **Shooting-Star Burst**: If a player claims their yield during the narrow ~16-second window when a star is rising on the **Ascendant** (within a $\pm 2$ arc-minute orb), it triggers a burst-boost, awarding an **extra 0.5 days of yield**.
+*   **Claiming**: Handled via `POST /api/staking/claim-attestation` which verifies visibility, clamps to the on-chain yield cap, signs an EIP-712 payload, and triggers an on-chain mint through `claimYield`. The attestor then synchronizes with SpacetimeDB via `mark_star_yield_claimed`.
+
+### 2. In-Game Consciousness Pools (JingPool)
+*   **Purpose**: Mirrored database representations in SpacetimeDB used to cast/counter spells ("Jings") in the Arena.
+*   **Casting Jings**: Each cast drains 10 ESMS of the corresponding element.
+*   **Earning Rewards**: Duel rounds resolve every 3 plays. Upon resolution, an `ELEMENT_POOL` of 100 ESMS is divided among participants of that element pro-rata by their play weight: $\text{share} = (\text{weight} / \text{total\_weight}) \times 100$, and added to their `JingPool` balance.
+
 ## Notes & accuracy
 
 - **The chart is computed client-side** (`ChartCalculator`) and committed once;

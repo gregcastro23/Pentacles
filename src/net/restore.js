@@ -49,7 +49,7 @@ export async function restoreProfileFromSpacetimeDB(net, state) {
     return
   }
 
-  // eslint-disable-next-line no-console
+   
   console.info('[CloudSync] No local profile found. Attempting cloud restore from SpacetimeDB...')
 
   try {
@@ -62,13 +62,13 @@ export async function restoreProfileFromSpacetimeDB(net, state) {
     )
 
     if (!pRow) {
-      // eslint-disable-next-line no-console
+       
       console.info('[CloudSync] No registered player found on SpacetimeDB for this identity.')
       return
     }
 
     const handle = pRow.handle
-    // eslint-disable-next-line no-console
+     
     console.info(`[CloudSync] Found registered player "${handle}". Reconstructing profile...`)
 
     // 2. Fetch natal chart (private table, returns only the owner's row)
@@ -76,7 +76,7 @@ export async function restoreProfileFromSpacetimeDB(net, state) {
     const ncRow = charts[0]
 
     if (!ncRow) {
-      // eslint-disable-next-line no-console
+       
       console.warn('[CloudSync] Player exists but no natal chart found on SpacetimeDB.')
       return
     }
@@ -195,7 +195,7 @@ export async function restoreProfileFromSpacetimeDB(net, state) {
       toast(`Restored profile "${handle}" from SpacetimeDB!`, { type: 'success', title: 'Cloud Sync' })
     }
   } catch (err) {
-    // eslint-disable-next-line no-console
+     
     console.error('[CloudSync] Failed to restore profile from SpacetimeDB:', err)
   }
 }
