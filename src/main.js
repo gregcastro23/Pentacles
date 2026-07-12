@@ -485,7 +485,7 @@ function boot() {
       .catch((e) => console.warn('[Pentacles] Dynamic island failed to load', e))
   }
 
-  // eslint-disable-next-line no-console
+   
   console.info('[Pentacles] ESM layer ready (Vite) — v' + Pentacles.version)
 }
 
