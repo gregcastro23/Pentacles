@@ -57,15 +57,34 @@ const upperFirst = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 // single-element array; unwrapping them matches normalizeWsRow's plain values.
 const WRAPPER_FIELDS = new Set(["__identity__", "__connection_id__", "__timestamp_micros_since_unix_epoch__"]);
 
-export function decodeSats(type: any, val: any): any {
+interface SpacetimeVariant {
+  name?: string | { some?: string };
+  algebraic_type?: unknown;
+}
+
+interface SpacetimeProductElement {
+  name?: string | { some?: string };
+  algebraic_type?: unknown;
+}
+
+interface SpacetimeType {
+  Sum?: {
+    variants?: SpacetimeVariant[];
+  };
+  Product?: {
+    elements?: SpacetimeProductElement[];
+  };
+}
+
+export function decodeSats(type: SpacetimeType | null | undefined, val: unknown): unknown {
   if (type?.Sum) {
     const variants = type.Sum.variants ?? [];
     if (!Array.isArray(val)) return val;
-    const [tag, payload] = val;
+    const [tag, payload] = val as [number, unknown];
     const variant = variants[tag];
-    const vname = (variant && (variant.name?.some ?? variant.name)) ?? String(tag);
-    const isOption = variants.length === 2 && variants.some((v: any) => (v?.name?.some ?? v?.name) === "none");
-    if (isOption) return vname === "none" ? null : decodeSats(variant?.algebraic_type, payload);
+    const vname = (variant && (typeof variant.name === "string" ? variant.name : variant.name?.some)) ?? String(tag);
+    const isOption = variants.length === 2 && variants.some((v) => (typeof v?.name === "string" ? v.name : v?.name?.some) === "none");
+    if (isOption) return vname === "none" ? null : decodeSats(variant?.algebraic_type as SpacetimeType, payload);
     // /sql schemas name sum variants lowerFirst ("open", "tectonicRoot", "mars");
     // the WS bindings — and every feeder predicate built against them, e.g.
     // jing's row.state === "Open" and COUNTER_OF[opening] — use PascalCase tags.
@@ -78,8 +97,8 @@ export function decodeSats(type: any, val: any): any {
     // normalizeWsRow delivers (constellation's regionCommit interpolates the
     // trader identity into a /sql WHERE clause, so the wrapper array breaks it).
     const els = type.Product.elements ?? [];
-    const ename = els[0]?.name?.some ?? els[0]?.name;
-    if (els.length === 1 && WRAPPER_FIELDS.has(ename) && Array.isArray(val) && val.length === 1) {
+    const ename = els[0]?.name && (typeof els[0].name === "string" ? els[0].name : els[0].name.some);
+    if (els.length === 1 && ename && WRAPPER_FIELDS.has(ename) && Array.isArray(val) && val.length === 1) {
       return val[0];
     }
   }
@@ -89,6 +108,11 @@ export function decodeSats(type: any, val: any): any {
     return val[0];
   }
   return val;
+}
+
+interface SpacetimeSchemaElement {
+  name?: string | { some?: string };
+  algebraic_type?: SpacetimeType;
 }
 
 export async function sqlOneShot(
@@ -105,12 +129,12 @@ export async function sqlOneShot(
     body: query,
   });
   if (!res.ok) throw new Error(`sql ${res.status}: ${await res.text().catch(() => "")}`);
-  const json: any = await res.json();
-  const stmt = Array.isArray(json) ? json[json.length - 1] : json;
-  const els = stmt?.schema?.elements ?? [];
-  const cols = els.map((e: any, i: number) => (typeof e?.name === "string" ? e.name : e?.name?.some ?? `col${i}`));
-  const types = els.map((e: any) => e?.algebraic_type);
-  return (stmt?.rows ?? []).map((row: any[]) => {
+  const json = await res.json() as unknown;
+  const stmt = (Array.isArray(json) ? json[json.length - 1] : json) as Record<string, any>;
+  const els = (stmt?.schema?.elements ?? []) as SpacetimeSchemaElement[];
+  const cols = els.map((e, i: number) => (typeof e?.name === "string" ? e.name : e?.name?.some ?? `col${i}`));
+  const types = els.map((e) => e?.algebraic_type);
+  return (stmt?.rows ?? []).map((row: unknown[]) => {
     const o: Record<string, any> = {};
     row.forEach((v, i) => (o[cols[i] ?? `col${i}`] = decodeSats(types[i], v)));
     return o;
@@ -162,7 +186,7 @@ export function startFeed(opts: FeedOptions): void {
   };
 
   // WS rows arrive in SDK shape (camelCase keys, tagged enums) — normalize first.
-  const handle = (raw: any) => { dispatch(normalizeWsRow(raw)); };
+  const handle = (raw: unknown) => { dispatch(normalizeWsRow(raw)); };
 
   let reconnecting = false;
   const scheduleReconnect = () => {
@@ -176,27 +200,28 @@ export function startFeed(opts: FeedOptions): void {
       let builder = DbConnection.builder()
         .withUri(opts.uri)
         .withDatabaseName(opts.db)
-        .onConnect((conn: any) => {
+        .onConnect((conn: DbConnection) => {
           console.log(`[${label}] WebSocket connected; subscribing.`);
+          const db = conn.db as any;
           // Fire on every new row entering the subscribed (filtered) set.
-          conn.db[opts.table].onInsert((_ctx: any, row: any) => { handle(row); });
+          db[opts.table].onInsert((_ctx: unknown, row: unknown) => { handle(row); });
           conn
             .subscriptionBuilder()
             .onApplied(() => {
-              const rows = [...conn.db[opts.table].iter()];
+              const rows = [...db[opts.table].iter()] as unknown[];
               if (rows.length) console.log(`[${label}] backlog: ${rows.length} pending row(s).`);
               for (const r of rows) handle(r);
             })
-            .onError((ctx: any) => {
+            .onError((ctx: { event?: string }) => {
               console.error(`[${label}] subscription error:`, ctx?.event ?? "unknown");
             })
             .subscribe([opts.query]);
         })
-        .onConnectError((_ctx: any, err: any) => {
+        .onConnectError((_ctx: unknown, err: any) => {
           console.error(`[${label}] connect error:`, err?.message ?? err);
           scheduleReconnect();
         })
-        .onDisconnect((_ctx: any, err: any) => {
+        .onDisconnect((_ctx: unknown, err: any) => {
           console.warn(`[${label}] disconnected${err ? ": " + err.message : ""}; reconnecting…`);
           scheduleReconnect();
         });

@@ -175,11 +175,13 @@ async function liveSkyBlock(): Promise<string | null> {
       signal: AbortSignal.timeout(SKY_FETCH_TIMEOUT_MS),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const json: any = await res.json();
+    const json = (await res.json()) as {
+      planetary_positions?: Record<string, { sign: string; degree: number; isRetrograde?: boolean }>;
+    };
     const positions = json?.planetary_positions;
     if (!positions || typeof positions !== "object") throw new Error("no planetary_positions in body");
     const parts: string[] = [];
-    for (const [body, p] of Object.entries<any>(positions)) {
+    for (const [body, p] of Object.entries(positions)) {
       if (!p || typeof p.sign !== "string") continue;
       parts.push(`${body} ${Math.trunc(Number(p.degree) || 0)}°${p.sign}${p.isRetrograde ? " Rx" : ""}`);
     }

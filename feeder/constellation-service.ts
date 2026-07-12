@@ -95,9 +95,12 @@ const EIP712_TYPES = {
 // (the trace_intent trigger arrives over the WebSocket feed — see main() — and
 // the SATS decode now lives in stdb-feed.ts, shared with every feeder's re-sweep).
 
-function parseValue(val: any): string {
+function parseValue(val: unknown): string {
   if (val == null) return "";
-  if (typeof val === "object") return (val as any).__identity__ ?? JSON.stringify(val);
+  if (typeof val === "object") {
+    const obj = val as Record<string, unknown>;
+    return typeof obj.__identity__ === "string" ? obj.__identity__ : JSON.stringify(val);
+  }
   return String(val);
 }
 
