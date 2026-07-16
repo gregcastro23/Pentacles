@@ -30,7 +30,7 @@ export default __t.row({
     return Planet.name("source_body");
   },
   inverted: __t.bool(),
-  isTrump: __t.bool().name("is_trump"),
+  isMajor: __t.bool().name("is_major"),
   level: __t.u8(),
   mintedAt: __t.timestamp().name("minted_at"),
   letter: __t.u8(),

@@ -839,13 +839,13 @@ section.block:first-of-type::before { display: none; }
   box-shadow: 0 16px 36px rgba(219, 122, 71, 0.35);
 }
 
-/* Major Arcana / Trump Card styling */
-.tarot-card.trump {
+/* Major Arcana card styling */
+.tarot-card.major {
   border-color: var(--gold-bright);
   background: linear-gradient(135deg, rgba(20, 16, 8, 0.92) 0%, rgba(8, 10, 18, 0.95) 100%);
   box-shadow: 0 8px 28px rgba(241, 219, 161, 0.18);
 }
-.tarot-card.trump::before {
+.tarot-card.major::before {
   content: "";
   position: absolute;
   inset: -1px;
@@ -857,7 +857,7 @@ section.block:first-of-type::before { display: none; }
   mask-composite: exclude;
   pointer-events: none;
 }
-.tarot-card.trump:hover {
+.tarot-card.major:hover {
   border-color: #fff;
   box-shadow: 0 16px 40px rgba(241, 219, 161, 0.45);
 }
@@ -874,7 +874,7 @@ section.block:first-of-type::before { display: none; }
   padding: 12px 10px;
   pointer-events: none;
 }
-.tarot-card.trump .card-frame {
+.tarot-card.major .card-frame {
   border-color: rgba(241, 219, 161, 0.25);
   box-shadow: inset 0 0 12px rgba(241, 219, 161, 0.05);
 }
@@ -902,7 +902,7 @@ section.block:first-of-type::before { display: none; }
   text-shadow: 0 2px 4px rgba(0,0,0,0.6);
   line-height: 1.2;
 }
-.tarot-card.trump .card-title {
+.tarot-card.major .card-title {
   color: var(--gold-bright);
 }
 
@@ -921,7 +921,7 @@ section.block:first-of-type::before { display: none; }
   background: rgba(216, 180, 106, 0.15);
   margin: 6px 0;
 }
-.tarot-card.trump .card-sep {
+.tarot-card.major .card-sep {
   background: rgba(241, 219, 161, 0.25);
 }
 

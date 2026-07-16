@@ -482,11 +482,11 @@ body {
 .web-card.pentacles.selected { border-color: var(--pentacles); }
 .web-card.wands.selected { border-color: var(--wands); }
 
-.web-card.trump {
+.web-card.major {
   border-color: var(--gold-bright);
   background: linear-gradient(135deg, rgba(16, 13, 6, 0.95) 0%, rgba(6, 8, 15, 0.98) 100%);
 }
-.web-card.trump::before {
+.web-card.major::before {
   content: "";
   position: absolute;
   inset: -1px;
@@ -520,7 +520,7 @@ body {
   text-overflow: ellipsis;
   width: 100%;
 }
-.web-card.trump .web-card-title { color: var(--gold-bright); }
+.web-card.major .web-card-title { color: var(--gold-bright); }
 
 .web-card-subtitle {
   font-size: 7.5px;

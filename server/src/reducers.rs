@@ -39,7 +39,7 @@ const OBLIQUITY_DEG: f64 = 23.439291; // mean obliquity, matches SkyMath.Obliqui
 
 // ── The Ascendant clock (per-round re-draft) ────────────────────────────────
 /// A player's whole card collection is capped here. A draft past the cap replaces
-/// only the weakest *bench* card, and only if it's stronger (Active/Sentinel/trump
+/// only the weakest *bench* card, and only if it's stronger (Active/Sentinel/Major
 /// are never culled). Also the ceiling on a single offline catch-up's mints.
 const COLLECTION_CAP: usize = 100;
 /// Round clock: a base round is ~15 arc-min of Ascendant ≈ 1 min real. It lengthens
@@ -553,7 +553,7 @@ fn stat_of(c: &Card) -> combat::CardStat {
     }
 }
 
-/// Fuse two copies of the same card (same suit, rank, and trump-ness). The kept
+/// Fuse two copies of the same card (same suit, rank, and Major/Minor tier). The kept
 /// card levels up — keeping its own minted identity — and the consumed copy is
 /// spent. Gains follow a gentle plateau, so combining has diminishing returns.
 #[reducer]
@@ -576,7 +576,7 @@ pub fn combine_cards(ctx: &ReducerContext, keep_id: u64, consume_id: u64) -> Res
     if keep.owner != ctx.sender() || consume.owner != ctx.sender() {
         return Err("you can only combine your own cards".into());
     }
-    if keep.suit != consume.suit || keep.rank != consume.rank || keep.is_trump != consume.is_trump {
+    if keep.suit != consume.suit || keep.rank != consume.rank || keep.is_major != consume.is_major {
         return Err("those aren't the same card".into());
     }
     if keep.level >= MAX_CARD_LEVEL {
@@ -1691,7 +1691,7 @@ fn auto_battle_win(deck_power: f32, challenge: f32) -> bool {
 fn should_replace(new_strength: f32, weakest: Option<f32>) -> bool {
     match weakest {
         Some(w) => new_strength > w,
-        None => false, // nothing cullable (all Active/Sentinel/trump) → discard the draft
+        None => false, // nothing cullable (all Active/Sentinel/Major) → discard the draft
     }
 }
 
@@ -1741,11 +1741,11 @@ fn retrograde_flags(ctx: &ReducerContext) -> [bool; 10] {
     retro
 }
 
-/// The owner's hero ceiling: the strongest stats among their trump cards, so a draft
-/// can be clamped strictly below the keystone. None if they hold no trump.
+/// The owner's hero ceiling: the strongest stats among their Major Arcana, so a draft
+/// can be clamped strictly below the keystone. None if they hold no Major.
 fn hero_ceiling(ctx: &ReducerContext, owner: Identity) -> Option<(u16, u16, u16)> {
     let mut best: Option<(u16, u16, u16)> = None;
-    for c in ctx.db.card().owner().filter(&owner).filter(|c| c.is_trump) {
+    for c in ctx.db.card().owner().filter(&owner).filter(|c| c.is_major) {
         best = Some(match best {
             Some((a, h, ar)) => (a.max(c.attack), h.max(c.health), ar.max(c.armour)),
             None => (c.attack, c.health, c.armour),
@@ -1784,7 +1784,7 @@ fn active_deck_power(ctx: &ReducerContext, owner: Identity) -> f32 {
 
 /// Mint one drafted card for a successful round, honoring the collection cap. Below
 /// cap the card lands on the bench; at cap it replaces the weakest bench card, and
-/// only if stronger — Active/Sentinel/trump cards are never culled.
+/// only if stronger — Active/Sentinel/Major cards are never culled.
 fn draft_one(ctx: &ReducerContext, owner: Identity, chart_row: &NatalChart, round_index: u64) {
     let sky = live_transits(ctx);
     if sky.is_empty() {
@@ -1798,7 +1798,7 @@ fn draft_one(ctx: &ReducerContext, owner: Identity, chart_row: &NatalChart, roun
     };
 
     if deck_size(ctx, owner) >= COLLECTION_CAP {
-        // Only bench, non-trump cards are cullable.
+        // Only bench, non-Major cards are cullable.
         let candidates: Vec<(u64, f32)> = ctx
             .db
             .deck_slot()
@@ -1806,7 +1806,7 @@ fn draft_one(ctx: &ReducerContext, owner: Identity, chart_row: &NatalChart, roun
             .filter(&owner)
             .filter(|s| s.loadout == Loadout::Bench)
             .filter_map(|s| ctx.db.card().card_id().find(&s.card_id))
-            .filter(|c| !c.is_trump)
+            .filter(|c| !c.is_major)
             .map(|c| {
                 let st = stat_of(&c);
                 (c.card_id, st.attack as f32 + st.health as f32 * 0.5 + st.armour as f32 * 0.4)
@@ -1850,7 +1850,7 @@ fn write_draft(ctx: &ReducerContext, owner: Identity, spec: &chart::DraftSpec) {
         cooldown_ms: spec.cooldown_ms,
         source_body: spec.source_body,
         inverted: spec.inverted,
-        is_trump: false,
+        is_major: false,
         level: 1,
         minted_at: ctx.timestamp,
         letter: 0,
@@ -4334,7 +4334,7 @@ mod tests {
         assert_eq!(weakest, Some((11, 5.0)));
         assert!(should_replace(6.0, weakest.map(|(_, s)| s))); // 6 > 5 → replace
         assert!(!should_replace(4.0, weakest.map(|(_, s)| s))); // 4 < 5 → discard
-        // Nothing cullable (all Active/Sentinel/trump) → never replace.
+        // Nothing cullable (all Active/Sentinel/Major) → never replace.
         assert_eq!(pick_weakest(&[]), None);
         assert!(!should_replace(9999.0, None));
     }

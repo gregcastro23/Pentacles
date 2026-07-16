@@ -15,7 +15,7 @@
    ============================================================ */
 import { h, clear } from "./dom.js";
 import { decanCard } from "./decans.js";
-import { SUIT_GLYPHS, SUIT_COLORS, rankName, TRUMP_ARCANA, TRUMP_NAMES } from "./deck.js";
+import { SUIT_GLYPHS, SUIT_COLORS, rankName, MAJOR_NUMERALS, MAJOR_NAMES } from "./deck.js";
 
 const PLANET_GLYPHS = ["☉", "☽", "☿", "♀", "♂", "♃", "♄", "♅", "♆", "♇"];
 const PLANET_NAMES = ["Sun", "Moon", "Mercury", "Venus", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune", "Pluto"];
@@ -188,11 +188,11 @@ class MyCodexInstance {
     const cap = suitCap(c.suit);
     const scol = SUIT_COLORS[cap] || "var(--ac-gold)";
     const pcol = PLANET_COLORS[c.source_body] || scol;
-    const isTrump = !!c.is_trump;
-    const rank = isTrump ? (TRUMP_ARCANA[c.source_body] || "trump") : rankName(c.rank);
-    const name = c.title || (isTrump ? (TRUMP_NAMES[c.source_body] || "Trump") : `${rank} of ${cap}`);
-    const cls = "mc-card mc-card--" + (c.suit || "wands") + (isTrump ? " mc-card--trump" : "") + (c.inverted ? " mc-card--inv" : "");
-    return h("div", { class: cls, style: isTrump ? null : { borderColor: scol } }, [
+    const isMajor = !!c.is_major;
+    const rank = isMajor ? (MAJOR_NUMERALS[c.source_body] || "major") : rankName(c.rank);
+    const name = c.title || (isMajor ? (MAJOR_NAMES[c.source_body] || "Major Arcana") : `${rank} of ${cap}`);
+    const cls = "mc-card mc-card--" + (c.suit || "wands") + (isMajor ? " mc-card--major" : "") + (c.inverted ? " mc-card--inv" : "");
+    return h("div", { class: cls, style: isMajor ? null : { borderColor: scol } }, [
       h("div", { class: "mc-card-top" }, [
         h("span", { class: "mc-card-glyph", style: { color: pcol }, text: SUIT_GLYPHS[cap] || "✦" }),
         h("span", { class: "mc-card-rank mc-dim", text: rank }),

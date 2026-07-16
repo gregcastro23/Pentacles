@@ -58,7 +58,7 @@
     }));
     const SUITS = ["Wands","Cups","Swords","Pentacles"];
     const cards = Array.from({ length: 820 }, (_, i) => ({
-      suit: pick(SUITS), is_trump: Math.random() < 0.06, inverted: Math.random() < 0.18,
+      suit: pick(SUITS), is_major: Math.random() < 0.06, inverted: Math.random() < 0.18,
       letter: Math.random() < 0.85 ? 65 + rnd(26) : 0, level: 1 + (Math.random() < 0.5 ? 0 : rnd(5)),
     }));
     const consts = Array.from({ length: 88 }, (_, i) => ({ constellation_id: i, abbr: "C" + i, name: pick(["Orion","Lyra","Draco","Cygnus","Aquila","Pegasus","Andromeda"]) + " " + i, elem_a: rnd(4), elem_b: rnd(4), degenerate: Math.random() < 0.15, fee_bps: pick([5,15,30,30,100]), member_count: 5 + rnd(15) }));

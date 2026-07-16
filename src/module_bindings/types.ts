@@ -64,7 +64,7 @@ export const Card = __t.object("Card", {
     return Planet;
   },
   inverted: __t.bool(),
-  isTrump: __t.bool(),
+  isMajor: __t.bool(),
   level: __t.u8(),
   mintedAt: __t.timestamp(),
   letter: __t.u8(),

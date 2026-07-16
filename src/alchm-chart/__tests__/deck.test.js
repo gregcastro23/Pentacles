@@ -1,7 +1,7 @@
 /* Pure tests for the agent deck builder (mirror of server mint_deck).
    Run: `node src/alchm-chart/__tests__/deck.test.js` */
 import assert from "node:assert/strict";
-import { agentDeck, TRUMP_NAMES, rankName } from "../deck.js";
+import { agentDeck, MAJOR_NAMES, rankName } from "../deck.js";
 
 let passed = 0;
 const t = (name, fn) => { fn(); passed++; console.log("  ✓", name); };
@@ -55,11 +55,11 @@ t("a sign-ruling body is elevated to a court by dignity", () => {
   assert.equal(merc.retro, true);
 });
 
-t("each placement also mints its planet's Major trump", () => {
+t("each placement also mints its planet's Major Arcana", () => {
   const d = agentDeck(chart, ASC, MC);
   const sunMajor = d.find((c) => c.kind === "major" && c.body === SUN);
-  assert.equal(sunMajor.name, TRUMP_NAMES[SUN]); // "The Sun"
-  assert.equal(sunMajor.trump, true);
+  assert.equal(sunMajor.name, MAJOR_NAMES[SUN]); // "The Sun"
+  assert.equal(sunMajor.major, true);
   const marsMajor = d.find((c) => c.kind === "major" && c.body === MARS);
   assert.equal(marsMajor.name, "The Tower");
   assert.equal(marsMajor.suit, "Wands"); // Mars biased suit
