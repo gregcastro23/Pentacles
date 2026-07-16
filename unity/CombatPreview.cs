@@ -127,8 +127,8 @@ public static class CombatPreview
         return $"{SignGlyphs[sign]} {SignNames[sign]} — {ElementByMod4[sign % 4]} favors {SuitNames[FavoredSuit(sign)]}";
     }
 
-    // Major-Arcana names by arcana index (0..21). A trump card stores its index
-    // in Card.rank (disambiguated by Card.is_trump).
+    // Major-Arcana names by arcana index (0..21). A Major card stores its index
+    // in Card.rank (disambiguated by Card.is_major).
     static readonly string[] MajorNames =
     {
         "The Fool", "The Magician", "The High Priestess", "The Empress", "The Emperor",
@@ -137,7 +137,7 @@ public static class CombatPreview
         "The Devil", "The Tower", "The Star", "The Moon", "The Sun", "Judgement", "The World",
     };
 
-    /// Display name for a trump card (its rank is the Major-Arcana index).
+    /// Display name for a Major card (its rank is the Major-Arcana index).
     public static string MajorName(int arcanaIndex) =>
-        arcanaIndex >= 0 && arcanaIndex < MajorNames.Length ? MajorNames[arcanaIndex] : "Trump";
+        arcanaIndex >= 0 && arcanaIndex < MajorNames.Length ? MajorNames[arcanaIndex] : "Major Arcana";
 }

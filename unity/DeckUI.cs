@@ -181,7 +181,7 @@ public class DeckUI : MonoBehaviour
         {
             GUILayout.BeginHorizontal(GUI.skin.box);
             string suitGlyph = c.card.Suit == Suit.Cups ? "♥" : (c.card.Suit == Suit.Swords ? "♠" : (c.card.Suit == Suit.Pentacles ? "♦" : "♣"));
-            string cardTitle = $"{(c.card.IsTrump ? "Trump - " : "")}{suitGlyph} {RankName(c.card.Rank)}";
+            string cardTitle = $"{(c.card.IsMajor ? "Major - " : "")}{suitGlyph} {RankName(c.card.Rank)}";
             string statsText = $"(Atk: {c.card.Attack} / HP: {c.card.Health} / Arm: {c.card.Armour})";
 
             GUILayout.Label(cardTitle.PadRight(18) + statsText, _textStyle);

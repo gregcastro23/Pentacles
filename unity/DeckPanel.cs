@@ -180,12 +180,12 @@ public class DeckPanel : MonoBehaviour
         var conn = CelestialPentacleConn.Instance;
         if (conn == null || !card.Owner.Equals(conn.LocalIdentity)) return;
         Toast.Show($"+ {CardName(card)} joined your collection.", 3.5f);
-        Debug.Log($"[Deck] +{(card.IsTrump ? "TRUMP " : "")}{card.Suit} rank {card.Rank} " +
+        Debug.Log($"[Deck] +{(card.IsMajor ? "MAJOR " : "")}{card.Suit} rank {card.Rank} " +
                   $"(atk {card.Attack} / hp {card.Health})");
     }
 
     static string CardName(Card c) =>
-        c.IsTrump ? CombatPreview.MajorName(c.Rank) : $"{RankName(c.Rank)} of {c.Suit}";
+        c.IsMajor ? CombatPreview.MajorName(c.Rank) : $"{RankName(c.Rank)} of {c.Suit}";
 
     static string RankName(byte r) => r switch
     {

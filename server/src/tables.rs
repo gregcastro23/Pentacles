@@ -126,14 +126,14 @@ pub struct Card {
     #[index(btree)]
     pub owner: Identity, // indexed: per-player lookups are O(player's cards), not O(all cards)
     pub suit: Suit,
-    pub rank: u8,        // Minor: 1..14 (Ace..King); trump: the arcana index 0..21
+    pub rank: u8,        // Minor: 1..14 (Ace..King); Major: the arcana index 0..21
     pub health: u16,
     pub attack: u16,
     pub armour: u16,
     pub cooldown_ms: u16,
     pub source_body: Planet, // which placement minted it
     pub inverted: bool,      // from a retrograde body
-    pub is_trump: bool,      // a planetary Major-Arcana trump (rank = arcana index)
+    pub is_major: bool,      // a planetary Major Arcana (rank = arcana index)
     pub level: u8,            // combine level; 1 = freshly minted (gentle-plateau bonus)
     pub minted_at: Timestamp, // the sky-moment this card came into being
     /// The card's Scrabble letter (ASCII 'A'..'Z'), drawn from the 98-tile bag by id.

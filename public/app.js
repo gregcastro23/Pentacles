@@ -508,8 +508,8 @@
     function buildCardHTML(c, loadout, isSelectionMode = false) {
       const isSelected = state.selectedCards.has(c.card_id);
       const selClass = isSelected ? "selected" : "";
-      const isTrump = c.is_trump;
-      const detailText = isTrump ? `Trump ${TRUMP_ARCANA[c.source_body]}` : `${SIGN_GLYPHS[c.sign_idx]} ${SIGN_NAMES[c.sign_idx]}`;
+      const isMajor = c.is_major;
+      const detailText = isMajor ? `Major ${MAJOR_NUMERALS[c.source_body]}` : `${SIGN_GLYPHS[c.sign_idx]} ${SIGN_NAMES[c.sign_idx]}`;
       const actionFn = isSelectionMode ? `toggleActiveSelection(${c.card_id})` : `handleCollectionCardClick(${c.card_id})`;
       const badge = loadout === "active" ? `<span class="web-card-chip">Active</span>` : (loadout === "defense" ? `<span class="web-card-chip defense">Defense</span>` : "");
 
@@ -518,7 +518,7 @@
         : "";
 
       return `
-        <div class="web-card ${c.suit} ${selClass} ${isTrump ? 'trump' : ''} ${c.inverted ? 'inverted' : ''}" ${dragAttr} onclick="${actionFn}">
+        <div class="web-card ${c.suit} ${selClass} ${isMajor ? 'major' : ''} ${c.inverted ? 'inverted' : ''}" ${dragAttr} onclick="${actionFn}">
           ${badge}
           <div class="web-card-glyph" style="color: ${PLANET_COLORS[c.source_body]};">${SUIT_GLYPHS[c.suit]}</div>
           <div class="web-card-title">${c.title}</div>
@@ -1565,7 +1565,7 @@
         }
 
         const first = state.collection.find(card => card.card_id === window.tempFuseCard);
-        if (first.suit === c.suit && first.rank === c.rank && first.is_trump === c.is_trump) {
+        if (first.suit === c.suit && first.rank === c.rank && first.is_major === c.is_major) {
           // Match - Fuse keep stronger
           const keepId = first.level >= c.level ? first.card_id : c.card_id;
           const consumeId = keepId === first.card_id ? c.card_id : first.card_id;
@@ -2229,7 +2229,7 @@
           slotsHTML += `
             <div class="ritual-slot filled ${card.suit}">
               <span class="ritual-slot-suit">${SUIT_GLYPHS[card.suit]}</span>
-              <span class="ritual-slot-rank">${card.is_trump ? 'Trump' : rankName(card.rank)}</span>
+              <span class="ritual-slot-rank">${card.is_major ? 'Major' : rankName(card.rank)}</span>
               <span class="ritual-slot-letter">${card.letter}</span>
             </div>
           `;
