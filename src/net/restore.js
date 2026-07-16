@@ -106,7 +106,7 @@ export async function restoreProfileFromSpacetimeDB(net, state) {
         cooldown_ms: Number(c.cooldown_ms),
         source_body: planetIndex(c.source_body),
         inverted: !!c.inverted,
-        is_trump: !!c.is_trump,
+        is_major: !!c.is_major,
         level: Number(c.level || 1),
         minted_at: Number(c.minted_at || Date.now()),
         letter: c.letter ? String.fromCharCode(c.letter) : letterFor(cardId),

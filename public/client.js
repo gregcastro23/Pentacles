@@ -26,9 +26,9 @@ const ESMS_GLYPHS = ["🜂", "🜄", "🜃", "🜁"]; // Fire, Water, Earth, Air
 const ESMS_COLORS = ["#e0a23a", "#4aa3d8", "#5fb37a", "#b98cd6"]; // Spirit/Essence/Matter/Substance
 const OPPOSITE_SUITS = { wands: "cups", cups: "wands", swords: "pentacles", pentacles: "swords" };
 
-const TRUMP_NAMES = ["The Sun", "The High Priestess", "The Magician", "The Empress", "The Tower", "Wheel of Fortune", "The World", "The Fool", "The Hanged Man", "Judgement"];
-const TRUMP_ARCANA = ["XIX", "II", "I", "III", "XVI", "X", "XXI", "0", "XII", "XX"];
-const TRUMP_MAJOR_INDEX = [19, 2, 1, 3, 16, 10, 21, 0, 12, 20];
+const MAJOR_NAMES = ["The Sun", "The High Priestess", "The Magician", "The Empress", "The Tower", "Wheel of Fortune", "The World", "The Fool", "The Hanged Man", "Judgement"];
+const MAJOR_NUMERALS = ["XIX", "II", "I", "III", "XVI", "X", "XXI", "0", "XII", "XX"];
+const MAJOR_INDEX = [19, 2, 1, 3, 16, 10, 21, 0, 12, 20];
 
 function isFixedSign(sign) {
   return [1, 4, 7, 10].includes(sign % 12);
@@ -753,19 +753,19 @@ class GameState {
       this.collection.push(minor);
       this.mintSlot(minor.card_id);
 
-      const trump = this.createCard(
+      const major = this.createCard(
         p.body,
         true,
         degree,
         minute,
         p.dignity,
         p.retrograde,
-        TRUMP_MAJOR_INDEX[p.body],
+        MAJOR_INDEX[p.body],
         p.sign,
         receptionBoost
       );
-      this.collection.push(trump);
-      this.mintSlot(trump.card_id);
+      this.collection.push(major);
+      this.mintSlot(major.card_id);
     });
 
     this.save();
@@ -776,10 +776,10 @@ class GameState {
     this.deck.push({ card_id: cardId, loadout: activeCount < 8 ? "active" : "bench" });
   }
 
-  createCard(bodyIdx, isTrump, degree, minute, dignity, retrograde, rankOverride = null, signIdx = 0, receptionBoost = 0) {
+  createCard(bodyIdx, isMajor, degree, minute, dignity, retrograde, rankOverride = null, signIdx = 0, receptionBoost = 0) {
     const cardId = Math.floor(Math.random() * 90000000) + 10000000;
-    const suit = isTrump ? PLANET_SUITS[bodyIdx] : SIGN_SUITS[signIdx];
-    const rank = rankOverride ?? (isTrump ? TRUMP_MAJOR_INDEX[bodyIdx] : pipRank(signIdx, degree));
+    const suit = isMajor ? PLANET_SUITS[bodyIdx] : SIGN_SUITS[signIdx];
+    const rank = rankOverride ?? (isMajor ? MAJOR_INDEX[bodyIdx] : pipRank(signIdx, degree));
     const dignityMult = 1.0 + (dignity + receptionBoost * 2.0) * 0.08;
 
     let hp = 12 + Math.round(minute * 28 / 59);
@@ -787,15 +787,15 @@ class GameState {
     let arm = 4 + (isFixedSign(signIdx) ? 8 : 0);
     let cd = Math.max(800, Math.min(3000, 3000 - (isCardinalSign(signIdx) ? 800 : 0) - degree * 20));
 
-    if (isTrump) {
+    if (isMajor) {
       hp = Math.floor(hp * 1.5);
       atk = Math.floor(atk * 1.5);
       arm = Math.floor(arm * 1.5);
     }
 
     let title = "";
-    if (isTrump) {
-      title = TRUMP_NAMES[bodyIdx];
+    if (isMajor) {
+      title = MAJOR_NAMES[bodyIdx];
     } else {
       title = rankName(rank) + " of " + SUIT_NAMES[suit];
     }
@@ -810,7 +810,7 @@ class GameState {
       cooldown_ms: cd,
       source_body: bodyIdx,
       inverted: retrograde,
-      is_trump: isTrump,
+      is_major: isMajor,
       level: 1,
       title: title,
       sign_idx: signIdx,
@@ -1019,7 +1019,7 @@ class GameState {
   // The star's zone decides the suit (its favored sign's element), the star's
   // sky position decides the pip rank, and its brightness scales the stats. The
   // card carries a Letter like every mint — your rack grows as you conquer.
-  // Mirrors the server's draft economy (pips only, never courts/trumps), capped
+  // Mirrors the server's draft economy (pips only, never courts/majors), capped
   // at COLLECTION_CAP with weakest-bench replacement.
   draftVictoryCard(star, zone) {
     const COLLECTION_CAP = 100;
@@ -1041,7 +1041,7 @@ class GameState {
       let weakest = null;
       benchSlots.forEach(slot => {
         const c = this.collection.find(cc => cc.card_id === slot.card_id);
-        if (c && !c.is_trump) {
+        if (c && !c.is_major) {
           const power = c.attack + c.health / 2 + c.armour;
           if (!weakest || power < weakest.power) weakest = { card: c, power };
         }
@@ -1244,7 +1244,7 @@ class GameState {
       const minute = Math.floor(Math.random() * 60);
       const rewardCard = this.createCard(
         this.player.faction,
-        Math.random() < 0.15, // 15% chance of major trump
+        Math.random() < 0.15, // 15% chance of a Major Arcana
         degree,
         minute,
         2, // dignity boost
@@ -1266,7 +1266,7 @@ class GameState {
         let weakest = null;
         benchSlots.forEach(slot => {
           const c = this.collection.find(cc => cc.card_id === slot.card_id);
-          if (c && !c.is_trump) {
+          if (c && !c.is_major) {
             const power = c.attack + c.health / 2 + c.armour;
             if (!weakest || power < weakest.power) weakest = { card: c, power };
           }

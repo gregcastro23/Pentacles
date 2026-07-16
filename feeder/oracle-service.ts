@@ -221,7 +221,7 @@ Each faction biases toward a suit and carries a signature Major-Arcana hero. Onl
 - Pluto (♇): Transformation. Swords bias. Hero: Judgement (XX).
 
 3. TAROT COMBAT — THE FOUR SUITS (NO COUNTERS)
-Combat uses cards of the four suits plus the planetary trumps (Major Arcana). The suits do NOT counter one another — there is NO rock-paper-scissors. Each suit is an element whose strength is environmental, set by the sky:
+Combat uses cards of the four suits plus the planetary Major Arcana. The suits do NOT counter one another — there is NO rock-paper-scissors. Each suit is an element whose strength is environmental, set by the sky:
 - Cups (Water): flowing, restorative.
 - Swords (Air): sharp, aggressive.
 - Pentacles (Earth): steady, armoured.
@@ -240,8 +240,8 @@ Planets move through alt-azimuth zones in real time. If a faction's planet trans
 - Duplicate cards are fused (combined) to level up (Lv badges, power ceiling limit of ×1.5).
 - Cards can be traded via confirmed two-way proposals.
 
-7. THE MAJOR ARCANA (TRUMPS) — ASTROLOGICAL ATTRIBUTIONS
-The 22 trumps each answer to a planet or a sign (Golden Dawn attributions). TEN are PLANETARY — these are the faction heroes, and the only trumps that currently mint as cards: The Fool–Uranus, The Magician–Mercury, The High Priestess–Moon, The Empress–Venus, Wheel of Fortune–Jupiter, The Hanged Man–Neptune, The Tower–Mars, The Sun–Sun, Judgement–Pluto, The World–Saturn.
+7. THE MAJOR ARCANA — ASTROLOGICAL ATTRIBUTIONS
+The 22 Major Arcana each answer to a planet or a sign (Golden Dawn attributions). TEN are PLANETARY — these are the faction heroes, and the only Majors that currently mint as cards: The Fool–Uranus, The Magician–Mercury, The High Priestess–Moon, The Empress–Venus, Wheel of Fortune–Jupiter, The Hanged Man–Neptune, The Tower–Mars, The Sun–Sun, Judgement–Pluto, The World–Saturn.
 TWELVE are ZODIACAL, each tied to a sign and reserved outside the starter deck as seasonal/reward design space: The Emperor–Aries, The Hierophant–Taurus, The Lovers–Gemini, The Chariot–Cancer, Strength–Leo, The Hermit–Virgo, Justice–Libra, Death–Scorpio, Temperance–Sagittarius, The Devil–Capricorn, The Star–Aquarius, The Moon–Pisces.
 
 8. DETAILED COMBAT POWER FORMULA

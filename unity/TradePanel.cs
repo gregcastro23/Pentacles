@@ -258,7 +258,7 @@ public class TradePanel : MonoBehaviour
 
     string ChipLabel(Card c)
     {
-        string n = c.IsTrump ? CombatPreview.MajorName(c.Rank) : $"{Rank(c.Rank)} {SuitGlyph[(int)c.Suit]}";
+        string n = c.IsMajor ? CombatPreview.MajorName(c.Rank) : $"{Rank(c.Rank)} {SuitGlyph[(int)c.Suit]}";
         return c.Level > 1 ? $"{n} ✦{c.Level}" : n;
     }
 

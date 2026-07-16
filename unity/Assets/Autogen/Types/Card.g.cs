@@ -33,8 +33,8 @@ namespace SpacetimeDB.Types
         public Planet SourceBody;
         [DataMember(Name = "inverted")]
         public bool Inverted;
-        [DataMember(Name = "is_trump")]
-        public bool IsTrump;
+        [DataMember(Name = "is_major")]
+        public bool IsMajor;
         [DataMember(Name = "level")]
         public byte Level;
         [DataMember(Name = "minted_at")]
@@ -53,7 +53,7 @@ namespace SpacetimeDB.Types
             ushort CooldownMs,
             Planet SourceBody,
             bool Inverted,
-            bool IsTrump,
+            bool IsMajor,
             byte Level,
             SpacetimeDB.Timestamp MintedAt,
             byte Letter
@@ -69,7 +69,7 @@ namespace SpacetimeDB.Types
             this.CooldownMs = CooldownMs;
             this.SourceBody = SourceBody;
             this.Inverted = Inverted;
-            this.IsTrump = IsTrump;
+            this.IsMajor = IsMajor;
             this.Level = Level;
             this.MintedAt = MintedAt;
             this.Letter = Letter;

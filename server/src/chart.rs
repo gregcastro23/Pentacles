@@ -114,11 +114,11 @@ fn court_for_dignity(dignity: i8) -> u8 {
     }
 }
 
-/// Major-Arcana index (0..21) attributed to each planet — the deck's trumps.
+/// Major-Arcana index (0..21) attributed to each planet — the deck's Majors.
 fn planet_major(p: Planet) -> u8 {
     match p {
         Planet::Sun => 19,     // The Sun
-        Planet::Moon => 2,     // The High Priestess (the Moon's trump; XVIII/The Moon is Pisces')
+        Planet::Moon => 2,     // The High Priestess (the Moon's Major; XVIII/The Moon is Pisces')
         Planet::Mercury => 1,  // The Magician
         Planet::Venus => 3,    // The Empress
         Planet::Mars => 16,    // The Tower
@@ -130,9 +130,9 @@ fn planet_major(p: Planet) -> u8 {
     }
 }
 
-/// Trumps sit a tier above the pips (tunable). Stats still derive from the
+/// Majors sit a tier above the pips (tunable). Stats still derive from the
 /// placement; this is the only rank-driven scaling, reserved for Majors.
-const TRUMP_MULT: f32 = 1.5;
+const MAJOR_MULT: f32 = 1.5;
 
 /// Calculate reception & mutual reception boosts for each planet.
 /// A planet is received by another if it sits in a sign ruled by that planet.
@@ -201,7 +201,7 @@ pub fn faction_scores(chart: &NatalChart) -> [f32; 10] {
 ///
 /// Each placement yields two cards: a Minor (its decan pip — or an Ace for the
 /// chart ruler, or a court for angular & sign-ruling bodies) and the placement's
-/// planetary Major trump. Minor suit = the sign's element; Major suit = the
+/// planetary Major Arcana. Minor suit = the sign's element; Major suit = the
 /// planet's. Stats come from the placement; the flat per-suit perks are gone.
 pub fn mint_deck(
     ctx: &ReducerContext,
@@ -240,7 +240,7 @@ pub fn mint_deck(
             cooldown_ms,
             source_body: p.body,
             inverted: p.retrograde,
-            is_trump: false,
+            is_major: false,
             level: 1,
             minted_at: ctx.timestamp,
             letter: 0,
@@ -251,20 +251,20 @@ pub fn mint_deck(
         mint_slot(ctx, owner, minor_id, &mut active);
         count += 1;
 
-        // Every placement also mints its planet's Major trump — suited by planet,
+        // Every placement also mints its planet's Major Arcana — suited by planet,
         // weather-bound, a tier above the pips.
         let mut major = ctx.db.card().insert(Card {
             card_id: 0,
             owner,
             suit: p.body.biased_suit(),
-            rank: planet_major(p.body), // arcana index 0..21; is_trump disambiguates
-            health: (health as f32 * TRUMP_MULT) as u16,
-            attack: (attack as f32 * TRUMP_MULT) as u16,
-            armour: (armour as f32 * TRUMP_MULT) as u16,
+            rank: planet_major(p.body), // arcana index 0..21; is_major disambiguates
+            health: (health as f32 * MAJOR_MULT) as u16,
+            attack: (attack as f32 * MAJOR_MULT) as u16,
+            armour: (armour as f32 * MAJOR_MULT) as u16,
             cooldown_ms,
             source_body: p.body,
             inverted: p.retrograde,
-            is_trump: true,
+            is_major: true,
             level: 1,
             minted_at: ctx.timestamp,
             letter: 0,
@@ -785,7 +785,7 @@ pub fn synastry(a: &NatalChart, b: &NatalChart) -> SynastryScore {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct DraftSpec {
     pub suit: Suit,
-    pub rank: u8, // always a pip (2..10) — never an Ace, a court (natal-reserved), or a trump (hero)
+    pub rank: u8, // always a pip (2..10) — never an Ace, a court (natal-reserved), or a Major (hero)
     pub health: u16,
     pub attack: u16,
     pub armour: u16,
@@ -854,10 +854,10 @@ fn natal_dignity_of(chart: &NatalChart, body: Planet) -> i8 {
 /// - Source: the body the Blend leads with this tick — `blended_faction_vector`'s
 ///   top body that's actually up in the sky (transits can open/close it).
 /// - Suit: the element of that body's transit sign.
-/// - Rank: the decan pip (2..10) — never an Ace's reserved 1, a court, or a trump.
+/// - Rank: the decan pip (2..10) — never an Ace's reserved 1, a court, or a Major.
 /// - Power: transit_strength (the body's blended sky prominence × the salience of
 ///   the house it transits) × its natal dignity, shaping the reused Sky-Drop stat
-///   block, then clamped strictly below the owner's hero trump.
+///   block, then clamped strictly below the owner's hero Major.
 /// - Inversion: a retrograde source yields `inverted: true` with reversed stats.
 ///
 /// Returns `None` only when there is no live sky to draft from.
@@ -867,7 +867,7 @@ pub fn draft_card(
     retrograde: &[bool; 10],
     round_index: u64,
     owner: Identity,
-    hero_ceiling: Option<(u16, u16, u16)>, // (attack, health, armour) of the hero trump
+    hero_ceiling: Option<(u16, u16, u16)>, // (attack, health, armour) of the hero Major
 ) -> Option<DraftSpec> {
     let v = blended_faction_vector(chart, sky);
     // Leading source: the transit the blend favours most (restricted to bodies up in
@@ -882,7 +882,7 @@ pub fn draft_card(
     let sign = ((lon / SIGN_MINUTES) % 12) as u8;
     let degree = ((lon % SIGN_MINUTES) / 60) as u8; // 0..29
     let suit = sign_element(sign);
-    let rank = pip_rank(sign, degree); // 2..10 — already a pip, never court/trump
+    let rank = pip_rank(sign, degree); // 2..10 — already a pip, never court/Major
 
     // Power: this body's blended prominence × the salience of the house it transits ×
     // its natal dignity. The blended vector is sum-normalised (≈0..1), so its share is
@@ -920,7 +920,7 @@ pub fn draft_card(
         cooldown_ms = icd;
     }
 
-    // Clamp strictly below the hero trump — the draft never rivals the keystone.
+    // Clamp strictly below the hero Major — the draft never rivals the keystone.
     if let Some((ca, ch, car)) = hero_ceiling {
         attack = attack.min(ca.saturating_sub(1));
         health = health.min(ch.saturating_sub(1));
@@ -1236,7 +1236,7 @@ mod tests {
     }
 
     #[test]
-    fn draft_is_clamped_strictly_below_the_hero_trump() {
+    fn draft_is_clamped_strictly_below_the_hero_major() {
         let c = brooklyn();
         let sky = [pos(Planet::Mars, 200.0)];
         let natural = draft_card(&c, &sky, &NO_RETRO, 1, Identity::ZERO, None).unwrap();

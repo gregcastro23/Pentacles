@@ -1,7 +1,7 @@
 // Pentacles — your card collection, with fuse-to-level (combine).
 //
 // A "✦ Cards" launcher opens a modal grid of every card you own (across all
-// loadouts). Tap a card, then tap a matching copy (same suit, rank, trump-ness),
+// loadouts). Tap a card, then tap a matching copy (same suit, rank, Major/Minor tier),
 // to fuse them: the stronger one levels up — with gentle-plateau diminishing
 // returns — and the copy is spent. The server (`combine_cards`) is authoritative;
 // the grid re-renders when the card rows echo back. Trading lives in TradePanel.
@@ -161,11 +161,11 @@ public class CollectionPanel : MonoBehaviour
         foreach (var c in conn.Conn.Db.Card.Iter())
             if (c.Owner.Equals(me)) mine.Add(c);
 
-        // Group identical cards together (suit → trump → rank), higher levels first.
+        // Group identical cards together (suit → Major → rank), higher levels first.
         mine.Sort((a, b) =>
         {
             int s = ((int)a.Suit).CompareTo((int)b.Suit); if (s != 0) return s;
-            int t = a.IsTrump.CompareTo(b.IsTrump); if (t != 0) return t;
+            int t = a.IsMajor.CompareTo(b.IsMajor); if (t != 0) return t;
             int r = a.Rank.CompareTo(b.Rank); if (r != 0) return r;
             return b.Level.CompareTo(a.Level);
         });
@@ -207,7 +207,7 @@ public class CollectionPanel : MonoBehaviour
         var first = conn.Conn.Db.Card.CardId.Find(_combineSel);
         if (first == null) { _combineSel = id; Highlight(); return; }
 
-        if (first.Suit != tapped.Suit || first.Rank != tapped.Rank || first.IsTrump != tapped.IsTrump)
+        if (first.Suit != tapped.Suit || first.Rank != tapped.Rank || first.IsMajor != tapped.IsMajor)
         {
             Toast.Show("Those aren't the same card — pick a matching copy.", 3f);
             _combineSel = id;                          // re-anchor to the new pick
@@ -244,7 +244,7 @@ public class CollectionPanel : MonoBehaviour
     }
 
     static string Name(Card c) =>
-        c.IsTrump ? CombatPreview.MajorName(c.Rank) : $"{Rank(c.Rank)} of {SuitName[(int)c.Suit]}";
+        c.IsMajor ? CombatPreview.MajorName(c.Rank) : $"{Rank(c.Rank)} of {SuitName[(int)c.Suit]}";
 
     static string Rank(byte r) => r switch
     {

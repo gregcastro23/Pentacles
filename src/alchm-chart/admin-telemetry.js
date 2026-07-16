@@ -350,7 +350,7 @@ class AdminTelemetryInstance {
     const ELEM_COLORS = ['#cba6f7', '#94e2d5', '#a6adc8', '#f9e2af'];
     const SUIT_COLORS = { Wands: '#cf6a4d', Cups: '#5fb6c4', Swords: '#9aa7c4', Pentacles: '#cf9a52' };
     body.appendChild(this._kpiGrid([
-      { label: 'Cards minted', value: fmtNum(e.cards), sub: e.cardComposed ? `${fmtNum(e.trumps)} trumps · ${fmtNum(e.inverted)} ℞` : null },
+      { label: 'Cards minted', value: fmtNum(e.cards), sub: e.cardComposed ? `${fmtNum(e.majors)} majors · ${fmtNum(e.inverted)} ℞` : null },
       { label: 'Lettered cards', value: e.cardComposed ? fmtNum(e.lettered) : '—', sub: 'word-duel tiles' },
       { label: 'Decan cards', value: fmtNum(e.decanCards), sub: `${fmtNum(e.deckSlots)} deck slots` },
       { label: 'Trades', value: fmtNum(e.trades), sub: `${fmtNum(e.openTrades)} open · ${fmtNum(e.cardsEscrowed)} cards escrowed` },

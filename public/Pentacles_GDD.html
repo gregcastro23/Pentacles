@@ -131,7 +131,7 @@
           <p class="eyebrow">03 — The Ten Factions</p>
           <h2>Each planet is a faction with a <em>doctrine</em>.</h2>
         </div>
-        <p class="lead reveal">Faction identity is more than a banner: each planet biases deck generation toward a suit and grants a planetary trump. In the submission build, every faction fights through the shared systems — weather, zodiac seals, transit timing, card levels — with Mars, Jupiter, and Saturn carrying distinct passive accents.</p>
+        <p class="lead reveal">Faction identity is more than a banner: each planet biases deck generation toward a suit and grants a planetary Major Arcana. In the submission build, every faction fights through the shared systems — weather, zodiac seals, transit timing, card levels — with Mars, Jupiter, and Saturn carrying distinct passive accents.</p>
         <div class="grid-3 reveal" style="margin-top:36px">
           <div class="faction"><div class="bar" style="background:var(--sun)"></div><span class="sigil" style="color:var(--sun)">☉</span><div class="pname">Sun</div><div class="prole">Sovereignty · Wands</div><p class="pdesc">Solar pressure. Wands-biased cards thrive when fire weather opens.</p></div>
           <div class="faction"><div class="bar" style="background:var(--moon)"></div><span class="sigil" style="color:var(--moon)">☽</span><div class="pname">Moon</div><div class="prole">Tides · Cups</div><p class="pdesc">Lunar tide. Cups-biased cards reward patient weather and seal timing.</p></div>
@@ -152,7 +152,7 @@
           <p class="eyebrow">04 — Deck Generation</p>
           <h2>Your chart, dealt as <em>cards</em>.</h2>
         </div>
-        <p class="lead reveal">A starting deck of 20 cards spans the four Minor Arcana suits and the planetary Major trumps. Each of the ten natal placements mints one Minor card plus its planet's trump — same chart, same deck, every time.</p>
+        <p class="lead reveal">A starting deck of 20 cards spans the four Minor Arcana suits and the planetary Major Arcana. Each of the ten natal placements mints one Minor card plus its planet's Major — same chart, same deck, every time.</p>
 
         <div class="grid-4 reveal" style="margin-top:36px">
           <div class="suit"><div class="suit-top"><div class="suit-mark" style="color:var(--cups)">♥</div><div><div class="suit-name" style="color:var(--cups)">Cups</div><div class="suit-el">Water · Flow</div></div></div><p>Lifted by Water weather and suppressed by Fire weather. The suit of tides and staying power.</p><div class="suit-stat"><span>Drawn from</span><span>Water signs</span></div><div class="suit-stat"><span>Weather role</span><span>Favored by Water</span></div></div>
@@ -186,12 +186,12 @@
             <p class="note" style="margin-top:14px">→ <strong style="color:var(--wands)">Knight of Wands</strong>, high attack &amp; haste, elevated by the rulership multiplier.</p>
           </div>
         </div>
-        <p class="note reveal" style="margin-top:24px">The chart ruler mints an <strong>Ace</strong>; angular or sign-ruling bodies can elevate to courts (Page–King); the remaining bodies fill the pip cards (2–10). Every natal body also mints its planetary trump, producing the 20-card starter deck.</p>
+        <p class="note reveal" style="margin-top:24px">The chart ruler mints an <strong>Ace</strong>; angular or sign-ruling bodies can elevate to courts (Page–King); the remaining bodies fill the pip cards (2–10). Every natal body also mints its planetary Major Arcana, producing the 20-card starter deck.</p>
 
-        <h3 class="reveal" style="margin-top:56px">The Major Arcana — planetary trumps</h3>
-        <p class="reveal">Beyond the Minor-Arcana pips, every natal body mints its <strong>planetary Major Arcana trump</strong>. Trumps use the planet's suit bias, inherit the same sky-weather rules as every other card, and sit a tier above the pips through higher stats.</p>
+        <h3 class="reveal" style="margin-top:56px">The Major Arcana — the planetary Majors</h3>
+        <p class="reveal">Beyond the Minor-Arcana pips, every natal body mints its <strong>planetary Major Arcana</strong>. Majors use the planet's suit bias, inherit the same sky-weather rules as every other card, and sit a tier above the pips through higher stats.</p>
         <table class="data reveal" style="margin-top:18px">
-          <thead><tr><th>Planet</th><th>Trump</th><th>Arcana</th><th>Deck role</th></tr></thead>
+          <thead><tr><th>Planet</th><th>Major Arcana</th><th>Arcana</th><th>Deck role</th></tr></thead>
           <tbody>
             <tr><td style="color:var(--sun)"><strong>☉ Sun</strong></td><td>The Sun</td><td>XIX</td><td>Wands-biased solar pressure</td></tr>
             <tr><td style="color:var(--moon)"><strong>☽ Moon</strong></td><td>The High Priestess</td><td>II</td><td>Cups-biased lunar tide</td></tr>
@@ -205,7 +205,7 @@
             <tr><td style="color:var(--pluto)"><strong>♇ Pluto</strong></td><td>Judgement</td><td>XX</td><td>Swords-biased pressure</td></tr>
           </tbody>
         </table>
-        <p class="note reveal" style="margin-top:16px">Encoded in the backend as <span class="mono">planet_major()</span> and minted with <span class="mono">is_trump = true</span>. The remaining 12 zodiacal Major Arcana are intentionally outside the starter deck and available as a clean seasonal reward lane.</p>
+        <p class="note reveal" style="margin-top:16px">Encoded in the backend as <span class="mono">planet_major()</span> and minted with <span class="mono">is_major = true</span>. The remaining 12 zodiacal Major Arcana are intentionally outside the starter deck and available as a clean seasonal reward lane.</p>
 
         <!-- Tarot Card Forge Widget -->
         <h3 class="reveal" style="margin-top:56px">Interactive Tarot Card Forge</h3>
@@ -282,8 +282,8 @@
 
             <div class="forge-checkbox" style="margin-top:4px">
               <label class="forge-checkbox">
-                <input type="checkbox" id="forge-is-trump" onchange="updateCard()">
-                Major Arcana (Trump)
+                <input type="checkbox" id="forge-is-major" onchange="updateCard()">
+                Major Arcana
               </label>
             </div>
 
@@ -305,7 +305,7 @@
 
         <div id="natal-deck-section" class="reveal" style="display:none; margin-top:48px">
           <h3>Simulated Natal Deck</h3>
-          <p class="note">Procedurally forged from all 10 celestial bodies: each placement yields one Minor and one planetary trump. Hover cards to tilt them in 3D space.</p>
+          <p class="note">Procedurally forged from all 10 celestial bodies: each placement yields one Minor and one planetary Major. Hover cards to tilt them in 3D space.</p>
           <div id="gallery-grid" class="cards-gallery-grid">
             <!-- Forged cards container -->
           </div>
@@ -568,14 +568,14 @@
     card_id:       <span class="ty">u64</span>,
     owner:         <span class="ty">Identity</span>,
     suit:          <span class="ty">Suit</span>,              <span class="c">// Cups | Swords | Pentacles | Wands</span>
-    rank:          <span class="ty">u8</span>,                <span class="c">// Minor 1..14, trump 0..21</span>
+    rank:          <span class="ty">u8</span>,                <span class="c">// Minor 1..14, Major 0..21</span>
     health:        <span class="ty">u16</span>,
     attack:        <span class="ty">u16</span>,
     armour:        <span class="ty">u16</span>,
     cooldown_ms:   <span class="ty">u16</span>,
     source_body:   <span class="ty">Planet</span>,            <span class="c">// which placement minted it</span>
     inverted:      <span class="ty">bool</span>,              <span class="c">// from a retrograde body</span>
-    is_trump:      <span class="ty">bool</span>,
+    is_major:      <span class="ty">bool</span>,
     level:         <span class="ty">u8</span>,
     minted_at:     <span class="ty">Timestamp</span>,
 }
@@ -784,8 +784,8 @@ const PLANET_COLORS = [
   "rgb(154, 147, 124)", "rgb(95, 182, 196)", "rgb(100, 112, 200)",
   "rgb(138, 106, 160)"
 ];
-const TRUMP_NAMES = ["The Sun", "The High Priestess", "The Magician", "The Empress", "The Tower", "Wheel of Fortune", "The World", "The Fool", "The Hanged Man", "Judgement"];
-const TRUMP_ARCANA = ["XIX", "II", "I", "III", "XVI", "X", "XXI", "0", "XII", "XX"];
+const MAJOR_NAMES = ["The Sun", "The High Priestess", "The Magician", "The Empress", "The Tower", "Wheel of Fortune", "The World", "The Fool", "The Hanged Man", "Judgement"];
+const MAJOR_NUMERALS = ["XIX", "II", "I", "III", "XVI", "X", "XXI", "0", "XII", "XX"];
 
 const SIGN_NAMES = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"];
 const SIGN_GLYPHS = ["♈", "♉", "♊", "♋", "♌", "♍", "♎", "♏", "♐", "♑", "♒", "♓"];
@@ -814,7 +814,7 @@ function courtRank(score) {
   return "Page";
 }
 
-function calculateCardStats(planetIdx, signIdx, degree, minute, dignity, retrograde, isCourt, isTrump) {
+function calculateCardStats(planetIdx, signIdx, degree, minute, dignity, retrograde, isCourt, isMajor) {
   const suit = SIGN_SUITS[signIdx];
   const score = dignityScore(dignity);
   const dignityMult = 1.0 + score * 0.08;
@@ -826,8 +826,8 @@ function calculateCardStats(planetIdx, signIdx, degree, minute, dignity, retrogr
 
   // Determine Rank Name and Arcana details
   let cardTitle = "";
-  if (isTrump) {
-    cardTitle = TRUMP_NAMES[planetIdx];
+  if (isMajor) {
+    cardTitle = MAJOR_NAMES[planetIdx];
     hp = Math.round(hp * 1.5);
     atk = Math.round(atk * 1.5);
     arm = Math.round(arm * 1.5);
@@ -846,8 +846,8 @@ function calculateCardStats(planetIdx, signIdx, degree, minute, dignity, retrogr
     hp: hp,
     arm: arm,
     cd: cd,
-    isTrump: isTrump,
-    arcana: isTrump ? TRUMP_ARCANA[planetIdx] : null,
+    isMajor: isMajor,
+    arcana: isMajor ? MAJOR_NUMERALS[planetIdx] : null,
     planetGlyph: PLANET_GLYPHS[planetIdx],
     planetName: PLANET_NAMES[planetIdx],
     planetColor: PLANET_COLORS[planetIdx],
@@ -858,18 +858,18 @@ function calculateCardStats(planetIdx, signIdx, degree, minute, dignity, retrogr
 }
 
 function generateTarotCardHTML(data) {
-  const trumpClass = data.isTrump ? "trump" : "";
+  const majorClass = data.isMajor ? "major" : "";
   const retroClass = data.retrograde ? "inverted" : "";
-  const suitText = data.isTrump ? "Major Arcana" : SUIT_NAMES[data.suit];
-  const subtitle = data.isTrump ? `Trump ${data.arcana}` : `${data.signGlyph} ${data.signName}`;
+  const suitText = data.isMajor ? "Major Arcana" : SUIT_NAMES[data.suit];
+  const subtitle = data.isMajor ? `Major ${data.arcana}` : `${data.signGlyph} ${data.signName}`;
   const footnoteText = `${data.planetGlyph} ${data.planetName} Placement`;
 
   return `
-    <div class="tarot-card ${data.suit} ${trumpClass} ${retroClass}">
+    <div class="tarot-card ${data.suit} ${majorClass} ${retroClass}">
       <div class="card-frame">
-        <div class="card-glyph" style="color: ${data.isTrump ? 'var(--gold-bright)' : 'currentColor'}">${data.glyph}</div>
+        <div class="card-glyph" style="color: ${data.isMajor ? 'var(--gold-bright)' : 'currentColor'}">${data.glyph}</div>
         <div class="card-title">${data.title}</div>
-        <div class="card-subtitle" style="color: ${data.isTrump ? 'var(--gold)' : 'var(--dim)'}">${subtitle} ${data.retrograde ? '(rev)' : ''}</div>
+        <div class="card-subtitle" style="color: ${data.isMajor ? 'var(--gold)' : 'var(--dim)'}">${subtitle} ${data.retrograde ? '(rev)' : ''}</div>
         <div class="card-sep"></div>
         <div class="card-stats-grid">
           <div class="card-stat-val"><span>ATK</span>⚔ ${data.atk}</div>
@@ -893,16 +893,16 @@ function updateCard() {
   const dignity = document.getElementById("forge-dignity").value;
   const retrograde = document.getElementById("forge-retro").checked;
   const isCourt = document.getElementById("forge-court").checked;
-  const isTrump = document.getElementById("forge-is-trump").checked;
+  const isMajor = document.getElementById("forge-is-major").checked;
 
-  const data = calculateCardStats(planetIdx, signIdx, degree, minute, dignity, retrograde, isCourt, isTrump);
+  const data = calculateCardStats(planetIdx, signIdx, degree, minute, dignity, retrograde, isCourt, isMajor);
   document.getElementById("live-card-container").innerHTML = generateTarotCardHTML(data);
 
   // Update explanation
   const suitName = SUIT_NAMES[data.suit];
   const dignityLabel = dignity.charAt(0).toUpperCase() + dignity.slice(1);
   let exp = `The ${data.signName} placement determines the <strong>${suitName}</strong> suit. Degree ${degree}° makes it a `;
-  if (isTrump) {
+  if (isMajor) {
     exp += `<strong>Major Arcana Hero</strong> (${data.title}).`;
   } else if (isCourt) {
     exp += `<strong>Court card</strong> (${data.title.split(' of ')[0]}).`;
@@ -927,7 +927,7 @@ function randomizeCard() {
 
   document.getElementById("forge-retro").checked = Math.random() < 0.2;
   document.getElementById("forge-court").checked = Math.random() < 0.3;
-  document.getElementById("forge-is-trump").checked = Math.random() < 0.15;
+  document.getElementById("forge-is-major").checked = Math.random() < 0.15;
 
   updateCard();
 }
@@ -936,7 +936,7 @@ function forgeNatalDeck() {
   const grid = document.getElementById("gallery-grid");
   grid.innerHTML = "";
 
-  // Forge 20 cards: one Minor plus one planetary trump for each natal body.
+  // Forge 20 cards: one Minor plus one planetary Major for each natal body.
   const dignities = ["rulership", "exaltation", "neutral", "detriment", "fall"];
 
   for (let i = 0; i < 10; i++) {
@@ -949,9 +949,9 @@ function forgeNatalDeck() {
     const isCourt = (i === 0 || i === 4 || i === 6);
 
     const minor = calculateCardStats(planetIdx, signIdx, degree, minute, dignity, retrograde, isCourt, false);
-    const trump = calculateCardStats(planetIdx, signIdx, degree, minute, dignity, retrograde, false, true);
+    const major = calculateCardStats(planetIdx, signIdx, degree, minute, dignity, retrograde, false, true);
     grid.innerHTML += generateTarotCardHTML(minor);
-    grid.innerHTML += generateTarotCardHTML(trump);
+    grid.innerHTML += generateTarotCardHTML(major);
   }
 
   document.getElementById("natal-deck-section").style.display = "block";

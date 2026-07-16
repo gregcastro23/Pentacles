@@ -27,7 +27,7 @@ public static class OracleLore
             "Cups are Water, Swords are Air, Pentacles are Earth, Wands are Fire. The suits do not counter one another — there is no rock-paper-scissors here. Their strength is environmental: the rising element lifts its suit wherever the contest falls. Fire and Water oppose; Air and Earth oppose."),
 
         new("Reading a Card",
-            "Every card was minted from a moment in the sky. Pips (2–10) come from the decans of a sign; courts (Page→King) are bodies dignified enough to be elevated; an Ace is your chart ruler. Trumps are the planetary Majors, a tier above the pips. A card's attack, health and armour come from the birth degree, minute and dignity that bore it; 'reversed' marks a retrograde origin."),
+            "Every card was minted from a moment in the sky. Pips (2–10) come from the decans of a sign; courts (Page→King) are bodies dignified enough to be elevated; an Ace is your chart ruler. The Major Arcana are the planetary Majors, a tier above the pips. A card's attack, health and armour come from the birth degree, minute and dignity that bore it; 'reversed' marks a retrograde origin."),
 
         new("Eleven Zones",
             "The Pentacle holds eleven zones: five Houses, five Spires, and the Crown. Each is a tug-of-war: winning battles there pushes a single control meter toward you, and when it crosses the threshold the zone flips to your faction. Hold a zone and it slowly decays unless you defend it."),
@@ -60,7 +60,7 @@ public static class OracleLore
         ["dignity"] = "Dignity is how at-home a planet is in its sign — rulership down to fall. It elevates a card's rank and sharpens its stats.",
         ["seal"] = "Hold a zone while a sign sits in it and you seal that element: your cards of its suit fight ×1.15 everywhere, until the wheel moves the sign on.",
         ["control"] = "Each zone is one tug-of-war meter. Win battles to push it your way; cross the threshold and the zone flips to you. Held zones slowly decay.",
-        ["trump"] = "Trumps are the planetary Major Arcana — a tier above the pips, suited by their planet and bound to the weather.",
+        ["major"] = "The Major Arcana are the planetary Majors — a tier above the pips, suited by their planet and bound to the weather.",
         ["level"] = "Fusing copies of a card levels it up. The bonus is big at first, then plateaus to a ceiling — strong, never runaway.",
         ["mint"] = "Every card carries the moment it was born — your chart for the starters, the live sky for those won in battle. It's what makes each one unique.",
         ["engage"] = "A star must be risen past 10° over your real horizon before you can strike it. Below that it's out of reach — wait for it to climb.",

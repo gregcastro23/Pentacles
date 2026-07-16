@@ -14,7 +14,7 @@ import {
   buildZones, computeStandings, factionRoster, deriveEvents, standingsTrend,
   agentIdentitySet, agentByIdentity, PLANET_NAMES,
 } from "./war-model.js";
-import { agentDeck, TRUMP_ARCANA, SUIT_GLYPHS, SUIT_COLORS, rankName } from "./deck.js";
+import { agentDeck, MAJOR_NUMERALS, SUIT_GLYPHS, SUIT_COLORS, rankName } from "./deck.js";
 
 const suitCap = (s) => (s ? s[0].toUpperCase() + s.slice(1).toLowerCase() : "Wands");
 
@@ -333,8 +333,8 @@ class FactionWarInstance {
     const cap = suitCap(c.suit);
     const scol = SUIT_COLORS[cap] || "var(--ac-gold)";
     const pcol = this.PC[c.source_body] || scol;
-    const rank = c.is_trump ? (TRUMP_ARCANA[c.source_body] || "trump") : rankName(c.rank);
-    const cls = "aw-tray-card aw-card--" + (c.suit || "wands") + (c.is_trump ? " aw-card--trump" : "") + (c.inverted ? " aw-card--inv" : "");
+    const rank = c.is_major ? (MAJOR_NUMERALS[c.source_body] || "major") : rankName(c.rank);
+    const cls = "aw-tray-card aw-card--" + (c.suit || "wands") + (c.is_major ? " aw-card--major" : "") + (c.inverted ? " aw-card--inv" : "");
     return h("div", {
       class: cls, draggable: "true", title: "Drag onto a zone to deploy",
       dataset: { cardId: String(c.card_id) },
@@ -486,8 +486,8 @@ class FactionWarInstance {
     const sub = c.kind === "major"
       ? `${this.PG[c.body]} ${this.PN[c.body]}`
       : (c.role === "decan pip" ? c.lord : `${this.PG[c.body]} ${SIGN_GLYPHS[c.sign]} ${Math.floor(c.deg)}°`);
-    const foot = c.kind === "major" ? `trump · ${TRUMP_ARCANA[c.body]}` : c.role;
-    return h("div", { class: "aw-card aw-card--" + c.suit.toLowerCase() + (c.kind === "major" ? " aw-card--trump" : "") + (c.retro ? " aw-card--inv" : "") }, [
+    const foot = c.kind === "major" ? `major · ${MAJOR_NUMERALS[c.body]}` : c.role;
+    return h("div", { class: "aw-card aw-card--" + c.suit.toLowerCase() + (c.kind === "major" ? " aw-card--major" : "") + (c.retro ? " aw-card--inv" : "") }, [
       h("div", { class: "aw-card-glyph", style: { color: c.color }, text: c.glyph }),
       h("div", { class: "aw-card-title", text: c.name }),
       h("div", { class: "aw-card-sub aw-dim", text: sub }),
