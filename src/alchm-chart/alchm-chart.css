@@ -602,8 +602,8 @@ body.alchm-open #pentacles-net { display: none; }
 .alchm-war .aw-card--cups { border-color: rgba(95,147,216,0.4); }
 .alchm-war .aw-card--swords { border-color: rgba(174,187,214,0.4); }
 .alchm-war .aw-card--pentacles { border-color: rgba(116,171,108,0.4); }
-.alchm-war .aw-card--trump { border-color: var(--ac-gold-bright); background: linear-gradient(135deg, rgba(16,13,6,0.96), rgba(6,8,15,0.98)); }
-.alchm-war .aw-card--trump::before { content: ""; position: absolute; inset: -1px; border-radius: 5px; padding: 1px;
+.alchm-war .aw-card--major { border-color: var(--ac-gold-bright); background: linear-gradient(135deg, rgba(16,13,6,0.96), rgba(6,8,15,0.98)); }
+.alchm-war .aw-card--major::before { content: ""; position: absolute; inset: -1px; border-radius: 5px; padding: 1px;
   background: linear-gradient(135deg, var(--ac-gold-bright), var(--ac-gold-deep));
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none; }
 .alchm-war .aw-card--inv .aw-card-glyph { transform: rotate(180deg); }
@@ -633,7 +633,7 @@ body.alchm-open #pentacles-net { display: none; }
 .alchm-war .aw-tray-card.aw-card--cups { border-color: rgba(95,147,216,0.45); }
 .alchm-war .aw-tray-card.aw-card--swords { border-color: rgba(174,187,214,0.45); }
 .alchm-war .aw-tray-card.aw-card--pentacles { border-color: rgba(116,171,108,0.45); }
-.alchm-war .aw-tray-card.aw-card--trump { border-color: var(--ac-gold-bright); background: linear-gradient(135deg, rgba(16,13,6,0.96), rgba(6,8,15,0.98)); }
+.alchm-war .aw-tray-card.aw-card--major { border-color: var(--ac-gold-bright); background: linear-gradient(135deg, rgba(16,13,6,0.96), rgba(6,8,15,0.98)); }
 .alchm-war .aw-tray-card.aw-card--inv .aw-tray-glyph { transform: rotate(180deg); }
 .alchm-war .aw-tray-top { display: flex; justify-content: space-between; align-items: baseline; }
 .alchm-war .aw-tray-glyph { font-size: 17px; line-height: 1; }
@@ -718,7 +718,7 @@ body.alchm-open #pentacles-net { display: none; }
 .alchm-codex .mc-col-cards { display: flex; flex-direction: column; gap: 8px; }
 .alchm-codex .mc-col-empty { padding: 6px 0; }
 .alchm-codex .mc-card { position: relative; border: 1.5px solid rgba(216,180,106,0.2); border-radius: 9px; background: rgba(8,10,20,0.85); padding: 9px 11px; display: flex; flex-direction: column; gap: 5px; }
-.alchm-codex .mc-card--trump { border-color: var(--ac-gold-bright); background: linear-gradient(135deg, rgba(16,13,6,0.96), rgba(6,8,15,0.98)); }
+.alchm-codex .mc-card--major { border-color: var(--ac-gold-bright); background: linear-gradient(135deg, rgba(16,13,6,0.96), rgba(6,8,15,0.98)); }
 .alchm-codex .mc-card--inv .mc-card-glyph { transform: rotate(180deg); }
 .alchm-codex .mc-card-top { display: flex; justify-content: space-between; align-items: baseline; }
 .alchm-codex .mc-card-glyph { font-size: 17px; line-height: 1; }

@@ -27,7 +27,7 @@
     const P = (body, sign, deg, retro, dignity) => ({ body, sign, arc_minutes: Math.round(deg * 60), retrograde: !!retro, dignity: dignity || 0 });
     const card = (id, suit, rank, source_body, atk, hp, arm, lvl, letter, opt = {}) => ({
       card_id: id, suit, rank, source_body, attack: atk, health: hp, armour: arm, level: lvl,
-      letter, inverted: !!opt.inv, is_trump: !!opt.trump, title: opt.title,
+      letter, inverted: !!opt.inv, is_major: !!opt.major, title: opt.title,
     });
 
     // ── Player deck (full Card rows) + loadout slots ──
@@ -36,11 +36,11 @@
       card(7422, "pentacles", 13, 9, 11, 22, 7, 2, "E", { title: "Queen of Pentacles" }),
       card(7423, "wands", 4, 4, 18, 12, 3, 1, "T", { title: "Four of Wands" }),
       card(7424, "swords", 10, 7, 14, 8, 2, 1, "A", { title: "Ten of Swords", inv: true }),
-      card(7425, "wands", 16, 4, 20, 16, 6, 2, "T", { trump: true, title: "The Tower" }),
+      card(7425, "wands", 16, 4, 20, 16, 6, 2, "T", { major: true, title: "The Tower" }),
       card(7426, "cups", 7, 1, 6, 20, 3, 1, "S", { title: "Seven of Cups" }),
       card(7427, "swords", 13, 2, 13, 10, 4, 4, "K", { title: "King of Swords" }),
       card(7428, "pentacles", 8, 6, 5, 16, 9, 1, "N", { title: "Eight of Pentacles" }),
-      card(7429, "wands", 19, 0, 15, 22, 5, 1, "S", { trump: true, title: "The Sun" }),
+      card(7429, "wands", 19, 0, 15, 22, 5, 1, "S", { major: true, title: "The Sun" }),
       card(7430, "cups", 12, 3, 7, 14, 3, 1, "O", { title: "Knight of Cups" }),
     ];
     const deck = [

@@ -85,12 +85,12 @@ public class Tooltip : MonoBehaviour
     static readonly string[] Element = { "Water", "Air", "Earth", "Fire" };
 
     static string CardTitle(Card c) =>
-        c.IsTrump ? CombatPreview.MajorName(c.Rank) + "  ✦" : $"{Rank(c.Rank)} of {SuitName[(int)c.Suit]}";
+        c.IsMajor ? CombatPreview.MajorName(c.Rank) + "  ✦" : $"{Rank(c.Rank)} of {SuitName[(int)c.Suit]}";
 
     static string CardBody(Card c)
     {
-        string what = c.IsTrump
-            ? "A planetary trump — a Major Arcana a tier above the pips, suited by its planet."
+        string what = c.IsMajor
+            ? "A planetary Major Arcana — a tier above the pips, suited by its planet."
             : c.Rank == 1 ? "An Ace — your chart ruler's card, the root of its suit."
             : c.Rank >= 11 ? "A court card — a body dignified enough to be elevated."
             : "A pip — its rank drawn from the decan of the degree that minted it.";

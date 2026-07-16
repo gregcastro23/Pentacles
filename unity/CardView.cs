@@ -12,7 +12,7 @@ public class CardView : MonoBehaviour
 
     Image _bg;             // The inner background image
     Image _border;         // The outer container image serving as the border
-    bool _isTrump;
+    bool _isMajor;
     Color _suitColor;
     Action<ulong> _onClick;
     float _suppressClickUntil;
@@ -44,7 +44,7 @@ public class CardView : MonoBehaviour
         view.CardId = c.CardId;
         view._onClick = onClick;
         view._border = go.GetComponent<Image>();
-        view._isTrump = c.IsTrump;
+        view._isMajor = c.IsMajor;
 
         int suit = (int)c.Suit;
         view._suitColor = SuitColor[suit];
@@ -73,9 +73,9 @@ public class CardView : MonoBehaviour
         UIKit.Label(innerGo.transform, SuitGlyph[suit], 22, FontStyle.Bold, sc, shadow: true);
 
         // 2. Rank Title
-        string rankLabel = c.IsTrump ? CombatPreview.MajorName(c.Rank) : RankName(c.Rank);
-        UIKit.Label(innerGo.transform, rankLabel + (c.IsTrump ? "  ✦" : ""), c.IsTrump ? 11 : 13, FontStyle.Bold,
-            c.IsTrump ? new Color(0.95f, 0.86f, 0.63f) : Color.white, shadow: true);
+        string rankLabel = c.IsMajor ? CombatPreview.MajorName(c.Rank) : RankName(c.Rank);
+        UIKit.Label(innerGo.transform, rankLabel + (c.IsMajor ? "  ✦" : ""), c.IsMajor ? 11 : 13, FontStyle.Bold,
+            c.IsMajor ? new Color(0.95f, 0.86f, 0.63f) : Color.white, shadow: true);
 
         // 3. Suit Name + rev
         UIKit.Label(innerGo.transform, SuitName[suit] + (c.Inverted ? " (rev)" : ""), 9, FontStyle.Italic, sc * 1.1f, shadow: true);
@@ -156,7 +156,7 @@ public class CardView : MonoBehaviour
             if (s)
                 _border.color = new Color(1.0f, 0.92f, 0.7f, 1.0f); // Bright active border
             else
-                _border.color = _isTrump ? new Color(0.95f, 0.86f, 0.63f, 0.85f) : new Color(_suitColor.r, _suitColor.g, _suitColor.b, 0.5f);
+                _border.color = _isMajor ? new Color(0.95f, 0.86f, 0.63f, 0.85f) : new Color(_suitColor.r, _suitColor.g, _suitColor.b, 0.5f);
         }
         transform.localScale = s ? Vector3.one * 1.06f : Vector3.one;
     }

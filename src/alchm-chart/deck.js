@@ -4,16 +4,16 @@
    DOM-free, testable. Mirrors the server's `mint_deck` (server/src/chart.rs)
    so the 20 cards shown for a seeded agent match what was minted on-chain:
    each placement yields a MINOR (its decan pip — or the Ace for the chart ruler,
-   or a court for angular / sign-ruling bodies) and a MAJOR (the planet's trump).
+   or a court for angular / sign-ruling bodies) and a MAJOR (the planet's Major Arcana).
 
    Planet indices: Sun 0 · Moon 1 · Mercury 2 · Venus 3 · Mars 4 · Jupiter 5 ·
    Saturn 6 · Uranus 7 · Neptune 8 · Pluto 9.
    ============================================================ */
 import { decanCard } from "./decans.js";
 
-// Planet → Major-Arcana trump (matches public/client.js TRUMP_* and server planet_major).
-export const TRUMP_NAMES = ["The Sun", "The High Priestess", "The Magician", "The Empress", "The Tower", "Wheel of Fortune", "The World", "The Fool", "The Hanged Man", "Judgement"];
-export const TRUMP_ARCANA = ["XIX", "II", "I", "III", "XVI", "X", "XXI", "0", "XII", "XX"];
+// Planet → Major Arcana (matches public/client.js MAJOR_* and server planet_major).
+export const MAJOR_NAMES = ["The Sun", "The High Priestess", "The Magician", "The Empress", "The Tower", "Wheel of Fortune", "The World", "The Fool", "The Hanged Man", "Judgement"];
+export const MAJOR_NUMERALS = ["XIX", "II", "I", "III", "XVI", "X", "XXI", "0", "XII", "XX"];
 // Planet → its biased Major suit (server Planet::biased_suit).
 const BIASED_SUIT = ["Wands", "Cups", "Swords", "Cups", "Wands", "Wands", "Pentacles", "Swords", "Cups", "Swords"];
 // Sign → ruling planet idx (server sign_ruler).
@@ -70,12 +70,12 @@ export function agentDeck(placements, ascMin = 0, mcMin = 0) {
       decan: dc.range, decanRuler: dc.ruler, lord: dc.title, esms: dc.esms,
     });
     cards.push({
-      kind: "major", body: p.body, suit: BIASED_SUIT[p.body], rank: TRUMP_ARCANA[p.body],
-      name: TRUMP_NAMES[p.body], glyph: SUIT_GLYPHS[BIASED_SUIT[p.body]], color: SUIT_COLORS[BIASED_SUIT[p.body]],
-      trump: true, retro: !!p.retrograde,
+      kind: "major", body: p.body, suit: BIASED_SUIT[p.body], rank: MAJOR_NUMERALS[p.body],
+      name: MAJOR_NAMES[p.body], glyph: SUIT_GLYPHS[BIASED_SUIT[p.body]], color: SUIT_COLORS[BIASED_SUIT[p.body]],
+      major: true, retro: !!p.retrograde,
     });
   }
   return cards;
 }
 
-export default { agentDeck, TRUMP_NAMES, TRUMP_ARCANA, SUIT_GLYPHS, SUIT_COLORS, rankName };
+export default { agentDeck, MAJOR_NAMES, MAJOR_NUMERALS, SUIT_GLYPHS, SUIT_COLORS, rankName };

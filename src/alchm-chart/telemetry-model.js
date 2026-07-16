@@ -196,20 +196,20 @@ export class TelemetryModel {
       this._q('SELECT stake_id, element, principal_usdc, accrued_essence, claimed_essence FROM star_stake'),
     ]);
 
-    // Real card composition (by suit / trump / inverted / lettered / level) — pulled
+    // Real card composition (by suit / major / inverted / lettered / level) — pulled
     // only when the supply is small enough to project cheaply; else just the count.
     const SUITS = ['Wands', 'Cups', 'Swords', 'Pentacles'];
     const bySuit = { Wands: 0, Cups: 0, Swords: 0, Pentacles: 0 };
-    let trumps = 0, inverted = 0, lettered = 0;
+    let majors = 0, inverted = 0, lettered = 0;
     const byLevel = { 'Lv1': 0, 'Lv2–3': 0, 'Lv4+': 0 };
     let composed = false;
     if (cardCount > 0 && cardCount <= 60000) {
-      const cards = await this._q('SELECT suit, is_trump, inverted, letter, level FROM card');
+      const cards = await this._q('SELECT suit, is_major, inverted, letter, level FROM card');
       if (cards.length) {
         composed = true;
         for (const c of cards) {
           const su = titleCase(variantName(c.suit)); if (su && bySuit[su] != null) bySuit[su] += 1;
-          if (c.is_trump === true || c.is_trump === 1) trumps += 1;
+          if (c.is_major === true || c.is_major === 1) majors += 1;
           if (c.inverted === true || c.inverted === 1) inverted += 1;
           if (num(c.letter) > 0) lettered += 1;
           const lv = num(c.level);
@@ -240,7 +240,7 @@ export class TelemetryModel {
     return {
       cards: cardCount, deckSlots: deckCount, decanCards: decanCount,
       cardComposed: composed, cardsBySuit: bySuit, cardsByLevel: byLevel,
-      trumps, inverted, lettered,
+      majors, inverted, lettered,
       trades: trades.length, tradeStates, openTrades, cardsEscrowed,
       jingPools: pools,
       stakes: stakes.length,
