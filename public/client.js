@@ -458,22 +458,47 @@ class GameState {
     if (typeof STAR_CATALOG === "undefined") return;
     const now = new Date();
     const { lat, lon } = this.observer;
+    const elev = this.observer.alt_m || 0;
     const lst = lstDeg(now, lon);
     const sky = [];
-    for (const [hip, name, ra, dec, mag] of STAR_CATALOG) {
-      const aa = altAzOf(ra, dec, lat, lst);
-      if (aa.alt <= 0) continue; // below the edge of the sky
-      const p = skyProject(aa.alt, aa.az);
+    for (const row of STAR_CATALOG) {
+      const hip = row[0], name = row[1], ra = row[2], dec = row[3], mag = row[4], conCode = row[10] || "";
+      const aa = altAzOf(ra, dec, lat, lst, elev);
+      const appAlt = aa.apparentAlt !== undefined ? aa.apparentAlt : aa.alt;
+      const dip = aa.dip || 0;
+      if (appAlt <= (-dip)) continue; // below the virtual horizon edge
+
+      const p = skyProject(appAlt, aa.az);
+      const ecliptic = window.StarRegistry ? window.StarRegistry.getEclipticCoordinates(ra, dec) : null;
+      const altSign = appAlt >= 0 ? "+" : "-";
+      const absAlt = Math.abs(appAlt);
+      const altD = Math.floor(absAlt);
+      const altM = Math.floor((absAlt - altD) * 60.0);
+      const altS = Math.min(59, Math.round(((absAlt - altD) * 60.0 - altM) * 60.0));
+      const azD = Math.floor(aa.az);
+      const azM = Math.floor((aa.az - azD) * 60.0);
+      const card = aa.az < 22.5 || aa.az >= 337.5 ? "N" : (aa.az < 67.5 ? "NE" : (aa.az < 112.5 ? "E" : (aa.az < 157.5 ? "SE" : (aa.az < 202.5 ? "S" : (aa.az < 247.5 ? "SW" : (aa.az < 292.5 ? "W" : "NW"))))));
+
+      const conInfo = window.StarRegistry && window.StarRegistry.CONSTELLATIONS[conCode] ? window.StarRegistry.CONSTELLATIONS[conCode].name : conCode;
+
       sky.push({
         hip_id: hip,
         name,
         ra, dec,
         magnitude: mag,
-        alt: aa.alt,
+        con: conCode,
+        conName: conInfo || "Sky",
+        alt: appAlt,
+        trueAlt: aa.alt,
         az: aa.az,
+        altSexagesimal: `${altSign}${String(altD).padStart(2, "0")}° ${String(altM).padStart(2, "0")}' ${String(altS).padStart(2, "0")}"`,
+        azSexagesimal: `${String(azD).padStart(3, "0")}° ${String(azM).padStart(2, "0")}' ${card}`,
+        horizonEncounter: aa.horizonEncounter,
+        horizonState: aa.horizonEncounter ? "ON_HORIZON_BAND" : (appAlt > 15.0 ? "ABOVE_HORIZON" : "BELOW_HORIZON"),
+        ecliptic,
         x: p.x,
         y: p.y,
-        zone: zoneForAltAz(aa.alt, aa.az),
+        zone: zoneForAltAz(appAlt, aa.az),
         held_by: this.holdings[hip] ?? null,
         weight: starWeight(mag),
       });
@@ -1498,10 +1523,21 @@ async function toggleARCamera() {
   }
 
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: "environment" },
-      audio: false
-    });
+    let stream = null;
+    try {
+      // Ideal environment camera for mobile devices (back camera)
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: "environment" } },
+        audio: false
+      });
+    } catch (err1) {
+      // Fallback for laptops / desktops / single-webcam devices
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: false
+      });
+    }
+
     cameraStream = stream;
     video.srcObject = stream;
     video.play();
@@ -1512,7 +1548,7 @@ async function toggleARCamera() {
     return true;
   } catch (e) {
     console.error("Camera access failed", e);
-    toast("Camera permission denied — enabling the interactive sky sphere fallback instead.", { type: "info" });
+    toast("Camera permission denied — enabling the virtual sky viewfinder fallback.", { type: "info" });
     return false;
   }
 }

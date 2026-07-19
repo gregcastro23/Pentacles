@@ -16,6 +16,43 @@
   <video id="ar-video-bg" autoplay playsinline></video>
   <canvas id="canvas-stars-bg"></canvas>
 
+  <!-- AR Virtual Horizon HUD Viewfinder Overlay -->
+  <div id="ar-horizon-hud" class="ar-horizon-hud" style="display:none;">
+    <div id="ar-horizon-line" class="ar-horizon-line"></div>
+    <div class="ar-compass-bar">
+      <span class="ar-compass-deg" id="ar-compass-deg">N 000°</span>
+      <span class="ar-gps-tag" id="ar-gps-tag">GPS ACCURACY ±5m · REFRACTED HORIZON</span>
+    </div>
+    <div class="ar-reticle-ring">
+      <div class="ar-reticle-crosshair"></div>
+      <div id="ar-reticle-label" class="ar-reticle-label">AIM AT SKY / HORIZON</div>
+    </div>
+    
+    <!-- Live Horizon Star Encounter Banner -->
+    <div id="ar-encounter-banner" class="ar-encounter-banner" style="display:none;">
+      <div class="ar-encounter-header">
+        <span class="ar-encounter-badge">🌅 HORIZON STAR ENCOUNTERED</span>
+        <span id="ar-encounter-name" class="ar-encounter-name">Sirius</span>
+      </div>
+      <div class="ar-encounter-sub" id="ar-encounter-sub">Alpha Canis Majoris · Alt 4.2° · Mag -1.44</div>
+      <div class="ar-encounter-actions">
+        <button class="btn btn-primary" onclick="HorizonTrackerUI.openStardexForTarget()">⭐ Open Stardex Entry</button>
+        <button class="btn" onclick="HorizonTrackerUI.siegeEncounteredStar()">⚔ Initiate Siege Strike</button>
+      </div>
+    </div>
+
+    <!-- Desktop / Laptop Virtual Directional Pan Controls -->
+    <div id="ar-pan-controls" class="ar-pan-controls">
+      <button class="ar-pan-btn" onclick="HorizonTracker.manualPan(0, 5)" title="Tilt Up (▲ / ArrowUp)">▲</button>
+      <div class="ar-pan-row">
+        <button class="ar-pan-btn" onclick="HorizonTracker.manualPan(-5, 0)" title="Pan Left (◀ / ArrowLeft)">◀</button>
+        <button class="ar-pan-btn reset-btn" onclick="HorizonTracker.resetPan()" title="Reset View (✦)">✦</button>
+        <button class="ar-pan-btn" onclick="HorizonTracker.manualPan(5, 0)" title="Pan Right (▶ / ArrowRight)">▶</button>
+      </div>
+      <button class="ar-pan-btn" onclick="HorizonTracker.manualPan(0, -5)" title="Tilt Down (▼ / ArrowDown)">▼</button>
+    </div>
+  </div>
+
   <!-- ===================== ONBOARDING OVERLAY ===================== -->
   <div id="onboarding-overlay" class="overlay-fullscreen">
     <div class="onboarding-window">
@@ -113,6 +150,7 @@
           <button class="btn" id="alchm-chart-btn" onclick="openAlchmChart()">✦ Alchm Chart</button>
           <button class="btn" id="faction-war-btn" onclick="openFactionWar()">⚔ Faction War</button>
           <button class="btn" id="my-codex-btn" onclick="openMyCodex()">✦ My Codex</button>
+          <button class="btn" id="star-pokedex-btn" onclick="openStarPokedex()">⭐ StarDex</button>
           <button class="btn" id="observatory-btn" style="display:none;" onclick="openAdminTelemetry()">🔭 Observatory</button>
         </div>
       </div>
@@ -170,12 +208,31 @@
       <!-- RITUAL CHAIN HUD OVERLAY -->
       <div id="ritual-hud-overlay" class="ritual-hud-overlay" style="display: none;"></div>
 
-      <!-- BOTTOM PANEL: ACTIVE HAND STRIP -->
+      <!-- BOTTOM PANEL: ACTIVE HAND STRIP & SORT CONTROLS -->
       <footer class="hud-card-footer">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <h3 class="title-orn">Active Hand (Select to Strike)</h3>
-          <span id="active-hand-count" style="font-size:11px; color:var(--dim)">0 / 8 Selected</span>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:8px;">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <h3 class="title-orn">Dedicated Hand (<span id="hand-card-count">30</span> Cards)</h3>
+            <span id="active-hand-count" style="font-size:11px; color:var(--dim)">0 / 3 Slots Placed</span>
+          </div>
+
+          <!-- Deck Hand Sorting & Filter Bar -->
+          <div class="deck-sort-bar">
+            <span style="font-size:10px; color:var(--dim);">SORT:</span>
+            <button class="sort-chip active" id="sort-rank" onclick="setHandSort('rank')">Rank</button>
+            <button class="sort-chip" id="sort-suit" onclick="setHandSort('suit')">Suit</button>
+            <button class="sort-chip" id="sort-affinity" onclick="setHandSort('affinity')">Faction</button>
+            <button class="sort-chip" id="sort-power" onclick="setHandSort('power')">Power</button>
+            
+            <span style="font-size:10px; color:var(--dim); margin-left:8px;">FILTER:</span>
+            <button class="sort-chip active" id="filter-all" onclick="setHandFilter('all')">ALL</button>
+            <button class="sort-chip" id="filter-wands" onclick="setHandFilter('wands')">🔥 Wands</button>
+            <button class="sort-chip" id="filter-cups" onclick="setHandFilter('cups')">💧 Cups</button>
+            <button class="sort-chip" id="filter-swords" onclick="setHandFilter('swords')">💨 Swords</button>
+            <button class="sort-chip" id="filter-pentacles" onclick="setHandFilter('pentacles')">🪨 Pentacles</button>
+          </div>
         </div>
+        
         <div id="active-deck-strip" class="cards-scroller">
           <!-- Populated by JS -->
         </div>
@@ -208,11 +265,32 @@
         <div id="tab-duel" class="tab-pane">
           <!-- Strike target Details -->
           <div class="panel" style="display:flex; flex-direction:column; gap:10px">
-            <h4 style="font-size:12px; color:var(--gold-bright);">Combat Preview</h4>
+            <h4 style="font-size:12px; color:var(--gold-bright);">✦ StarDex Node Siege Target</h4>
             <div id="duel-target-details" style="font-size:13px; color:var(--dim)">
               Select a star in the sky map to coordinate a siege target.
             </div>
-            <button id="strike-btn" class="btn" style="width:100%" disabled onclick="initiateSiegeStrike()">Initiate Auto-Siege ⚔</button>
+
+            <!-- Interactive 3-Card Battle Board Slots -->
+            <div class="siege-board-container">
+              <div class="siege-board-header">
+                <span>✦ SIEGE CARD SLOTS (DRAG OR CLICK CARDS)</span>
+                <span id="siege-board-power" style="color:var(--gold-bright); font-weight:bold;">0 ATK</span>
+              </div>
+              <div id="siege-slots-grid" class="siege-slots-grid">
+                <div id="siege-slot-0" class="siege-slot" data-slot="0" ondragover="allowSlotDrop(event)" ondragenter="highlightSlot(event)" ondragleave="unhighlightSlot(event)" ondrop="handleSlotDrop(event, 0)" onclick="removeCardFromSiegeSlot(0)">
+                  <div class="slot-placeholder">✦ SLOT I<br><span style="font-size:10px; opacity:0.6;">Drag / Click Card</span></div>
+                </div>
+                <div id="siege-slot-1" class="siege-slot" data-slot="1" ondragover="allowSlotDrop(event)" ondragenter="highlightSlot(event)" ondragleave="unhighlightSlot(event)" ondrop="handleSlotDrop(event, 1)" onclick="removeCardFromSiegeSlot(1)">
+                  <div class="slot-placeholder">✦ SLOT II<br><span style="font-size:10px; opacity:0.6;">Drag / Click Card</span></div>
+                </div>
+                <div id="siege-slot-2" class="siege-slot" data-slot="2" ondragover="allowSlotDrop(event)" ondragenter="highlightSlot(event)" ondragleave="unhighlightSlot(event)" ondrop="handleSlotDrop(event, 2)" onclick="removeCardFromSiegeSlot(2)">
+                  <div class="slot-placeholder">✦ SLOT III<br><span style="font-size:10px; opacity:0.6;">Drag / Click Card</span></div>
+                </div>
+              </div>
+              <div id="siege-synergy-banner" class="siege-synergy-banner" style="display:none;"></div>
+            </div>
+
+            <button id="strike-btn" class="btn btn-primary strike-pulse-btn" style="width:100%" disabled onclick="initiateSiegeStrike()">⚡ LAUNCH SIEGE STRIKE ⚔</button>
           </div>
 
           <!-- Real-Time Combat Logs -->
@@ -362,12 +440,17 @@
     </div>
   </div>
 
+  <!-- ===================== ⭐ REAL-SKY STAR POKÉDEX ===================== -->
+  <div id="star-pokedex-overlay" class="overlay-fullscreen pokedex-overlay" style="display:none; z-index:125;" role="dialog" aria-modal="true" aria-label="Real-Sky Star Pokédex"></div>
+
   <!-- Celestial data + math + legacy game logic + UI bindings: classic GLOBAL
        scripts served verbatim from public/. Load order is load-bearing, and the
        inline onclick="fn()" handlers in the markup require these to stay global. -->
   <script src="/star-catalog.js"></script>
+  <script src="/star-registry.js"></script>
   <script src="/constellations.js"></script>
   <script src="/sky.js"></script>
+  <script src="/horizon-tracker.js"></script>
   <script src="/auth-cookie-sync.js"></script>
   <script src="/client.js"></script>
   <script src="/astro-weather.js"></script>
@@ -375,10 +458,11 @@
        ESM AlchmChart reads. Loads after astro-weather.js, before app.js. -->
   <script src="/natal-real.js"></script>
   <script src="/app.js"></script>
-  <!-- Agent + constellation pentacles pages (open from sky clicks). Load after
+  <!-- Agent + constellation + star pokédex pages (open from sky clicks). Load after
        app.js so they can call its global render/tab/pool helpers. -->
   <script src="/agent-page.js"></script>
   <script src="/constellation-page.js"></script>
+  <script src="/star-pokedex-ui.js"></script>
   <!-- New ES-module layer, bundled by Vite: toasts, a11y, web3, live SpacetimeDB. -->
   <script type="module" src="/src/main.js"></script>
 </body>

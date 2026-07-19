@@ -200,6 +200,14 @@ pub struct StarNode {
     pub ra: f64,              // equatorial — projected client-side
     pub dec: f64,
     pub magnitude: f32,       // -> node weight (brighter = worth more)
+    pub constellation: String, // e.g. "Orion", "Canis Major"
+    pub zodiac_sign: String,   // e.g. "Gemini", "Aries"
+    pub ecliptic_deg: u8,      // 0..29°
+    pub ecliptic_min: u8,      // 0..59'
+    pub ecliptic_sec: u8,      // 0..59"
+    pub refracted_alt: f32,    // live apparent altitude on horizon
+    pub azimuth: f32,          // live azimuth heading (0..360°)
+    pub horizon_state: String, // ON_HORIZON_BAND | ABOVE_HORIZON | BELOW_HORIZON
     pub held_by: Option<Planet>,
     pub region_hint: u8,      // cached current zone at the last server tick
 }
