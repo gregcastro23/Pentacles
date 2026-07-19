@@ -40,17 +40,56 @@ function gmstDeg(date) {
 // Local sidereal time in degrees (east longitude positive).
 function lstDeg(date, eastLonDeg) { return norm360(gmstDeg(date) + eastLonDeg); }
 
-// Equatorial (RA/Dec deg) → horizontal {alt, az} (deg; az from North → East).
-// Pass the precomputed LST so a 5,000-star sweep does the clock math once.
-function altAzOf(raDeg, decDeg, latDeg, lst) {
+// Atmospheric Refraction (Saemundsson formula) — true altitude (deg) → apparent altitude (deg)
+// Refraction bends light downward, making stars near the horizon appear ~34' (0.57°) higher.
+function refractedAlt(trueAltDeg) {
+  if (trueAltDeg < -1.5) return trueAltDeg; // deep below horizon
+  const h = Math.max(-1.0, trueAltDeg);
+  const rArcmin = 1.02 / Math.tan(deg2rad(h + 10.3 / (h + 5.11)));
+  return trueAltDeg + (rArcmin / 60.0);
+}
+
+// Dip of the Physical/Virtual Horizon (deg) based on observer elevation (meters above sea level)
+// Dip lowers the effective horizon line: dip = 0.0293° * sqrt(elevation_m)
+function horizonDip(elevationMeters = 0) {
+  if (!elevationMeters || elevationMeters <= 0) return 0;
+  return 0.0293 * Math.sqrt(elevationMeters);
+}
+
+// Horizon Encounter Gate: a star is in the Horizon Encounter Band when its apparent
+// altitude sits between the local virtual horizon (-dip) and 15° elevation.
+function isHorizonEncounter(apparentAltDeg, dipDeg = 0) {
+  return apparentAltDeg >= (-dipDeg) && apparentAltDeg <= 15.0;
+}
+
+// Device Gyroscope / Motion → Camera Pointing Direction { camAz, camAlt }
+// Converts device orientation angles (alpha=heading, beta=tilt, gamma=roll) into
+// sky coordinates (camAz=0..360° from North, camAlt=-90..+90° from horizon).
+function cameraAltAz(alphaDeg = 0, betaDeg = 0, gammaDeg = 0) {
+  const az = norm360(alphaDeg || 0);
+  // Pitch beta: 0 = device flat on table (zenith), 90 = held vertical (pointing at horizon)
+  // Inverse relationship: pointing pitch = 90 - beta.
+  const rawAlt = 90.0 - (betaDeg || 0);
+  const alt = Math.max(-90, Math.min(90, rawAlt));
+  return { camAz: az, camAlt: alt };
+}
+
+// Equatorial (RA/Dec deg) → horizontal {alt, apparentAlt, az, horizonEncounter}
+function altAzOf(raDeg, decDeg, latDeg, lst, elevationMeters = 0) {
   const ha = deg2rad(norm360(lst - raDeg)); // hour angle
   const dec = deg2rad(decDeg), lat = deg2rad(latDeg);
   const sinAlt = Math.min(1, Math.max(-1,
     Math.sin(dec) * Math.sin(lat) + Math.cos(dec) * Math.cos(lat) * Math.cos(ha)));
-  const alt = Math.asin(sinAlt);
+  const alt = rad2deg(Math.asin(sinAlt));
   const y = -Math.cos(dec) * Math.cos(lat) * Math.sin(ha);
   const x = Math.sin(dec) - Math.sin(lat) * sinAlt;
-  return { alt: rad2deg(alt), az: norm360(rad2deg(Math.atan2(y, x))) };
+  const az = norm360(rad2deg(Math.atan2(y, x)));
+
+  const dip = horizonDip(elevationMeters);
+  const appAlt = refractedAlt(alt);
+  const horizonEncounter = isHorizonEncounter(appAlt, dip);
+
+  return { alt, apparentAlt: appAlt, az, dip, horizonEncounter };
 }
 
 // Ecliptic longitude/latitude (deg) → equatorial {ra, dec} (deg).

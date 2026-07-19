@@ -479,6 +479,15 @@
         btn.classList.toggle("active", arActive);
       }
 
+      const hud = document.getElementById("ar-horizon-hud");
+      if (hud) {
+        hud.style.display = arActive ? "flex" : "none";
+        if (arActive && window.HorizonTracker) {
+          window.HorizonTracker.requestOrientationPermission();
+          if (window.HorizonTrackerUI) window.HorizonTrackerUI.updateHUD();
+        }
+      }
+
       const wrapper = document.getElementById("sky-map-wrapper");
       if (wrapper) {
         if (!arActive) {
@@ -504,13 +513,38 @@
       }
     }
 
+    // ── SIEGE BOARD & HAND SORTING STATE ───────────────────────────────────────
+    let handSortMode = "rank";
+    let handFilterMode = "all";
+    window.draggingCardId = null;
+
+    function setHandSort(mode) {
+      handSortMode = mode;
+      const chips = ["rank", "suit", "affinity", "power"];
+      chips.forEach(m => {
+        const btn = document.getElementById(`sort-${m}`);
+        if (btn) btn.classList.toggle("active", m === mode);
+      });
+      renderActiveHand();
+    }
+
+    function setHandFilter(filter) {
+      handFilterMode = filter;
+      const filters = ["all", "wands", "cups", "swords", "pentacles"];
+      filters.forEach(f => {
+        const btn = document.getElementById(`filter-${f}`);
+        if (btn) btn.classList.toggle("active", f === filter);
+      });
+      renderActiveHand();
+    }
+
     // Render Web Card Component HTML
     function buildCardHTML(c, loadout, isSelectionMode = false) {
       const isSelected = state.selectedCards.has(c.card_id);
       const selClass = isSelected ? "selected" : "";
       const isMajor = c.is_major;
       const detailText = isMajor ? `Major ${MAJOR_NUMERALS[c.source_body]}` : `${SIGN_GLYPHS[c.sign_idx]} ${SIGN_NAMES[c.sign_idx]}`;
-      const actionFn = isSelectionMode ? `toggleActiveSelection(${c.card_id})` : `handleCollectionCardClick(${c.card_id})`;
+      const actionFn = isSelectionMode ? `autoPlaceCardInSiege(${c.card_id})` : `handleCollectionCardClick(${c.card_id})`;
       const badge = loadout === "active" ? `<span class="web-card-chip">Active</span>` : (loadout === "defense" ? `<span class="web-card-chip defense">Defense</span>` : "");
 
       const dragAttr = isSelectionMode
@@ -518,7 +552,7 @@
         : "";
 
       return `
-        <div class="web-card ${c.suit} ${selClass} ${isMajor ? 'major' : ''} ${c.inverted ? 'inverted' : ''}" ${dragAttr} onclick="${actionFn}">
+        <div class="web-card ${c.suit} ${selClass} ${isMajor ? 'major' : ''} ${c.inverted ? 'inverted' : ''}" data-card-id="${c.card_id}" ${dragAttr} onclick="${actionFn}">
           ${badge}
           <div class="web-card-glyph" style="color: ${PLANET_COLORS[c.source_body]};">${SUIT_GLYPHS[c.suit]}</div>
           <div class="web-card-title">${c.title}</div>
@@ -535,20 +569,288 @@
       `;
     }
 
-    // Render Active selection hand (scroller strip)
+    // Render Active Dedicated Selection Hand (up to 30 Cards) with sorting & filtering
     function renderActiveHand() {
       const container = document.getElementById("active-deck-strip");
+      if (!container) return;
       container.innerHTML = "";
 
-      const activeSlots = state.deck.filter(d => d.loadout === "active");
-      activeSlots.forEach(slot => {
-        const c = state.collection.find(card => card.card_id === slot.card_id);
-        if (c) {
-          container.innerHTML += buildCardHTML(c, "active", true);
+      let cards = [...state.collection];
+      if (cards.length === 0 && state.deck) {
+        cards = state.deck.map(d => state.collection.find(c => c.card_id === d.card_id)).filter(Boolean);
+      }
+
+      // Apply Filter
+      if (handFilterMode !== "all") {
+        cards = cards.filter(c => c.suit && c.suit.toLowerCase() === handFilterMode);
+      }
+
+      // Apply Sort
+      cards.sort((a, b) => {
+        if (handSortMode === "rank") {
+          return (a.rank || 0) - (b.rank || 0) || b.attack - a.attack;
+        } else if (handSortMode === "suit") {
+          return (a.suit || "").localeCompare(b.suit || "") || b.attack - a.attack;
+        } else if (handSortMode === "affinity") {
+          return (a.source_body || 0) - (b.source_body || 0) || b.attack - a.attack;
+        } else if (handSortMode === "power") {
+          return b.attack - a.attack;
+        }
+        return 0;
+      });
+
+      // Display up to 30 cards in the dedicated hand strip
+      const handCards = cards.slice(0, 30);
+      handCards.forEach(c => {
+        container.innerHTML += buildCardHTML(c, "active", true);
+      });
+
+      const cardCountEl = document.getElementById("hand-card-count");
+      if (cardCountEl) cardCountEl.innerText = handCards.length;
+
+      const placedCount = state.siegeSlots ? state.siegeSlots.filter(Boolean).length : 0;
+      const activeHandCountEl = document.getElementById("active-hand-count");
+      if (activeHandCountEl) activeHandCountEl.innerText = `${placedCount} / 3 Slots Placed`;
+
+      renderSiegeBoardSlots();
+    }
+
+    // ── 3-CARD BATTLE BOARD & SIEGE SLOTS ─────────────────────────────────────
+    function autoPlaceCardInSiege(cardId) {
+      if (!state.siegeSlots) state.siegeSlots = [null, null, null];
+
+      const existingIdx = state.siegeSlots.indexOf(cardId);
+      if (existingIdx !== -1) {
+        removeCardFromSiegeSlot(existingIdx);
+        return;
+      }
+
+      const emptyIdx = state.siegeSlots.indexOf(null);
+      if (emptyIdx !== -1) {
+        placeCardInSiegeSlot(cardId, emptyIdx);
+      } else {
+        placeCardInSiegeSlot(cardId, 0); // Replace slot 0 if full
+      }
+    }
+
+    function placeCardInSiegeSlot(cardId, slotIdx) {
+      if (!state.siegeSlots) state.siegeSlots = [null, null, null];
+
+      const prevIdx = state.siegeSlots.indexOf(cardId);
+      if (prevIdx !== -1) state.siegeSlots[prevIdx] = null;
+
+      state.siegeSlots[slotIdx] = cardId;
+      state.selectedCards.add(cardId);
+
+      renderSiegeBoardSlots();
+      renderActiveHand();
+      updateCombatPreview();
+      if (synth && synth.playSelect) synth.playSelect();
+    }
+
+    function removeCardFromSiegeSlot(slotIdx) {
+      if (!state.siegeSlots) state.siegeSlots = [null, null, null];
+      const removedId = state.siegeSlots[slotIdx];
+      if (removedId) {
+        state.siegeSlots[slotIdx] = null;
+        state.selectedCards.delete(removedId);
+        renderSiegeBoardSlots();
+        renderActiveHand();
+        updateCombatPreview();
+        if (synth && synth.playClick) synth.playClick();
+      }
+    }
+
+    function calculateSiegeSynergies() {
+      if (!state.siegeSlots) state.siegeSlots = [null, null, null];
+      const targetStar = state.getSelectedStar();
+
+      let baseAtk = 0;
+      let cardCount = 0;
+      const suits = [];
+
+      state.siegeSlots.forEach(id => {
+        if (id) {
+          const c = state.collection.find(card => card.card_id === id);
+          if (c) {
+            baseAtk += c.attack;
+            cardCount++;
+            suits.push(c.suit);
+          }
         }
       });
 
-      document.getElementById("active-hand-count").innerText = `${state.selectedCards.size} / ${activeSlots.length} Selected`;
+      if (cardCount === 0) {
+        return { baseAtk: 0, totalAtk: 0, multiplier: 1.0, synergyText: "", badges: [] };
+      }
+
+      let multiplier = 1.0;
+      const badges = [];
+
+      const suitCounts = {};
+      suits.forEach(s => { suitCounts[s] = (suitCounts[s] || 0) + 1; });
+
+      let maxSuitCount = 0;
+      let dominantSuit = "";
+      for (const [s, cnt] of Object.entries(suitCounts)) {
+        if (cnt > maxSuitCount) { maxSuitCount = cnt; dominantSuit = s; }
+      }
+
+      if (maxSuitCount === 3) {
+        multiplier += 0.50; // +50% Tri-suit Triplicity Synergy
+        badges.push(`🔥 TRI-SUIT ${dominantSuit.toUpperCase()} (+50%)`);
+      } else if (maxSuitCount === 2) {
+        multiplier += 0.25; // +25% Dual-suit Pair
+        badges.push(`✦ DUAL-SUIT ${dominantSuit.toUpperCase()} (+25%)`);
+      }
+
+      if (targetStar && targetStar.zone !== null) {
+        const favoredSuit = SIGN_SUITS[targetStar.zone % 12];
+        if (dominantSuit === favoredSuit) {
+          multiplier += 0.25;
+          badges.push(`⭐ FAVORED ${favoredSuit.toUpperCase()} AFFINITY (+25%)`);
+        }
+      }
+
+      const totalAtk = Math.round(baseAtk * multiplier);
+      return { baseAtk, totalAtk, multiplier, synergyText: badges.join(" · "), badges };
+    }
+
+    function renderSiegeBoardSlots() {
+      if (!state.siegeSlots) state.siegeSlots = [null, null, null];
+
+      for (let i = 0; i < 3; i++) {
+        const slotEl = document.getElementById(`siege-slot-${i}`);
+        if (!slotEl) continue;
+
+        const cardId = state.siegeSlots[i];
+        if (cardId) {
+          const card = state.collection.find(c => c.card_id === cardId);
+          if (card) {
+            slotEl.innerHTML = `
+              <div class="siege-placed-card card-placed-anim">
+                <button class="slot-remove-btn" title="Remove Card" onclick="event.stopPropagation(); removeCardFromSiegeSlot(${i})">✕</button>
+                <div class="placed-card-glyph" style="color:${PLANET_COLORS[card.source_body]}">${SUIT_GLYPHS[card.suit]}</div>
+                <div class="placed-card-title">${card.title}</div>
+                <div class="placed-card-stats">⚔ ${card.attack}</div>
+              </div>
+            `;
+            slotEl.classList.add("occupied");
+          }
+        } else {
+          slotEl.innerHTML = `
+            <div class="slot-placeholder">✦ SLOT ${["I", "II", "III"][i]}<br><span style="font-size:10px; opacity:0.6;">Drag / Click Card</span></div>
+          `;
+          slotEl.classList.remove("occupied");
+        }
+      }
+
+      const syn = calculateSiegeSynergies();
+      const powerEl = document.getElementById("siege-board-power");
+      if (powerEl) {
+        powerEl.innerHTML = syn.multiplier > 1.0
+          ? `⚔ <span style="color:var(--gold-bright)">${syn.totalAtk} ATK</span> <span style="font-size:10px; color:var(--gold)">(${syn.baseAtk} × ${syn.multiplier.toFixed(2)})</span>`
+          : `⚔ ${syn.totalAtk} ATK`;
+      }
+
+      const synBanner = document.getElementById("siege-synergy-banner");
+      if (synBanner) {
+        if (syn.badges.length > 0) {
+          synBanner.style.display = "block";
+          synBanner.innerHTML = syn.synergyText;
+        } else {
+          synBanner.style.display = "none";
+        }
+      }
+    }
+
+    // ── DRAG & DROP & TOUCH LISTENERS ──────────────────────────────────────────
+    function handleCardDragStart(e, cardId) {
+      e.dataTransfer.setData("text/plain", String(cardId));
+      e.dataTransfer.effectAllowed = "move";
+      window.draggingCardId = cardId;
+    }
+
+    function handleCardDragEnd(e, cardId) {
+      window.draggingCardId = null;
+    }
+
+    function allowSlotDrop(e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+    }
+
+    function highlightSlot(e) {
+      e.preventDefault();
+      const slot = e.currentTarget;
+      if (slot) slot.classList.add("drag-over");
+    }
+
+    function unhighlightSlot(e) {
+      const slot = e.currentTarget;
+      if (slot) slot.classList.remove("drag-over");
+    }
+
+    function handleSlotDrop(e, slotIdx) {
+      e.preventDefault();
+      unhighlightSlot(e);
+      const cardIdStr = e.dataTransfer.getData("text/plain") || window.draggingCardId;
+      if (cardIdStr) {
+        const cardId = Number(cardIdStr);
+        placeCardInSiegeSlot(cardId, slotIdx);
+      }
+    }
+
+    function attachTouchDragListeners() {
+      let touchedCardId = null;
+
+      window.addEventListener("touchstart", (e) => {
+        const cardEl = e.target.closest(".web-card");
+        if (!cardEl) return;
+        const cardId = cardEl.getAttribute("data-card-id");
+        if (cardId) touchedCardId = Number(cardId);
+      }, { passive: true });
+
+      window.addEventListener("touchmove", (e) => {
+        if (!touchedCardId) return;
+        const touch = e.touches[0];
+        const targetEl = document.elementFromPoint(touch.clientX, touch.clientY);
+        const slotEl = targetEl ? targetEl.closest(".siege-slot") : null;
+
+        document.querySelectorAll(".siege-slot").forEach(s => s.classList.remove("drag-over"));
+        if (slotEl) slotEl.classList.add("drag-over");
+      }, { passive: true });
+
+      window.addEventListener("touchend", (e) => {
+        if (!touchedCardId) return;
+        const touch = e.changedTouches[0];
+        const targetEl = document.elementFromPoint(touch.clientX, touch.clientY);
+        const slotEl = targetEl ? targetEl.closest(".siege-slot") : null;
+
+        document.querySelectorAll(".siege-slot").forEach(s => s.classList.remove("drag-over"));
+        if (slotEl) {
+          const slotIdx = Number(slotEl.getAttribute("data-slot"));
+          if (!isNaN(slotIdx)) placeCardInSiegeSlot(touchedCardId, slotIdx);
+        }
+        touchedCardId = null;
+      });
+    }
+
+    // Export Drag & Drop functions to window scope
+    window.handleCardDragStart = handleCardDragStart;
+    window.handleCardDragEnd = handleCardDragEnd;
+    window.allowSlotDrop = allowSlotDrop;
+    window.highlightSlot = highlightSlot;
+    window.unhighlightSlot = unhighlightSlot;
+    window.handleSlotDrop = handleSlotDrop;
+    window.autoPlaceCardInSiege = autoPlaceCardInSiege;
+    window.removeCardFromSiegeSlot = removeCardFromSiegeSlot;
+    window.setHandSort = setHandSort;
+    window.setHandFilter = setHandFilter;
+
+    // Attach Touch drag listeners
+    if (typeof window !== "undefined") {
+      attachTouchDragListeners();
     }
 
     // Toggle active card selection
@@ -1363,43 +1665,48 @@
         return isMe ? `<strong>${name} (You)</strong>` : name;
       }).join(", ");
 
-      // Calculate selected strike power
-      let totalAtk = 0;
-      let handCount = 0;
-      state.selectedCards.forEach(id => {
-        const c = state.collection.find(card => card.card_id === id);
-        if (c) {
-          totalAtk += c.attack;
-          handCount++;
-        }
-      });
-
-      // If no cards selected, default to all Active
-      if (handCount === 0) {
-        state.deck.filter(d => d.loadout === "active").forEach(slot => {
-          const c = state.collection.find(card => card.card_id === slot.card_id);
-          if (c) totalAtk += c.attack;
-        });
-      }
-
+      const syn = calculateSiegeSynergies();
       const named = isNamedStar(star.name);
+      const isHorizon = star.horizonEncounter || (star.alt >= 0 && star.alt <= 15);
+      const eclText = star.ecliptic ? star.ecliptic.formatted : "";
+
       details.innerHTML = `
-        <strong>Target Node:</strong> ${star.name} (${star.magnitude} mag)<br>
-        <strong>Sky Position:</strong> alt ${Math.round(star.alt)}° · az ${Math.round(star.az)}°${engageable ? "" : ` — <span style="color:#e88a8a">below the ${MIN_ENGAGE_ALT_DEG}° engage band; wait for it to climb</span>`}<br>
+        <strong>StarDex Node:</strong> <span style="color:var(--gold-bright); font-weight:bold;">${star.name}</span> (Mag ${star.magnitude.toFixed(2)})<br>
+        <strong>Horizon Status:</strong> ${isHorizon ? '🌅 ON HORIZON BAND' : `⬆ ABOVE HORIZON (${star.alt.toFixed(1)}° Alt · ${star.az.toFixed(1)}° Az)`}<br>
+        ${eclText ? `<strong>Zodiac Ecliptic:</strong> ${eclText}<br>` : ''}
         <strong>Zone Location:</strong> ${zoneName} (Favored Suit: ${suitSign.toUpperCase()})<br>
-        <strong>Current Node Owner:</strong> ${ownerStr}<br>
-        <strong>Round Contesters (${contesters.length}):</strong> ${contestersNames}<br>
-        <strong>Attack Cards:</strong> ${handCount > 0 ? handCount : 'All Active'} (${totalAtk} Base Power)
-        ${named ? `<div style="margin-top:9px;"><button id="open-star-agent" class="btn" style="padding:5px 11px;font-size:11px;border-color:var(--gold);color:var(--gold-bright);background:transparent;">✦ Commune with ${star.name} — open its agent page</button></div>` : ""}
+        <strong>Node Faction Control:</strong> ${ownerStr}<br>
+        <strong>Contesting Factions (${contesters.length}):</strong> ${contestersNames}<br>
+        <strong>Board Attack Power:</strong> ⚔ <strong style="color:var(--gold-bright);">${syn.totalAtk} ATK</strong> ${syn.multiplier > 1.0 ? `(${syn.baseAtk} × ${syn.multiplier.toFixed(2)})` : ''}
+        <div style="margin-top:9px; display:flex; gap:6px; flex-wrap:wrap;">
+          ${named ? `<button id="open-star-agent" class="btn" style="padding:5px 11px;font-size:11px;border-color:var(--gold);color:var(--gold-bright);background:transparent;">✦ Commune with ${star.name}</button>` : ""}
+          <button id="open-star-pokedex" class="btn" style="padding:5px 11px;font-size:11px;border-color:var(--gold);color:var(--gold-bright);background:transparent;">⭐ Inspect in StarDex</button>
+        </div>
       `;
       if (named) {
         const sab = document.getElementById("open-star-agent");
         if (sab) sab.onclick = () => { if (window.openStarAgentPage) window.openStarAgentPage(star.hip_id); };
       }
+      const spb = document.getElementById("open-star-pokedex");
+      if (spb) spb.onclick = () => { if (window.openStarPokedex) window.openStarPokedex(star.hip_id); };
 
       if (engageable) btn.removeAttribute("disabled");
       else btn.setAttribute("disabled", "true");
     }
+
+    // Expose selectStarByHip helper for external components
+    window.selectStarByHip = function (hipId) {
+      const hip = Number(hipId);
+      const star = state.sky ? state.sky.find((s) => s.hip_id === hip) : null;
+      if (star) {
+        selectStar(star);
+      } else {
+        state.selectedStarHip = hip;
+        renderZonesList();
+        renderStarsNodes();
+        updateCombatPreview();
+      }
+    };
 
     // Execute Auto-resolve strike siege
     function initiateSiegeStrike() {

@@ -2645,28 +2645,97 @@ fn agent_war(ctx: &ReducerContext) {
     }
 }
 
+fn compute_ecliptic(ra_deg: f64, dec_deg: f64) -> (&'static str, u8, u8, u8) {
+    let ra_rad = ra_deg.to_radians();
+    let dec_rad = dec_deg.to_radians();
+    let eps_rad = 23.4392911f64.to_radians();
+
+    let sin_dec = dec_rad.sin();
+    let cos_dec = dec_rad.cos();
+    let sin_eps = eps_rad.sin();
+    let cos_eps = eps_rad.cos();
+    let sin_ra = ra_rad.sin();
+    let cos_ra = ra_rad.cos();
+
+    let y = sin_ra * cos_eps + (sin_dec / cos_dec.max(0.000001)) * sin_eps;
+    let x = cos_ra;
+    let mut lambda_deg = y.atan2(x).to_degrees();
+    if lambda_deg < 0.0 {
+        lambda_deg += 360.0;
+    }
+
+    let signs = [
+        "Aries", "Taurus", "Gemini", "Cancer",
+        "Leo", "Virgo", "Libra", "Scorpio",
+        "Sagittarius", "Capricorn", "Aquarius", "Pisces"
+    ];
+
+    let sign_idx = ((lambda_deg / 30.0).floor() as usize) % 12;
+    let sign_name = signs[sign_idx];
+
+    let rem_deg = lambda_deg % 30.0;
+    let deg = rem_deg.floor() as u8;
+    let rem_min = (rem_deg - (deg as f64)) * 60.0;
+    let min = rem_min.floor() as u8;
+    let sec = (((rem_min - (min as f64)) * 60.0).round() as u8).min(59);
+
+    (sign_name, deg, min, sec)
+}
+
+fn expand_constellation(code: &str) -> String {
+    match code.trim() {
+        "And" => "Andromeda", "Ant" => "Antlia", "Aps" => "Apus", "Aql" => "Aquila",
+        "Aqr" => "Aquarius", "Ara" => "Ara", "Ari" => "Aries", "Aur" => "Auriga",
+        "Boo" => "Boötes", "Cae" => "Caelum", "Cam" => "Camelopardalis", "Cap" => "Capricornus",
+        "Car" => "Carina", "Cas" => "Cassiopeia", "Cen" => "Centaurus", "Cep" => "Cepheus",
+        "Cet" => "Cetus", "Cha" => "Chamaeleon", "Cir" => "Circinus", "CMa" => "Canis Major",
+        "CMi" => "Canis Minor", "Cnc" => "Cancer", "Col" => "Columba", "Com" => "Coma Berenices",
+        "CrA" => "Corona Australis", "Boreal" => "Corona Borealis", "Crv" => "Corvus", "Crt" => "Crater",
+        "Cru" => "Crux", "CVn" => "Canes Venatici", "Cyg" => "Cygnus", "Del" => "Delphinus",
+        "Dor" => "Dorado", "Dra" => "Draco", "Equ" => "Equuleus", "Eri" => "Eridanus",
+        "For" => "Fornax", "Gem" => "Gemini", "Gru" => "Grus", "Her" => "Hercules",
+        "Hor" => "Horologium", "Hya" => "Hydra", "Hyi" => "Hydrus", "Ind" => "Indus",
+        "Lac" => "Lacerta", "Leo" => "Leo", "LMi" => "Leo Minor", "Lep" => "Lepus",
+        "Lib" => "Libra", "Lup" => "Lupus", "Lyn" => "Lynx", "Lyr" => "Lyra",
+        "Men" => "Mensa", "Mic" => "Microscopium", "Mon" => "Monoceros", "Mus" => "Musca",
+        "Nor" => "Norma", "Oct" => "Octans", "Ophiuchus" => "Ophiuchus", "Oph" => "Ophiuchus",
+        "Ori" => "Orion", "Pav" => "Pavo", "Peg" => "Pegasus", "Per" => "Perseus",
+        "Phe" => "Phoenix", "Pic" => "Pictor", "Psc" => "Pisces", "PsA" => "Piscis Austrinus",
+        "Pup" => "Puppis", "Pyx" => "Pyxis", "Ret" => "Reticulum", "Scl" => "Sculptor",
+        "Sco" => "Scorpius", "Sct" => "Scutum", "Ser" => "Serpens", "Sex" => "Sextans",
+        "Tau" => "Taurus", "Tel" => "Telescopium", "Tri" => "Triangulum", "TrA" => "Triangulum Australe",
+        "Tuc" => "Tucana", "UMa" => "Ursa Major", "UMi" => "Ursa Minor", "Vel" => "Vela",
+        "Vir" => "Virgo", "Vol" => "Volans", "Vul" => "Vulpecula",
+        _ => code,
+    }.to_string()
+}
+
 /// Seed a slice of the embedded star catalogue (`catalog::STARS`, the full
-/// naked-eye sky to magnitude 6.0, sorted brightest-first) into `star_node`.
-/// Idempotent — existing rows (and their `held_by`) are left untouched, so the
-/// backfill can run over a live, contested sky. `region_hint` is computed from
-/// the catalogue position and the current sidereal time, the same canonical
-/// bucketing `recompute_star_zones` maintains from then on.
-///
-/// Returns the cursor after this batch (`min(start + count, catalogue len)`).
+/// naked-eye sky to magnitude 6.5, sorted brightest-first) into `star_node`.
 fn seed_star_batch(ctx: &ReducerContext, start: usize, count: usize) -> u32 {
     let end = (start + count).min(catalog::STARS.len());
     if start >= end {
         return catalog::STARS.len() as u32;
     }
     let gmst = gmst_deg(ctx.timestamp);
-    for &(hip_id, name, ra, dec, magnitude) in &catalog::STARS[start..end] {
+    for &(hip_id, name, ra, dec, magnitude, con_abbrev) in &catalog::STARS[start..end] {
         if ctx.db.star_node().hip_id().find(&hip_id).is_none() {
+            let (z_sign, z_deg, z_min, z_sec) = compute_ecliptic(ra, dec);
+            let con_name = expand_constellation(con_abbrev);
             ctx.db.star_node().insert(StarNode {
                 hip_id,
                 name: name.to_string(),
                 ra,
                 dec,
                 magnitude,
+                constellation: con_name,
+                zodiac_sign: z_sign.to_string(),
+                ecliptic_deg: z_deg,
+                ecliptic_min: z_min,
+                ecliptic_sec: z_sec,
+                refracted_alt: 0.0,
+                azimuth: 0.0,
+                horizon_state: "BELOW_HORIZON".to_string(),
                 held_by: None,
                 region_hint: zone_for_lon(gmst - ra),
             });
@@ -2676,6 +2745,122 @@ fn seed_star_batch(ctx: &ReducerContext, start: usize, count: usize) -> u32 {
         log::info!("star catalogue fully seeded: {} stars", end);
     }
     end as u32
+}
+
+/// Recomputes and updates observer horizon coordinates for all stars in SpacetimeDB.
+#[spacetimedb::reducer]
+pub fn sync_stardex_ephemeris(ctx: &ReducerContext, lat: f64, lon: f64, elev_m: f64) -> Result<(), String> {
+    let gmst = gmst_deg(ctx.timestamp);
+    let lst_deg = ((gmst + lon) % 360.0 + 360.0) % 360.0;
+    let lat_rad = lat.to_radians();
+
+    let dip_deg = 0.0293 * elev_m.max(0.0).sqrt();
+
+    for mut star in ctx.db.star_node().iter() {
+        let ha_deg = ((lst_deg - star.ra) % 360.0 + 360.0) % 360.0;
+        let ha_rad = ha_deg.to_radians();
+        let dec_rad = star.dec.to_radians();
+
+        let sin_alt = dec_rad.sin() * lat_rad.sin() + dec_rad.cos() * lat_rad.cos() * ha_rad.cos();
+        let true_alt_rad = sin_alt.max(-1.0).min(1.0).asin();
+        let true_alt_deg = true_alt_rad.to_degrees();
+
+        // Atmospheric refraction calculation
+        let ref_arcmin = if true_alt_deg > -0.5 {
+            1.02 / (true_alt_deg + 10.3 / (true_alt_deg + 5.11)).to_radians().tan()
+        } else {
+            0.0
+        };
+        let apparent_alt_deg = true_alt_deg + (ref_arcmin / 60.0) - dip_deg;
+
+        let y = -ha_rad.sin();
+        let x = dec_rad.cos() * lat_rad.sin() * ha_rad.cos() - dec_rad.sin() * lat_rad.cos();
+        let mut az_deg = y.atan2(x).to_degrees();
+        if az_deg < 0.0 {
+            az_deg += 360.0;
+        }
+
+        let state_str = if apparent_alt_deg >= 0.0 && apparent_alt_deg <= 15.0 {
+            "ON_HORIZON_BAND"
+        } else if apparent_alt_deg > 15.0 {
+            "ABOVE_HORIZON"
+        } else {
+            "BELOW_HORIZON"
+        };
+
+        star.refracted_alt = apparent_alt_deg as f32;
+        star.azimuth = az_deg as f32;
+        star.horizon_state = state_str.to_string();
+
+        ctx.db.star_node().hip_id().update(star);
+    }
+
+    Ok(())
+}
+
+/// Allows a player to claim/siege a star node when it sits on the horizon band.
+#[spacetimedb::reducer]
+pub fn siege_horizon_star(ctx: &ReducerContext, star_id: u32) -> Result<(), String> {
+    let player = ctx.db.player().identity().find(&ctx.sender()).ok_or("player not found")?;
+    let mut star = ctx.db.star_node().hip_id().find(&star_id).ok_or("star not found")?;
+
+    if star.horizon_state != "ON_HORIZON_BAND" && star.refracted_alt < 0.0 {
+        return Err(format!("Star {} is not currently on the horizon encounter band", star.name));
+    }
+
+    star.held_by = Some(player.faction);
+    ctx.db.star_node().hip_id().update(star);
+    log::info!("Player {} ({:?}) conquered horizon star node {}", player.handle, player.faction, star_id);
+    Ok(())
+}
+
+/// Claims bonus token rewards when a player's faction holds all stars in a constellation on the horizon.
+#[spacetimedb::reducer]
+pub fn stardex_claim_constellation(ctx: &ReducerContext, constellation_name: String) -> Result<(), String> {
+    let mut player = ctx.db.player().identity().find(&ctx.sender()).ok_or("player not found")?;
+    let mut total_count = 0;
+    let mut held_count = 0;
+
+    for star in ctx.db.star_node().iter() {
+        if star.constellation.eq_ignore_ascii_case(&constellation_name) {
+            total_count += 1;
+            if star.held_by == Some(player.faction) {
+                held_count += 1;
+            }
+        }
+    }
+
+    if total_count == 0 {
+        return Err(format!("Constellation {} not found in StarDex", constellation_name));
+    }
+
+    if held_count < total_count {
+        return Err(format!("Faction {:?} holds {}/{} stars in {}", player.faction, held_count, total_count, constellation_name));
+    }
+
+    // Award bonus tokens
+    let bonus = (total_count as u64) * 250;
+    player.tokens += bonus;
+    ctx.db.player().identity().update(player.clone());
+    log::info!("Player {} claimed StarDex constellation bonus: +{} tokens for {}", player.handle, bonus, constellation_name);
+    Ok(())
+}
+
+/// Fortifies a claimed StarDex node by increasing its capture weight.
+#[spacetimedb::reducer]
+pub fn stardex_fortify_node(ctx: &ReducerContext, star_id: u32, energy_amount: u32) -> Result<(), String> {
+    let player = ctx.db.player().identity().find(&ctx.sender()).ok_or("player not found")?;
+    let mut star = ctx.db.star_node().hip_id().find(&star_id).ok_or("star node not found")?;
+
+    if star.held_by != Some(player.faction) {
+        return Err("Cannot fortify a star node held by an opposing faction".to_string());
+    }
+
+    // Fortify node weight (make magnitude brighter/stronger for capture math)
+    star.magnitude = (star.magnitude - (energy_amount as f32 * 0.05)).max(-2.0);
+    ctx.db.star_node().hip_id().update(star);
+    log::info!("Player {} fortified StarDex node {} (+{} energy)", player.handle, star_id, energy_amount);
+    Ok(())
 }
 
 /// Seed the constellation liquidity-pool catalogue (a small, frozen set of ~12
@@ -4282,7 +4467,7 @@ pub fn claim_profile(ctx: &ReducerContext, code: String) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        auto_battle_win, catchup_rounds, has_duplicates, pick_weakest, question_hash,
+        auto_battle_win, catchup_rounds, compute_ecliptic, expand_constellation, has_duplicates, pick_weakest, question_hash,
         round_interval_secs, should_replace, COLLECTION_CAP, MAX_CATCHUP_ROUNDS, ROUND_BASE_SECS,
     };
 
@@ -4378,5 +4563,25 @@ mod tests {
         assert!(!has_duplicates(&[1, 2, 3]));
         assert!(has_duplicates(&[1, 2, 1]));
         assert!(has_duplicates(&[7, 7]));
+    }
+
+    #[test]
+    fn ecliptic_coordinates_compute_correct_zodiac_sign_and_degrees() {
+        // Aldebaran: RA 68.98 deg, DEC 16.51 deg -> Gemini ~8 deg (ecliptic lon 68.5 deg)
+        let (sign, deg, min, _sec) = compute_ecliptic(68.98, 16.51);
+        assert_eq!(sign, "Gemini");
+        assert!(deg >= 7 && deg <= 10);
+        assert!(min <= 59);
+
+        // Regulus: RA 152.09 deg, DEC 11.97 deg -> Leo ~29 deg
+        let (sign_reg, _deg_reg, _, _) = compute_ecliptic(152.09, 11.97);
+        assert_eq!(sign_reg, "Leo");
+    }
+
+    #[test]
+    fn constellation_abbreviations_expand_properly() {
+        assert_eq!(expand_constellation("Ori"), "Orion");
+        assert_eq!(expand_constellation("CMa"), "Canis Major");
+        assert_eq!(expand_constellation("Boo"), "Boötes");
     }
 }
