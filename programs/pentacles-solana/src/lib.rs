@@ -201,6 +201,33 @@ pub mod pentacles_solana {
         Ok(())
     }
 
+    /// Burn ESMS specifically for an omnichain transfer. The distinct
+    /// discriminator/log keeps bridge burns out of the Jing-energy sync feed.
+    pub fn bridge_burn_esms(
+        ctx: Context<BurnEsmsForJing>,
+        element_id: u8,
+        amount: u64,
+    ) -> Result<()> {
+        require!(element_id <= 3, ErrorCode::InvalidElementId);
+        require!(amount > 0, ErrorCode::InvalidAmount);
+        let cpi_accounts = Burn {
+            mint: ctx.accounts.target_mint.to_account_info(),
+            from: ctx.accounts.player_token_account.to_account_info(),
+            authority: ctx.accounts.player.to_account_info(),
+        };
+        token_interface::burn(
+            CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts),
+            amount,
+        )?;
+        msg!(
+            "Bridge burned {} units of ESMS element {} by {}.",
+            amount,
+            element_id,
+            ctx.accounts.player.key()
+        );
+        Ok(())
+    }
+
     /// Permanent Delegate anti-cheat slash instruction.
     /// Uses game_authority PDA as Permanent Delegate to burn illicit tokens directly from offender.
     pub fn slash_cheater(ctx: Context<SlashCheater>, amount: u64) -> Result<()> {

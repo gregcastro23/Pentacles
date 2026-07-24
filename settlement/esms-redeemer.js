@@ -8,7 +8,7 @@ import {
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { baseSepolia } from 'viem/chains'
-import { ESMS_ABI, REDEEM_AUTH_TYPES } from '../src/web3/abis.js'
+import { ESMS_ABI, ESMS_ORDER_PREFIX, REDEEM_AUTH_TYPES } from '../src/web3/abis.js'
 
 export const ESMS_ADDRESS =
   process.env.ESMS_TOKEN ||
@@ -37,10 +37,17 @@ function json(body, status = 200) {
 }
 
 function parsePayload(body, nowSeconds) {
+  const purpose = body?.purpose ?? 'jing'
+  if (purpose !== 'jing' && purpose !== 'bridge') {
+    throw new Error('purpose must be jing or bridge')
+  }
   const from = getAddress(String(body?.from || ''))
   const orderId = String(body?.orderId || '')
   const signature = String(body?.signature || '')
   if (!BYTES32.test(orderId)) throw new Error('orderId must be bytes32')
+  if (orderId.slice(2, 4).toLowerCase() !== ESMS_ORDER_PREFIX[purpose]) {
+    throw new Error(`orderId is not bound to the ${purpose} settlement purpose`)
+  }
   if (!SIGNATURE.test(signature)) throw new Error('signature must be a 65-byte hex value')
   if (!Array.isArray(body?.ids) || !Array.isArray(body?.amounts) || body.ids.length !== 1 || body.amounts.length !== 1) {
     throw new Error('exactly one ESMS element burn is required')
@@ -54,7 +61,7 @@ function parsePayload(body, nowSeconds) {
   const now = BigInt(nowSeconds())
   if (deadline < now) throw new Error('authorization expired')
   if (deadline > now + 900n) throw new Error('authorization deadline is too far in the future')
-  return { from, orderId, ids, amounts, deadline, signature }
+  return { purpose, from, orderId, ids, amounts, deadline, signature }
 }
 
 async function defaultVerifyAuthorization(payload) {
@@ -224,8 +231,15 @@ export function createBurnSettlementHandler(overrides = {}) {
       if (!(await deps.verifyReceipt({ ...payload, txHash }))) {
         throw new Error('redeemFor receipt did not contain the expected Redeemed event')
       }
-      await deps.syncSpacetime({ ...payload, txHash })
-      return json({ txHash, orderId: payload.orderId, spacetimeSynced: true })
+      if (payload.purpose === 'jing') {
+        await deps.syncSpacetime({ ...payload, txHash })
+      }
+      return json({
+        txHash,
+        orderId: payload.orderId,
+        purpose: payload.purpose,
+        spacetimeSynced: payload.purpose === 'jing',
+      })
     } catch (error) {
       return json({ error: error.message || 'ESMS settlement failed', retryable: true }, 502)
     }

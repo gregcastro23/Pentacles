@@ -44,7 +44,7 @@ export interface TransferHookEvent {
  * Dispatch event to SpacetimeDB sync_solana_event reducer.
  */
 async function syncToSpacetime(event: EsmsEvent): Promise<void> {
-  const args = [
+  const httpArgs = [
     event.signature,
     event.player,
     event.eventType,
@@ -60,7 +60,7 @@ async function syncToSpacetime(event: EsmsEvent): Promise<void> {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${SPACETIME_TOKEN}`,
         },
-        body: JSON.stringify(args),
+        body: JSON.stringify(httpArgs),
       });
       if (res.ok) {
         console.log(`[SolanaSync] Synced ${event.eventType} (sig: ${event.signature.slice(0, 12)}...) to SpacetimeDB.`);
@@ -69,7 +69,13 @@ async function syncToSpacetime(event: EsmsEvent): Promise<void> {
         console.warn(`[SolanaSync] sync_solana_event status ${res.status}: ${text}`);
       }
     } else {
-      await cliCall(DB, "sync_solana_event", args);
+      await cliCall(DB, "sync_solana_event", [
+        event.signature,
+        event.player,
+        event.eventType,
+        event.elementId,
+        event.amount,
+      ]);
       console.log(`[SolanaSync] CLI synced ${event.eventType} (sig: ${event.signature.slice(0, 12)}...).`);
     }
   } catch (err) {

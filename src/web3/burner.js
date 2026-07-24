@@ -15,8 +15,12 @@ import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import { createBundlerClient, createPaymasterClient, toCoinbaseSmartAccount } from 'viem/account-abstraction'
 import { PublicKey, Transaction } from '@solana/web3.js'
 import { CHAIN, RPC_URL, ADDRESSES, publicClient } from './chain.js'
-import { REDEEM_AUTH_TYPES } from './abis.js'
-import { buildBurnEsmsInstruction, solanaConnection } from './solana.js'
+import { ESMS_ORDER_PREFIX, REDEEM_AUTH_TYPES } from './abis.js'
+import {
+  buildBridgeBurnEsmsInstruction,
+  buildBurnEsmsInstruction,
+  solanaConnection,
+} from './solana.js'
 import wallet from './wallet.js'
 
 const KEY = 'pentacles_burner_key'
@@ -124,9 +128,12 @@ function burnElement(value) {
   return elementId
 }
 
-function defaultOrderId({ address, elementId, amount }) {
+function defaultOrderId({ address, elementId, amount, purpose = 'jing' }) {
   const nonce = globalThis.crypto?.randomUUID?.() || `${Date.now()}:${Math.random()}`
-  return keccak256(toHex(`pentacles-jing:${address.toLowerCase()}:${elementId}:${amount}:${nonce}`))
+  const digest = keccak256(
+    toHex(`pentacles-${purpose}:${address.toLowerCase()}:${elementId}:${amount}:${nonce}`),
+  )
+  return `0x${ESMS_ORDER_PREFIX[purpose]}${digest.slice(4)}`
 }
 
 async function defaultSettleEvmBurn(payload) {
@@ -147,11 +154,18 @@ async function defaultSettleEvmBurn(payload) {
   return body
 }
 
-async function defaultSendSolanaBurn({ address, elementId, amount, wallet: activeWallet }) {
+async function sendSolanaBurn({
+  address,
+  elementId,
+  amount,
+  wallet: activeWallet,
+  buildInstruction,
+  commitment,
+}) {
   const provider = activeWallet.solanaProvider || globalThis.solana
   if (!provider) throw new Error('No Solana wallet provider is available.')
 
-  const instruction = buildBurnEsmsInstruction({
+  const instruction = buildInstruction({
     elementId,
     amount,
     playerPublicKey: address,
@@ -174,10 +188,98 @@ async function defaultSendSolanaBurn({ address, elementId, amount, wallet: activ
 
   const confirmation = await solanaConnection.confirmTransaction(
     { signature, blockhash: latest.blockhash, lastValidBlockHeight: latest.lastValidBlockHeight },
-    'confirmed',
+    commitment,
   )
   if (confirmation.value.err) throw new Error('The Solana ESMS burn transaction failed.')
   return { signature, spacetimeSynced: false }
+}
+
+async function defaultSendSolanaBurn(args) {
+  return sendSolanaBurn({
+    ...args,
+    buildInstruction: buildBurnEsmsInstruction,
+    commitment: 'confirmed',
+  })
+}
+
+async function defaultSendSolanaBridgeBurn(args) {
+  return sendSolanaBurn({
+    ...args,
+    buildInstruction: buildBridgeBurnEsmsInstruction,
+    commitment: 'finalized',
+  })
+}
+
+async function submitEvmBurn({ activeWallet, elementId, amount, purpose, deps }) {
+  if (!activeWallet.onBaseSepolia) {
+    throw new Error('Switch your wallet to Base Sepolia first.')
+  }
+  const walletClient = activeWallet.walletClient?.()
+  if (!walletClient?.signTypedData) {
+    throw new Error('The connected EVM wallet cannot sign ESMS burn authorizations.')
+  }
+  const orderId = deps.createOrderId({
+    address: activeWallet.address,
+    elementId,
+    amount,
+    purpose,
+  })
+  const deadline = BigInt(deps.nowSeconds() + 600)
+  const ids = [BigInt(elementId)]
+  const amounts = [amount]
+  const signature = await walletClient.signTypedData({
+    account: activeWallet.address,
+    domain: {
+      name: 'EsmsToken',
+      version: '1',
+      chainId: CHAIN.id,
+      verifyingContract: ADDRESSES.esms,
+    },
+    types: REDEEM_AUTH_TYPES,
+    primaryType: 'RedeemAuthorization',
+    message: {
+      from: activeWallet.address,
+      orderId,
+      ids,
+      amounts,
+      deadline,
+    },
+  })
+  const settled = await deps.settleEvmBurn({
+    purpose,
+    from: activeWallet.address,
+    orderId,
+    ids,
+    amounts,
+    deadline,
+    signature,
+  })
+  return { ...settled, orderId }
+}
+
+async function defaultAssertBridgeReady() {
+  const spacetime = (await import('../net/spacetime.js')).default
+  if (!spacetime?.isLive) {
+    throw new Error('Connect to SpacetimeDB before starting a bridge burn.')
+  }
+}
+
+export async function registerEsmsBridge({
+  burnTxHash,
+  sourceChain,
+  targetChain,
+  elementId,
+  amount,
+}) {
+  const spacetime = (await import('../net/spacetime.js')).default
+  if (!spacetime?.isLive) throw new Error('SpacetimeDB is not connected.')
+  await spacetime.callReducer('bridge_esms_crosschain', [
+    burnTxHash,
+    sourceChain,
+    targetChain,
+    elementId,
+    BigInt(amount).toString(),
+  ])
 }
 
 /**
@@ -217,51 +319,86 @@ export async function burnEsmsForJing({ elementId: rawElementId, amount: rawAmou
   }
 
   if (activeWallet.address) {
-    if (!activeWallet.onBaseSepolia) {
-      throw new Error('Switch your wallet to Base Sepolia first.')
-    }
-    const walletClient = activeWallet.walletClient?.()
-    if (!walletClient?.signTypedData) {
-      throw new Error('The connected EVM wallet cannot sign ESMS burn authorizations.')
-    }
-
-    const orderId = deps.createOrderId({ address: activeWallet.address, elementId, amount })
-    const deadline = BigInt(deps.nowSeconds() + 600)
-    const ids = [BigInt(elementId)]
-    const amounts = [amount]
-    const signature = await walletClient.signTypedData({
-      account: activeWallet.address,
-      domain: {
-        name: 'EsmsToken',
-        version: '1',
-        chainId: CHAIN.id,
-        verifyingContract: ADDRESSES.esms,
-      },
-      types: REDEEM_AUTH_TYPES,
-      primaryType: 'RedeemAuthorization',
-      message: {
-        from: activeWallet.address,
-        orderId,
-        ids,
-        amounts,
-        deadline,
-      },
-    })
-    const settled = await deps.settleEvmBurn({
-      from: activeWallet.address,
-      orderId,
-      ids,
-      amounts,
-      deadline,
-      signature,
+    const settled = await submitEvmBurn({
+      activeWallet,
+      elementId,
+      amount,
+      purpose: 'jing',
+      deps,
     })
     return {
       chain: 'evm_base_sepolia',
       hash: settled.txHash,
-      orderId,
+      orderId: settled.orderId,
       spacetimeSynced: settled.spacetimeSynced === true,
     }
   }
 
   throw new Error('Connect a wallet on Solana Devnet or Base Sepolia first.')
+}
+
+/**
+ * Burn ESMS on the active chain, then register the confirmed source hash as a
+ * pending transfer to the opposite ledger. Bridge burns are distinct
+ * from Jing burns, so ProcessedTx can enforce one purpose per source hash.
+ */
+export async function bridgeEsmsCrosschain(
+  { elementId: rawElementId, amount: rawAmount },
+  overrides = {},
+) {
+  const deps = {
+    wallet,
+    nowSeconds: () => Math.floor(Date.now() / 1000),
+    createOrderId: defaultOrderId,
+    settleEvmBurn: defaultSettleEvmBurn,
+    sendSolanaBridgeBurn: defaultSendSolanaBridgeBurn,
+    ensureWalletBinding: async (activeWallet) => activeWallet.bindToSpacetime?.(true),
+    assertBridgeReady: defaultAssertBridgeReady,
+    registerBridge: registerEsmsBridge,
+    ...overrides,
+  }
+  const elementId = burnElement(rawElementId)
+  const amount = burnAmount(rawAmount)
+  if (amount > MAX_U64) throw new Error('amount exceeds the Solana u64 bridge range')
+  const activeWallet = deps.wallet
+  await deps.assertBridgeReady()
+  await deps.ensureWalletBinding(activeWallet)
+
+  let burnTxHash
+  let orderId
+  let sourceChain
+  let targetChain
+  if (activeWallet.solanaAddress) {
+    const settled = await deps.sendSolanaBridgeBurn({
+      address: activeWallet.solanaAddress,
+      elementId,
+      amount,
+      wallet: activeWallet,
+    })
+    burnTxHash = settled.signature
+    sourceChain = 'solana_token_2022'
+    targetChain = 'evm_base_sepolia'
+  } else if (activeWallet.address) {
+    const settled = await submitEvmBurn({
+      activeWallet,
+      elementId,
+      amount,
+      purpose: 'bridge',
+      deps,
+    })
+    burnTxHash = settled.txHash
+    orderId = settled.orderId
+    sourceChain = 'evm_base_sepolia'
+    targetChain = 'solana_token_2022'
+  } else {
+    throw new Error('Connect a wallet on Solana Devnet or Base Sepolia first.')
+  }
+
+  try {
+    await deps.registerBridge({ burnTxHash, sourceChain, targetChain, elementId, amount })
+  } catch (error) {
+    if (error && typeof error === 'object') error.burnTxHash = burnTxHash
+    throw error
+  }
+  return { burnTxHash, orderId, sourceChain, targetChain, status: 'pending_mint' }
 }

@@ -34,7 +34,7 @@ import {
   getAssociatedTokenAddressSync,
 } from "@solana/spl-token";
 import bs58 from "bs58";
-import { ESMS_ABI } from "../src/web3/abis.js";
+import { ESMS_ABI, ESMS_ORDER_PREFIX } from "../src/web3/abis.js";
 import { startFeed } from "./stdb-feed";
 import { cliCall } from "./spacetime-cli";
 
@@ -46,6 +46,11 @@ const ESMS_ADDRESS = getAddress(
 );
 const BASE_RPC = process.env.BASE_SEPOLIA_RPC || "https://sepolia.base.org";
 const SOLANA_RPC = process.env.SOLANA_RPC_URL || "https://api.devnet.solana.com";
+const configuredConfirmations = Number(process.env.BRIDGE_EVM_CONFIRMATIONS || "12");
+if (!Number.isSafeInteger(configuredConfirmations) || configuredConfirmations < 1) {
+  throw new Error("BRIDGE_EVM_CONFIRMATIONS must be a positive integer");
+}
+const EVM_CONFIRMATIONS = configuredConfirmations;
 const SOLANA_PROGRAM_ID = new PublicKey(
   process.env.SOLANA_PROGRAM_ID || "7MPHZUmxFcLQiqmhnfvgVtTsMRu7jHdmGzjZbKbECE5R",
 );
@@ -58,7 +63,7 @@ const SOLANA_MINTS = [
 const EVM_HASH = /^0x[0-9a-f]{64}$/i;
 const SOLANA_SIGNATURE = /^[1-9A-HJ-NP-Za-km-z]{64,88}$/;
 const baseClient = createPublicClient({ chain: baseSepolia, transport: http(BASE_RPC) });
-const solanaConnection = new Connection(SOLANA_RPC, "confirmed");
+const solanaConnection = new Connection(SOLANA_RPC, "finalized");
 
 export interface PendingBridgeTransfer {
   burnTxHash: string;
@@ -118,6 +123,10 @@ export async function verifyEvmBurn(transfer: PendingBridgeTransfer): Promise<vo
   if (!EVM_HASH.test(transfer.burnTxHash)) throw new Error("invalid Base Sepolia burn hash");
   const receipt = await baseClient.getTransactionReceipt({ hash: transfer.burnTxHash as Hex });
   if (receipt.status !== "success") throw new Error("Base Sepolia burn transaction reverted");
+  const latestBlock = await baseClient.getBlockNumber({ cacheTime: 0 });
+  if (latestBlock - receipt.blockNumber + 1n < BigInt(EVM_CONFIRMATIONS)) {
+    throw new Error(`Base Sepolia burn is awaiting ${EVM_CONFIRMATIONS} confirmations`);
+  }
   const expectedFrom = getAddress(transfer.sourceAddress);
   for (const log of receipt.logs) {
     if (log.address.toLowerCase() !== ESMS_ADDRESS.toLowerCase()) continue;
@@ -127,6 +136,7 @@ export async function verifyEvmBurn(transfer: PendingBridgeTransfer): Promise<vo
       if (
         decoded.eventName === "Redeemed" &&
         getAddress(args.from) === expectedFrom &&
+        String(args.orderId).slice(2, 4).toLowerCase() === ESMS_ORDER_PREFIX.bridge &&
         exactElement(args.amounts, args.ids, transfer)
       ) {
         return;
@@ -158,7 +168,7 @@ export async function verifyEvmBurn(transfer: PendingBridgeTransfer): Promise<vo
 export async function verifySolanaBurn(transfer: PendingBridgeTransfer): Promise<void> {
   if (!SOLANA_SIGNATURE.test(transfer.burnTxHash)) throw new Error("invalid Solana burn signature");
   const tx = await solanaConnection.getTransaction(transfer.burnTxHash, {
-    commitment: "confirmed",
+    commitment: "finalized",
     maxSupportedTransactionVersion: 0,
   });
   if (!tx || tx.meta?.err) throw new Error("Solana burn transaction is missing or failed");
@@ -167,11 +177,11 @@ export async function verifySolanaBurn(transfer: PendingBridgeTransfer): Promise
   const data = Buffer.alloc(1 + 8);
   data.writeUInt8(transfer.elementId, 0);
   data.writeBigUInt64LE(transfer.amount, 1);
-  const exactInstruction = compiledInstructionMatches(tx, "burn_esms_for_jing", data, {
+  const exactInstruction = compiledInstructionMatches(tx, "bridge_burn_esms", data, {
     0: new PublicKey(transfer.sourceAddress),
     1: new PublicKey(mintValue),
   });
-  const expected = `Burned ${transfer.amount} units of ESMS element ${transfer.elementId} for Jing cast by ${transfer.sourceAddress}.`;
+  const expected = `Bridge burned ${transfer.amount} units of ESMS element ${transfer.elementId} by ${transfer.sourceAddress}.`;
   if (!exactInstruction || !tx.meta?.logMessages?.some((line) => line.includes(expected))) {
     throw new Error("transaction does not contain the claimed Token-2022 burn");
   }
@@ -189,9 +199,12 @@ async function findEvmClaimTransaction(
   claimId: Hex,
 ): Promise<Hex | null> {
   const event = ESMS_ABI.find((item: any) => item.type === "event" && item.name === "ClaimExecuted") as any;
-  const latest = await baseClient.getBlockNumber();
-  const floor = latest > 50_000n ? latest - 50_000n : 0n;
-  for (let toBlock = latest; toBlock >= floor;) {
+  const latest = await baseClient.getBlockNumber({ cacheTime: 0 });
+  const finalBlock = latest >= BigInt(EVM_CONFIRMATIONS - 1)
+    ? latest - BigInt(EVM_CONFIRMATIONS - 1)
+    : 0n;
+  const floor = finalBlock > 50_000n ? finalBlock - 50_000n : 0n;
+  for (let toBlock = finalBlock; toBlock >= floor;) {
     const fromBlock = toBlock > floor + 1_999n ? toBlock - 1_999n : floor;
     const logs = await baseClient.getLogs({
       address: ESMS_ADDRESS,
@@ -246,7 +259,11 @@ export async function mintEvmDestination(transfer: PendingBridgeTransfer): Promi
     functionName: "claimMint",
     args: [to, claimId, [BigInt(transfer.elementId)], [transfer.amount]],
   });
-  const receipt = await baseClient.waitForTransactionReceipt({ hash, timeout: 60_000 });
+  const receipt = await baseClient.waitForTransactionReceipt({
+    hash,
+    confirmations: EVM_CONFIRMATIONS,
+    timeout: 120_000,
+  });
   if (receipt.status !== "success") throw new Error("EVM bridge mint reverted");
   const exactMint = receipt.logs.some((log) => {
     if (log.address.toLowerCase() !== ESMS_ADDRESS.toLowerCase()) return false;
@@ -315,7 +332,7 @@ function compiledInstructionMatches(
 
 async function isExactSolanaMint(signature: string, transfer: PendingBridgeTransfer, claimId: Hex): Promise<boolean> {
   const tx = await solanaConnection.getTransaction(signature, {
-    commitment: "confirmed",
+    commitment: "finalized",
     maxSupportedTransactionVersion: 0,
   });
   if (!tx || tx.meta?.err) return false;
@@ -357,7 +374,7 @@ export async function mintSolanaDestination(transfer: PendingBridgeTransfer): Pr
     [Buffer.from("bridge_mint"), claimBytes],
     SOLANA_PROGRAM_ID,
   );
-  if (await solanaConnection.getAccountInfo(receiptPda, "confirmed")) {
+  if (await solanaConnection.getAccountInfo(receiptPda, "finalized")) {
     const signatures = await solanaConnection.getSignaturesForAddress(receiptPda, { limit: 10 });
     for (const existing of signatures) {
       if (await isExactSolanaMint(existing.signature, transfer, claimId)) return existing.signature;
@@ -400,7 +417,7 @@ export async function mintSolanaDestination(transfer: PendingBridgeTransfer): Pr
     mintInstruction,
   );
   const signature = await sendAndConfirmTransaction(solanaConnection, transaction, [authority], {
-    commitment: "confirmed",
+    commitment: "finalized",
   });
   if (!(await isExactSolanaMint(signature, transfer, claimId))) {
     throw new Error("Solana receipt did not contain the exact bridge mint");
@@ -425,18 +442,36 @@ async function completeBridge(burnTxHash: string, destinationTxHash: string): Pr
   }
 }
 
-export async function processBridgeTransfer(row: Record<string, any>): Promise<void> {
-  const transfer = parsePendingBridge(row);
-  if (transfer.sourceChain === "EvmBaseSepolia") await verifyEvmBurn(transfer);
-  else await verifySolanaBurn(transfer);
-  const destinationTxHash = transfer.targetChain === "EvmBaseSepolia"
-    ? await mintEvmDestination(transfer)
-    : await mintSolanaDestination(transfer);
-  await completeBridge(transfer.burnTxHash, destinationTxHash);
-  console.log(
-    `[bridge] ${transfer.burnTxHash.slice(0, 12)}… settled on ${transfer.targetChain}: ${destinationTxHash}`,
-  );
+export function createBridgeProcessor(overrides: {
+  verifyEvmBurn?: typeof verifyEvmBurn;
+  verifySolanaBurn?: typeof verifySolanaBurn;
+  mintEvmDestination?: typeof mintEvmDestination;
+  mintSolanaDestination?: typeof mintSolanaDestination;
+  completeBridge?: typeof completeBridge;
+} = {}) {
+  const deps = {
+    verifyEvmBurn,
+    verifySolanaBurn,
+    mintEvmDestination,
+    mintSolanaDestination,
+    completeBridge,
+    ...overrides,
+  };
+  return async function processBridge(row: Record<string, any>): Promise<void> {
+    const transfer = parsePendingBridge(row);
+    if (transfer.sourceChain === "EvmBaseSepolia") await deps.verifyEvmBurn(transfer);
+    else await deps.verifySolanaBurn(transfer);
+    const destinationTxHash = transfer.targetChain === "EvmBaseSepolia"
+      ? await deps.mintEvmDestination(transfer)
+      : await deps.mintSolanaDestination(transfer);
+    await deps.completeBridge(transfer.burnTxHash, destinationTxHash);
+    console.log(
+      `[bridge] ${transfer.burnTxHash.slice(0, 12)}… settled on ${transfer.targetChain}: ${destinationTxHash}`,
+    );
+  };
 }
+
+export const processBridgeTransfer = createBridgeProcessor();
 
 function main(): void {
   console.log("Pentacles omnichain bridge settler starting.");

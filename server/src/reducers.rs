@@ -1494,6 +1494,19 @@ fn prune_stale(ctx: &ReducerContext) {
         .map(|i| i.intent_id)
         .collect();
     for id in stale_intents {
+        let action_keys: Vec<String> = ctx
+            .db
+            .horizon_action_receipt()
+            .intent_id()
+            .filter(&id)
+            .map(|receipt| receipt.action_key.clone())
+            .collect();
+        for key in action_keys {
+            ctx.db
+                .horizon_action_receipt()
+                .action_key()
+                .delete(&key);
+        }
         ctx.db.trace_intent().intent_id().delete(&id);
     }
     let stale_atts: Vec<u64> = ctx
@@ -2935,6 +2948,40 @@ fn record_processed(ctx: &ReducerContext, hash: String, chain: &str, event_type:
     });
 }
 
+fn ensure_horizon_action_unspent(
+    ctx: &ReducerContext,
+    intent_id: u64,
+    action: &str,
+) -> Result<String, String> {
+    let key = format!("{intent_id}:{action}");
+    if ctx
+        .db
+        .horizon_action_receipt()
+        .action_key()
+        .find(&key)
+        .is_some()
+    {
+        return Err("Horizon attestation action already consumed".into());
+    }
+    Ok(key)
+}
+
+fn record_horizon_action(
+    ctx: &ReducerContext,
+    action_key: String,
+    intent_id: u64,
+    tx_hash: String,
+) {
+    ctx.db
+        .horizon_action_receipt()
+        .insert(HorizonActionReceipt {
+            action_key,
+            intent_id,
+            tx_hash,
+            processed_at: ctx.timestamp,
+        });
+}
+
 /// Bind a StarDex mutation to an unexpired, feeder-written EIP-712 horizon
 /// attestation whose subject is the caller's bound EVM wallet.
 fn verified_stardex_player(
@@ -3027,6 +3074,8 @@ pub fn sync_stardex_ephemeris(
     let hash = normalized_evm_tx_hash(&tx_hash, "tx_hash")?;
     ensure_unprocessed(ctx, &hash)?;
     verified_stardex_player(ctx, horizon_intent_id, None)?;
+    let action_key =
+        ensure_horizon_action_unspent(ctx, horizon_intent_id, "sync_stardex_ephemeris")?;
     if !(-90.0..=90.0).contains(&lat) || !(-180.0..=180.0).contains(&lon) {
         return Err("lat/lon out of range".into());
     }
@@ -3075,6 +3124,7 @@ pub fn sync_stardex_ephemeris(
         ctx.db.star_node().hip_id().update(star);
     }
 
+    record_horizon_action(ctx, action_key, horizon_intent_id, hash.clone());
     record_processed(ctx, hash, "evm_base_sepolia", "sync_stardex_ephemeris");
     Ok(())
 }
@@ -3106,6 +3156,14 @@ pub fn stardex_claim_constellation(
     let hash = normalized_evm_tx_hash(&tx_hash, "tx_hash")?;
     ensure_unprocessed(ctx, &hash)?;
     let mut player = verified_stardex_player(ctx, horizon_intent_id, Some(&constellation_name))?;
+    let action_key = ensure_horizon_action_unspent(
+        ctx,
+        horizon_intent_id,
+        &format!(
+            "stardex_claim_constellation:{}",
+            constellation_name.trim().to_ascii_lowercase()
+        ),
+    )?;
     let mut total_count = 0;
     let mut held_count = 0;
 
@@ -3130,6 +3188,7 @@ pub fn stardex_claim_constellation(
     let bonus = (total_count as u64) * 250;
     player.tokens += bonus;
     ctx.db.player().identity().update(player.clone());
+    record_horizon_action(ctx, action_key, horizon_intent_id, hash.clone());
     record_processed(ctx, hash, "evm_base_sepolia", "stardex_claim_constellation");
     log::info!("Player {} claimed StarDex constellation bonus: +{} tokens for {}", player.handle, bonus, constellation_name);
     Ok(())
@@ -3148,6 +3207,11 @@ pub fn stardex_fortify_node(
     ensure_unprocessed(ctx, &hash)?;
     let mut star = ctx.db.star_node().hip_id().find(&star_id).ok_or("star node not found")?;
     let player = verified_stardex_player(ctx, horizon_intent_id, Some(&star.constellation))?;
+    let action_key = ensure_horizon_action_unspent(
+        ctx,
+        horizon_intent_id,
+        &format!("stardex_fortify_node:{star_id}"),
+    )?;
 
     if star.held_by != Some(player.faction) {
         return Err("Cannot fortify a star node held by an opposing faction".to_string());
@@ -3159,6 +3223,7 @@ pub fn stardex_fortify_node(
     // Fortify node weight (make magnitude brighter/stronger for capture math)
     star.magnitude = (star.magnitude - (energy_amount as f32 * 0.05)).max(-2.0);
     ctx.db.star_node().hip_id().update(star);
+    record_horizon_action(ctx, action_key, horizon_intent_id, hash.clone());
     record_processed(ctx, hash, "evm_base_sepolia", "stardex_fortify_node");
     log::info!("Player {} fortified StarDex node {} (+{} energy)", player.handle, star_id, energy_amount);
     Ok(())

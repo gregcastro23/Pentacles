@@ -30,6 +30,12 @@ export const REDEEM_AUTH_TYPES = {
   ],
 }
 
+// First orderId byte binds a holder-signed redeem to one settlement purpose.
+export const ESMS_ORDER_PREFIX = Object.freeze({
+  jing: 'a1',
+  bridge: 'b1',
+})
+
 export const WALLET_BINDING_TYPES = {
   WalletBinding: [
     { name: 'spacetimeIdentity', type: 'bytes32' },

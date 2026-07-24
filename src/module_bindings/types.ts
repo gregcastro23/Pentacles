@@ -273,6 +273,14 @@ export const GameConfig = __t.object("GameConfig", {
 });
 export type GameConfig = __Infer<typeof GameConfig>;
 
+export const HorizonActionReceipt = __t.object("HorizonActionReceipt", {
+  actionKey: __t.string(),
+  intentId: __t.u64(),
+  txHash: __t.string(),
+  processedAt: __t.timestamp(),
+});
+export type HorizonActionReceipt = __Infer<typeof HorizonActionReceipt>;
+
 // The tagged union or sum type for the algebraic type `HouseSystem`.
 export const HouseSystem = __t.enum("HouseSystem", ["Placidus", "WholeSign"]);
 export type HouseSystem = __Infer<typeof HouseSystem>;

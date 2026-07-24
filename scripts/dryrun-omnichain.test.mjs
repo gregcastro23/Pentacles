@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises'
 import { PublicKey } from '@solana/web3.js'
 import bs58 from 'bs58'
 
-const { burnEsmsForJing } = await import('../src/web3/burner.js')
+const { bridgeEsmsCrosschain, burnEsmsForJing } = await import('../src/web3/burner.js')
 
 let signedPayload
 let settlementPayload
@@ -24,7 +24,6 @@ const evmResult = await burnEsmsForJing(
   {
     wallet: evmWallet,
     nowSeconds: () => 1_800_000_000,
-    createOrderId: () => `0x${'12'.repeat(32)}`,
     settleEvmBurn: async (payload) => {
       settlementPayload = payload
       return { txHash: `0x${'34'.repeat(32)}`, spacetimeSynced: true }
@@ -33,9 +32,11 @@ const evmResult = await burnEsmsForJing(
 )
 
 assert.equal(signedPayload.primaryType, 'RedeemAuthorization')
+assert.equal(signedPayload.message.orderId.slice(2, 4), 'a1')
 assert.deepEqual(signedPayload.message.ids, [2n])
 assert.deepEqual(signedPayload.message.amounts, [10n])
 assert.equal(settlementPayload.signature, `0x${'ab'.repeat(65)}`)
+assert.equal(settlementPayload.purpose, 'jing')
 assert.equal(evmResult.chain, 'evm_base_sepolia')
 assert.equal(evmResult.hash, `0x${'34'.repeat(32)}`)
 assert.equal(evmResult.spacetimeSynced, true)
@@ -65,6 +66,51 @@ assert.equal(solanaResult.spacetimeSynced, true)
 
 console.log('PASS omnichain Solana Token-2022 dispatcher')
 
+let registeredBridge
+const evmBridgeResult = await bridgeEsmsCrosschain(
+  { elementId: 2, amount: 10n },
+  {
+    wallet: evmWallet,
+    nowSeconds: () => 1_800_000_000,
+    assertBridgeReady: async () => {},
+    ensureWalletBinding: async () => {},
+    settleEvmBurn: async (payload) => {
+      assert.equal(payload.purpose, 'bridge')
+      assert.equal(payload.orderId.slice(2, 4), 'b1')
+      return { txHash: `0x${'35'.repeat(32)}`, spacetimeSynced: false }
+    },
+    registerBridge: async (payload) => {
+      registeredBridge = payload
+    },
+  },
+)
+assert.equal(evmBridgeResult.status, 'pending_mint')
+assert.equal(registeredBridge.sourceChain, 'evm_base_sepolia')
+assert.equal(registeredBridge.targetChain, 'solana_token_2022')
+assert.equal(registeredBridge.burnTxHash, `0x${'35'.repeat(32)}`)
+
+let registeredSolanaBridge
+const solanaBridgeResult = await bridgeEsmsCrosschain(
+  { elementId: 1, amount: 9n },
+  {
+    wallet: {
+      address: null,
+      solanaAddress: '7YVYdyiZzSw64Xy2VJbZEZFwXFPVQtRejv5q8fYynWnK',
+    },
+    assertBridgeReady: async () => {},
+    ensureWalletBinding: async () => {},
+    sendSolanaBridgeBurn: async () => ({ signature: '6'.repeat(88) }),
+    registerBridge: async (payload) => {
+      registeredSolanaBridge = payload
+    },
+  },
+)
+assert.equal(solanaBridgeResult.burnTxHash, '6'.repeat(88))
+assert.equal(registeredSolanaBridge.sourceChain, 'solana_token_2022')
+assert.equal(registeredSolanaBridge.targetChain, 'evm_base_sepolia')
+
+console.log('PASS dedicated EVM and Solana bridge burn registration')
+
 const { createBurnSettlementHandler } = await import('../settlement/esms-redeemer.js')
 
 const settlementCalls = []
@@ -89,7 +135,7 @@ const settlementRequest = new Request('http://localhost/api/web3/burn-esms', {
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
     from: evmWallet.address,
-    orderId: `0x${'12'.repeat(32)}`,
+    orderId: `0xa1${'12'.repeat(31)}`,
     ids: ['2'],
     amounts: ['10'],
     deadline: '1800000600',
@@ -105,6 +151,50 @@ assert.equal(settlementBody.spacetimeSynced, true)
 assert.deepEqual(settlementCalls.map(([name]) => name), ['submit', 'verify', 'sync'])
 
 console.log('PASS sponsored redeemFor settlement and SpacetimeDB sync')
+
+let bridgeSyncCalled = false
+const handleBridgeSettlement = createBurnSettlementHandler({
+  verifyAuthorization: async () => true,
+  redeemedOrder: async () => false,
+  submitRedeem: async () => `0x${'57'.repeat(32)}`,
+  verifyReceipt: async () => true,
+  syncSpacetime: async () => {
+    bridgeSyncCalled = true
+  },
+  nowSeconds: () => 1_800_000_000,
+})
+const bridgeSettlementResponse = await handleBridgeSettlement(new Request('http://localhost/api/web3/burn-esms', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    purpose: 'bridge',
+    from: evmWallet.address,
+    orderId: `0xb1${'13'.repeat(31)}`,
+    ids: ['2'],
+    amounts: ['10'],
+    deadline: '1800000600',
+    signature: `0x${'ab'.repeat(65)}`,
+  }),
+}))
+const bridgeSettlementBody = await bridgeSettlementResponse.json()
+assert.equal(bridgeSettlementResponse.status, 200)
+assert.equal(bridgeSettlementBody.purpose, 'bridge')
+assert.equal(bridgeSettlementBody.spacetimeSynced, false)
+assert.equal(bridgeSyncCalled, false, 'bridge burns must not be consumed as Jing events')
+const mismatchedPurposeResponse = await handleBridgeSettlement(new Request('http://localhost/api/web3/burn-esms', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    purpose: 'bridge',
+    from: evmWallet.address,
+    orderId: `0xa1${'14'.repeat(31)}`,
+    ids: ['2'],
+    amounts: ['10'],
+    deadline: '1800000600',
+    signature: `0x${'ab'.repeat(65)}`,
+  }),
+}))
+assert.equal(mismatchedPurposeResponse.status, 400)
 
 const { createWalletVerificationHandler } = await import('../settlement/wallet-verifier.js')
 let verifiedBinding
@@ -190,7 +280,7 @@ assert.equal(solanaVerificationResponse.status, 200)
 assert.equal(verifiedSolanaBinding.chain, 'solana')
 assert.match(verifiedSolanaBinding.proofHash, /^0x[0-9a-f]{64}$/)
 
-const { bridgeClaimId, parsePendingBridge } = await import('../feeder/bridge-service.ts')
+const { bridgeClaimId, createBridgeProcessor, parsePendingBridge } = await import('../feeder/bridge-service.ts')
 const bridgeRow = {
   burn_tx_hash: `0x${'cd'.repeat(32)}`,
   source_chain: 'EvmBaseSepolia',
@@ -208,6 +298,37 @@ assert.throws(
   () => parsePendingBridge({ ...bridgeRow, amount: (1n << 64n).toString() }),
   /exceeds Solana u64/,
 )
+
+const bridgeLifecycle = []
+const processBridge = createBridgeProcessor({
+  verifyEvmBurn: async () => bridgeLifecycle.push('verify-source'),
+  mintSolanaDestination: async () => {
+    bridgeLifecycle.push('mint-destination')
+    return '7'.repeat(88)
+  },
+  completeBridge: async (burnTxHash, destinationTxHash) => {
+    bridgeLifecycle.push('complete')
+    assert.equal(burnTxHash, bridgeRow.burn_tx_hash)
+    assert.equal(destinationTxHash, '7'.repeat(88))
+  },
+})
+await processBridge(bridgeRow)
+assert.deepEqual(bridgeLifecycle, ['verify-source', 'mint-destination', 'complete'])
+
+const failedBridgeLifecycle = []
+const rejectUnverifiedBridge = createBridgeProcessor({
+  verifyEvmBurn: async () => {
+    failedBridgeLifecycle.push('verify-source')
+    throw new Error('source not final')
+  },
+  mintSolanaDestination: async () => {
+    failedBridgeLifecycle.push('mint-destination')
+    return '8'.repeat(88)
+  },
+  completeBridge: async () => failedBridgeLifecycle.push('complete'),
+})
+await assert.rejects(() => rejectUnverifiedBridge(bridgeRow), /source not final/)
+assert.deepEqual(failedBridgeLifecycle, ['verify-source'])
 assert.throws(
   () => parsePendingBridge({
     ...bridgeRow,
@@ -229,7 +350,7 @@ const rejectedResponse = await rejectedAuthorization(new Request('http://localho
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
     from: evmWallet.address,
-    orderId: `0x${'12'.repeat(32)}`,
+    orderId: `0xa1${'12'.repeat(31)}`,
     ids: ['2'],
     amounts: ['10'],
     deadline: '1800000600',
@@ -259,7 +380,14 @@ for (const reducer of [
   assert.match(body, /tx_hash:\s*String/, `${reducer} must accept an idempotency transaction hash`)
   assert.match(body, /horizon_intent_id:\s*u64/, `${reducer} must bind an attested EVM horizon intent`)
   assert.match(body, /ensure_unprocessed\(/, `${reducer} must reject a replayed transaction hash`)
+  assert.match(
+    body,
+    /ensure_horizon_action_unspent\(/,
+    `${reducer} must consume each attested action independently of caller-supplied hashes`,
+  )
+  assert.match(body, /record_horizon_action\(/)
 }
+assert.match(tables, /pub struct HorizonActionReceipt/)
 
 const bridgeReducer = reducers.match(/pub fn bridge_esms_crosschain\([\s\S]*?\n\}/m)?.[0] || ''
 assert.match(bridgeReducer, /burn_tx_hash:\s*String/)
@@ -294,18 +422,25 @@ assert.match(serve, /path === "\/api\/web3\/verify-wallet"/)
 assert.match(ui, /await pentacles\.burnEsmsForJing\(/)
 assert.match(ui, /walletConnected/)
 assert.match(solanaProgram, /for Jing cast by \{\}/)
+assert.match(solanaProgram, /pub fn bridge_burn_esms\(/)
 assert.match(solanaProgram, /pub fn bridge_mint_esms\(/)
 assert.match(solanaProgram, /seeds = \[b"bridge_mint", claim_id\.as_ref\(\)\]/)
 assert.match(solanaFeeder, /player: match\[3\]/)
 assert.match(solanaFeeder, /event\.amount\.toString\(\)/)
+assert.match(solanaFeeder, /event\.amount,\s*\n\s*\]\);/)
 assert.match(bridgeFeeder, /verifyEvmBurn/)
 assert.match(bridgeFeeder, /verifySolanaBurn/)
 assert.match(bridgeFeeder, /mintEvmDestination/)
 assert.match(bridgeFeeder, /mintSolanaDestination/)
 assert.match(bridgeFeeder, /compiledInstructionMatches/)
+assert.match(bridgeFeeder, /"bridge_burn_esms"/)
+assert.match(bridgeFeeder, /commitment:\s*"finalized"/)
+assert.match(bridgeFeeder, /EVM_CONFIRMATIONS/)
 assert.match(walletVerifier, /__identity__:\s*spacetimeIdentity/)
 assert.match(dynamicBridge, /connector\?\.getSigner/)
 const burnDiscriminator = [...createHash('sha256').update('global:burn_esms_for_jing').digest().subarray(0, 8)]
-assert.match(solanaClient, new RegExp(`Buffer\\.from\\(\\[${burnDiscriminator.join(', ')}\\]\\)`))
+assert.match(solanaClient, new RegExp(`discriminator:\\s*\\[${burnDiscriminator.join(', ')}\\]`))
+const bridgeBurnDiscriminator = [...createHash('sha256').update('global:bridge_burn_esms').digest().subarray(0, 8)]
+assert.match(solanaClient, new RegExp(`discriminator:\\s*\\[${bridgeBurnDiscriminator.join(', ')}\\]`))
 
 console.log('PASS hardened Stardex and pending omnichain bridge reducer contracts')

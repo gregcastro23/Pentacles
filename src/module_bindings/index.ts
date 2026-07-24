@@ -108,6 +108,7 @@ import DuelQueueRow from "./duel_queue_table";
 import DuelRoundRow from "./duel_round_table";
 import EphemerisRow from "./ephemeris_table";
 import GameConfigRow from "./game_config_table";
+import HorizonActionReceiptRow from "./horizon_action_receipt_table";
 import JingCastRow from "./jing_cast_table";
 import JingDuelRow from "./jing_duel_table";
 import JingPoolRow from "./jing_pool_table";
@@ -353,6 +354,20 @@ const tablesSchema = __schema({
       { name: 'game_config_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, GameConfigRow),
+  horizon_action_receipt: __table({
+    name: 'horizon_action_receipt',
+    indexes: [
+      { accessor: 'action_key', name: 'horizon_action_receipt_action_key_idx_btree', algorithm: 'btree', columns: [
+        'actionKey',
+      ] },
+      { accessor: 'intent_id', name: 'horizon_action_receipt_intent_id_idx_btree', algorithm: 'btree', columns: [
+        'intentId',
+      ] },
+    ],
+    constraints: [
+      { name: 'horizon_action_receipt_action_key_key', constraint: 'unique', columns: ['actionKey'] },
+    ],
+  }, HorizonActionReceiptRow),
   jing_cast: __table({
     name: 'jing_cast',
     indexes: [

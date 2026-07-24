@@ -831,6 +831,19 @@ pub struct ProcessedTx {
     pub processed_at: Timestamp,
 }
 
+/// One attested horizon intent may authorize a given StarDex mutation only
+/// once, even if a caller supplies fresh transaction-hash-shaped strings.
+#[spacetimedb::table(accessor = horizon_action_receipt, public)]
+#[derive(Clone)]
+pub struct HorizonActionReceipt {
+    #[primary_key]
+    pub action_key: String,
+    #[index(btree)]
+    pub intent_id: u64,
+    pub tx_hash: String,
+    pub processed_at: Timestamp,
+}
+
 /// A claimed source-chain burn waiting for the feeder/attestor to verify it and
 /// mint the equivalent ESMS on the destination chain.
 #[spacetimedb::table(accessor = bridge_transfer, public)]

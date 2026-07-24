@@ -52,8 +52,7 @@ export async function readSolanaEsmsBalances(playerPublicKey) {
   return balances
 }
 
-/** Build an Anchor instruction buffer for burn_esms_for_jing (Discriminator + args). */
-export function buildBurnEsmsInstruction({ elementId, amount, playerPublicKey }) {
+function buildEsmsBurnInstruction({ elementId, amount, playerPublicKey, discriminator }) {
   const player = new PublicKey(playerPublicKey)
   const mint = ELEMENT_MINTS[elementId]
   if (elementId < 0 || elementId > 3) throw new Error(`Invalid elementId ${elementId}`)
@@ -61,10 +60,8 @@ export function buildBurnEsmsInstruction({ elementId, amount, playerPublicKey })
 
   const ata = getAssociatedTokenAddressSync(mint, player, false, TOKEN_2022_PROGRAM_ID)
 
-  // Anchor instruction discriminator for "burn_esms_for_jing"
   const data = Buffer.alloc(8 + 1 + 8)
-  const discriminator = Buffer.from([29, 67, 145, 7, 32, 58, 246, 110])
-  discriminator.copy(data, 0)
+  Buffer.from(discriminator).copy(data, 0)
   data.writeUInt8(elementId, 8)
   data.writeBigUInt64LE(BigInt(amount), 9)
 
@@ -80,10 +77,27 @@ export function buildBurnEsmsInstruction({ elementId, amount, playerPublicKey })
   })
 }
 
+/** Build the Arena Jing burn instruction. */
+export function buildBurnEsmsInstruction(args) {
+  return buildEsmsBurnInstruction({
+    ...args,
+    discriminator: [29, 67, 145, 7, 32, 58, 246, 110],
+  })
+}
+
+/** Build the distinct bridge-source burn instruction. */
+export function buildBridgeBurnEsmsInstruction(args) {
+  return buildEsmsBurnInstruction({
+    ...args,
+    discriminator: [150, 99, 188, 71, 193, 137, 30, 157],
+  })
+}
+
 export default {
   SOLANA_PROGRAM_ID,
   SOLANA_RPC_URL,
   solanaConnection,
   readSolanaEsmsBalances,
   buildBurnEsmsInstruction,
+  buildBridgeBurnEsmsInstruction,
 }
