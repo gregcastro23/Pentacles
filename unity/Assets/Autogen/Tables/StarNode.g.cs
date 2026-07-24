@@ -44,6 +44,14 @@ namespace SpacetimeDB.Types
         public global::SpacetimeDB.Col<StarNode, double> Ra { get; }
         public global::SpacetimeDB.Col<StarNode, double> Dec { get; }
         public global::SpacetimeDB.Col<StarNode, float> Magnitude { get; }
+        public global::SpacetimeDB.Col<StarNode, string> Constellation { get; }
+        public global::SpacetimeDB.Col<StarNode, string> ZodiacSign { get; }
+        public global::SpacetimeDB.Col<StarNode, byte> EclipticDeg { get; }
+        public global::SpacetimeDB.Col<StarNode, byte> EclipticMin { get; }
+        public global::SpacetimeDB.Col<StarNode, byte> EclipticSec { get; }
+        public global::SpacetimeDB.Col<StarNode, float> RefractedAlt { get; }
+        public global::SpacetimeDB.Col<StarNode, float> Azimuth { get; }
+        public global::SpacetimeDB.Col<StarNode, string> HorizonState { get; }
         public global::SpacetimeDB.Col<StarNode, Planet> HeldBy { get; }
         public global::SpacetimeDB.Col<StarNode, byte> RegionHint { get; }
 
@@ -54,6 +62,14 @@ namespace SpacetimeDB.Types
             Ra = new global::SpacetimeDB.Col<StarNode, double>(tableName, "ra");
             Dec = new global::SpacetimeDB.Col<StarNode, double>(tableName, "dec");
             Magnitude = new global::SpacetimeDB.Col<StarNode, float>(tableName, "magnitude");
+            Constellation = new global::SpacetimeDB.Col<StarNode, string>(tableName, "constellation");
+            ZodiacSign = new global::SpacetimeDB.Col<StarNode, string>(tableName, "zodiac_sign");
+            EclipticDeg = new global::SpacetimeDB.Col<StarNode, byte>(tableName, "ecliptic_deg");
+            EclipticMin = new global::SpacetimeDB.Col<StarNode, byte>(tableName, "ecliptic_min");
+            EclipticSec = new global::SpacetimeDB.Col<StarNode, byte>(tableName, "ecliptic_sec");
+            RefractedAlt = new global::SpacetimeDB.Col<StarNode, float>(tableName, "refracted_alt");
+            Azimuth = new global::SpacetimeDB.Col<StarNode, float>(tableName, "azimuth");
+            HorizonState = new global::SpacetimeDB.Col<StarNode, string>(tableName, "horizon_state");
             HeldBy = new global::SpacetimeDB.Col<StarNode, Planet>(tableName, "held_by");
             RegionHint = new global::SpacetimeDB.Col<StarNode, byte>(tableName, "region_hint");
         }

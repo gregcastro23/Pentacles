@@ -23,7 +23,7 @@ namespace SpacetimeDB.Types
         public Planet? CasterAgent;
         [DataMember(Name = "mv")]
         public JingMove Mv;
-        [DataMember(Name = "cost_sacred7")]
+        [DataMember(Name = "cost_sacred_7")]
         public byte CostSacred7;
         [DataMember(Name = "cost_esms")]
         public byte CostEsms;

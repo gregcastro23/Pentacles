@@ -26,9 +26,19 @@ namespace SpacetimeDB.Types
 
             public readonly ChallengeIdUniqueIndex ChallengeId;
 
+            public sealed class PlayerIndex : BTreeIndexBase<SpacetimeDB.Identity>
+            {
+                protected override SpacetimeDB.Identity GetKey(DuelChallenge row) => row.Player;
+
+                public PlayerIndex(DuelChallengeHandle table) : base(table) { }
+            }
+
+            public readonly PlayerIndex Player;
+
             internal DuelChallengeHandle(DbConnection conn) : base(conn)
             {
                 ChallengeId = new(this);
+                Player = new(this);
             }
 
             protected override object GetPrimaryKey(DuelChallenge row) => row.ChallengeId;
@@ -66,10 +76,12 @@ namespace SpacetimeDB.Types
     public sealed class DuelChallengeIxCols
     {
         public global::SpacetimeDB.IxCol<DuelChallenge, ulong> ChallengeId { get; }
+        public global::SpacetimeDB.IxCol<DuelChallenge, SpacetimeDB.Identity> Player { get; }
 
         public DuelChallengeIxCols(string tableName)
         {
             ChallengeId = new global::SpacetimeDB.IxCol<DuelChallenge, ulong>(tableName, "challenge_id");
+            Player = new global::SpacetimeDB.IxCol<DuelChallenge, SpacetimeDB.Identity>(tableName, "player");
         }
     }
 }

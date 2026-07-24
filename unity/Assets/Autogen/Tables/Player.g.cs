@@ -47,6 +47,8 @@ namespace SpacetimeDB.Types
         public global::SpacetimeDB.Col<Player, SpacetimeDB.Timestamp> LastActive { get; }
         public global::SpacetimeDB.Col<Player, ulong> Tokens { get; }
         public global::SpacetimeDB.Col<Player, uint> WordWins { get; }
+        public global::SpacetimeDB.Col<Player, string> EvmAddress { get; }
+        public global::SpacetimeDB.Col<Player, string> SolanaPubkey { get; }
 
         public PlayerCols(string tableName)
         {
@@ -58,6 +60,8 @@ namespace SpacetimeDB.Types
             LastActive = new global::SpacetimeDB.Col<Player, SpacetimeDB.Timestamp>(tableName, "last_active");
             Tokens = new global::SpacetimeDB.Col<Player, ulong>(tableName, "tokens");
             WordWins = new global::SpacetimeDB.Col<Player, uint>(tableName, "word_wins");
+            EvmAddress = new global::SpacetimeDB.Col<Player, string>(tableName, "evm_address");
+            SolanaPubkey = new global::SpacetimeDB.Col<Player, string>(tableName, "solana_pubkey");
         }
     }
 

@@ -26,9 +26,19 @@ namespace SpacetimeDB.Types
 
             public readonly TicketIdUniqueIndex TicketId;
 
+            public sealed class ZoneIdIndex : BTreeIndexBase<byte>
+            {
+                protected override byte GetKey(DuelQueue row) => row.ZoneId;
+
+                public ZoneIdIndex(DuelQueueHandle table) : base(table) { }
+            }
+
+            public readonly ZoneIdIndex ZoneId;
+
             internal DuelQueueHandle(DbConnection conn) : base(conn)
             {
                 TicketId = new(this);
+                ZoneId = new(this);
             }
 
             protected override object GetPrimaryKey(DuelQueue row) => row.TicketId;
@@ -56,10 +66,12 @@ namespace SpacetimeDB.Types
     public sealed class DuelQueueIxCols
     {
         public global::SpacetimeDB.IxCol<DuelQueue, ulong> TicketId { get; }
+        public global::SpacetimeDB.IxCol<DuelQueue, byte> ZoneId { get; }
 
         public DuelQueueIxCols(string tableName)
         {
             TicketId = new global::SpacetimeDB.IxCol<DuelQueue, ulong>(tableName, "ticket_id");
+            ZoneId = new global::SpacetimeDB.IxCol<DuelQueue, byte>(tableName, "zone_id");
         }
     }
 }

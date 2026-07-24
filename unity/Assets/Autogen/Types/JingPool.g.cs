@@ -15,7 +15,7 @@ namespace SpacetimeDB.Types
     {
         [DataMember(Name = "identity")]
         public SpacetimeDB.Identity Identity;
-        [DataMember(Name = "sacred7")]
+        [DataMember(Name = "sacred_7")]
         public System.Collections.Generic.List<ushort> Sacred7;
         [DataMember(Name = "esms")]
         public System.Collections.Generic.List<ushort> Esms;
