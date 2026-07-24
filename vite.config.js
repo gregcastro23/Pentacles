@@ -1,9 +1,10 @@
 import { defineConfig, loadEnv } from 'vite'
 
 function settlementMiddleware() {
-  let handleBurnSettlement
+  const handlers = new Map()
   return async (req, res, next) => {
-    if ((req.url || '').split('?')[0] !== '/api/web3/burn-esms') return next()
+    const path = (req.url || '').split('?')[0]
+    if (path !== '/api/web3/burn-esms' && path !== '/api/web3/verify-wallet') return next()
     try {
       const chunks = []
       let size = 0
@@ -29,10 +30,16 @@ function settlementMiddleware() {
           body: ['GET', 'HEAD'].includes(req.method || '') ? undefined : Buffer.concat(chunks),
         },
       )
-      if (!handleBurnSettlement) {
-        ;({ handleBurnSettlement } = await import('./settlement/esms-redeemer.js'))
+      if (!handlers.has(path)) {
+        if (path === '/api/web3/burn-esms') {
+          const { handleBurnSettlement } = await import('./settlement/esms-redeemer.js')
+          handlers.set(path, handleBurnSettlement)
+        } else {
+          const { handleWalletVerification } = await import('./settlement/wallet-verifier.js')
+          handlers.set(path, handleWalletVerification)
+        }
       }
-      const response = await handleBurnSettlement(request)
+      const response = await handlers.get(path)(request)
       res.statusCode = response.status
       response.headers.forEach((value, name) => res.setHeader(name, value))
       res.end(Buffer.from(await response.arrayBuffer()))

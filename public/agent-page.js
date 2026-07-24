@@ -504,7 +504,8 @@
     if (pool.sacred7[stat] < m.statCost || pool.esms[m.esms] < m.esmsCost) { toastMsg(`Your ${m.stat} is too depleted to cast ${m.name}.`, "error"); return; }
     const pentacles = window.Pentacles || {};
     const net = pentacles.net;
-    if (net && net.isLive) {
+    const walletConnected = !!(pentacles.wallet && (pentacles.wallet.address || pentacles.wallet.solanaAddress));
+    if ((net && net.isLive) || walletConnected) {
       if (jingBurnPending) {
         toastMsg("An ESMS burn is already awaiting wallet confirmation.", "info");
         return;

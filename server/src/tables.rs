@@ -29,6 +29,32 @@ pub struct Player {
     pub solana_pubkey: Option<String>,
 }
 
+/// An EVM binding whose holder signed a short-lived EIP-712 proof containing
+/// this SpacetimeDB identity. Only the owner-authenticated verifier can write it.
+#[spacetimedb::table(accessor = verified_evm_wallet, public)]
+#[derive(Clone)]
+pub struct VerifiedEvmWallet {
+    #[primary_key]
+    pub identity: Identity,
+    #[unique]
+    pub evm_address: String,
+    pub proof_hash: String,
+    pub verified_at: Timestamp,
+}
+
+/// A Solana binding whose holder signed a short-lived proof containing this
+/// SpacetimeDB identity. Only the owner-authenticated verifier can write it.
+#[spacetimedb::table(accessor = verified_solana_wallet, public)]
+#[derive(Clone)]
+pub struct VerifiedSolanaWallet {
+    #[primary_key]
+    pub identity: Identity,
+    #[unique]
+    pub solana_pubkey: String,
+    pub proof_hash: String,
+    pub verified_at: Timestamp,
+}
+
 #[spacetimedb::table(accessor = natal_chart)] // private to owner (not public)
 #[derive(Clone)]
 pub struct NatalChart {
@@ -814,13 +840,15 @@ pub struct BridgeTransfer {
     pub burn_tx_hash: String,
     #[index(btree)]
     pub player: Identity,
-    pub source_chain: String,
-    pub target_chain: String,
+    pub source_chain: BridgeChain,
+    pub target_chain: BridgeChain,
     pub source_address: String,
     pub target_address: String,
     pub element_id: u8,
     pub amount: u128,
-    pub status: String, // "pending_mint" until the destination feeder settles it
+    pub status: BridgeStatus,
+    #[default(None::<String>)]
+    pub destination_tx_hash: Option<String>,
     pub created_at: Timestamp,
     pub updated_at: Timestamp,
 }

@@ -21,7 +21,8 @@ pub mod pentacles_solana {
             max_epoch_mint
         } else {
             10_000_000_000_000_000_000
-        }; // 10M ESMS cap
+        }; // 10 ESMS at 18 decimals (Token-2022 amounts are u64)
+        auth.authority = ctx.accounts.payer.key();
         auth.current_epoch = Clock::get()?.epoch;
         auth.epoch_minted = 0;
         auth.bump = ctx.bumps.game_authority;
@@ -95,6 +96,50 @@ pub mod pentacles_solana {
             clock.epoch,
             epoch_minted,
             max_epoch_mint
+        );
+        Ok(())
+    }
+
+    /// Idempotent bridge destination mint. The claim receipt PDA makes a retry
+    /// with the same source burn hash impossible to double-mint.
+    pub fn bridge_mint_esms(
+        ctx: Context<BridgeMintEsms>,
+        element_id: u8,
+        amount: u64,
+        claim_id: [u8; 32],
+    ) -> Result<()> {
+        require!(element_id <= 3, ErrorCode::InvalidElementId);
+        require!(amount > 0, ErrorCode::InvalidAmount);
+        let auth_bump = ctx.accounts.game_authority.bump;
+        let bump_seed = [auth_bump];
+        let seeds = &[b"game_authority".as_ref(), &bump_seed];
+        let signer = [&seeds[..]];
+        let cpi_accounts = MintTo {
+            mint: ctx.accounts.target_mint.to_account_info(),
+            to: ctx.accounts.player_token_account.to_account_info(),
+            authority: ctx.accounts.game_authority.to_account_info(),
+        };
+        token_interface::mint_to(
+            CpiContext::new_with_signer(
+                ctx.accounts.token_program.to_account_info(),
+                cpi_accounts,
+                &signer,
+            ),
+            amount,
+        )?;
+        let receipt = &mut ctx.accounts.bridge_mint_receipt;
+        receipt.claim_id = claim_id;
+        receipt.recipient = ctx.accounts.player.key();
+        receipt.mint = ctx.accounts.target_mint.key();
+        receipt.amount = amount;
+        receipt.created_at = Clock::get()?.unix_timestamp;
+        receipt.bump = ctx.bumps.bridge_mint_receipt;
+        msg!(
+            "Bridge minted {} units of ESMS element {} for {} claim {}.",
+            amount,
+            element_id,
+            receipt.recipient,
+            hex_claim_id(&claim_id)
         );
         Ok(())
     }
@@ -229,10 +274,25 @@ pub mod pentacles_solana {
 
 #[account]
 pub struct GameAuthority {
+    pub authority: Pubkey,
     pub max_epoch_mint: u64,
     pub current_epoch: u64,
     pub epoch_minted: u64,
     pub bump: u8,
+}
+
+#[account]
+pub struct BridgeMintReceipt {
+    pub claim_id: [u8; 32],
+    pub recipient: Pubkey,
+    pub mint: Pubkey,
+    pub amount: u64,
+    pub created_at: i64,
+    pub bump: u8,
+}
+
+fn hex_claim_id(claim_id: &[u8; 32]) -> String {
+    claim_id.iter().map(|byte| format!("{byte:02x}")).collect()
 }
 
 #[derive(Accounts)]
@@ -243,7 +303,7 @@ pub struct InitializeGameAuthority<'info> {
     #[account(
         init,
         payer = payer,
-        space = 8 + 8 + 8 + 8 + 1,
+        space = 8 + 32 + 8 + 8 + 8 + 1,
         seeds = [b"game_authority"],
         bump
     )]
@@ -284,7 +344,8 @@ pub struct MintEsmsRewards<'info> {
     #[account(
         mut,
         seeds = [b"game_authority"],
-        bump = game_authority.bump
+        bump = game_authority.bump,
+        has_one = authority
     )]
     pub game_authority: Account<'info, GameAuthority>,
 
@@ -303,6 +364,47 @@ pub struct MintEsmsRewards<'info> {
     pub player: AccountInfo<'info>,
 
     pub token_program: Interface<'info, TokenInterface>,
+}
+
+#[derive(Accounts)]
+#[instruction(element_id: u8, amount: u64, claim_id: [u8; 32])]
+pub struct BridgeMintEsms<'info> {
+    #[account(mut)]
+    pub authority: Signer<'info>,
+
+    #[account(
+        mut,
+        seeds = [b"game_authority"],
+        bump = game_authority.bump,
+        has_one = authority
+    )]
+    pub game_authority: Account<'info, GameAuthority>,
+
+    #[account(
+        init,
+        payer = authority,
+        space = 8 + 32 + 32 + 32 + 8 + 8 + 1,
+        seeds = [b"bridge_mint", claim_id.as_ref()],
+        bump
+    )]
+    pub bridge_mint_receipt: Account<'info, BridgeMintReceipt>,
+
+    #[account(mut)]
+    pub target_mint: InterfaceAccount<'info, Mint>,
+
+    #[account(
+        mut,
+        token::mint = target_mint,
+        token::authority = player,
+        token::token_program = token_program,
+    )]
+    pub player_token_account: InterfaceAccount<'info, TokenAccount>,
+
+    /// CHECK: The bridge destination wallet is constrained by its token account.
+    pub player: AccountInfo<'info>,
+
+    pub token_program: Interface<'info, TokenInterface>,
+    pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
@@ -360,7 +462,8 @@ pub struct SlashCheater<'info> {
 
     #[account(
         seeds = [b"game_authority"],
-        bump = game_authority.bump
+        bump = game_authority.bump,
+        has_one = authority
     )]
     pub game_authority: Account<'info, GameAuthority>,
 

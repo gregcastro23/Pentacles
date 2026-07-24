@@ -1,5 +1,5 @@
 # Keep the Railway upload tarball lean — the feeder Dockerfile only COPYs
-# package manifests, src/module_bindings, src/net/ws-normalize.js and feeder/.
+# package manifests, generated bindings, shared web3 ABI/normalizer files and feeder/.
 node_modules/
 feeder/node_modules/
 server/target/

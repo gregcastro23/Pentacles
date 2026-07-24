@@ -9,17 +9,29 @@ import {
   type AlgebraicTypeType as __AlgebraicTypeType,
   type Infer as __Infer,
 } from "spacetimedb";
+import {
+  BridgeChain,
+  BridgeStatus,
+} from "./types";
+
 
 export default __t.row({
   burnTxHash: __t.string().primaryKey().name("burn_tx_hash"),
   player: __t.identity(),
-  sourceChain: __t.string().name("source_chain"),
-  targetChain: __t.string().name("target_chain"),
+  get sourceChain() {
+    return BridgeChain.name("source_chain");
+  },
+  get targetChain() {
+    return BridgeChain.name("target_chain");
+  },
   sourceAddress: __t.string().name("source_address"),
   targetAddress: __t.string().name("target_address"),
   elementId: __t.u8().name("element_id"),
   amount: __t.u128(),
-  status: __t.string(),
+  get status() {
+    return BridgeStatus;
+  },
+  destinationTxHash: __t.option(__t.string()).name("destination_tx_hash"),
   createdAt: __t.timestamp().name("created_at"),
   updatedAt: __t.timestamp().name("updated_at"),
 });

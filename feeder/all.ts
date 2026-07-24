@@ -12,6 +12,7 @@
 //   duel           duel-service.ts           Word-Duel agent moves
 //   jing           jing-service.ts           Jing Arena agent counters
 //   constellation  constellation-service.ts  EIP-712 visibility attestor
+//   bridge         bridge-service.ts         verified burn-and-mint settlement
 //   ephemeris      push-ephemeris.ts         real ephemeris → push_ephemeris
 //
 // push-ephemeris already loops on its own timer (FEED_INTERVAL_MIN, default
@@ -54,6 +55,7 @@ const SERVICES: Service[] = [
   { name: "duel", file: "duel-service.ts" },
   { name: "jing", file: "jing-service.ts" },
   { name: "constellation", file: "constellation-service.ts" },
+  { name: "bridge", file: "bridge-service.ts" },
   { name: "ephemeris", file: "push-ephemeris.ts" },
   { name: "solana-sync", file: "solana-sync-service.ts" },
 ];

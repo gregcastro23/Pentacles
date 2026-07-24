@@ -63,7 +63,9 @@ async function bridge(primaryWallet) {
   let solanaAddress = isSol ? primaryWallet.address : null
   let provider = null
   try {
-    if (!isSol) {
+    if (isSol && typeof primaryWallet.connector?.getSigner === 'function') {
+      provider = await primaryWallet.connector.getSigner()
+    } else if (!isSol) {
       if (typeof primaryWallet.getWalletClient === 'function') {
         const wc = await primaryWallet.getWalletClient()
         provider = wc?.transport?.value ?? wc?.transport ?? null

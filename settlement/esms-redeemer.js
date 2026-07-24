@@ -4,11 +4,11 @@ import {
   decodeEventLog,
   getAddress,
   http,
-  parseAbi,
   verifyTypedData,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { baseSepolia } from 'viem/chains'
+import { ESMS_ABI, REDEEM_AUTH_TYPES } from '../src/web3/abis.js'
 
 export const ESMS_ADDRESS =
   process.env.ESMS_TOKEN ||
@@ -22,20 +22,6 @@ const RPC_URL =
   process.env.BASE_SEPOLIA_RPC ||
   process.env.VITE_BASE_SEPOLIA_RPC ||
   'https://sepolia.base.org'
-const ESMS_ABI = parseAbi([
-  'function redeemedOrders(bytes32 orderId) view returns (bool)',
-  'function redeemFor(address from, bytes32 orderId, uint256[] ids, uint256[] amounts, uint256 deadline, bytes signature)',
-  'event Redeemed(address indexed from, bytes32 indexed orderId, uint256[] ids, uint256[] amounts)',
-])
-const REDEEM_AUTH_TYPES = {
-  RedeemAuthorization: [
-    { name: 'from', type: 'address' },
-    { name: 'orderId', type: 'bytes32' },
-    { name: 'ids', type: 'uint256[]' },
-    { name: 'amounts', type: 'uint256[]' },
-    { name: 'deadline', type: 'uint256' },
-  ],
-}
 const TX_HASH = /^0x[0-9a-f]{64}$/i
 const BYTES32 = /^0x[0-9a-f]{64}$/i
 const SIGNATURE = /^0x[0-9a-f]{130}$/i
@@ -103,7 +89,7 @@ async function defaultRedeemedOrder(payload) {
 }
 
 async function defaultSubmitRedeem(payload) {
-  const privateKey = process.env.REDEEMER_PRIVATE_KEY || process.env.MINTER_PRIVATE_KEY
+  const privateKey = process.env.REDEEMER_PRIVATE_KEY
   if (!privateKey) {
     throw new Error('settlement signer is not configured')
   }

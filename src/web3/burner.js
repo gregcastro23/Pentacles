@@ -192,12 +192,14 @@ export async function burnEsmsForJing({ elementId: rawElementId, amount: rawAmou
     createOrderId: defaultOrderId,
     settleEvmBurn: defaultSettleEvmBurn,
     sendSolanaBurn: defaultSendSolanaBurn,
+    ensureWalletBinding: async (activeWallet) => activeWallet.bindToSpacetime?.(true),
     ...overrides,
   }
   const elementId = burnElement(rawElementId)
   const amount = burnAmount(rawAmount)
   if (amount > MAX_U128) throw new Error('amount exceeds the supported u128 range')
   const activeWallet = deps.wallet
+  await deps.ensureWalletBinding(activeWallet)
 
   if (activeWallet.solanaAddress) {
     if (amount > MAX_U64) throw new Error('amount exceeds the Solana u64 range')

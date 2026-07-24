@@ -10,10 +10,14 @@
     "duel": "bun run duel-service.ts",
     "jing": "bun run jing-service.ts",
     "constellation": "bun run constellation-service.ts",
+    "bridge": "bun run bridge-service.ts",
     "all": "bun run all.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "latest",
+    "@solana/spl-token": "^0.4.15",
+    "@solana/web3.js": "^1.98.4",
+    "bs58": "^6.0.0",
     "viem": "^2.21.0"
   },
   "devDependencies": {

@@ -39,6 +39,14 @@ pub enum DuelState { Active, Resolved }
 #[derive(SpacetimeType, Clone, Copy, PartialEq, Eq, Debug)]
 pub enum TradeState { Open, Committed, Cancelled }
 
+/// Supported ESMS bridge ledgers.
+#[derive(SpacetimeType, Clone, Copy, PartialEq, Eq, Debug)]
+pub enum BridgeChain { EvmBaseSepolia, SolanaToken2022 }
+
+/// Settlement lifecycle for a verified burn-and-mint transfer.
+#[derive(SpacetimeType, Clone, Copy, PartialEq, Eq, Debug)]
+pub enum BridgeStatus { PendingMint, Completed }
+
 /// One natal placement, packed to the arc-minute.
 #[derive(SpacetimeType, Clone, Debug)]
 pub struct Placement {

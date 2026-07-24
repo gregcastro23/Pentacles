@@ -10,9 +10,14 @@ import { parseAbi } from 'viem'
 export const ESMS_ABI = parseAbi([
   'function balanceOf(address account, uint256 id) view returns (uint256)',
   'function balanceOfBatch(address[] accounts, uint256[] ids) view returns (uint256[])',
+  'function claimed(bytes32 claimId) view returns (bool)',
+  'function claimMint(address to, bytes32 claimId, uint256[] ids, uint256[] amounts)',
   'function redeemedOrders(bytes32 orderId) view returns (bool)',
   'function redeemFor(address from, bytes32 orderId, uint256[] ids, uint256[] amounts, uint256 deadline, bytes signature)',
+  'event ClaimExecuted(address indexed to, bytes32 indexed claimId, uint256[] ids, uint256[] amounts)',
   'event Redeemed(address indexed from, bytes32 indexed orderId, uint256[] ids, uint256[] amounts)',
+  'event TransferSingle(address indexed operator, address indexed from, address indexed to, uint256 id, uint256 value)',
+  'event TransferBatch(address indexed operator, address indexed from, address indexed to, uint256[] ids, uint256[] values)',
 ])
 
 export const REDEEM_AUTH_TYPES = {
@@ -21,6 +26,14 @@ export const REDEEM_AUTH_TYPES = {
     { name: 'orderId', type: 'bytes32' },
     { name: 'ids', type: 'uint256[]' },
     { name: 'amounts', type: 'uint256[]' },
+    { name: 'deadline', type: 'uint256' },
+  ],
+}
+
+export const WALLET_BINDING_TYPES = {
+  WalletBinding: [
+    { name: 'spacetimeIdentity', type: 'bytes32' },
+    { name: 'wallet', type: 'address' },
     { name: 'deadline', type: 'uint256' },
   ],
 }
