@@ -10,7 +10,20 @@ import { parseAbi } from 'viem'
 export const ESMS_ABI = parseAbi([
   'function balanceOf(address account, uint256 id) view returns (uint256)',
   'function balanceOfBatch(address[] accounts, uint256[] ids) view returns (uint256[])',
+  'function redeemedOrders(bytes32 orderId) view returns (bool)',
+  'function redeemFor(address from, bytes32 orderId, uint256[] ids, uint256[] amounts, uint256 deadline, bytes signature)',
+  'event Redeemed(address indexed from, bytes32 indexed orderId, uint256[] ids, uint256[] amounts)',
 ])
+
+export const REDEEM_AUTH_TYPES = {
+  RedeemAuthorization: [
+    { name: 'from', type: 'address' },
+    { name: 'orderId', type: 'bytes32' },
+    { name: 'ids', type: 'uint256[]' },
+    { name: 'amounts', type: 'uint256[]' },
+    { name: 'deadline', type: 'uint256' },
+  ],
+}
 
 // ConstellationAMM — the 12 constellation pools (constId == constellation id).
 export const AMM_ABI = parseAbi([

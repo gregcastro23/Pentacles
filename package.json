@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "test:chart": "node src/alchm-chart/__tests__/math.test.js",
     "test:gameplay": "node scripts/gameplay-contract.test.mjs",
+    "test:omnichain": "bun scripts/dryrun-omnichain.test.mjs",
     "build:chart": "vite build --config vite.alchm.config.js",
     "serve": "bun run serve.ts",
     "gen": "spacetime generate --lang typescript --module-path server --out-dir src/module_bindings -y && node scripts/patch-bindings.mjs"

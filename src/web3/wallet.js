@@ -18,6 +18,7 @@ class Wallet {
     this.chainId = null
     this.connected = false
     this.provider = null // EIP-1193
+    this.solanaProvider = null
     this.source = null // 'injected' | 'dynamic'
     this._listeners = new Set()
     this._wired = false
@@ -63,6 +64,8 @@ class Wallet {
     const eth = window.ethereum
     if (!eth) throw new Error('No EVM wallet extension (e.g. MetaMask) detected.')
     this.provider = eth
+    this.solanaProvider = null
+    this.solanaAddress = null
     this.source = 'injected'
     const accounts = await eth.request({ method: 'eth_requestAccounts' })
     if (!accounts?.length) throw new Error('No accounts returned.')
@@ -131,8 +134,11 @@ class Wallet {
 
   disconnect() {
     this.address = null
+    this.solanaAddress = null
     this.connected = false
     this.chainId = null
+    this.provider = null
+    this.solanaProvider = null
     this.source = null
     if (window.CookieSync) {
       window.CookieSync.persist(RECONNECT_KEY, null)
@@ -152,6 +158,8 @@ class Wallet {
       const accounts = await eth.request({ method: 'eth_accounts' })
       if (accounts?.length) {
         this.provider = eth
+        this.solanaProvider = null
+        this.solanaAddress = null
         this.source = 'injected'
         this.address = getAddress(accounts[0])
         this.chainId = Number(await eth.request({ method: 'eth_chainId' }))
@@ -163,12 +171,13 @@ class Wallet {
   }
 
   /** Called by the Dynamic React island when its primary wallet changes. */
-  setDynamicWallet({ address, solanaAddress, chainId, provider } = {}) {
+  setDynamicWallet({ address, solanaAddress, chainId, provider, solanaProvider } = {}) {
     this.source = 'dynamic'
-    if (provider) this.provider = provider
+    this.provider = provider || null
+    this.solanaProvider = solanaProvider || null
     this.address = address ? getAddress(address) : null
-    this.solanaAddress = solanaAddress ?? this.solanaAddress
-    this.chainId = chainId ?? this.chainId
+    this.solanaAddress = solanaAddress || null
+    this.chainId = chainId ?? null
     this.connected = !!(address || solanaAddress)
     if (this.connected) {
       if (window.CookieSync) {

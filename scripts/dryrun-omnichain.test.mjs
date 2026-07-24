@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 
 const { burnEsmsForJing } = await import('../src/web3/burner.js')
@@ -103,8 +104,33 @@ assert.deepEqual(settlementCalls.map(([name]) => name), ['submit', 'verify', 'sy
 
 console.log('PASS sponsored redeemFor settlement and SpacetimeDB sync')
 
+const rejectedAuthorization = createBurnSettlementHandler({
+  verifyAuthorization: async () => {
+    throw new Error('malformed signature')
+  },
+  nowSeconds: () => 1_800_000_000,
+})
+const rejectedResponse = await rejectedAuthorization(new Request('http://localhost/api/web3/burn-esms', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    from: evmWallet.address,
+    orderId: `0x${'12'.repeat(32)}`,
+    ids: ['2'],
+    amounts: ['10'],
+    deadline: '1800000600',
+    signature: `0x${'ab'.repeat(65)}`,
+  }),
+}))
+assert.equal(rejectedResponse.status, 401)
+
 const reducers = await readFile(new URL('../server/src/reducers.rs', import.meta.url), 'utf8')
 const tables = await readFile(new URL('../server/src/tables.rs', import.meta.url), 'utf8')
+const serve = await readFile(new URL('../serve.ts', import.meta.url), 'utf8')
+const ui = await readFile(new URL('../public/agent-page.js', import.meta.url), 'utf8')
+const solanaProgram = await readFile(new URL('../programs/pentacles-solana/src/lib.rs', import.meta.url), 'utf8')
+const solanaFeeder = await readFile(new URL('../feeder/solana-sync-service.ts', import.meta.url), 'utf8')
+const solanaClient = await readFile(new URL('../src/web3/solana.js', import.meta.url), 'utf8')
 
 for (const reducer of [
   'sync_stardex_ephemeris',
@@ -134,5 +160,12 @@ assert.match(
   /fn ensure_unprocessed\([\s\S]*?processed_tx\(\)\.tx_hash\(\)\.find/,
   'shared replay guard must read ProcessedTx by transaction hash',
 )
+assert.match(serve, /path === "\/api\/web3\/burn-esms"/)
+assert.match(ui, /await pentacles\.burnEsmsForJing\(/)
+assert.match(solanaProgram, /for Jing cast by \{\}/)
+assert.match(solanaFeeder, /player: match\[3\]/)
+assert.match(solanaFeeder, /event\.amount\.toString\(\)/)
+const burnDiscriminator = [...createHash('sha256').update('global:burn_esms_for_jing').digest().subarray(0, 8)]
+assert.match(solanaClient, new RegExp(`Buffer\\.from\\(\\[${burnDiscriminator.join(', ')}\\]\\)`))
 
 console.log('PASS hardened Stardex and pending omnichain bridge reducer contracts')

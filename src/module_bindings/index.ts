@@ -48,6 +48,7 @@ import AnswerTraceReducer from "./answer_trace_reducer";
 import AskOracleReducer from "./ask_oracle_reducer";
 import BackfillDecansReducer from "./backfill_decans_reducer";
 import BindWalletAddressReducer from "./bind_wallet_address_reducer";
+import BridgeEsmsCrosschainReducer from "./bridge_esms_crosschain_reducer";
 import CancelStaleClaimReducer from "./cancel_stale_claim_reducer";
 import CancelTradeReducer from "./cancel_trade_reducer";
 import CastJingReducer from "./cast_jing_reducer";
@@ -77,6 +78,8 @@ import SetLocationReducer from "./set_location_reducer";
 import SiegeHorizonStarReducer from "./siege_horizon_star_reducer";
 import StardexClaimConstellationReducer from "./stardex_claim_constellation_reducer";
 import StardexFortifyNodeReducer from "./stardex_fortify_node_reducer";
+import StrikeStarSingleReducer from "./strike_star_single_reducer";
+import SyncEvmEventReducer from "./sync_evm_event_reducer";
 import SyncSolanaEventReducer from "./sync_solana_event_reducer";
 import SyncStardexEphemerisReducer from "./sync_stardex_ephemeris_reducer";
 import TraceConstellationReducer from "./trace_constellation_reducer";
@@ -87,6 +90,7 @@ import TransferStarStakeReducer from "./transfer_star_stake_reducer";
 // Import all table schema definitions
 import AgentChartRow from "./agent_chart_table";
 import BattleRow from "./battle_table";
+import BridgeTransferRow from "./bridge_transfer_table";
 import CardRow from "./card_table";
 import CometRow from "./comet_table";
 import ConstellationRow from "./constellation_table";
@@ -149,6 +153,20 @@ const tablesSchema = __schema({
       { name: 'battle_battle_id_key', constraint: 'unique', columns: ['battleId'] },
     ],
   }, BattleRow),
+  bridge_transfer: __table({
+    name: 'bridge_transfer',
+    indexes: [
+      { accessor: 'burn_tx_hash', name: 'bridge_transfer_burn_tx_hash_idx_btree', algorithm: 'btree', columns: [
+        'burnTxHash',
+      ] },
+      { accessor: 'player', name: 'bridge_transfer_player_idx_btree', algorithm: 'btree', columns: [
+        'player',
+      ] },
+    ],
+    constraints: [
+      { name: 'bridge_transfer_burn_tx_hash_key', constraint: 'unique', columns: ['burnTxHash'] },
+    ],
+  }, BridgeTransferRow),
   card: __table({
     name: 'card',
     indexes: [
@@ -612,6 +630,7 @@ const reducersSchema = __reducers(
   __reducerSchema("ask_oracle", AskOracleReducer),
   __reducerSchema("backfill_decans", BackfillDecansReducer),
   __reducerSchema("bind_wallet_address", BindWalletAddressReducer),
+  __reducerSchema("bridge_esms_crosschain", BridgeEsmsCrosschainReducer),
   __reducerSchema("cancel_stale_claim", CancelStaleClaimReducer),
   __reducerSchema("cancel_trade", CancelTradeReducer),
   __reducerSchema("cast_jing", CastJingReducer),
@@ -641,6 +660,8 @@ const reducersSchema = __reducers(
   __reducerSchema("siege_horizon_star", SiegeHorizonStarReducer),
   __reducerSchema("stardex_claim_constellation", StardexClaimConstellationReducer),
   __reducerSchema("stardex_fortify_node", StardexFortifyNodeReducer),
+  __reducerSchema("strike_star_single", StrikeStarSingleReducer),
+  __reducerSchema("sync_evm_event", SyncEvmEventReducer),
   __reducerSchema("sync_solana_event", SyncSolanaEventReducer),
   __reducerSchema("sync_stardex_ephemeris", SyncStardexEphemerisReducer),
   __reducerSchema("trace_constellation", TraceConstellationReducer),

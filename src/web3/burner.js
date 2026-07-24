@@ -15,6 +15,7 @@ import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import { createBundlerClient, createPaymasterClient, toCoinbaseSmartAccount } from 'viem/account-abstraction'
 import { PublicKey, Transaction } from '@solana/web3.js'
 import { CHAIN, RPC_URL, ADDRESSES, publicClient } from './chain.js'
+import { REDEEM_AUTH_TYPES } from './abis.js'
 import { buildBurnEsmsInstruction, solanaConnection } from './solana.js'
 import wallet from './wallet.js'
 
@@ -22,6 +23,8 @@ const KEY = 'pentacles_burner_key'
 const BUNDLER_URL = (import.meta.env.VITE_BUNDLER_URL || '').trim()
 const PAYMASTER_URL = (import.meta.env.VITE_PAYMASTER_URL || '').trim()
 const isHex32 = (k) => /^0x[0-9a-fA-F]{64}$/.test(k || '')
+const MAX_U64 = (1n << 64n) - 1n
+const MAX_U128 = (1n << 128n) - 1n
 
 function loadOrCreateKey() {
   let k = null
@@ -101,16 +104,6 @@ class Burner {
 
 export const burner = new Burner()
 export default burner
-
-const REDEEM_AUTH_TYPES = {
-  RedeemAuthorization: [
-    { name: 'from', type: 'address' },
-    { name: 'orderId', type: 'bytes32' },
-    { name: 'ids', type: 'uint256[]' },
-    { name: 'amounts', type: 'uint256[]' },
-    { name: 'deadline', type: 'uint256' },
-  ],
-}
 
 function burnAmount(value) {
   let amount
@@ -203,9 +196,11 @@ export async function burnEsmsForJing({ elementId: rawElementId, amount: rawAmou
   }
   const elementId = burnElement(rawElementId)
   const amount = burnAmount(rawAmount)
+  if (amount > MAX_U128) throw new Error('amount exceeds the supported u128 range')
   const activeWallet = deps.wallet
 
   if (activeWallet.solanaAddress) {
+    if (amount > MAX_U64) throw new Error('amount exceeds the Solana u64 range')
     const settled = await deps.sendSolanaBurn({
       address: activeWallet.solanaAddress,
       elementId,

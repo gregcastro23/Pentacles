@@ -11,9 +11,6 @@ import {
 } from "spacetimedb";
 
 export default {
-  txHash: __t.string(),
-  horizonIntentId: __t.u64(),
-  lat: __t.f64(),
-  lon: __t.f64(),
-  elevM: __t.f64(),
+  hipId: __t.u32(),
+  cardId: __t.u64(),
 };

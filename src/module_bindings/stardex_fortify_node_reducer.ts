@@ -11,6 +11,8 @@ import {
 } from "spacetimedb";
 
 export default {
+  txHash: __t.string(),
+  horizonIntentId: __t.u64(),
   starId: __t.u32(),
   energyAmount: __t.u32(),
 };

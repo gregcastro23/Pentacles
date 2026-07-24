@@ -49,6 +49,21 @@ export const BattleLog = __t.object("BattleLog", {
 });
 export type BattleLog = __Infer<typeof BattleLog>;
 
+export const BridgeTransfer = __t.object("BridgeTransfer", {
+  burnTxHash: __t.string(),
+  player: __t.identity(),
+  sourceChain: __t.string(),
+  targetChain: __t.string(),
+  sourceAddress: __t.string(),
+  targetAddress: __t.string(),
+  elementId: __t.u8(),
+  amount: __t.u128(),
+  status: __t.string(),
+  createdAt: __t.timestamp(),
+  updatedAt: __t.timestamp(),
+});
+export type BridgeTransfer = __Infer<typeof BridgeTransfer>;
+
 export const Card = __t.object("Card", {
   cardId: __t.u64(),
   owner: __t.identity(),

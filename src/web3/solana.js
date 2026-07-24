@@ -63,7 +63,7 @@ export function buildBurnEsmsInstruction({ elementId, amount, playerPublicKey })
 
   // Anchor instruction discriminator for "burn_esms_for_jing"
   const data = Buffer.alloc(8 + 1 + 8)
-  const discriminator = Buffer.from([116, 219, 137, 240, 18, 143, 211, 44])
+  const discriminator = Buffer.from([29, 67, 145, 7, 32, 58, 246, 110])
   discriminator.copy(data, 0)
   data.writeUInt8(elementId, 8)
   data.writeBigUInt64LE(BigInt(amount), 9)

@@ -208,12 +208,22 @@ export function createBurnSettlementHandler(overrides = {}) {
     if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
     let payload
     try {
-      payload = parsePayload(await req.json(), deps.nowSeconds)
+      const declaredLength = Number(req.headers.get('content-length') || 0)
+      if (declaredLength > 65_536) return json({ error: 'Request body is too large' }, 413)
+      const rawBody = await req.text()
+      if (rawBody.length > 65_536) return json({ error: 'Request body is too large' }, 413)
+      payload = parsePayload(JSON.parse(rawBody), deps.nowSeconds)
     } catch (error) {
       return json({ error: error.message || 'Invalid burn request' }, 400)
     }
 
-    if (!(await deps.verifyAuthorization(payload))) {
+    let authorizationValid = false
+    try {
+      authorizationValid = await deps.verifyAuthorization(payload)
+    } catch {
+      authorizationValid = false
+    }
+    if (!authorizationValid) {
       return json({ error: 'RedeemAuthorization signer does not match the ESMS holder' }, 401)
     }
 

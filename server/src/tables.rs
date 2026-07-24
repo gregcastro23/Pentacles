@@ -805,8 +805,8 @@ pub struct ProcessedTx {
     pub processed_at: Timestamp,
 }
 
-/// A verified source-chain burn waiting for the feeder/attestor to mint the
-/// equivalent ESMS on the destination chain.
+/// A claimed source-chain burn waiting for the feeder/attestor to verify it and
+/// mint the equivalent ESMS on the destination chain.
 #[spacetimedb::table(accessor = bridge_transfer, public)]
 #[derive(Clone)]
 pub struct BridgeTransfer {

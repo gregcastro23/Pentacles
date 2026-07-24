@@ -12,8 +12,8 @@ import {
 
 export default {
   txHash: __t.string(),
-  horizonIntentId: __t.u64(),
-  lat: __t.f64(),
-  lon: __t.f64(),
-  elevM: __t.f64(),
+  playerAddress: __t.string(),
+  eventType: __t.string(),
+  elementId: __t.u8(),
+  amount: __t.string(),
 };

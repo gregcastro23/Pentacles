@@ -1,7 +1,9 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token_interface::{self, Burn, Mint, MintTo, TransferChecked, TokenAccount, TokenInterface};
+use anchor_spl::token_interface::{
+    self, Burn, Mint, MintTo, TokenAccount, TokenInterface, TransferChecked,
+};
+use spl_tlv_account_resolution::state::ExtraAccountMetaList;
 use spl_transfer_hook_interface::instruction::ExecuteInstruction;
-use spl_tlv-account-resolution::{account::ExtraAccountMeta, state::ExtraAccountMetaList};
 
 declare_id!("7MPHZUmxFcLQiqmhnfvgVtTsMRu7jHdmGzjZbKbECE5R");
 
@@ -15,11 +17,18 @@ pub mod pentacles_solana {
         max_epoch_mint: u64,
     ) -> Result<()> {
         let auth = &mut ctx.accounts.game_authority;
-        auth.max_epoch_mint = if max_epoch_mint > 0 { max_epoch_mint } else { 10_000_000_000_000_000_000 }; // 10M ESMS cap
+        auth.max_epoch_mint = if max_epoch_mint > 0 {
+            max_epoch_mint
+        } else {
+            10_000_000_000_000_000_000
+        }; // 10M ESMS cap
         auth.current_epoch = Clock::get()?.epoch;
         auth.epoch_minted = 0;
         auth.bump = ctx.bumps.game_authority;
-        msg!("Game Authority PDA initialized with max epoch mint cap {}.", auth.max_epoch_mint);
+        msg!(
+            "Game Authority PDA initialized with max epoch mint cap {}.",
+            auth.max_epoch_mint
+        );
         Ok(())
     }
 
@@ -43,23 +52,26 @@ pub mod pentacles_solana {
         require!(element_id <= 3, ErrorCode::InvalidElementId);
 
         let clock = Clock::get()?;
-        let auth = &mut ctx.accounts.game_authority;
+        let (authority_bump, epoch_minted, max_epoch_mint) = {
+            let auth = &mut ctx.accounts.game_authority;
 
-        // Reset mint tally on new epoch
-        if auth.current_epoch != clock.epoch {
-            auth.current_epoch = clock.epoch;
-            auth.epoch_minted = 0;
-        }
+            // Reset mint tally on new epoch.
+            if auth.current_epoch != clock.epoch {
+                auth.current_epoch = clock.epoch;
+                auth.epoch_minted = 0;
+            }
 
-        // On-chain Hot Wallet Safeguard: Cap total ESMS minted per epoch
-        require!(
-            auth.epoch_minted.saturating_add(amount) <= auth.max_epoch_mint,
-            ErrorCode::EpochMintCapExceeded
-        );
+            // On-chain Hot Wallet Safeguard: Cap total ESMS minted per epoch.
+            require!(
+                auth.epoch_minted.saturating_add(amount) <= auth.max_epoch_mint,
+                ErrorCode::EpochMintCapExceeded
+            );
+            auth.epoch_minted = auth.epoch_minted.saturating_add(amount);
+            (auth.bump, auth.epoch_minted, auth.max_epoch_mint)
+        };
 
-        auth.epoch_minted = auth.epoch_minted.saturating_add(amount);
-
-        let seeds = &[b"game_authority".as_ref(), &[auth.bump]];
+        let bump_seed = [authority_bump];
+        let seeds = &[b"game_authority".as_ref(), &bump_seed];
         let signer = [&seeds[..]];
 
         let cpi_accounts = MintTo {
@@ -76,22 +88,19 @@ pub mod pentacles_solana {
 
         token_interface::mint_to(cpi_ctx, amount)?;
         msg!(
-            "Minted {} units of ESMS element {}. (Epoch {} minted: {}/{})",
+            "Minted {} units of ESMS element {} for {}. (Epoch {} minted: {}/{})",
             amount,
             element_id,
+            ctx.accounts.player_token_account.owner,
             clock.epoch,
-            auth.epoch_minted,
-            auth.max_epoch_mint
+            epoch_minted,
+            max_epoch_mint
         );
         Ok(())
     }
 
     /// Stake USDC into a Star Vault PDA using TransferChecked with net balance delta accounting.
-    pub fn stake_star_usdc(
-        ctx: Context<StakeStarUsdc>,
-        star_id: u32,
-        amount: u64,
-    ) -> Result<()> {
+    pub fn stake_star_usdc(ctx: Context<StakeStarUsdc>, star_id: u32, amount: u64) -> Result<()> {
         require!(amount > 0, ErrorCode::InvalidAmount);
 
         let vault_pre_balance = ctx.accounts.vault_token_account.amount;
@@ -138,16 +147,18 @@ pub mod pentacles_solana {
         let cpi_ctx = CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts);
         token_interface::burn(cpi_ctx, amount)?;
 
-        msg!("Burned {} units of ESMS element {} for Jing cast.", amount, element_id);
+        msg!(
+            "Burned {} units of ESMS element {} for Jing cast by {}.",
+            amount,
+            element_id,
+            ctx.accounts.player.key()
+        );
         Ok(())
     }
 
     /// Permanent Delegate anti-cheat slash instruction.
     /// Uses game_authority PDA as Permanent Delegate to burn illicit tokens directly from offender.
-    pub fn slash_cheater(
-        ctx: Context<SlashCheater>,
-        amount: u64,
-    ) -> Result<()> {
+    pub fn slash_cheater(ctx: Context<SlashCheater>, amount: u64) -> Result<()> {
         let auth_bump = ctx.accounts.game_authority.bump;
         let seeds = &[b"game_authority".as_ref(), &[auth_bump]];
         let signer = [&seeds[..]];
@@ -165,7 +176,10 @@ pub mod pentacles_solana {
         );
 
         token_interface::burn(cpi_ctx, amount)?;
-        msg!("Permanent Delegate Slashed {} tokens from offender account.", amount);
+        msg!(
+            "Permanent Delegate Slashed {} tokens from offender account.",
+            amount
+        );
         Ok(())
     }
 

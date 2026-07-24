@@ -28,6 +28,7 @@
   let cur = null; // { kind:'planet'|'star', body, hip, name, glyph, color, star, frame, cityIdx, offsetH, tab }
   let lastFocus = null;
   let escHandler = null;
+  let jingBurnPending = false;
 
   function elById(id) { return document.getElementById(id); }
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
@@ -496,11 +497,36 @@
     refreshLiveJings(); // live threads take precedence over the local sim when present
   }
 
-  function castJing(playerMove) {
+  async function castJing(playerMove) {
     const pool = state.jingPool;
     const m = AW().JING_MOVES[playerMove];
     const stat = AW().SACRED7.indexOf(m.stat);
     if (pool.sacred7[stat] < m.statCost || pool.esms[m.esms] < m.esmsCost) { toastMsg(`Your ${m.stat} is too depleted to cast ${m.name}.`, "error"); return; }
+    const pentacles = window.Pentacles || {};
+    const net = pentacles.net;
+    if (net && net.isLive) {
+      if (jingBurnPending) {
+        toastMsg("An ESMS burn is already awaiting wallet confirmation.", "info");
+        return;
+      }
+      if (typeof pentacles.burnEsmsForJing !== "function") {
+        toastMsg("The omnichain ESMS burner is unavailable.", "error");
+        return;
+      }
+      jingBurnPending = true;
+      try {
+        toastMsg(`Authorizing ${m.esmsCost} ESMS for ${m.name}…`, "info");
+        await pentacles.burnEsmsForJing({
+          elementId: m.esms,
+          amount: BigInt(m.esmsCost) * (10n ** 18n),
+        });
+      } catch (error) {
+        toastMsg(error && error.message ? error.message : "The ESMS burn failed.", "error");
+        return;
+      } finally {
+        jingBurnPending = false;
+      }
+    }
     // drain
     pool.sacred7[stat] -= m.statCost;
     pool.esms[m.esms] -= m.esmsCost;
@@ -520,7 +546,6 @@
     // also voice it in chat
     appendAgent(`${cur.name} answers your ${m.name} with ${AW().JING_MOVES[agentMove].name}.`, agentMove, true);
     // Best-effort live record (the jing feeder resolves it); offline result already shown.
-    const net = window.Pentacles && window.Pentacles.net;
     if (net && net.isLive && cur.kind === "planet" && typeof net.castJing === "function") {
       net.castJing(playerMove, { agentBody: cur.body })
         .then(() => { setTimeout(() => { refreshLivePool(); refreshLiveJings(); }, 2500); setTimeout(refreshLiveJings, 8000); })
