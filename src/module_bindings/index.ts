@@ -46,6 +46,7 @@ import AnswerJingReducer from "./answer_jing_reducer";
 import AnswerOracleReducer from "./answer_oracle_reducer";
 import AnswerTraceReducer from "./answer_trace_reducer";
 import AskOracleReducer from "./ask_oracle_reducer";
+import AssertEsmsBridgeReadyReducer from "./assert_esms_bridge_ready_reducer";
 import BackfillDecansReducer from "./backfill_decans_reducer";
 import BindWalletAddressReducer from "./bind_wallet_address_reducer";
 import BridgeEsmsCrosschainReducer from "./bridge_esms_crosschain_reducer";
@@ -678,6 +679,7 @@ const reducersSchema = __reducers(
   __reducerSchema("answer_oracle", AnswerOracleReducer),
   __reducerSchema("answer_trace", AnswerTraceReducer),
   __reducerSchema("ask_oracle", AskOracleReducer),
+  __reducerSchema("assert_esms_bridge_ready", AssertEsmsBridgeReadyReducer),
   __reducerSchema("backfill_decans", BackfillDecansReducer),
   __reducerSchema("bind_wallet_address", BindWalletAddressReducer),
   __reducerSchema("bridge_esms_crosschain", BridgeEsmsCrosschainReducer),

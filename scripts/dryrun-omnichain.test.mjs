@@ -67,23 +67,31 @@ assert.equal(solanaResult.spacetimeSynced, true)
 console.log('PASS omnichain Solana Token-2022 dispatcher')
 
 let registeredBridge
+const evmBridgeLifecycle = []
 const evmBridgeResult = await bridgeEsmsCrosschain(
   { elementId: 2, amount: 10n },
   {
     wallet: evmWallet,
     nowSeconds: () => 1_800_000_000,
-    assertBridgeReady: async () => {},
-    ensureWalletBinding: async () => {},
+    ensureWalletBinding: async () => evmBridgeLifecycle.push('bind-source'),
+    assertBridgeReady: async (payload) => {
+      evmBridgeLifecycle.push('preflight')
+      assert.equal(payload.sourceChain, 'evm_base_sepolia')
+      assert.equal(payload.targetChain, 'solana_token_2022')
+    },
     settleEvmBurn: async (payload) => {
+      evmBridgeLifecycle.push('burn')
       assert.equal(payload.purpose, 'bridge')
       assert.equal(payload.orderId.slice(2, 4), 'b1')
       return { txHash: `0x${'35'.repeat(32)}`, spacetimeSynced: false }
     },
     registerBridge: async (payload) => {
+      evmBridgeLifecycle.push('register')
       registeredBridge = payload
     },
   },
 )
+assert.deepEqual(evmBridgeLifecycle, ['bind-source', 'preflight', 'burn', 'register'])
 assert.equal(evmBridgeResult.status, 'pending_mint')
 assert.equal(registeredBridge.sourceChain, 'evm_base_sepolia')
 assert.equal(registeredBridge.targetChain, 'solana_token_2022')
@@ -97,8 +105,8 @@ const solanaBridgeResult = await bridgeEsmsCrosschain(
       address: null,
       solanaAddress: '7YVYdyiZzSw64Xy2VJbZEZFwXFPVQtRejv5q8fYynWnK',
     },
-    assertBridgeReady: async () => {},
     ensureWalletBinding: async () => {},
+    assertBridgeReady: async () => {},
     sendSolanaBridgeBurn: async () => ({ signature: '6'.repeat(88) }),
     registerBridge: async (payload) => {
       registeredSolanaBridge = payload
@@ -108,6 +116,26 @@ const solanaBridgeResult = await bridgeEsmsCrosschain(
 assert.equal(solanaBridgeResult.burnTxHash, '6'.repeat(88))
 assert.equal(registeredSolanaBridge.sourceChain, 'solana_token_2022')
 assert.equal(registeredSolanaBridge.targetChain, 'evm_base_sepolia')
+
+let burnedWithoutPreflight = false
+await assert.rejects(
+  () => bridgeEsmsCrosschain(
+    { elementId: 0, amount: 1n },
+    {
+      wallet: evmWallet,
+      ensureWalletBinding: async () => {},
+      assertBridgeReady: async () => {
+        throw new Error('verify the bound Solana wallet before bridging')
+      },
+      settleEvmBurn: async () => {
+        burnedWithoutPreflight = true
+        return { txHash: `0x${'36'.repeat(32)}` }
+      },
+    },
+  ),
+  /verify the bound Solana wallet/,
+)
+assert.equal(burnedWithoutPreflight, false, 'a failed bridge preflight must stop before source burn')
 
 console.log('PASS dedicated EVM and Solana bridge burn registration')
 
@@ -280,7 +308,12 @@ assert.equal(solanaVerificationResponse.status, 200)
 assert.equal(verifiedSolanaBinding.chain, 'solana')
 assert.match(verifiedSolanaBinding.proofHash, /^0x[0-9a-f]{64}$/)
 
-const { bridgeClaimId, createBridgeProcessor, parsePendingBridge } = await import('../feeder/bridge-service.ts')
+const {
+  bridgeClaimId,
+  createBridgeProcessor,
+  hasExactEvmBridgeBurn,
+  parsePendingBridge,
+} = await import('../feeder/bridge-service.ts')
 const bridgeRow = {
   burn_tx_hash: `0x${'cd'.repeat(32)}`,
   source_chain: 'EvmBaseSepolia',
@@ -297,6 +330,39 @@ assert.equal(bridgeClaimId(parsedBridge), bridgeClaimId(parsedBridge), 'bridge c
 assert.throws(
   () => parsePendingBridge({ ...bridgeRow, amount: (1n << 64n).toString() }),
   /exceeds Solana u64/,
+)
+const exactTransferBatch = {
+  eventName: 'TransferBatch',
+  args: {
+    from: parsedBridge.sourceAddress,
+    to: '0x0000000000000000000000000000000000000000',
+    ids: [BigInt(parsedBridge.elementId)],
+    values: [parsedBridge.amount],
+  },
+}
+const jingRedeemed = {
+  eventName: 'Redeemed',
+  args: {
+    from: parsedBridge.sourceAddress,
+    orderId: `0xa1${'01'.repeat(31)}`,
+    ids: [BigInt(parsedBridge.elementId)],
+    amounts: [parsedBridge.amount],
+  },
+}
+const bridgeRedeemed = {
+  ...jingRedeemed,
+  args: { ...jingRedeemed.args, orderId: `0xb1${'02'.repeat(31)}` },
+}
+assert.equal(
+  hasExactEvmBridgeBurn([exactTransferBatch, jingRedeemed], parsedBridge),
+  false,
+  'a Jing redeem must not become bridge-eligible via its ERC-1155 burn log',
+)
+assert.equal(hasExactEvmBridgeBurn([exactTransferBatch, bridgeRedeemed], parsedBridge), true)
+assert.equal(
+  hasExactEvmBridgeBurn([exactTransferBatch], parsedBridge),
+  true,
+  'raw BURNER_ROLE gateway burns remain bridge-eligible when no Redeemed event exists',
 )
 
 const bridgeLifecycle = []
@@ -390,13 +456,16 @@ for (const reducer of [
 assert.match(tables, /pub struct HorizonActionReceipt/)
 
 const bridgeReducer = reducers.match(/pub fn bridge_esms_crosschain\([\s\S]*?\n\}/m)?.[0] || ''
+const bridgeValidator = reducers.match(/fn validate_bridge_request\([\s\S]*?\n\}/m)?.[0] || ''
 assert.match(bridgeReducer, /burn_tx_hash:\s*String/)
 assert.match(bridgeReducer, /source_chain:\s*String/)
 assert.match(bridgeReducer, /target_chain:\s*String/)
 assert.match(bridgeReducer, /amount:\s*u128/)
 assert.match(bridgeReducer, /bridge_transfer\(\)\.insert/)
 assert.match(bridgeReducer, /ensure_unprocessed\(/)
-assert.match(bridgeReducer, /amount exceeds the Solana Token-2022 u64 range/)
+assert.match(bridgeReducer, /validate_bridge_request\(/)
+assert.match(bridgeValidator, /amount exceeds the Solana Token-2022 u64 range/)
+assert.match(reducers, /pub fn assert_esms_bridge_ready\([\s\S]*validate_bridge_request\(/)
 assert.match(bridgeReducer, /record_processed\(/)
 assert.match(tables, /pub struct BridgeTransfer[\s\S]*pub status:\s*BridgeStatus/)
 assert.match(types, /pub enum BridgeStatus\s*\{\s*PendingMint,\s*Completed\s*\}/)

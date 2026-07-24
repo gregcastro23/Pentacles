@@ -5112,23 +5112,30 @@ fn parse_bridge_chain(value: &str, field: &str) -> Result<BridgeChain, String> {
     }
 }
 
-/// Register a claimed source-chain ESMS burn for feeder verification and a
-/// pending mint on the other supported chain. Both wallet bindings are captured
-/// from the caller's Player row, so the destination cannot be redirected.
-#[reducer]
-pub fn bridge_esms_crosschain(
+struct ValidatedBridgeRequest {
+    source: BridgeChain,
+    target: BridgeChain,
+    source_name: String,
+    target_name: String,
+    evm: String,
+    solana: String,
+}
+
+fn validate_bridge_request(
     ctx: &ReducerContext,
-    burn_tx_hash: String,
-    source_chain: String,
-    target_chain: String,
+    source_chain: &str,
+    target_chain: &str,
     element_id: u8,
     amount: u128,
-) -> Result<(), String> {
+) -> Result<ValidatedBridgeRequest, String> {
     if element_id > 3 {
         return Err("element_id must be between 0 and 3".into());
     }
     if amount == 0 {
         return Err("amount must be greater than zero".into());
+    }
+    if amount > u64::MAX as u128 {
+        return Err("amount exceeds the Solana Token-2022 u64 range".into());
     }
     let source_name = source_chain.trim().to_ascii_lowercase();
     let target_name = target_chain.trim().to_ascii_lowercase();
@@ -5188,9 +5195,50 @@ pub fn bridge_esms_crosschain(
         return Err("verify the bound Solana wallet before bridging".into());
     }
 
-    if amount > u64::MAX as u128 {
-        return Err("amount exceeds the Solana Token-2022 u64 range".into());
-    }
+    Ok(ValidatedBridgeRequest {
+        source,
+        target,
+        source_name,
+        target_name,
+        evm,
+        solana,
+    })
+}
+
+/// Preflight every reducer-side bridge requirement that can be checked before
+/// the source burn exists, preventing an irreversible burn with no mint record.
+#[reducer]
+pub fn assert_esms_bridge_ready(
+    ctx: &ReducerContext,
+    source_chain: String,
+    target_chain: String,
+    element_id: u8,
+    amount: u128,
+) -> Result<(), String> {
+    validate_bridge_request(ctx, &source_chain, &target_chain, element_id, amount)?;
+    Ok(())
+}
+
+/// Register a claimed source-chain ESMS burn for feeder verification and a
+/// pending mint on the other supported chain. Both wallet bindings are captured
+/// from the caller's Player row, so the destination cannot be redirected.
+#[reducer]
+pub fn bridge_esms_crosschain(
+    ctx: &ReducerContext,
+    burn_tx_hash: String,
+    source_chain: String,
+    target_chain: String,
+    element_id: u8,
+    amount: u128,
+) -> Result<(), String> {
+    let ValidatedBridgeRequest {
+        source,
+        target,
+        source_name,
+        target_name,
+        evm,
+        solana,
+    } = validate_bridge_request(ctx, &source_chain, &target_chain, element_id, amount)?;
     let hash = if source == BridgeChain::EvmBaseSepolia {
         normalized_evm_tx_hash(&burn_tx_hash, "burn_tx_hash")?
     } else {

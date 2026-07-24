@@ -119,6 +119,40 @@ function exactElement(values: readonly bigint[], ids: readonly bigint[], transfe
     && values[0] === transfer.amount;
 }
 
+export function hasExactEvmBridgeBurn(
+  decodedLogs: ReadonlyArray<{ eventName: string; args: any }>,
+  transfer: PendingBridgeTransfer,
+): boolean {
+  const expectedFrom = getAddress(transfer.sourceAddress);
+  const redeemedLogs = decodedLogs.filter((decoded) => decoded.eventName === "Redeemed");
+  if (redeemedLogs.length) {
+    return redeemedLogs.some(({ args }) =>
+      getAddress(args.from) === expectedFrom
+      && String(args.orderId).slice(2, 4).toLowerCase() === ESMS_ORDER_PREFIX.bridge
+      && exactElement(args.amounts, args.ids, transfer)
+    );
+  }
+  return decodedLogs.some((decoded) => {
+    const args = decoded.args;
+    try {
+      return (
+        decoded.eventName === "TransferSingle"
+        && getAddress(args.from) === expectedFrom
+        && getAddress(args.to) === zeroAddress
+        && args.id === BigInt(transfer.elementId)
+        && args.value === transfer.amount
+      ) || (
+        decoded.eventName === "TransferBatch"
+        && getAddress(args.from) === expectedFrom
+        && getAddress(args.to) === zeroAddress
+        && exactElement(args.values, args.ids, transfer)
+      );
+    } catch {
+      return false;
+    }
+  });
+}
+
 export async function verifyEvmBurn(transfer: PendingBridgeTransfer): Promise<void> {
   if (!EVM_HASH.test(transfer.burnTxHash)) throw new Error("invalid Base Sepolia burn hash");
   const receipt = await baseClient.getTransactionReceipt({ hash: transfer.burnTxHash as Hex });
@@ -127,41 +161,16 @@ export async function verifyEvmBurn(transfer: PendingBridgeTransfer): Promise<vo
   if (latestBlock - receipt.blockNumber + 1n < BigInt(EVM_CONFIRMATIONS)) {
     throw new Error(`Base Sepolia burn is awaiting ${EVM_CONFIRMATIONS} confirmations`);
   }
-  const expectedFrom = getAddress(transfer.sourceAddress);
+  const decodedLogs: Array<{ eventName: string; args: any }> = [];
   for (const log of receipt.logs) {
     if (log.address.toLowerCase() !== ESMS_ADDRESS.toLowerCase()) continue;
     try {
-      const decoded = decodeEventLog({ abi: ESMS_ABI, data: log.data, topics: log.topics });
-      const args: any = decoded.args;
-      if (
-        decoded.eventName === "Redeemed" &&
-        getAddress(args.from) === expectedFrom &&
-        String(args.orderId).slice(2, 4).toLowerCase() === ESMS_ORDER_PREFIX.bridge &&
-        exactElement(args.amounts, args.ids, transfer)
-      ) {
-        return;
-      }
-      if (
-        decoded.eventName === "TransferSingle" &&
-        getAddress(args.from) === expectedFrom &&
-        getAddress(args.to) === zeroAddress &&
-        args.id === BigInt(transfer.elementId) &&
-        args.value === transfer.amount
-      ) {
-        return;
-      }
-      if (
-        decoded.eventName === "TransferBatch" &&
-        getAddress(args.from) === expectedFrom &&
-        getAddress(args.to) === zeroAddress &&
-        exactElement(args.values, args.ids, transfer)
-      ) {
-        return;
-      }
+      decodedLogs.push(decodeEventLog({ abi: ESMS_ABI, data: log.data, topics: log.topics }) as any);
     } catch {
       // Ignore unrelated ESMS logs.
     }
   }
+  if (hasExactEvmBridgeBurn(decodedLogs, transfer)) return;
   throw new Error("transaction does not contain the claimed ESMS burn");
 }
 

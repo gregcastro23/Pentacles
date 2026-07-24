@@ -257,11 +257,17 @@ async function submitEvmBurn({ activeWallet, elementId, amount, purpose, deps })
   return { ...settled, orderId }
 }
 
-async function defaultAssertBridgeReady() {
+async function defaultAssertBridgeReady({ sourceChain, targetChain, elementId, amount }) {
   const spacetime = (await import('../net/spacetime.js')).default
   if (!spacetime?.isLive) {
     throw new Error('Connect to SpacetimeDB before starting a bridge burn.')
   }
+  await spacetime.callReducer('assert_esms_bridge_ready', [
+    sourceChain,
+    targetChain,
+    elementId,
+    BigInt(amount).toString(),
+  ])
 }
 
 export async function registerEsmsBridge({
@@ -361,14 +367,25 @@ export async function bridgeEsmsCrosschain(
   const amount = burnAmount(rawAmount)
   if (amount > MAX_U64) throw new Error('amount exceeds the Solana u64 bridge range')
   const activeWallet = deps.wallet
-  await deps.assertBridgeReady()
-  await deps.ensureWalletBinding(activeWallet)
 
-  let burnTxHash
-  let orderId
   let sourceChain
   let targetChain
   if (activeWallet.solanaAddress) {
+    sourceChain = 'solana_token_2022'
+    targetChain = 'evm_base_sepolia'
+  } else if (activeWallet.address) {
+    sourceChain = 'evm_base_sepolia'
+    targetChain = 'solana_token_2022'
+  } else {
+    throw new Error('Connect a wallet on Solana Devnet or Base Sepolia first.')
+  }
+
+  await deps.ensureWalletBinding(activeWallet)
+  await deps.assertBridgeReady({ sourceChain, targetChain, elementId, amount })
+
+  let burnTxHash
+  let orderId
+  if (sourceChain === 'solana_token_2022') {
     const settled = await deps.sendSolanaBridgeBurn({
       address: activeWallet.solanaAddress,
       elementId,
@@ -376,9 +393,7 @@ export async function bridgeEsmsCrosschain(
       wallet: activeWallet,
     })
     burnTxHash = settled.signature
-    sourceChain = 'solana_token_2022'
-    targetChain = 'evm_base_sepolia'
-  } else if (activeWallet.address) {
+  } else {
     const settled = await submitEvmBurn({
       activeWallet,
       elementId,
@@ -388,10 +403,6 @@ export async function bridgeEsmsCrosschain(
     })
     burnTxHash = settled.txHash
     orderId = settled.orderId
-    sourceChain = 'evm_base_sepolia'
-    targetChain = 'solana_token_2022'
-  } else {
-    throw new Error('Connect a wallet on Solana Devnet or Base Sepolia first.')
   }
 
   try {
