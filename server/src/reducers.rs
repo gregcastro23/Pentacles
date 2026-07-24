@@ -929,6 +929,120 @@ pub fn resolve_star_battle(
     Ok(())
 }
 
+/// Single-card drag-and-drop instant star raid strike. Every single tarot card in
+/// the player's active hand can be dropped directly onto a star to chip away at
+/// its control threshold, scaling in efficiency based on suit weather alignment,
+/// star magnitude resistance, and card level/stats.
+#[reducer]
+pub fn strike_star_single(
+    ctx: &ReducerContext,
+    hip_id: u32,
+    card_id: u64,
+) -> Result<(), String> {
+    let player = ctx
+        .db
+        .player()
+        .identity()
+        .find(&ctx.sender())
+        .ok_or_else(|| "register first".to_string())?;
+    let mut star = ctx
+        .db
+        .star_node()
+        .hip_id()
+        .find(&hip_id)
+        .ok_or_else(|| "no such star".to_string())?;
+
+    let loc = ctx
+        .db
+        .player_location()
+        .identity()
+        .find(&ctx.sender())
+        .ok_or_else(|| "set your location first (set_location)".to_string())?;
+    let alt = altitude_deg(star.ra, star.dec, loc.lat, loc.lon, ctx.timestamp);
+    if alt < MIN_ALT_DEG {
+        return Err(format!(
+            "{} is below your horizon ({alt:.0}°) — face a star that has risen",
+            star.name
+        ));
+    }
+
+    if !can_access_zone(ctx, player.faction, star.region_hint) {
+        return Err("Zone is locked. Faction must control adjacent zones first!".into());
+    }
+
+    let card = ctx
+        .db
+        .card()
+        .card_id()
+        .find(&card_id)
+        .ok_or_else(|| "card not found".to_string())?;
+    if card.owner != ctx.sender() {
+        return Err("you can only strike with your own cards".into());
+    }
+    if !has_loadout(ctx, ctx.sender(), card_id, Loadout::Active) {
+        return Err("only Active cards can strike; move the card into Active first".into());
+    }
+
+    let mut attacker = vec![stat_of(&card)];
+    let mut defender = match star.held_by {
+        Some(holder) => sentinel_for(ctx, holder),
+        None => neutral_garrison(&star),
+    };
+
+    apply_passives(ctx, &mut attacker, player.faction, true, star.region_hint);
+    if let Some(holder) = star.held_by {
+        apply_passives(ctx, &mut defender, holder, false, star.region_hint);
+    }
+
+    let favored = zone_favored_suit(ctx, star.region_hint);
+    let attacker_seals = sealed_suits(ctx, player.faction);
+    let defender_seals = star
+        .held_by
+        .map(|f| sealed_suits(ctx, f))
+        .unwrap_or_default();
+
+    let (won, margin) = combat::resolve_star(
+        &attacker,
+        &defender,
+        favored,
+        &attacker_seals,
+        &defender_seals,
+    );
+
+    let ap = combat::side_power(&attacker, favored, &attacker_seals);
+    let dp = combat::side_power(&defender, favored, &defender_seals);
+
+    let mag_weight = combat::node_weight(star.magnitude);
+    let delta = if won {
+        combat::control_delta(star.magnitude, margin)
+    } else {
+        ((ap / (mag_weight * 1.5)) as i32).clamp(10, 100)
+    };
+
+    if won || delta >= 50 {
+        star.held_by = Some(player.faction);
+        ctx.db.star_node().hip_id().update(star.clone());
+    }
+
+    apply_control(ctx, star.region_hint, player.faction, delta);
+    tally_fight(ctx, ctx.sender(), won);
+
+    ctx.db.battle().insert(Battle {
+        battle_id: 0,
+        star_id: hip_id,
+        attacker: ctx.sender(),
+        won,
+        attacker_score: ap as u32,
+        defense_rating: dp as u32,
+        created_at: ctx.timestamp,
+    });
+
+    let mut p = player;
+    p.last_active = ctx.timestamp;
+    ctx.db.player().identity().update(p);
+    Ok(())
+}
+
 /// Queue for a live duel in a zone; pairs with anyone already waiting to spawn
 /// a real 3-lane Duel both clients then drive.
 #[reducer]
@@ -2776,9 +2890,130 @@ fn seed_star_batch(ctx: &ReducerContext, start: usize, count: usize) -> u32 {
     end as u32
 }
 
+fn normalized_evm_tx_hash(raw: &str, field: &str) -> Result<String, String> {
+    let hash = raw.trim().to_ascii_lowercase();
+    if hash.len() != 66
+        || !hash.starts_with("0x")
+        || !hash[2..].bytes().all(|b| b.is_ascii_hexdigit())
+    {
+        return Err(format!("{field} must be a 0x-prefixed 32-byte transaction hash"));
+    }
+    Ok(hash)
+}
+
+fn normalized_solana_signature(raw: &str, field: &str) -> Result<String, String> {
+    let signature = raw.trim();
+    if !(64..=88).contains(&signature.len())
+        || !signature.bytes().all(|b| {
+            matches!(b, b'1'..=b'9' | b'A'..=b'H' | b'J'..=b'N' | b'P'..=b'Z' | b'a'..=b'k' | b'm'..=b'z')
+        })
+    {
+        return Err(format!("{field} must be a base58 Solana transaction signature"));
+    }
+    Ok(signature.to_string())
+}
+
+fn ensure_unprocessed(ctx: &ReducerContext, hash: &str) -> Result<(), String> {
+    if ctx.db.processed_tx().tx_hash().find(hash).is_some() {
+        return Err("Transaction already processed".into());
+    }
+    Ok(())
+}
+
+fn record_processed(ctx: &ReducerContext, hash: String, chain: &str, event_type: &str) {
+    ctx.db.processed_tx().insert(ProcessedTx {
+        tx_hash: hash,
+        chain: chain.to_string(),
+        event_type: event_type.to_string(),
+        processed_at: ctx.timestamp,
+    });
+}
+
+/// Bind a StarDex mutation to an unexpired, feeder-written EIP-712 horizon
+/// attestation whose subject is the caller's bound EVM wallet.
+fn verified_stardex_player(
+    ctx: &ReducerContext,
+    horizon_intent_id: u64,
+    expected_constellation: Option<&str>,
+) -> Result<Player, String> {
+    let player = ctx
+        .db
+        .player()
+        .identity()
+        .find(&ctx.sender())
+        .ok_or_else(|| "player profile not found".to_string())?;
+    let bound_evm = player
+        .evm_address
+        .as_deref()
+        .map(str::trim)
+        .filter(|address| !address.is_empty())
+        .ok_or_else(|| "No EVM address bound to player profile".to_string())?
+        .to_ascii_lowercase();
+    let intent = ctx
+        .db
+        .trace_intent()
+        .intent_id()
+        .find(&horizon_intent_id)
+        .ok_or_else(|| "horizon trace intent not found".to_string())?;
+    if intent.trader != ctx.sender() {
+        return Err("horizon attestation belongs to a different player".into());
+    }
+    if intent.evm_address.trim().to_ascii_lowercase() != bound_evm {
+        return Err("bound EVM address does not match the horizon attestation trader".into());
+    }
+    if !intent.attested {
+        return Err("horizon trace has not been attested".into());
+    }
+    let attestation = ctx
+        .db
+        .trace_attestation()
+        .intent_id()
+        .find(&horizon_intent_id)
+        .ok_or_else(|| "verified horizon attestation not found".to_string())?;
+    if attestation.trader != ctx.sender() || attestation.constellation_id != intent.constellation_id {
+        return Err("horizon attestation identity mismatch".into());
+    }
+    let signature = attestation.signature.trim();
+    if signature.len() != 132
+        || !signature.starts_with("0x")
+        || !signature[2..].bytes().all(|b| b.is_ascii_hexdigit())
+    {
+        return Err("horizon attestation has an invalid EIP-712 signature".into());
+    }
+    let now = (ctx.timestamp.to_micros_since_unix_epoch() / 1_000_000).max(0) as u64;
+    if attestation.deadline < now {
+        return Err("horizon attestation expired".into());
+    }
+    if let Some(name) = expected_constellation {
+        let constellation = ctx
+            .db
+            .constellation()
+            .iter()
+            .find(|row| row.name.eq_ignore_ascii_case(name))
+            .ok_or_else(|| format!("Constellation {name} not found in StarDex"))?;
+        if constellation.constellation_id != intent.constellation_id {
+            return Err("horizon attestation is for a different constellation".into());
+        }
+    }
+    Ok(player)
+}
+
 /// Recomputes and updates observer horizon coordinates for all stars in SpacetimeDB.
 #[spacetimedb::reducer]
-pub fn sync_stardex_ephemeris(ctx: &ReducerContext, lat: f64, lon: f64, elev_m: f64) -> Result<(), String> {
+pub fn sync_stardex_ephemeris(
+    ctx: &ReducerContext,
+    tx_hash: String,
+    horizon_intent_id: u64,
+    lat: f64,
+    lon: f64,
+    elev_m: f64,
+) -> Result<(), String> {
+    let hash = normalized_evm_tx_hash(&tx_hash, "tx_hash")?;
+    ensure_unprocessed(ctx, &hash)?;
+    verified_stardex_player(ctx, horizon_intent_id, None)?;
+    if !(-90.0..=90.0).contains(&lat) || !(-180.0..=180.0).contains(&lon) {
+        return Err("lat/lon out of range".into());
+    }
     let gmst = gmst_deg(ctx.timestamp);
     let lst_deg = ((gmst + lon) % 360.0 + 360.0) % 360.0;
     let lat_rad = lat.to_radians();
@@ -2824,6 +3059,7 @@ pub fn sync_stardex_ephemeris(ctx: &ReducerContext, lat: f64, lon: f64, elev_m: 
         ctx.db.star_node().hip_id().update(star);
     }
 
+    record_processed(ctx, hash, "evm_base_sepolia", "sync_stardex_ephemeris");
     Ok(())
 }
 
@@ -2845,8 +3081,15 @@ pub fn siege_horizon_star(ctx: &ReducerContext, star_id: u32) -> Result<(), Stri
 
 /// Claims bonus token rewards when a player's faction holds all stars in a constellation on the horizon.
 #[spacetimedb::reducer]
-pub fn stardex_claim_constellation(ctx: &ReducerContext, constellation_name: String) -> Result<(), String> {
-    let mut player = ctx.db.player().identity().find(&ctx.sender()).ok_or("player not found")?;
+pub fn stardex_claim_constellation(
+    ctx: &ReducerContext,
+    tx_hash: String,
+    horizon_intent_id: u64,
+    constellation_name: String,
+) -> Result<(), String> {
+    let hash = normalized_evm_tx_hash(&tx_hash, "tx_hash")?;
+    ensure_unprocessed(ctx, &hash)?;
+    let mut player = verified_stardex_player(ctx, horizon_intent_id, Some(&constellation_name))?;
     let mut total_count = 0;
     let mut held_count = 0;
 
@@ -2871,23 +3114,36 @@ pub fn stardex_claim_constellation(ctx: &ReducerContext, constellation_name: Str
     let bonus = (total_count as u64) * 250;
     player.tokens += bonus;
     ctx.db.player().identity().update(player.clone());
+    record_processed(ctx, hash, "evm_base_sepolia", "stardex_claim_constellation");
     log::info!("Player {} claimed StarDex constellation bonus: +{} tokens for {}", player.handle, bonus, constellation_name);
     Ok(())
 }
 
 /// Fortifies a claimed StarDex node by increasing its capture weight.
 #[spacetimedb::reducer]
-pub fn stardex_fortify_node(ctx: &ReducerContext, star_id: u32, energy_amount: u32) -> Result<(), String> {
-    let player = ctx.db.player().identity().find(&ctx.sender()).ok_or("player not found")?;
+pub fn stardex_fortify_node(
+    ctx: &ReducerContext,
+    tx_hash: String,
+    horizon_intent_id: u64,
+    star_id: u32,
+    energy_amount: u32,
+) -> Result<(), String> {
+    let hash = normalized_evm_tx_hash(&tx_hash, "tx_hash")?;
+    ensure_unprocessed(ctx, &hash)?;
     let mut star = ctx.db.star_node().hip_id().find(&star_id).ok_or("star node not found")?;
+    let player = verified_stardex_player(ctx, horizon_intent_id, Some(&star.constellation))?;
 
     if star.held_by != Some(player.faction) {
         return Err("Cannot fortify a star node held by an opposing faction".to_string());
+    }
+    if energy_amount == 0 {
+        return Err("energy_amount must be greater than zero".into());
     }
 
     // Fortify node weight (make magnitude brighter/stronger for capture math)
     star.magnitude = (star.magnitude - (energy_amount as f32 * 0.05)).max(-2.0);
     ctx.db.star_node().hip_id().update(star);
+    record_processed(ctx, hash, "evm_base_sepolia", "stardex_fortify_node");
     log::info!("Player {} fortified StarDex node {} (+{} energy)", player.handle, star_id, energy_amount);
     Ok(())
 }

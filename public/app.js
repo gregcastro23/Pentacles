@@ -2470,15 +2470,24 @@
     };
 
     window.playCardIntoRitual = function(cardId, targetType, targetId) {
-      // LIVE: a card dragged onto a ZONE deploys into the faction war via the
-      // deploy_card reducer (pushes your faction's control + garrisons the card),
-      // instead of the offline ritual-chain. Other targets keep the local path.
+      // LIVE: a card dragged onto a STAR or ZONE executes an instant raid strike or deploy
       const net = window.Pentacles && window.Pentacles.net;
+      if ((targetType === "star" || targetType === "hip") && net && net.isLive && window.Pentacles.deploy && window.Pentacles.deploy.strikeStarSingleLive) {
+        if (synth.playSelect) synth.playSelect();
+        window.Pentacles.deploy.strikeStarSingleLive(targetId, cardId)
+          .then((r) => {
+            if (r && r.ok === false) return;
+            toast(`Instant Raid Strike launched against Star HIP ${targetId}! Chipping away at control threshold...`, { type: "success", title: "Star Strike" });
+            renderActiveHand();
+          })
+          .catch((e) => toast((e && e.message) || "Star strike failed", { type: "error", title: "Star Strike" }));
+        return;
+      }
       if (targetType === "zone" && net && net.isLive && window.Pentacles.deploy) {
         if (synth.playSelect) synth.playSelect();
         window.Pentacles.deploy.deployCardLive(cardId, targetId)
           .then((r) => {
-            if (r && r.ok === false) return; // offline guard — shouldn't hit when isLive
+            if (r && r.ok === false) return;
             toast(`Deployed to Zone ${targetId} — your faction pushes the meter and the card joins the garrison.`, { type: "success", title: "Faction War" });
             renderActiveHand();
           })

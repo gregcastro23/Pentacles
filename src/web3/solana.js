@@ -17,13 +17,15 @@ export const SOLANA_RPC_URL = import.meta.env.VITE_SOLANA_RPC_URL || 'https://ap
 
 export const solanaConnection = new Connection(SOLANA_RPC_URL, 'confirmed')
 
-// Token-2022 Mint addresses for ESMS elements 0..3 (env-overridable)
+// Token-2022 Mint addresses for ESMS elements 0..3. There are deliberately no
+// fake PublicKey defaults: a missing deployment address fails at transaction
+// construction instead of crashing this module at import time.
 export const ELEMENT_MINTS = [
-  new PublicKey(import.meta.env.VITE_SOLANA_MINT_SPIRIT || 'EsmsSpirit11111111111111111111111111111111111'),
-  new PublicKey(import.meta.env.VITE_SOLANA_MINT_ESSENCE || 'EsmsEssence1111111111111111111111111111111111'),
-  new PublicKey(import.meta.env.VITE_SOLANA_MINT_MATTER || 'EsmsMatter1111111111111111111111111111111111'),
-  new PublicKey(import.meta.env.VITE_SOLANA_MINT_SUBSTANCE || 'EsmsSubstance1111111111111111111111111111111'),
-]
+  import.meta.env.VITE_SOLANA_MINT_SPIRIT,
+  import.meta.env.VITE_SOLANA_MINT_ESSENCE,
+  import.meta.env.VITE_SOLANA_MINT_MATTER,
+  import.meta.env.VITE_SOLANA_MINT_SUBSTANCE,
+].map((address) => (address ? new PublicKey(address) : null))
 
 export const [GAME_AUTHORITY_PDA] = PublicKey.findProgramAddressSync(
   [Buffer.from('game_authority')],
@@ -37,6 +39,7 @@ export async function readSolanaEsmsBalances(playerPublicKey) {
 
   const balances = await Promise.all(
     ELEMENT_MINTS.map(async (mint) => {
+      if (!mint) return 0n
       try {
         const ata = getAssociatedTokenAddressSync(mint, pubkey, false, TOKEN_2022_PROGRAM_ID)
         const balance = await solanaConnection.getTokenAccountBalance(ata)
@@ -53,7 +56,8 @@ export async function readSolanaEsmsBalances(playerPublicKey) {
 export function buildBurnEsmsInstruction({ elementId, amount, playerPublicKey }) {
   const player = new PublicKey(playerPublicKey)
   const mint = ELEMENT_MINTS[elementId]
-  if (!mint) throw new Error(`Invalid elementId ${elementId}`)
+  if (elementId < 0 || elementId > 3) throw new Error(`Invalid elementId ${elementId}`)
+  if (!mint) throw new Error(`Solana ESMS mint ${elementId} is not configured`)
 
   const ata = getAssociatedTokenAddressSync(mint, player, false, TOKEN_2022_PROGRAM_ID)
 

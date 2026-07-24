@@ -15,4 +15,12 @@ export async function deployCardLive(cardId, zoneId) {
   return { ok: true }
 }
 
-export default { deployCardLive }
+/** Strike a star directly with a single card. Resolves {ok} or throws on a real reducer error. */
+export async function strikeStarSingleLive(hipId, cardId) {
+  if (!spacetime.isLive) return { ok: false, reason: 'offline' }
+  await spacetime.callReducer('strike_star_single', [Number(hipId), Number(cardId)])
+  return { ok: true }
+}
+
+export default { deployCardLive, strikeStarSingleLive }
+

@@ -805,3 +805,22 @@ pub struct ProcessedTx {
     pub processed_at: Timestamp,
 }
 
+/// A verified source-chain burn waiting for the feeder/attestor to mint the
+/// equivalent ESMS on the destination chain.
+#[spacetimedb::table(accessor = bridge_transfer, public)]
+#[derive(Clone)]
+pub struct BridgeTransfer {
+    #[primary_key]
+    pub burn_tx_hash: String,
+    #[index(btree)]
+    pub player: Identity,
+    pub source_chain: String,
+    pub target_chain: String,
+    pub source_address: String,
+    pub target_address: String,
+    pub element_id: u8,
+    pub amount: u128,
+    pub status: String, // "pending_mint" until the destination feeder settles it
+    pub created_at: Timestamp,
+    pub updated_at: Timestamp,
+}
