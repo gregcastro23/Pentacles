@@ -11,6 +11,9 @@ import {
 } from "spacetimedb";
 
 export default {
-  stakeId: __t.u64(),
-  amount: __t.u128(),
+  txHash: __t.string(),
+  playerPubkey: __t.string(),
+  eventType: __t.string(),
+  elementId: __t.u8(),
+  amount: __t.u64(),
 };

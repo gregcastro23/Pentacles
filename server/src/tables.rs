@@ -23,6 +23,10 @@ pub struct Player {
     /// Word duels won (vs a planetary agent) — the ladder.
     #[default(0u32)]
     pub word_wins: u32,
+    #[default(None::<String>)]
+    pub evm_address: Option<String>,
+    #[default(None::<String>)]
+    pub solana_pubkey: Option<String>,
 }
 
 #[spacetimedb::table(accessor = natal_chart)] // private to owner (not public)
@@ -703,7 +707,11 @@ pub struct StarStake {
     pub principal_usdc: u64,     // 6-dp USDC mirrored from the on-chain stake
     pub shares: u128,            // pool shares (pro-rata)
     pub accrued_essence: u128,   // 18-dp ESMS accrued and not yet claimed
-    pub claimed_essence: u128,   // 18-dp ESMS already settled on Arc
+    pub claimed_essence: u128,   // 18-dp ESMS already settled on-chain
+    #[default(0u128)]
+    pub pending_essence: u128,   // 18-dp ESMS locked in a two-phase yield claim
+    #[default(0u64)]
+    pub claim_nonce: u64,        // Unique claim nonce assigned during request_yield_claim
     pub staked_at: Timestamp,
     pub last_accrual_at: Timestamp,
 }
@@ -783,3 +791,17 @@ pub struct ClaimGrant {
     pub created_at: Timestamp,
     pub expires_at: Timestamp,
 }
+
+// ── RPC Log Idempotency ───────────────────────────────────────────────────────
+
+/// Prevents double-processing of on-chain event logs (replays).
+#[spacetimedb::table(accessor = processed_tx, public)]
+#[derive(Clone)]
+pub struct ProcessedTx {
+    #[primary_key]
+    pub tx_hash: String,        // 0x-hex EVM tx hash or base58 Solana signature
+    pub chain: String,          // "evm_base_sepolia" | "solana_token_2022"
+    pub event_type: String,     // "mint" | "burn" | "stake"
+    pub processed_at: Timestamp,
+}
+

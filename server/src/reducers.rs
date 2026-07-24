@@ -268,14 +268,14 @@ fn register_chart(
     // id-for-id) — distinct from the game deck minted above.
     let _decans = chart::mint_decans(ctx, owner, &chart);
 
-    // Re-registration re-mints the deck but must never wipe the token wallet / ladder.
-    let (tokens, word_wins) = ctx
+    // Re-registration re-mints the deck but must never wipe the token wallet / ladder / wallet bindings.
+    let (tokens, word_wins, evm_address, solana_pubkey) = ctx
         .db
         .player()
         .identity()
         .find(&owner)
-        .map(|p| (p.tokens, p.word_wins))
-        .unwrap_or((0, 0));
+        .map(|p| (p.tokens, p.word_wins, p.evm_address, p.solana_pubkey))
+        .unwrap_or((0, 0, None, None));
     let player = Player {
         identity: owner,
         handle,
@@ -285,6 +285,8 @@ fn register_chart(
         last_active: ctx.timestamp,
         tokens,
         word_wins,
+        evm_address,
+        solana_pubkey,
     };
     if ctx.db.player().identity().find(&owner).is_some() {
         ctx.db.player().identity().update(player);
@@ -882,32 +884,8 @@ pub fn resolve_star_battle(
     );
 
     // Calculate final scores for logging
-    let ap = attacker
-        .iter()
-        .map(|c| {
-            let base = c.attack as f32 + c.health as f32 * 0.5 + c.armour as f32 * 0.4;
-            let mult = combat::element_weather(c.suit, favored);
-            let seal = if attacker_seals.contains(&c.suit) {
-                combat::SEAL_BONUS
-            } else {
-                1.0
-            };
-            base * mult * seal
-        })
-        .sum::<f32>();
-    let dp = defender
-        .iter()
-        .map(|c| {
-            let base = c.attack as f32 + c.health as f32 * 0.5 + c.armour as f32 * 0.4;
-            let mult = combat::element_weather(c.suit, favored);
-            let seal = if defender_seals.contains(&c.suit) {
-                combat::SEAL_BONUS
-            } else {
-                1.0
-            };
-            base * mult * seal
-        })
-        .sum::<f32>();
+    let ap = combat::side_power(&attacker, favored, &attacker_seals);
+    let dp = combat::side_power(&defender, favored, &defender_seals);
     if won {
         let prev = star.held_by;
         star.held_by = Some(player.faction);
@@ -2607,19 +2585,18 @@ fn agent_war(ctx: &ReducerContext) {
             .unwrap_or_else(|| zone_for_lon(gmst + i as f64 * 36.0));
     }
 
-    // Each planet (and its faction) seizes one as-yet-unheld star in its zone.
-    // ONE pass over the catalogue, keeping the first-seen match per faction — the
-    // same star the old per-faction `.find` (first match in iteration order)
-    // picked, without walking the ~5k-row table ten times. `region_hint` is
-    // deliberately unindexed (recompute_star_zones rewrites it constantly; index
-    // maintenance would cost more than this scan), and the pass bails out as soon
-    // as every faction has a target.
+    // Each planet (and its faction) attempts to raid one star in its transiting zone,
+    // subject to zone accessibility and Auto-Siege combat resolution vs Sentinels.
     let mut targets: [Option<StarNode>; 10] = Default::default();
     let mut missing = ALL_PLANETS.len();
     for s in ctx.db.star_node().iter() {
         for fac in ALL_PLANETS {
             let i = fac.idx();
-            if targets[i].is_none() && s.region_hint == zones[i] && s.held_by != Some(fac) {
+            if targets[i].is_none()
+                && s.region_hint == zones[i]
+                && s.held_by != Some(fac)
+                && can_access_zone(ctx, fac, s.region_hint)
+            {
                 targets[i] = Some(s.clone());
                 missing -= 1;
             }
@@ -2632,16 +2609,68 @@ fn agent_war(ctx: &ReducerContext) {
     for fac in ALL_PLANETS {
         let i = fac.idx();
         // Planetary baseline always applies; joined agents/humans amplify on top.
-        let delta = (WAR_PLANET_BASE
+        let push_power = (WAR_PLANET_BASE
             + WAR_PER_PLAYER * count[i] as i32
             + (power[i] / WAR_POWER_DIV) as i32)
             .clamp(WAR_PLANET_BASE, WAR_PUSH_CAP);
 
         if let Some(mut s) = targets[i].take() {
-            s.held_by = Some(fac);
-            ctx.db.star_node().hip_id().update(s);
+            let faction_agent_id =
+                Identity::from_claims("pentacles:faction", &format!("{:?}", fac).to_lowercase());
+
+            let mut attacker = vec![combat::CardStat {
+                suit: fac.biased_suit(),
+                attack: (WAR_PLANET_BASE + (power[i] / WAR_POWER_DIV) as i32) as u16,
+                health: (WAR_PLANET_BASE * 2 + WAR_PER_PLAYER * count[i] as i32) as u16,
+                armour: (WAR_PLANET_BASE / 2) as u16,
+            }];
+
+            let mut defender = match s.held_by {
+                Some(holder) => sentinel_for(ctx, holder),
+                None => neutral_garrison(&s),
+            };
+
+            apply_passives(ctx, &mut attacker, fac, true, s.region_hint);
+            if let Some(holder) = s.held_by {
+                apply_passives(ctx, &mut defender, holder, false, s.region_hint);
+            }
+
+            let favored = zone_favored_suit(ctx, s.region_hint);
+            let attacker_seals = sealed_suits(ctx, fac);
+            let defender_seals = s.held_by.map(|f| sealed_suits(ctx, f)).unwrap_or_default();
+
+            let (won, margin) = combat::resolve_star(
+                &attacker,
+                &defender,
+                favored,
+                &attacker_seals,
+                &defender_seals,
+            );
+
+            let ap = combat::side_power(&attacker, favored, &attacker_seals);
+            let dp = combat::side_power(&defender, favored, &defender_seals);
+
+            if won {
+                s.held_by = Some(fac);
+                ctx.db.star_node().hip_id().update(s.clone());
+                let c_delta = combat::control_delta(s.magnitude, margin);
+                apply_control(ctx, zones[i], fac, c_delta);
+            } else {
+                apply_control(ctx, zones[i], fac, push_power / 2);
+            }
+
+            ctx.db.battle().insert(Battle {
+                battle_id: 0,
+                star_id: s.hip_id,
+                attacker: faction_agent_id,
+                won,
+                attacker_score: ap as u32,
+                defense_rating: dp as u32,
+                created_at: ctx.timestamp,
+            });
+        } else {
+            apply_control(ctx, zones[i], fac, push_power);
         }
-        apply_control(ctx, zones[i], fac, delta);
     }
 }
 
@@ -2919,9 +2948,18 @@ pub fn trace_constellation(
     evm_address: String,
 ) -> Result<(), String> {
     // The on-chain attestation is bound to this EVM wallet; the trader must submit
-    // `seedLiquidity` from it (the AMM checks `att.trader == msg.sender`). We don't
-    // verify ownership here — a wrong address just yields an unusable attestation.
-    let evm = evm_address.trim().to_lowercase();
+    // `seedLiquidity` from it (the AMM checks `att.trader == msg.sender`).
+    // Authoritatively check the player's bound EVM address from their Player record first.
+    let bound_evm = ctx
+        .db
+        .player()
+        .identity()
+        .find(&ctx.sender())
+        .and_then(|p| p.evm_address);
+    let evm = match bound_evm {
+        Some(addr) if !addr.trim().is_empty() => addr.trim().to_lowercase(),
+        _ => evm_address.trim().to_lowercase(),
+    };
     if evm.len() != 42 || !evm.starts_with("0x") || !evm[2..].bytes().all(|b| b.is_ascii_hexdigit())
     {
         return Err("evm_address must be a 0x-prefixed 20-byte hex address".into());
@@ -3519,6 +3557,8 @@ pub fn record_star_stake(
         shares,
         accrued_essence: 0,
         claimed_essence: 0,
+        pending_essence: 0,
+        claim_nonce: 0,
         staked_at: ctx.timestamp,
         last_accrual_at: ctx.timestamp,
     });
@@ -3541,17 +3581,83 @@ pub fn record_star_unstake(ctx: &ReducerContext, stake_id: u64) -> Result<(), St
     Ok(())
 }
 
-// Called by the attestor service after it signs a claim, to move accrued → claimed so
-// it can't be double-signed.
+/// Two-Phase Commit Phase 1: Lock accrued_essence into pending_essence and assign a claim_nonce.
+/// Eliminates yield claim double-spend race conditions.
 #[reducer]
-pub fn mark_star_yield_claimed(
+pub fn request_yield_claim(
     ctx: &ReducerContext,
     stake_id: u64,
-    amount: u128,
 ) -> Result<(), String> {
-    let mut s = ctx.db.star_stake().stake_id().find(&stake_id).ok_or("no stake")?;
-    s.accrued_essence = s.accrued_essence.saturating_sub(amount);
+    let mut s = ctx.db.star_stake().stake_id().find(&stake_id).ok_or("no stake found")?;
+    if s.staker != ctx.sender() {
+        return Err("not your stake position".into());
+    }
+    if s.pending_essence > 0 {
+        return Err("Yield claim already pending for this position".into());
+    }
+    if s.accrued_essence == 0 {
+        return Err("No accrued essence available to claim".into());
+    }
+
+    let nonce = (stake_id << 16) | 1;
+    s.pending_essence = s.accrued_essence;
+    s.accrued_essence = 0;
+    s.claim_nonce = nonce;
+
+    ctx.db.star_stake().stake_id().update(s);
+    Ok(())
+}
+
+/// Two-Phase Commit Phase 2: Confirm on-chain mint transaction completion via feeder/attestor.
+/// Idempotency guarded by `processed_tx`.
+#[reducer]
+pub fn confirm_yield_claim(
+    ctx: &ReducerContext,
+    tx_hash: String,
+    stake_id: u64,
+    claim_nonce: u64,
+) -> Result<(), String> {
+    let hash = tx_hash.trim().to_string();
+    if hash.is_empty() {
+        return Err("tx_hash cannot be empty".into());
+    }
+
+    // Idempotency Check — reject replayed claim confirmations
+    if ctx.db.processed_tx().tx_hash().find(&hash).is_some() {
+        return Err("Transaction already processed".into());
+    }
+
+    let mut s = ctx.db.star_stake().stake_id().find(&stake_id).ok_or("no stake found")?;
+    if s.claim_nonce != claim_nonce || s.pending_essence == 0 {
+        return Err("Claim nonce mismatch or no claim pending".into());
+    }
+
+    let amount = s.pending_essence;
     s.claimed_essence += amount;
+    s.pending_essence = 0;
+    s.claim_nonce = 0;
+
+    ctx.db.processed_tx().insert(ProcessedTx {
+        tx_hash: hash,
+        chain: "solana_token_2022".to_string(),
+        event_type: "claim_yield".to_string(),
+        processed_at: ctx.timestamp,
+    });
+
+    ctx.db.star_stake().stake_id().update(s);
+    Ok(())
+}
+
+/// Reverts stale pending claims back into accrued_essence if locked longer than 10 minutes (600s).
+#[reducer]
+pub fn cancel_stale_claim(ctx: &ReducerContext, stake_id: u64) -> Result<(), String> {
+    let mut s = ctx.db.star_stake().stake_id().find(&stake_id).ok_or("no stake found")?;
+    if s.pending_essence == 0 {
+        return Ok(());
+    }
+    s.accrued_essence += s.pending_essence;
+    s.pending_essence = 0;
+    s.claim_nonce = 0;
     ctx.db.star_stake().stake_id().update(s);
     Ok(())
 }
@@ -3935,6 +4041,8 @@ pub fn admin_agent_record_star_stake(
         shares,
         accrued_essence: 0,
         claimed_essence: 0,
+        pending_essence: 0,
+        claim_nonce: 0,
         staked_at: ctx.timestamp,
         last_accrual_at: ctx.timestamp,
     });
@@ -4013,7 +4121,9 @@ pub fn admin_agent_resolve_star_battle(
         .held_by
         .map(|f| sealed_suits(ctx, f))
         .unwrap_or_default();
-    let (won, _margin) = combat::resolve_star(
+    let ap = combat::side_power(&attacker, weather, &attacker_seals);
+    let dp = combat::side_power(&defender, weather, &defender_seals);
+    let (won, margin) = combat::resolve_star(
         &attacker,
         &defender,
         weather,
@@ -4022,18 +4132,19 @@ pub fn admin_agent_resolve_star_battle(
     );
     if won {
         star.held_by = Some(player.faction);
-        ctx.db.star_node().hip_id().update(star);
-        if let Some(mut z) = ctx.db.zone().zone_id().find(&region_hint) {
-            if z.owner == Some(player.faction) {
-                z.control = (z.control + 50).min(1000);
-            } else {
-                z.owner = Some(player.faction);
-                z.control = 50;
-            }
-            z.updated_at = ctx.timestamp;
-            ctx.db.zone().zone_id().update(z);
-        }
+        ctx.db.star_node().hip_id().update(star.clone());
+        let delta = combat::control_delta(star.magnitude, margin);
+        apply_control(ctx, region_hint, player.faction, delta);
     }
+    ctx.db.battle().insert(Battle {
+        battle_id: 0,
+        star_id: hip_id,
+        attacker: agent_identity,
+        won,
+        attacker_score: ap as u32,
+        defense_rating: dp as u32,
+        created_at: ctx.timestamp,
+    });
     Ok(())
 }
 
@@ -4461,6 +4572,180 @@ pub fn claim_profile(ctx: &ReducerContext, code: String) -> Result<(), String> {
     }
 
     log::info!("claim_profile: migrated profile {old} -> {new}");
+    Ok(())
+}
+
+/// Bind an EVM or Solana wallet to the player's SpacetimeDB profile.
+#[reducer]
+pub fn bind_wallet_address(
+    ctx: &ReducerContext,
+    evm_address: Option<String>,
+    solana_pubkey: Option<String>,
+) -> Result<(), String> {
+    let mut player = ctx
+        .db
+        .player()
+        .identity()
+        .find(&ctx.sender())
+        .ok_or_else(|| "player profile not found — register first (create_player)".to_string())?;
+
+    if let Some(ref evm) = evm_address {
+        let clean_evm = evm.trim().to_lowercase();
+        if clean_evm.len() != 42 || !clean_evm.starts_with("0x") || !clean_evm[2..].bytes().all(|b| b.is_ascii_hexdigit()) {
+            return Err("evm_address must be a 0x-prefixed 20-byte hex address".into());
+        }
+        player.evm_address = Some(clean_evm);
+    }
+
+    if let Some(ref sol) = solana_pubkey {
+        let clean_sol = sol.trim().to_string();
+        if clean_sol.len() < 32 || clean_sol.len() > 44 {
+            return Err("invalid solana_pubkey format".into());
+        }
+        player.solana_pubkey = Some(clean_sol);
+    }
+
+    ctx.db.player().identity().update(player);
+    Ok(())
+}
+
+/// Feeder sync: translate Solana Token-2022 on-chain mint/burn event into SpacetimeDB state update.
+/// Idempotency guarded by `processed_tx` table using `tx_hash`.
+#[reducer]
+pub fn sync_solana_event(
+    ctx: &ReducerContext,
+    tx_hash: String,
+    player_pubkey: String,
+    event_type: String,
+    element_id: u8,
+    amount: u64,
+) -> Result<(), String> {
+    let cfg = ctx.db.game_config().id().find(&0).ok_or("game not initialised")?;
+    if ctx.sender() != cfg.owner {
+        return Err("sync_solana_event: admin/feeder only".into());
+    }
+
+    let hash = tx_hash.trim().to_string();
+    if hash.is_empty() {
+        return Err("tx_hash cannot be empty".into());
+    }
+
+    // Idempotency check — reject replayed RPC logs
+    if ctx.db.processed_tx().tx_hash().find(&hash).is_some() {
+        return Err("Transaction already processed".into());
+    }
+
+    ctx.db.processed_tx().insert(ProcessedTx {
+        tx_hash: hash,
+        chain: "solana_token_2022".to_string(),
+        event_type: event_type.clone(),
+        processed_at: ctx.timestamp,
+    });
+
+    if element_id > 3 {
+        return Err("element_id must be between 0 and 3".into());
+    }
+
+    // Match player by bound solana_pubkey
+    let player_opt = ctx.db.player().iter().find(|p| p.solana_pubkey.as_deref() == Some(player_pubkey.trim()));
+    if let Some(p) = player_opt {
+        let mut pool = ctx.db.jing_pool().identity().find(&p.identity).unwrap_or_else(|| JingPool {
+            identity: p.identity,
+            sacred7: vec![100, 100, 100, 100, 100, 100, 100],
+            esms: vec![50, 50, 50, 50],
+            updated_at: ctx.timestamp,
+        });
+
+        if event_type == "mint" {
+            pool.esms[element_id as usize] = pool.esms[element_id as usize].saturating_add(amount as u16);
+        } else if event_type == "burn" {
+            pool.esms[element_id as usize] = pool.esms[element_id as usize].saturating_add((amount * 2) as u16);
+        }
+        pool.updated_at = ctx.timestamp;
+
+        if ctx.db.jing_pool().identity().find(&p.identity).is_some() {
+            ctx.db.jing_pool().identity().update(pool);
+        } else {
+            ctx.db.jing_pool().insert(pool);
+        }
+    }
+
+    Ok(())
+}
+
+/// Re-attributes a StarStake position from a seller's Solana wallet to a buyer's Solana wallet
+/// upon receiving a Transfer Hook `StarStakeTransferred` event.
+#[reducer]
+pub fn transfer_star_stake(
+    ctx: &ReducerContext,
+    tx_hash: String,
+    from_solana_pubkey: String,
+    to_solana_pubkey: String,
+    token_amount: u64,
+) -> Result<(), String> {
+    let cfg = ctx.db.game_config().id().find(&0).ok_or("game not initialised")?;
+    if ctx.sender() != cfg.owner {
+        return Err("transfer_star_stake: admin/feeder only".into());
+    }
+
+    let hash = tx_hash.trim().to_string();
+    if hash.is_empty() {
+        return Err("tx_hash cannot be empty".into());
+    }
+
+    // Idempotency check — reject replayed transfer events
+    if ctx.db.processed_tx().tx_hash().find(&hash).is_some() {
+        return Err("Transaction already processed".into());
+    }
+
+    let from_pubkey = from_solana_pubkey.trim();
+    let to_pubkey = to_solana_pubkey.trim();
+
+    let from_player = ctx.db.player().iter().find(|p| p.solana_pubkey.as_deref() == Some(from_pubkey));
+    let to_player = ctx.db.player().iter().find(|p| p.solana_pubkey.as_deref() == Some(to_pubkey));
+
+    if let (Some(seller), Some(buyer)) = (from_player, to_player) {
+        let mut stake_opt = ctx.db.star_stake().iter().find(|s| s.staker == seller.identity);
+        if let Some(mut seller_stake) = stake_opt {
+            let transfer_usdc = token_amount.min(seller_stake.principal_usdc);
+            seller_stake.principal_usdc = seller_stake.principal_usdc.saturating_sub(transfer_usdc);
+
+            let star_id = seller_stake.star_id;
+            let element = seller_stake.element;
+
+            ctx.db.star_stake().stake_id().update(seller_stake);
+
+            // Add or update buyer's stake position
+            let buyer_stake_opt = ctx.db.star_stake().iter().find(|s| s.staker == buyer.identity && s.star_id == star_id);
+            if let Some(mut buyer_stake) = buyer_stake_opt {
+                buyer_stake.principal_usdc += transfer_usdc;
+                ctx.db.star_stake().stake_id().update(buyer_stake);
+            } else {
+                ctx.db.star_stake().insert(StarStake {
+                    stake_id: 0,
+                    staker: buyer.identity,
+                    star_id,
+                    element,
+                    principal_usdc: transfer_usdc,
+                    shares: (transfer_usdc as u128) * 1_000_000,
+                    accrued_essence: 0,
+                    claimed_essence: 0,
+                    pending_essence: 0,
+                    claim_nonce: 0,
+                    staked_at: ctx.timestamp,
+                    last_accrual_at: ctx.timestamp,
+                });
+            }
+        }
+    }
+
+    ctx.db.processed_tx().insert(ProcessedTx {
+        tx_hash: hash,
+        chain: "solana_token_2022".to_string(),
+        event_type: "transfer_star_stake".to_string(),
+        processed_at: ctx.timestamp,
+    });
+
     Ok(())
 }
 

@@ -20,6 +20,14 @@ export default __t.row({
   ra: __t.f64(),
   dec: __t.f64(),
   magnitude: __t.f32(),
+  constellation: __t.string(),
+  zodiacSign: __t.string().name("zodiac_sign"),
+  eclipticDeg: __t.u8().name("ecliptic_deg"),
+  eclipticMin: __t.u8().name("ecliptic_min"),
+  eclipticSec: __t.u8().name("ecliptic_sec"),
+  refractedAlt: __t.f32().name("refracted_alt"),
+  azimuth: __t.f32(),
+  horizonState: __t.string().name("horizon_state"),
   get heldBy() {
     return __t.option(Planet).name("held_by");
   },

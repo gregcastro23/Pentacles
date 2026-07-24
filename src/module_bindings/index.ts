@@ -47,6 +47,8 @@ import AnswerOracleReducer from "./answer_oracle_reducer";
 import AnswerTraceReducer from "./answer_trace_reducer";
 import AskOracleReducer from "./ask_oracle_reducer";
 import BackfillDecansReducer from "./backfill_decans_reducer";
+import BindWalletAddressReducer from "./bind_wallet_address_reducer";
+import CancelStaleClaimReducer from "./cancel_stale_claim_reducer";
 import CancelTradeReducer from "./cancel_trade_reducer";
 import CastJingReducer from "./cast_jing_reducer";
 import CastWordReducer from "./cast_word_reducer";
@@ -55,11 +57,11 @@ import ClaimProfileReducer from "./claim_profile_reducer";
 import CombineCardsReducer from "./combine_cards_reducer";
 import CommitDuelReducer from "./commit_duel_reducer";
 import ConfirmTradeReducer from "./confirm_trade_reducer";
+import ConfirmYieldClaimReducer from "./confirm_yield_claim_reducer";
 import CounterJingReducer from "./counter_jing_reducer";
 import CreatePlayerReducer from "./create_player_reducer";
 import DeployCardReducer from "./deploy_card_reducer";
 import EnqueueDuelReducer from "./enqueue_duel_reducer";
-import MarkStarYieldClaimedReducer from "./mark_star_yield_claimed_reducer";
 import OpenIdentityLinkReducer from "./open_identity_link_reducer";
 import ProposeTradeReducer from "./propose_trade_reducer";
 import PurgeStaleAgentsReducer from "./purge_stale_agents_reducer";
@@ -67,11 +69,18 @@ import PushEphemerisReducer from "./push_ephemeris_reducer";
 import RecordStarStakeReducer from "./record_star_stake_reducer";
 import RecordStarUnstakeReducer from "./record_star_unstake_reducer";
 import ReportServiceHealthReducer from "./report_service_health_reducer";
+import RequestYieldClaimReducer from "./request_yield_claim_reducer";
 import ResolveStarBattleReducer from "./resolve_star_battle_reducer";
 import SeedAgentPlayerReducer from "./seed_agent_player_reducer";
 import SetLoadoutReducer from "./set_loadout_reducer";
 import SetLocationReducer from "./set_location_reducer";
+import SiegeHorizonStarReducer from "./siege_horizon_star_reducer";
+import StardexClaimConstellationReducer from "./stardex_claim_constellation_reducer";
+import StardexFortifyNodeReducer from "./stardex_fortify_node_reducer";
+import SyncSolanaEventReducer from "./sync_solana_event_reducer";
+import SyncStardexEphemerisReducer from "./sync_stardex_ephemeris_reducer";
 import TraceConstellationReducer from "./trace_constellation_reducer";
+import TransferStarStakeReducer from "./transfer_star_stake_reducer";
 
 // Import all procedure arg schemas
 
@@ -100,6 +109,7 @@ import OracleCacheRow from "./oracle_cache_table";
 import OracleReplyRow from "./oracle_reply_table";
 import OracleRequestRow from "./oracle_request_table";
 import PlayerRow from "./player_table";
+import ProcessedTxRow from "./processed_tx_table";
 import RoundParticipantRow from "./round_participant_table";
 import RoundStateRow from "./round_state_table";
 import ServiceStatusRow from "./service_status_table";
@@ -417,6 +427,17 @@ const tablesSchema = __schema({
       { name: 'player_identity_key', constraint: 'unique', columns: ['identity'] },
     ],
   }, PlayerRow),
+  processed_tx: __table({
+    name: 'processed_tx',
+    indexes: [
+      { accessor: 'tx_hash', name: 'processed_tx_tx_hash_idx_btree', algorithm: 'btree', columns: [
+        'txHash',
+      ] },
+    ],
+    constraints: [
+      { name: 'processed_tx_tx_hash_key', constraint: 'unique', columns: ['txHash'] },
+    ],
+  }, ProcessedTxRow),
   round_participant: __table({
     name: 'round_participant',
     indexes: [
@@ -590,6 +611,8 @@ const reducersSchema = __reducers(
   __reducerSchema("answer_trace", AnswerTraceReducer),
   __reducerSchema("ask_oracle", AskOracleReducer),
   __reducerSchema("backfill_decans", BackfillDecansReducer),
+  __reducerSchema("bind_wallet_address", BindWalletAddressReducer),
+  __reducerSchema("cancel_stale_claim", CancelStaleClaimReducer),
   __reducerSchema("cancel_trade", CancelTradeReducer),
   __reducerSchema("cast_jing", CastJingReducer),
   __reducerSchema("cast_word", CastWordReducer),
@@ -598,11 +621,11 @@ const reducersSchema = __reducers(
   __reducerSchema("combine_cards", CombineCardsReducer),
   __reducerSchema("commit_duel", CommitDuelReducer),
   __reducerSchema("confirm_trade", ConfirmTradeReducer),
+  __reducerSchema("confirm_yield_claim", ConfirmYieldClaimReducer),
   __reducerSchema("counter_jing", CounterJingReducer),
   __reducerSchema("create_player", CreatePlayerReducer),
   __reducerSchema("deploy_card", DeployCardReducer),
   __reducerSchema("enqueue_duel", EnqueueDuelReducer),
-  __reducerSchema("mark_star_yield_claimed", MarkStarYieldClaimedReducer),
   __reducerSchema("open_identity_link", OpenIdentityLinkReducer),
   __reducerSchema("propose_trade", ProposeTradeReducer),
   __reducerSchema("purge_stale_agents", PurgeStaleAgentsReducer),
@@ -610,11 +633,18 @@ const reducersSchema = __reducers(
   __reducerSchema("record_star_stake", RecordStarStakeReducer),
   __reducerSchema("record_star_unstake", RecordStarUnstakeReducer),
   __reducerSchema("report_service_health", ReportServiceHealthReducer),
+  __reducerSchema("request_yield_claim", RequestYieldClaimReducer),
   __reducerSchema("resolve_star_battle", ResolveStarBattleReducer),
   __reducerSchema("seed_agent_player", SeedAgentPlayerReducer),
   __reducerSchema("set_loadout", SetLoadoutReducer),
   __reducerSchema("set_location", SetLocationReducer),
+  __reducerSchema("siege_horizon_star", SiegeHorizonStarReducer),
+  __reducerSchema("stardex_claim_constellation", StardexClaimConstellationReducer),
+  __reducerSchema("stardex_fortify_node", StardexFortifyNodeReducer),
+  __reducerSchema("sync_solana_event", SyncSolanaEventReducer),
+  __reducerSchema("sync_stardex_ephemeris", SyncStardexEphemerisReducer),
   __reducerSchema("trace_constellation", TraceConstellationReducer),
+  __reducerSchema("transfer_star_stake", TransferStarStakeReducer),
 );
 
 /** The schema information for all procedures in this module. This is defined the same way as the procedures would have been defined in the server. */

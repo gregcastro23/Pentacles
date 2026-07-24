@@ -277,7 +277,7 @@ window.openFactionWar = openFactionWar
 window.closeFactionWar = closeFactionWar
 Pentacles.openWar = openFactionWar
 
-// ── ✦ My Codex: the player's own natal profile + deck, in its own overlay ──
+// ── ✦ Deck: the player's natal profile + full card collection ──
 let codexInst = null, codexEsc = null
 function openMyCodex() {
   let ov = document.getElementById('mc-overlay')
@@ -313,8 +313,8 @@ function openMyCodex() {
     })
     codexInst.mount()
   } catch (e) {
-    console.error('[Pentacles] My Codex failed to mount', e)
-    if (window.toast) window.toast('My Codex failed to open — see console.', { type: 'error' })
+    console.error('[Pentacles] Deck failed to mount', e)
+    if (window.toast) window.toast('Deck failed to open — see console.', { type: 'error' })
     return
   }
   ov.classList.add('is-open')

@@ -53,7 +53,7 @@ pub fn seal_mult(suit: Suit, sealed: &[Suit]) -> f32 {
 }
 
 /// Total effective power of a side under the favored element and its seals.
-fn side_power(cards: &[CardStat], favored: Suit, sealed: &[Suit]) -> f32 {
+pub fn side_power(cards: &[CardStat], favored: Suit, sealed: &[Suit]) -> f32 {
     cards
         .iter()
         .map(|c| card_strength(c) * element_weather(c.suit, favored) * seal_mult(c.suit, sealed))

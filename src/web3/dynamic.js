@@ -56,20 +56,25 @@ export function mountDynamic() {
 // Bridge a Dynamic wallet into our façade so the HUD + DEX use one wallet source.
 async function bridge(primaryWallet) {
   if (!primaryWallet || !primaryWallet.address) {
-    return wallet.setDynamicWallet({ address: null })
+    return wallet.setDynamicWallet({ address: null, solanaAddress: null })
   }
+  const isSol = primaryWallet.chain === 'solana' || (primaryWallet.address && !primaryWallet.address.startsWith('0x'))
+  let evmAddress = isSol ? null : primaryWallet.address
+  let solanaAddress = isSol ? primaryWallet.address : null
   let provider = null
-  try {
-    if (typeof primaryWallet.getWalletClient === 'function') {
-      const wc = await primaryWallet.getWalletClient()
-      provider = wc?.transport?.value ?? wc?.transport ?? null
+  if (!isSol) {
+    try {
+      if (typeof primaryWallet.getWalletClient === 'function') {
+        const wc = await primaryWallet.getWalletClient()
+        provider = wc?.transport?.value ?? wc?.transport ?? null
+      }
+      if (!provider && primaryWallet.connector?.getProvider) {
+        provider = await primaryWallet.connector.getProvider()
+      }
+    } catch {
+      // address-only bridge: live balances still work via the public client;
+      // signing falls back to the injected provider if present.
     }
-    if (!provider && primaryWallet.connector?.getProvider) {
-      provider = await primaryWallet.connector.getProvider()
-    }
-  } catch {
-    // address-only bridge: live balances still work via the public client;
-    // signing falls back to the injected provider if present.
   }
   let chainId
   try {
@@ -77,7 +82,7 @@ async function bridge(primaryWallet) {
   } catch {
     chainId = undefined
   }
-  wallet.setDynamicWallet({ address: primaryWallet.address, provider, chainId })
+  wallet.setDynamicWallet({ address: evmAddress, solanaAddress, provider, chainId })
 }
 
 function baseSepoliaNetwork() {

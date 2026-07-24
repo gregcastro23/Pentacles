@@ -47,7 +47,7 @@ body {
    ============================================================ */
 .app-shell {
   display: grid;
-  grid-template-columns: 360px 1fr 380px;
+  grid-template-columns: 300px minmax(520px, 1fr) 340px;
   height: 100vh;
   width: 100vw;
   position: relative;
@@ -86,7 +86,7 @@ body {
   color: var(--gold-bright);
 }
 .sidebar-content {
-  padding: 24px;
+  padding: 20px;
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -321,7 +321,7 @@ body {
 .hud-btn-group {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 8px;
   pointer-events: auto;
 }
 
@@ -683,21 +683,106 @@ body {
   border-radius: 4px;
 }
 
-/* Footer widget styling */
-.hud-card-footer {
-  position: absolute;
-  bottom: 0;
-  left: 360px;
-  right: 380px;
-  background: var(--bg-panel);
-  border-top: 1px solid var(--line);
-  padding: 16px 24px;
-  backdrop-filter: blur(16px);
-  z-index: 10;
+/* Tarot Hand lives in the gameplay rail so the sky remains unobstructed. */
+.hand-panel-header {
   display: flex;
-  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
   gap: 12px;
 }
+.hand-panel-header p,
+.hand-help,
+.fusion-drawer p {
+  color: var(--dim);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.hand-panel-header p { margin-top: 8px; }
+.hand-deck-btn { padding: 7px 10px; font-size: 10px; white-space: nowrap; }
+.hand-help { margin: 14px 0; }
+.hand-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+.control-label {
+  width: 100%;
+  margin-top: 4px;
+  color: var(--dim);
+  font-size: 9px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+.tarot-hand-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
+  gap: 12px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 14px 4px 18px;
+  max-height: calc(100vh - 330px);
+}
+.tarot-hand-grid .web-card {
+  width: 100%;
+  min-width: 0;
+}
+.hand-empty {
+  grid-column: 1 / -1;
+  min-height: 220px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  text-align: center;
+  border: 1px dashed var(--line-hard);
+  color: var(--dim);
+}
+.hand-empty > span {
+  color: var(--gold);
+  font-size: 24px;
+}
+.hand-empty p {
+  max-width: 220px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.fusion-drawer {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+.fusion-drawer summary {
+  color: var(--gold);
+  cursor: pointer;
+  font-size: 10px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.fusion-drawer p { margin: 10px 0; }
+.fusion-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  max-height: 360px;
+  overflow-y: auto;
+  padding: 6px 4px;
+}
+.fusion-grid .web-card { width: 100%; min-width: 0; }
+.fuse-controls {
+  display: none;
+  padding: 10px;
+  background: rgba(216, 180, 106, 0.05);
+  border: 1px dashed var(--gold);
+  justify-content: space-between;
+  align-items: center;
+}
+.fuse-controls span { font-size: 11px; color: var(--gold-bright); }
+.fuse-controls .btn { padding: 6px 10px; }
 
 /* Onboarding fullscreen overlay */
 .overlay-fullscreen {
@@ -791,10 +876,6 @@ body {
   }
   .viewport-center {
     height: 600px;
-  }
-  .hud-card-footer {
-    position: static;
-    width: 100%;
   }
   /* HUD control row: wrap + compact so all launchers (Alchm Chart, ⚔ Faction War)
      stay reachable and tappable on phones instead of overflowing one flat row. */
@@ -927,7 +1008,7 @@ body {
 
 .ritual-hud-overlay {
   position: absolute;
-  bottom: 200px; /* Floating right above the active hand footer */
+  bottom: 24px;
   left: 50%;
   transform: translateX(-50%);
   width: 440px;
@@ -943,6 +1024,12 @@ body {
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
   pointer-events: auto;
   animation: slideUpRitual 0.3s cubic-bezier(0.165, 0.84, 0.44, 1) forwards;
+}
+
+.ritual-hud-overlay.drag-over {
+  border-color: var(--gold-bright);
+  background: rgba(22, 25, 42, 0.96);
+  box-shadow: 0 0 24px rgba(241, 219, 161, 0.28);
 }
 
 @keyframes slideUpRitual {
