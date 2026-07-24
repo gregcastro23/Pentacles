@@ -4865,6 +4865,189 @@ pub fn bind_wallet_address(
     Ok(())
 }
 
+/// Register a verified source-chain ESMS burn as a pending mint on the other
+/// supported chain. Both wallet bindings are captured from the caller's Player
+/// row, so a pending transfer cannot redirect the destination mint.
+#[reducer]
+pub fn bridge_esms_crosschain(
+    ctx: &ReducerContext,
+    burn_tx_hash: String,
+    source_chain: String,
+    target_chain: String,
+    element_id: u8,
+    amount: u128,
+) -> Result<(), String> {
+    if element_id > 3 {
+        return Err("element_id must be between 0 and 3".into());
+    }
+    if amount == 0 {
+        return Err("amount must be greater than zero".into());
+    }
+    let source = source_chain.trim().to_ascii_lowercase();
+    let target = target_chain.trim().to_ascii_lowercase();
+    let supported_pair = matches!(
+        (source.as_str(), target.as_str()),
+        ("evm_base_sepolia", "solana_token_2022")
+            | ("solana_token_2022", "evm_base_sepolia")
+    );
+    if !supported_pair {
+        return Err("source_chain and target_chain must be opposite supported chains".into());
+    }
+
+    let player = ctx
+        .db
+        .player()
+        .identity()
+        .find(&ctx.sender())
+        .ok_or_else(|| "player profile not found".to_string())?;
+    let evm = player
+        .evm_address
+        .as_deref()
+        .map(str::trim)
+        .filter(|address| !address.is_empty())
+        .ok_or_else(|| "bind an EVM wallet before bridging".to_string())?
+        .to_ascii_lowercase();
+    if evm.len() != 42
+        || !evm.starts_with("0x")
+        || !evm[2..].bytes().all(|b| b.is_ascii_hexdigit())
+    {
+        return Err("bound EVM address is invalid".into());
+    }
+    let solana = player
+        .solana_pubkey
+        .as_deref()
+        .map(str::trim)
+        .filter(|address| !address.is_empty())
+        .ok_or_else(|| "bind a Solana wallet before bridging".to_string())?
+        .to_string();
+
+    let hash = if source == "evm_base_sepolia" {
+        normalized_evm_tx_hash(&burn_tx_hash, "burn_tx_hash")?
+    } else {
+        normalized_solana_signature(&burn_tx_hash, "burn_tx_hash")?
+    };
+    ensure_unprocessed(ctx, &hash)?;
+    let (source_address, target_address) = if source == "evm_base_sepolia" {
+        (evm, solana)
+    } else {
+        (solana, evm)
+    };
+
+    ctx.db.bridge_transfer().insert(BridgeTransfer {
+        burn_tx_hash: hash.clone(),
+        player: ctx.sender(),
+        source_chain: source.clone(),
+        target_chain: target.clone(),
+        source_address,
+        target_address,
+        element_id,
+        amount,
+        status: "pending_mint".to_string(),
+        created_at: ctx.timestamp,
+        updated_at: ctx.timestamp,
+    });
+    record_processed(
+        ctx,
+        hash,
+        &source,
+        &format!("bridge_burn_to_{target}"),
+    );
+    Ok(())
+}
+
+const ESMS_BASE_UNITS: u128 = 1_000_000_000_000_000_000;
+
+fn esms_game_units(amount: u128) -> u16 {
+    let whole = if amount >= ESMS_BASE_UNITS {
+        amount / ESMS_BASE_UNITS
+    } else {
+        amount
+    };
+    whole.min(u16::MAX as u128) as u16
+}
+
+fn apply_esms_event_to_jing_pool(
+    ctx: &ReducerContext,
+    player: &Player,
+    event_type: &str,
+    element_id: u8,
+    amount: u128,
+) -> Result<(), String> {
+    if element_id > 3 {
+        return Err("element_id must be between 0 and 3".into());
+    }
+    if event_type != "mint" && event_type != "burn" {
+        return Err("event_type must be mint or burn".into());
+    }
+    let units = esms_game_units(amount);
+    let mut pool = ctx
+        .db
+        .jing_pool()
+        .identity()
+        .find(&player.identity)
+        .unwrap_or_else(|| JingPool {
+            identity: player.identity,
+            sacred7: vec![100, 100, 100, 100, 100, 100, 100],
+            esms: vec![50, 50, 50, 50],
+            updated_at: ctx.timestamp,
+        });
+    if pool.esms.len() < 4 {
+        pool.esms.resize(4, 0);
+    }
+    let credit = if event_type == "burn" {
+        units.saturating_mul(2)
+    } else {
+        units
+    };
+    pool.esms[element_id as usize] = pool.esms[element_id as usize].saturating_add(credit);
+    pool.updated_at = ctx.timestamp;
+    if ctx.db.jing_pool().identity().find(&player.identity).is_some() {
+        ctx.db.jing_pool().identity().update(pool);
+    } else {
+        ctx.db.jing_pool().insert(pool);
+    }
+    Ok(())
+}
+
+/// Feeder sync for a confirmed Base Sepolia Redeemed/mint event.
+#[reducer]
+pub fn sync_evm_event(
+    ctx: &ReducerContext,
+    tx_hash: String,
+    player_address: String,
+    event_type: String,
+    element_id: u8,
+    amount: String,
+) -> Result<(), String> {
+    let cfg = ctx.db.game_config().id().find(&0).ok_or("game not initialised")?;
+    if ctx.sender() != cfg.owner {
+        return Err("sync_evm_event: admin/feeder only".into());
+    }
+    let hash = normalized_evm_tx_hash(&tx_hash, "tx_hash")?;
+    ensure_unprocessed(ctx, &hash)?;
+    let address = player_address.trim().to_ascii_lowercase();
+    let player = ctx
+        .db
+        .player()
+        .iter()
+        .find(|row| {
+            row.evm_address
+                .as_deref()
+                .is_some_and(|bound| bound.trim().eq_ignore_ascii_case(&address))
+        })
+        .ok_or_else(|| "no player bound to EVM event address".to_string())?;
+    let parsed_amount = amount
+        .trim()
+        .parse::<u128>()
+        .map_err(|_| "amount must be an unsigned integer string".to_string())?;
+    if parsed_amount == 0 {
+        return Err("amount must be greater than zero".into());
+    }
+    apply_esms_event_to_jing_pool(ctx, &player, &event_type, element_id, parsed_amount)?;
+    record_processed(ctx, hash, "evm_base_sepolia", &event_type);
+    Ok(())
+}
+
 /// Feeder sync: translate Solana Token-2022 on-chain mint/burn event into SpacetimeDB state update.
 /// Idempotency guarded by `processed_tx` table using `tx_hash`.
 #[reducer]
@@ -4881,51 +5064,16 @@ pub fn sync_solana_event(
         return Err("sync_solana_event: admin/feeder only".into());
     }
 
-    let hash = tx_hash.trim().to_string();
-    if hash.is_empty() {
-        return Err("tx_hash cannot be empty".into());
-    }
-
-    // Idempotency check — reject replayed RPC logs
-    if ctx.db.processed_tx().tx_hash().find(&hash).is_some() {
-        return Err("Transaction already processed".into());
-    }
-
-    ctx.db.processed_tx().insert(ProcessedTx {
-        tx_hash: hash,
-        chain: "solana_token_2022".to_string(),
-        event_type: event_type.clone(),
-        processed_at: ctx.timestamp,
-    });
-
-    if element_id > 3 {
-        return Err("element_id must be between 0 and 3".into());
-    }
-
-    // Match player by bound solana_pubkey
-    let player_opt = ctx.db.player().iter().find(|p| p.solana_pubkey.as_deref() == Some(player_pubkey.trim()));
-    if let Some(p) = player_opt {
-        let mut pool = ctx.db.jing_pool().identity().find(&p.identity).unwrap_or_else(|| JingPool {
-            identity: p.identity,
-            sacred7: vec![100, 100, 100, 100, 100, 100, 100],
-            esms: vec![50, 50, 50, 50],
-            updated_at: ctx.timestamp,
-        });
-
-        if event_type == "mint" {
-            pool.esms[element_id as usize] = pool.esms[element_id as usize].saturating_add(amount as u16);
-        } else if event_type == "burn" {
-            pool.esms[element_id as usize] = pool.esms[element_id as usize].saturating_add((amount * 2) as u16);
-        }
-        pool.updated_at = ctx.timestamp;
-
-        if ctx.db.jing_pool().identity().find(&p.identity).is_some() {
-            ctx.db.jing_pool().identity().update(pool);
-        } else {
-            ctx.db.jing_pool().insert(pool);
-        }
-    }
-
+    let hash = normalized_solana_signature(&tx_hash, "tx_hash")?;
+    ensure_unprocessed(ctx, &hash)?;
+    let player = ctx
+        .db
+        .player()
+        .iter()
+        .find(|row| row.solana_pubkey.as_deref() == Some(player_pubkey.trim()))
+        .ok_or_else(|| "no player bound to Solana event address".to_string())?;
+    apply_esms_event_to_jing_pool(ctx, &player, &event_type, element_id, amount as u128)?;
+    record_processed(ctx, hash, "solana_token_2022", &event_type);
     Ok(())
 }
 

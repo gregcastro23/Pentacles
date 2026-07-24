@@ -114,7 +114,7 @@ for (const reducer of [
   const body = reducers.match(new RegExp(`pub fn ${reducer}\\([\\s\\S]*?\\n\\}`, 'm'))?.[0] || ''
   assert.match(body, /tx_hash:\s*String/, `${reducer} must accept an idempotency transaction hash`)
   assert.match(body, /horizon_intent_id:\s*u64/, `${reducer} must bind an attested EVM horizon intent`)
-  assert.match(body, /processed_tx\(\)/, `${reducer} must reject a replayed transaction hash`)
+  assert.match(body, /ensure_unprocessed\(/, `${reducer} must reject a replayed transaction hash`)
 }
 
 const bridgeReducer = reducers.match(/pub fn bridge_esms_crosschain\([\s\S]*?\n\}/m)?.[0] || ''
@@ -123,11 +123,16 @@ assert.match(bridgeReducer, /source_chain:\s*String/)
 assert.match(bridgeReducer, /target_chain:\s*String/)
 assert.match(bridgeReducer, /amount:\s*u128/)
 assert.match(bridgeReducer, /bridge_transfer\(\)\.insert/)
-assert.match(bridgeReducer, /processed_tx\(\)/)
+assert.match(bridgeReducer, /ensure_unprocessed\(/)
 assert.match(tables, /pub struct BridgeTransfer[\s\S]*pub status:\s*String/)
 
 const evmSyncReducer = reducers.match(/pub fn sync_evm_event\([\s\S]*?\n\}/m)?.[0] || ''
 assert.match(evmSyncReducer, /admin\/feeder only/)
-assert.match(evmSyncReducer, /processed_tx\(\)/)
+assert.match(evmSyncReducer, /ensure_unprocessed\(/)
+assert.match(
+  reducers,
+  /fn ensure_unprocessed\([\s\S]*?processed_tx\(\)\.tx_hash\(\)\.find/,
+  'shared replay guard must read ProcessedTx by transaction hash',
+)
 
 console.log('PASS hardened Stardex and pending omnichain bridge reducer contracts')
