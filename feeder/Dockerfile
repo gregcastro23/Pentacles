@@ -1,5 +1,5 @@
-# Pentacles feeder worker — runs the five companion services under the
-# feeder/all.ts supervisor (oracle, duel, jing, constellation, ephemeris)
+# Pentacles feeder worker — runs the companion services under the
+# feeder/all.ts supervisor (including the omnichain bridge settler)
 # plus the PA/WTEN health probes and the feeders heartbeat.
 #
 # Build context is the REPO ROOT (the feeders import ../src/module_bindings
@@ -24,6 +24,7 @@ RUN cd feeder && bun install --production
 # normalizer, and the feeder code itself.
 COPY src/module_bindings ./src/module_bindings
 COPY src/net/ws-normalize.js ./src/net/ws-normalize.js
+COPY src/web3/abis.js ./src/web3/abis.js
 COPY feeder ./feeder
 
 ENV NODE_ENV=production

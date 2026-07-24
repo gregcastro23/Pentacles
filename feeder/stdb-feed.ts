@@ -212,7 +212,7 @@ export function startFeed(opts: FeedOptions): void {
               if (rows.length) console.log(`[${label}] backlog: ${rows.length} pending row(s).`);
               for (const r of rows) handle(r);
             })
-            .onError((ctx: { event?: string }) => {
+            .onError((ctx: any) => {
               console.error(`[${label}] subscription error:`, ctx?.event ?? "unknown");
             })
             .subscribe([opts.query]);

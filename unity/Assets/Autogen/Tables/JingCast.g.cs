@@ -67,7 +67,7 @@ namespace SpacetimeDB.Types
             Caster = new global::SpacetimeDB.Col<JingCast, SpacetimeDB.Identity>(tableName, "caster");
             CasterAgent = new global::SpacetimeDB.Col<JingCast, Planet>(tableName, "caster_agent");
             Mv = new global::SpacetimeDB.Col<JingCast, JingMove>(tableName, "mv");
-            CostSacred7 = new global::SpacetimeDB.Col<JingCast, byte>(tableName, "cost_sacred7");
+            CostSacred7 = new global::SpacetimeDB.Col<JingCast, byte>(tableName, "cost_sacred_7");
             CostEsms = new global::SpacetimeDB.Col<JingCast, byte>(tableName, "cost_esms");
             Deflects = new global::SpacetimeDB.Col<JingCast, JingMove>(tableName, "deflects");
             Voice = new global::SpacetimeDB.Col<JingCast, string>(tableName, "voice");

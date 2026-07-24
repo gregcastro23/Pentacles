@@ -29,6 +29,10 @@ namespace SpacetimeDB.Types
         public ulong Tokens;
         [DataMember(Name = "word_wins")]
         public uint WordWins;
+        [DataMember(Name = "evm_address")]
+        public string? EvmAddress;
+        [DataMember(Name = "solana_pubkey")]
+        public string? SolanaPubkey;
 
         public Player(
             SpacetimeDB.Identity Identity,
@@ -38,7 +42,9 @@ namespace SpacetimeDB.Types
             SpacetimeDB.Timestamp CreatedAt,
             SpacetimeDB.Timestamp LastActive,
             ulong Tokens,
-            uint WordWins
+            uint WordWins,
+            string? EvmAddress,
+            string? SolanaPubkey
         )
         {
             this.Identity = Identity;
@@ -49,6 +55,8 @@ namespace SpacetimeDB.Types
             this.LastActive = LastActive;
             this.Tokens = Tokens;
             this.WordWins = WordWins;
+            this.EvmAddress = EvmAddress;
+            this.SolanaPubkey = SolanaPubkey;
         }
 
         public Player()

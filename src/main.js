@@ -34,7 +34,7 @@ import './alchm-chart/alchm-chart.css'
 import * as dex from './web3/dex.js'
 import { ESMS_DECIMALS } from './web3/esms.js'
 import { makeTradeProvider } from './web3/chart-trade.js'
-import { burner } from './web3/burner.js'
+import { bridgeEsmsCrosschain, burner, burnEsmsForJing } from './web3/burner.js'
 
 const Pentacles = (window.Pentacles = window.Pentacles || {})
 Pentacles.version = '0.2.0'
@@ -126,6 +126,8 @@ function acProviders() {
   }
 }
 Pentacles.burner = burner
+Pentacles.burnEsmsForJing = burnEsmsForJing
+Pentacles.bridgeEsmsCrosschain = bridgeEsmsCrosschain
 function openAlchmChart() {
   const ov = document.getElementById('alchm-overlay')
   const host = document.getElementById('alchm-chart-host')

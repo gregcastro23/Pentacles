@@ -26,6 +26,15 @@ namespace SpacetimeDB.Types
 
             public readonly CardIdIndex CardId;
 
+            public sealed class LoadoutIndex : BTreeIndexBase<Loadout>
+            {
+                protected override Loadout GetKey(DeckSlot row) => row.Loadout;
+
+                public LoadoutIndex(DeckSlotHandle table) : base(table) { }
+            }
+
+            public readonly LoadoutIndex Loadout;
+
             public sealed class OwnerIndex : BTreeIndexBase<SpacetimeDB.Identity>
             {
                 protected override SpacetimeDB.Identity GetKey(DeckSlot row) => row.Owner;
@@ -47,6 +56,7 @@ namespace SpacetimeDB.Types
             internal DeckSlotHandle(DbConnection conn) : base(conn)
             {
                 CardId = new(this);
+                Loadout = new(this);
                 Owner = new(this);
                 SlotId = new(this);
             }
@@ -78,12 +88,14 @@ namespace SpacetimeDB.Types
         public global::SpacetimeDB.IxCol<DeckSlot, ulong> SlotId { get; }
         public global::SpacetimeDB.IxCol<DeckSlot, SpacetimeDB.Identity> Owner { get; }
         public global::SpacetimeDB.IxCol<DeckSlot, ulong> CardId { get; }
+        public global::SpacetimeDB.IxCol<DeckSlot, Loadout> Loadout { get; }
 
         public DeckSlotIxCols(string tableName)
         {
             SlotId = new global::SpacetimeDB.IxCol<DeckSlot, ulong>(tableName, "slot_id");
             Owner = new global::SpacetimeDB.IxCol<DeckSlot, SpacetimeDB.Identity>(tableName, "owner");
             CardId = new global::SpacetimeDB.IxCol<DeckSlot, ulong>(tableName, "card_id");
+            Loadout = new global::SpacetimeDB.IxCol<DeckSlot, Loadout>(tableName, "loadout");
         }
     }
 }

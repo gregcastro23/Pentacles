@@ -583,12 +583,18 @@
   }
 
   function syncSpacetimeDB() {
-    if (global.stdb && global.stdb.reducers && typeof global.stdb.reducers.sync_stardex_ephemeris === "function") {
+    const net = global.Pentacles && global.Pentacles.net;
+    if (net && net.isLive && typeof net.callReducer === "function") {
       const observer = global.state ? global.state.observer : { lat: 0, lon: 0, alt_m: 0 };
-      global.stdb.reducers.sync_stardex_ephemeris(observer.lat, observer.lon, observer.alt_m || 0);
-      if (global.toast) global.toast("⚡ StarDex Horizon Ephemeris synced to SpacetimeDB!", { type: "success" });
+      net.callReducer("set_location", [observer.lat, observer.lon])
+        .then(() => {
+          if (global.toast) global.toast("Location synced. Complete a horizon trace to attest the StarDex ephemeris.", { type: "success" });
+        })
+        .catch((error) => {
+          if (global.toast) global.toast(error && error.message ? error.message : "Location sync failed.", { type: "error" });
+        });
     } else if (global.toast) {
-      global.toast("SpacetimeDB reducer ready — connection active.", { type: "info" });
+      global.toast("Connect to SpacetimeDB before syncing your horizon.", { type: "info" });
     }
   }
 

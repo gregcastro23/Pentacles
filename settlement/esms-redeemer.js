@@ -4,11 +4,11 @@ import {
   decodeEventLog,
   getAddress,
   http,
-  parseAbi,
   verifyTypedData,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { baseSepolia } from 'viem/chains'
+import { ESMS_ABI, ESMS_ORDER_PREFIX, REDEEM_AUTH_TYPES } from '../src/web3/abis.js'
 
 export const ESMS_ADDRESS =
   process.env.ESMS_TOKEN ||
@@ -22,20 +22,6 @@ const RPC_URL =
   process.env.BASE_SEPOLIA_RPC ||
   process.env.VITE_BASE_SEPOLIA_RPC ||
   'https://sepolia.base.org'
-const ESMS_ABI = parseAbi([
-  'function redeemedOrders(bytes32 orderId) view returns (bool)',
-  'function redeemFor(address from, bytes32 orderId, uint256[] ids, uint256[] amounts, uint256 deadline, bytes signature)',
-  'event Redeemed(address indexed from, bytes32 indexed orderId, uint256[] ids, uint256[] amounts)',
-])
-const REDEEM_AUTH_TYPES = {
-  RedeemAuthorization: [
-    { name: 'from', type: 'address' },
-    { name: 'orderId', type: 'bytes32' },
-    { name: 'ids', type: 'uint256[]' },
-    { name: 'amounts', type: 'uint256[]' },
-    { name: 'deadline', type: 'uint256' },
-  ],
-}
 const TX_HASH = /^0x[0-9a-f]{64}$/i
 const BYTES32 = /^0x[0-9a-f]{64}$/i
 const SIGNATURE = /^0x[0-9a-f]{130}$/i
@@ -51,10 +37,17 @@ function json(body, status = 200) {
 }
 
 function parsePayload(body, nowSeconds) {
+  const purpose = body?.purpose ?? 'jing'
+  if (purpose !== 'jing' && purpose !== 'bridge') {
+    throw new Error('purpose must be jing or bridge')
+  }
   const from = getAddress(String(body?.from || ''))
   const orderId = String(body?.orderId || '')
   const signature = String(body?.signature || '')
   if (!BYTES32.test(orderId)) throw new Error('orderId must be bytes32')
+  if (orderId.slice(2, 4).toLowerCase() !== ESMS_ORDER_PREFIX[purpose]) {
+    throw new Error(`orderId is not bound to the ${purpose} settlement purpose`)
+  }
   if (!SIGNATURE.test(signature)) throw new Error('signature must be a 65-byte hex value')
   if (!Array.isArray(body?.ids) || !Array.isArray(body?.amounts) || body.ids.length !== 1 || body.amounts.length !== 1) {
     throw new Error('exactly one ESMS element burn is required')
@@ -68,7 +61,7 @@ function parsePayload(body, nowSeconds) {
   const now = BigInt(nowSeconds())
   if (deadline < now) throw new Error('authorization expired')
   if (deadline > now + 900n) throw new Error('authorization deadline is too far in the future')
-  return { from, orderId, ids, amounts, deadline, signature }
+  return { purpose, from, orderId, ids, amounts, deadline, signature }
 }
 
 async function defaultVerifyAuthorization(payload) {
@@ -103,7 +96,7 @@ async function defaultRedeemedOrder(payload) {
 }
 
 async function defaultSubmitRedeem(payload) {
-  const privateKey = process.env.REDEEMER_PRIVATE_KEY || process.env.MINTER_PRIVATE_KEY
+  const privateKey = process.env.REDEEMER_PRIVATE_KEY
   if (!privateKey) {
     throw new Error('settlement signer is not configured')
   }
@@ -208,12 +201,22 @@ export function createBurnSettlementHandler(overrides = {}) {
     if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
     let payload
     try {
-      payload = parsePayload(await req.json(), deps.nowSeconds)
+      const declaredLength = Number(req.headers.get('content-length') || 0)
+      if (declaredLength > 65_536) return json({ error: 'Request body is too large' }, 413)
+      const rawBody = await req.text()
+      if (rawBody.length > 65_536) return json({ error: 'Request body is too large' }, 413)
+      payload = parsePayload(JSON.parse(rawBody), deps.nowSeconds)
     } catch (error) {
       return json({ error: error.message || 'Invalid burn request' }, 400)
     }
 
-    if (!(await deps.verifyAuthorization(payload))) {
+    let authorizationValid = false
+    try {
+      authorizationValid = await deps.verifyAuthorization(payload)
+    } catch {
+      authorizationValid = false
+    }
+    if (!authorizationValid) {
       return json({ error: 'RedeemAuthorization signer does not match the ESMS holder' }, 401)
     }
 
@@ -228,8 +231,15 @@ export function createBurnSettlementHandler(overrides = {}) {
       if (!(await deps.verifyReceipt({ ...payload, txHash }))) {
         throw new Error('redeemFor receipt did not contain the expected Redeemed event')
       }
-      await deps.syncSpacetime({ ...payload, txHash })
-      return json({ txHash, orderId: payload.orderId, spacetimeSynced: true })
+      if (payload.purpose === 'jing') {
+        await deps.syncSpacetime({ ...payload, txHash })
+      }
+      return json({
+        txHash,
+        orderId: payload.orderId,
+        purpose: payload.purpose,
+        spacetimeSynced: payload.purpose === 'jing',
+      })
     } catch (error) {
       return json({ error: error.message || 'ESMS settlement failed', retryable: true }, 502)
     }

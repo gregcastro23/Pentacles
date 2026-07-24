@@ -1,4 +1,6 @@
 import { join } from "path";
+import { handleBurnSettlement } from "./settlement/esms-redeemer.js";
+import { handleWalletVerification } from "./settlement/wallet-verifier.js";
 
 // Serves the PRODUCTION Vite build (run `npm run build` first → ./dist).
 // For local development use `npm run dev` (the Vite dev server with HMR) instead.
@@ -14,6 +16,13 @@ Bun.serve({
   async fetch(req) {
     const url = new URL(req.url);
     let path = url.pathname;
+
+    if (path === "/api/web3/burn-esms") {
+      return handleBurnSettlement(req);
+    }
+    if (path === "/api/web3/verify-wallet") {
+      return handleWalletVerification(req);
+    }
 
     // Default route → the playable web client. The design doc stays reachable at
     // /Pentacles_GDD.html (copied into the build from public/).

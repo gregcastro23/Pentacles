@@ -63,9 +63,11 @@
           if (global.state.recomputeSky) global.state.recomputeSky();
         }
 
-        // Auto-sync high-precision ephemeris to SpacetimeDB
-        if (global.stdb && global.stdb.reducers && typeof global.stdb.reducers.sync_stardex_ephemeris === "function") {
-          global.stdb.reducers.sync_stardex_ephemeris(coords.latitude, coords.longitude, state.gps.alt_m || 0);
+        // Keep the public location current. StarDex ephemeris mutations require
+        // a separate feeder-attested horizon intent and cannot be GPS-spoofed.
+        const net = global.Pentacles && global.Pentacles.net;
+        if (net && net.isLive && typeof net.callReducer === "function") {
+          net.callReducer("set_location", [coords.latitude, coords.longitude]).catch(() => {});
         }
 
         if (onUpdate) onUpdate(state.gps);

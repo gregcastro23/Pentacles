@@ -62,19 +62,20 @@ async function bridge(primaryWallet) {
   let evmAddress = isSol ? null : primaryWallet.address
   let solanaAddress = isSol ? primaryWallet.address : null
   let provider = null
-  if (!isSol) {
-    try {
+  try {
+    if (isSol && typeof primaryWallet.connector?.getSigner === 'function') {
+      provider = await primaryWallet.connector.getSigner()
+    } else if (!isSol) {
       if (typeof primaryWallet.getWalletClient === 'function') {
         const wc = await primaryWallet.getWalletClient()
         provider = wc?.transport?.value ?? wc?.transport ?? null
       }
-      if (!provider && primaryWallet.connector?.getProvider) {
-        provider = await primaryWallet.connector.getProvider()
-      }
-    } catch {
-      // address-only bridge: live balances still work via the public client;
-      // signing falls back to the injected provider if present.
     }
+    if (!provider && primaryWallet.connector?.getProvider) {
+      provider = await primaryWallet.connector.getProvider()
+    }
+  } catch {
+    // Address-only bridge: reads still work, but signing remains unavailable.
   }
   let chainId
   try {
@@ -82,7 +83,13 @@ async function bridge(primaryWallet) {
   } catch {
     chainId = undefined
   }
-  wallet.setDynamicWallet({ address: evmAddress, solanaAddress, provider, chainId })
+  wallet.setDynamicWallet({
+    address: evmAddress,
+    solanaAddress,
+    provider: isSol ? null : provider,
+    solanaProvider: isSol ? provider : null,
+    chainId,
+  })
 }
 
 function baseSepoliaNetwork() {

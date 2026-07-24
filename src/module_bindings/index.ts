@@ -46,8 +46,10 @@ import AnswerJingReducer from "./answer_jing_reducer";
 import AnswerOracleReducer from "./answer_oracle_reducer";
 import AnswerTraceReducer from "./answer_trace_reducer";
 import AskOracleReducer from "./ask_oracle_reducer";
+import AssertEsmsBridgeReadyReducer from "./assert_esms_bridge_ready_reducer";
 import BackfillDecansReducer from "./backfill_decans_reducer";
 import BindWalletAddressReducer from "./bind_wallet_address_reducer";
+import BridgeEsmsCrosschainReducer from "./bridge_esms_crosschain_reducer";
 import CancelStaleClaimReducer from "./cancel_stale_claim_reducer";
 import CancelTradeReducer from "./cancel_trade_reducer";
 import CastJingReducer from "./cast_jing_reducer";
@@ -56,6 +58,7 @@ import ClaimDuelTimeoutReducer from "./claim_duel_timeout_reducer";
 import ClaimProfileReducer from "./claim_profile_reducer";
 import CombineCardsReducer from "./combine_cards_reducer";
 import CommitDuelReducer from "./commit_duel_reducer";
+import CompleteEsmsBridgeReducer from "./complete_esms_bridge_reducer";
 import ConfirmTradeReducer from "./confirm_trade_reducer";
 import ConfirmYieldClaimReducer from "./confirm_yield_claim_reducer";
 import CounterJingReducer from "./counter_jing_reducer";
@@ -77,16 +80,21 @@ import SetLocationReducer from "./set_location_reducer";
 import SiegeHorizonStarReducer from "./siege_horizon_star_reducer";
 import StardexClaimConstellationReducer from "./stardex_claim_constellation_reducer";
 import StardexFortifyNodeReducer from "./stardex_fortify_node_reducer";
+import StrikeStarSingleReducer from "./strike_star_single_reducer";
+import SyncEvmEventReducer from "./sync_evm_event_reducer";
 import SyncSolanaEventReducer from "./sync_solana_event_reducer";
 import SyncStardexEphemerisReducer from "./sync_stardex_ephemeris_reducer";
 import TraceConstellationReducer from "./trace_constellation_reducer";
 import TransferStarStakeReducer from "./transfer_star_stake_reducer";
+import VerifyEvmWalletBindingReducer from "./verify_evm_wallet_binding_reducer";
+import VerifySolanaWalletBindingReducer from "./verify_solana_wallet_binding_reducer";
 
 // Import all procedure arg schemas
 
 // Import all table schema definitions
 import AgentChartRow from "./agent_chart_table";
 import BattleRow from "./battle_table";
+import BridgeTransferRow from "./bridge_transfer_table";
 import CardRow from "./card_table";
 import CometRow from "./comet_table";
 import ConstellationRow from "./constellation_table";
@@ -101,6 +109,7 @@ import DuelQueueRow from "./duel_queue_table";
 import DuelRoundRow from "./duel_round_table";
 import EphemerisRow from "./ephemeris_table";
 import GameConfigRow from "./game_config_table";
+import HorizonActionReceiptRow from "./horizon_action_receipt_table";
 import JingCastRow from "./jing_cast_table";
 import JingDuelRow from "./jing_duel_table";
 import JingPoolRow from "./jing_pool_table";
@@ -120,6 +129,8 @@ import StarStakePoolRow from "./star_stake_pool_table";
 import TraceAttestationRow from "./trace_attestation_table";
 import TraceIntentRow from "./trace_intent_table";
 import TradeRow from "./trade_table";
+import VerifiedEvmWalletRow from "./verified_evm_wallet_table";
+import VerifiedSolanaWalletRow from "./verified_solana_wallet_table";
 import WordDuelRow from "./word_duel_table";
 import ZoneRow from "./zone_table";
 
@@ -149,6 +160,20 @@ const tablesSchema = __schema({
       { name: 'battle_battle_id_key', constraint: 'unique', columns: ['battleId'] },
     ],
   }, BattleRow),
+  bridge_transfer: __table({
+    name: 'bridge_transfer',
+    indexes: [
+      { accessor: 'burn_tx_hash', name: 'bridge_transfer_burn_tx_hash_idx_btree', algorithm: 'btree', columns: [
+        'burnTxHash',
+      ] },
+      { accessor: 'player', name: 'bridge_transfer_player_idx_btree', algorithm: 'btree', columns: [
+        'player',
+      ] },
+    ],
+    constraints: [
+      { name: 'bridge_transfer_burn_tx_hash_key', constraint: 'unique', columns: ['burnTxHash'] },
+    ],
+  }, BridgeTransferRow),
   card: __table({
     name: 'card',
     indexes: [
@@ -330,6 +355,20 @@ const tablesSchema = __schema({
       { name: 'game_config_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, GameConfigRow),
+  horizon_action_receipt: __table({
+    name: 'horizon_action_receipt',
+    indexes: [
+      { accessor: 'action_key', name: 'horizon_action_receipt_action_key_idx_btree', algorithm: 'btree', columns: [
+        'actionKey',
+      ] },
+      { accessor: 'intent_id', name: 'horizon_action_receipt_intent_id_idx_btree', algorithm: 'btree', columns: [
+        'intentId',
+      ] },
+    ],
+    constraints: [
+      { name: 'horizon_action_receipt_action_key_key', constraint: 'unique', columns: ['actionKey'] },
+    ],
+  }, HorizonActionReceiptRow),
   jing_cast: __table({
     name: 'jing_cast',
     indexes: [
@@ -569,6 +608,36 @@ const tablesSchema = __schema({
       { name: 'trade_trade_id_key', constraint: 'unique', columns: ['tradeId'] },
     ],
   }, TradeRow),
+  verified_evm_wallet: __table({
+    name: 'verified_evm_wallet',
+    indexes: [
+      { accessor: 'evm_address', name: 'verified_evm_wallet_evm_address_idx_btree', algorithm: 'btree', columns: [
+        'evmAddress',
+      ] },
+      { accessor: 'identity', name: 'verified_evm_wallet_identity_idx_btree', algorithm: 'btree', columns: [
+        'identity',
+      ] },
+    ],
+    constraints: [
+      { name: 'verified_evm_wallet_evm_address_key', constraint: 'unique', columns: ['evmAddress'] },
+      { name: 'verified_evm_wallet_identity_key', constraint: 'unique', columns: ['identity'] },
+    ],
+  }, VerifiedEvmWalletRow),
+  verified_solana_wallet: __table({
+    name: 'verified_solana_wallet',
+    indexes: [
+      { accessor: 'identity', name: 'verified_solana_wallet_identity_idx_btree', algorithm: 'btree', columns: [
+        'identity',
+      ] },
+      { accessor: 'solana_pubkey', name: 'verified_solana_wallet_solana_pubkey_idx_btree', algorithm: 'btree', columns: [
+        'solanaPubkey',
+      ] },
+    ],
+    constraints: [
+      { name: 'verified_solana_wallet_identity_key', constraint: 'unique', columns: ['identity'] },
+      { name: 'verified_solana_wallet_solana_pubkey_key', constraint: 'unique', columns: ['solanaPubkey'] },
+    ],
+  }, VerifiedSolanaWalletRow),
   word_duel: __table({
     name: 'word_duel',
     indexes: [
@@ -610,8 +679,10 @@ const reducersSchema = __reducers(
   __reducerSchema("answer_oracle", AnswerOracleReducer),
   __reducerSchema("answer_trace", AnswerTraceReducer),
   __reducerSchema("ask_oracle", AskOracleReducer),
+  __reducerSchema("assert_esms_bridge_ready", AssertEsmsBridgeReadyReducer),
   __reducerSchema("backfill_decans", BackfillDecansReducer),
   __reducerSchema("bind_wallet_address", BindWalletAddressReducer),
+  __reducerSchema("bridge_esms_crosschain", BridgeEsmsCrosschainReducer),
   __reducerSchema("cancel_stale_claim", CancelStaleClaimReducer),
   __reducerSchema("cancel_trade", CancelTradeReducer),
   __reducerSchema("cast_jing", CastJingReducer),
@@ -620,6 +691,7 @@ const reducersSchema = __reducers(
   __reducerSchema("claim_profile", ClaimProfileReducer),
   __reducerSchema("combine_cards", CombineCardsReducer),
   __reducerSchema("commit_duel", CommitDuelReducer),
+  __reducerSchema("complete_esms_bridge", CompleteEsmsBridgeReducer),
   __reducerSchema("confirm_trade", ConfirmTradeReducer),
   __reducerSchema("confirm_yield_claim", ConfirmYieldClaimReducer),
   __reducerSchema("counter_jing", CounterJingReducer),
@@ -641,10 +713,14 @@ const reducersSchema = __reducers(
   __reducerSchema("siege_horizon_star", SiegeHorizonStarReducer),
   __reducerSchema("stardex_claim_constellation", StardexClaimConstellationReducer),
   __reducerSchema("stardex_fortify_node", StardexFortifyNodeReducer),
+  __reducerSchema("strike_star_single", StrikeStarSingleReducer),
+  __reducerSchema("sync_evm_event", SyncEvmEventReducer),
   __reducerSchema("sync_solana_event", SyncSolanaEventReducer),
   __reducerSchema("sync_stardex_ephemeris", SyncStardexEphemerisReducer),
   __reducerSchema("trace_constellation", TraceConstellationReducer),
   __reducerSchema("transfer_star_stake", TransferStarStakeReducer),
+  __reducerSchema("verify_evm_wallet_binding", VerifyEvmWalletBindingReducer),
+  __reducerSchema("verify_solana_wallet_binding", VerifySolanaWalletBindingReducer),
 );
 
 /** The schema information for all procedures in this module. This is defined the same way as the procedures would have been defined in the server. */

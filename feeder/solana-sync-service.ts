@@ -44,12 +44,12 @@ export interface TransferHookEvent {
  * Dispatch event to SpacetimeDB sync_solana_event reducer.
  */
 async function syncToSpacetime(event: EsmsEvent): Promise<void> {
-  const args = [
+  const httpArgs = [
     event.signature,
-    event.player || "unknown",
+    event.player,
     event.eventType,
     event.elementId,
-    Number(event.amount),
+    event.amount.toString(),
   ];
 
   try {
@@ -60,7 +60,7 @@ async function syncToSpacetime(event: EsmsEvent): Promise<void> {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${SPACETIME_TOKEN}`,
         },
-        body: JSON.stringify(args),
+        body: JSON.stringify(httpArgs),
       });
       if (res.ok) {
         console.log(`[SolanaSync] Synced ${event.eventType} (sig: ${event.signature.slice(0, 12)}...) to SpacetimeDB.`);
@@ -69,7 +69,13 @@ async function syncToSpacetime(event: EsmsEvent): Promise<void> {
         console.warn(`[SolanaSync] sync_solana_event status ${res.status}: ${text}`);
       }
     } else {
-      await cliCall(DB, "sync_solana_event", args);
+      await cliCall(DB, "sync_solana_event", [
+        event.signature,
+        event.player,
+        event.eventType,
+        event.elementId,
+        event.amount,
+      ]);
       console.log(`[SolanaSync] CLI synced ${event.eventType} (sig: ${event.signature.slice(0, 12)}...).`);
     }
   } catch (err) {
@@ -123,12 +129,12 @@ export function listenToSolanaEvents(onEvent: (event: EsmsEvent) => Promise<void
 
       for (const log of logs.logs) {
         if (log.includes("Minted") && log.includes("units of ESMS element")) {
-          const match = log.match(/Minted (\d+) units of ESMS element (\d+)/);
+          const match = log.match(/Minted (\d+) units of ESMS element (\d+) for ([1-9A-HJ-NP-Za-km-z]{32,44})/);
           if (match) {
             const event: EsmsEvent = {
               signature: logs.signature,
               eventType: "mint",
-              player: "",
+              player: match[3],
               elementId: parseInt(match[2], 10),
               amount: BigInt(match[1]),
               timestamp: Date.now(),
@@ -136,12 +142,12 @@ export function listenToSolanaEvents(onEvent: (event: EsmsEvent) => Promise<void
             await onEvent(event);
           }
         } else if (log.includes("Burned") && log.includes("units of ESMS element")) {
-          const match = log.match(/Burned (\d+) units of ESMS element (\d+)/);
+          const match = log.match(/Burned (\d+) units of ESMS element (\d+) for Jing cast by ([1-9A-HJ-NP-Za-km-z]{32,44})/);
           if (match) {
             const event: EsmsEvent = {
               signature: logs.signature,
               eventType: "burn",
-              player: "",
+              player: match[3],
               elementId: parseInt(match[2], 10),
               amount: BigInt(match[1]),
               timestamp: Date.now(),

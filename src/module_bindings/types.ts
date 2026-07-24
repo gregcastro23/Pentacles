@@ -49,6 +49,36 @@ export const BattleLog = __t.object("BattleLog", {
 });
 export type BattleLog = __Infer<typeof BattleLog>;
 
+// The tagged union or sum type for the algebraic type `BridgeChain`.
+export const BridgeChain = __t.enum("BridgeChain", ["EvmBaseSepolia", "SolanaToken2022"]);
+export type BridgeChain = __Infer<typeof BridgeChain>;
+
+// The tagged union or sum type for the algebraic type `BridgeStatus`.
+export const BridgeStatus = __t.enum("BridgeStatus", ["PendingMint", "Completed"]);
+export type BridgeStatus = __Infer<typeof BridgeStatus>;
+
+export const BridgeTransfer = __t.object("BridgeTransfer", {
+  burnTxHash: __t.string(),
+  player: __t.identity(),
+  get sourceChain() {
+    return BridgeChain;
+  },
+  get targetChain() {
+    return BridgeChain;
+  },
+  sourceAddress: __t.string(),
+  targetAddress: __t.string(),
+  elementId: __t.u8(),
+  amount: __t.u128(),
+  get status() {
+    return BridgeStatus;
+  },
+  destinationTxHash: __t.option(__t.string()),
+  createdAt: __t.timestamp(),
+  updatedAt: __t.timestamp(),
+});
+export type BridgeTransfer = __Infer<typeof BridgeTransfer>;
+
 export const Card = __t.object("Card", {
   cardId: __t.u64(),
   owner: __t.identity(),
@@ -242,6 +272,14 @@ export const GameConfig = __t.object("GameConfig", {
   constellationsSeeded: __t.bool(),
 });
 export type GameConfig = __Infer<typeof GameConfig>;
+
+export const HorizonActionReceipt = __t.object("HorizonActionReceipt", {
+  actionKey: __t.string(),
+  intentId: __t.u64(),
+  txHash: __t.string(),
+  processedAt: __t.timestamp(),
+});
+export type HorizonActionReceipt = __Infer<typeof HorizonActionReceipt>;
 
 // The tagged union or sum type for the algebraic type `HouseSystem`.
 export const HouseSystem = __t.enum("HouseSystem", ["Placidus", "WholeSign"]);
@@ -577,6 +615,22 @@ export type Trade = __Infer<typeof Trade>;
 // The tagged union or sum type for the algebraic type `TradeState`.
 export const TradeState = __t.enum("TradeState", ["Open", "Committed", "Cancelled"]);
 export type TradeState = __Infer<typeof TradeState>;
+
+export const VerifiedEvmWallet = __t.object("VerifiedEvmWallet", {
+  identity: __t.identity(),
+  evmAddress: __t.string(),
+  proofHash: __t.string(),
+  verifiedAt: __t.timestamp(),
+});
+export type VerifiedEvmWallet = __Infer<typeof VerifiedEvmWallet>;
+
+export const VerifiedSolanaWallet = __t.object("VerifiedSolanaWallet", {
+  identity: __t.identity(),
+  solanaPubkey: __t.string(),
+  proofHash: __t.string(),
+  verifiedAt: __t.timestamp(),
+});
+export type VerifiedSolanaWallet = __Infer<typeof VerifiedSolanaWallet>;
 
 export const WordDuel = __t.object("WordDuel", {
   duelId: __t.u64(),

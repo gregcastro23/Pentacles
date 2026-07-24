@@ -23,6 +23,22 @@ namespace SpacetimeDB.Types
         public double Dec;
         [DataMember(Name = "magnitude")]
         public float Magnitude;
+        [DataMember(Name = "constellation")]
+        public string Constellation;
+        [DataMember(Name = "zodiac_sign")]
+        public string ZodiacSign;
+        [DataMember(Name = "ecliptic_deg")]
+        public byte EclipticDeg;
+        [DataMember(Name = "ecliptic_min")]
+        public byte EclipticMin;
+        [DataMember(Name = "ecliptic_sec")]
+        public byte EclipticSec;
+        [DataMember(Name = "refracted_alt")]
+        public float RefractedAlt;
+        [DataMember(Name = "azimuth")]
+        public float Azimuth;
+        [DataMember(Name = "horizon_state")]
+        public string HorizonState;
         [DataMember(Name = "held_by")]
         public Planet? HeldBy;
         [DataMember(Name = "region_hint")]
@@ -34,6 +50,14 @@ namespace SpacetimeDB.Types
             double Ra,
             double Dec,
             float Magnitude,
+            string Constellation,
+            string ZodiacSign,
+            byte EclipticDeg,
+            byte EclipticMin,
+            byte EclipticSec,
+            float RefractedAlt,
+            float Azimuth,
+            string HorizonState,
             Planet? HeldBy,
             byte RegionHint
         )
@@ -43,6 +67,14 @@ namespace SpacetimeDB.Types
             this.Ra = Ra;
             this.Dec = Dec;
             this.Magnitude = Magnitude;
+            this.Constellation = Constellation;
+            this.ZodiacSign = ZodiacSign;
+            this.EclipticDeg = EclipticDeg;
+            this.EclipticMin = EclipticMin;
+            this.EclipticSec = EclipticSec;
+            this.RefractedAlt = RefractedAlt;
+            this.Azimuth = Azimuth;
+            this.HorizonState = HorizonState;
             this.HeldBy = HeldBy;
             this.RegionHint = RegionHint;
         }
@@ -50,6 +82,9 @@ namespace SpacetimeDB.Types
         public StarNode()
         {
             this.Name = "";
+            this.Constellation = "";
+            this.ZodiacSign = "";
+            this.HorizonState = "";
         }
     }
 }
