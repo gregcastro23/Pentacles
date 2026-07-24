@@ -19,6 +19,8 @@ export default __t.row({
   shares: __t.u128(),
   accruedEssence: __t.u128().name("accrued_essence"),
   claimedEssence: __t.u128().name("claimed_essence"),
+  pendingEssence: __t.u128().name("pending_essence"),
+  claimNonce: __t.u64().name("claim_nonce"),
   stakedAt: __t.timestamp().name("staked_at"),
   lastAccrualAt: __t.timestamp().name("last_accrual_at"),
 });

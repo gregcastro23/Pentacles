@@ -569,16 +569,18 @@
       `;
     }
 
-    // Render Active Dedicated Selection Hand (up to 30 Cards) with sorting & filtering
+    // Render only the authoritative Active Hand. Ritual validation uses this same
+    // loadout, so every card shown here is guaranteed to be playable.
     function renderActiveHand() {
       const container = document.getElementById("active-deck-strip");
       if (!container) return;
       container.innerHTML = "";
 
-      let cards = [...state.collection];
-      if (cards.length === 0 && state.deck) {
-        cards = state.deck.map(d => state.collection.find(c => c.card_id === d.card_id)).filter(Boolean);
-      }
+      let cards = (state.deck || [])
+        .filter(d => d.loadout === "active")
+        .map(d => state.collection.find(c => c.card_id === d.card_id))
+        .filter(Boolean);
+      const activeTotal = cards.length;
 
       // Apply Filter
       if (handFilterMode !== "all") {
@@ -599,11 +601,25 @@
         return 0;
       });
 
-      // Display up to 30 cards in the dedicated hand strip
-      const handCards = cards.slice(0, 30);
+      const handCards = cards;
       handCards.forEach(c => {
         container.innerHTML += buildCardHTML(c, "active", true);
       });
+      if (handCards.length === 0) {
+        const message = activeTotal === 0
+          ? "Your Active Hand is empty. Open Deck and assign cards to Active."
+          : "No Active Hand cards match this filter.";
+        const emptyAction = activeTotal === 0
+          ? '<button class="btn" onclick="openMyCodex()">Open Deck</button>'
+          : '<button class="btn" onclick="setHandFilter(\'all\')">Clear Filter</button>';
+        container.innerHTML = `
+          <div class="hand-empty">
+            <span>✦</span>
+            <p>${message}</p>
+            ${emptyAction}
+          </div>
+        `;
+      }
 
       const cardCountEl = document.getElementById("hand-card-count");
       if (cardCountEl) cardCountEl.innerText = handCards.length;
@@ -794,11 +810,36 @@
     function handleSlotDrop(e, slotIdx) {
       e.preventDefault();
       unhighlightSlot(e);
-      const cardIdStr = e.dataTransfer.getData("text/plain") || window.draggingCardId;
-      if (cardIdStr) {
-        const cardId = Number(cardIdStr);
+      const cardId = getDraggedCardId(e);
+      if (cardId !== null) {
         placeCardInSiegeSlot(cardId, slotIdx);
       }
+    }
+
+    function getDraggedCardId(e) {
+      const transferred = e && e.dataTransfer ? e.dataTransfer.getData("text/plain") : "";
+      const raw = transferred || window.draggingCardId || window.draggedCardId;
+      if (raw === undefined || raw === null || raw === "") return null;
+      const cardId = Number(raw);
+      return Number.isFinite(cardId) ? cardId : null;
+    }
+
+    function allowRitualDrop(e) {
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+      e.currentTarget?.classList.add("drag-over");
+    }
+
+    function handleRitualDrop(e) {
+      e.preventDefault();
+      e.currentTarget?.classList.remove("drag-over");
+      const cardId = getDraggedCardId(e);
+      const target = window.activeRitualTarget;
+      if (cardId === null || !target) {
+        toast("Select a zone or planet ritual before dropping a card.", { type: "warn", title: "Ritual Chain" });
+        return;
+      }
+      playCardIntoRitual(cardId, target.type, target.id);
     }
 
     function attachTouchDragListeners() {
@@ -816,9 +857,11 @@
         const touch = e.touches[0];
         const targetEl = document.elementFromPoint(touch.clientX, touch.clientY);
         const slotEl = targetEl ? targetEl.closest(".siege-slot") : null;
+        const zoneEl = targetEl ? targetEl.closest(".zone-shape") : null;
 
-        document.querySelectorAll(".siege-slot").forEach(s => s.classList.remove("drag-over"));
+        document.querySelectorAll(".siege-slot, .zone-shape").forEach(s => s.classList.remove("drag-over"));
         if (slotEl) slotEl.classList.add("drag-over");
+        if (zoneEl) zoneEl.classList.add("drag-over");
       }, { passive: true });
 
       window.addEventListener("touchend", (e) => {
@@ -826,11 +869,15 @@
         const touch = e.changedTouches[0];
         const targetEl = document.elementFromPoint(touch.clientX, touch.clientY);
         const slotEl = targetEl ? targetEl.closest(".siege-slot") : null;
+        const zoneEl = targetEl ? targetEl.closest(".zone-shape") : null;
 
-        document.querySelectorAll(".siege-slot").forEach(s => s.classList.remove("drag-over"));
+        document.querySelectorAll(".siege-slot, .zone-shape").forEach(s => s.classList.remove("drag-over"));
         if (slotEl) {
           const slotIdx = Number(slotEl.getAttribute("data-slot"));
           if (!isNaN(slotIdx)) placeCardInSiegeSlot(touchedCardId, slotIdx);
+        } else if (zoneEl) {
+          const zoneId = Number(zoneEl.id.replace("zone-shape-", ""));
+          if (Number.isInteger(zoneId)) playCardIntoRitual(touchedCardId, "zone", zoneId);
         }
         touchedCardId = null;
       });
@@ -843,6 +890,9 @@
     window.highlightSlot = highlightSlot;
     window.unhighlightSlot = unhighlightSlot;
     window.handleSlotDrop = handleSlotDrop;
+    window.getDraggedCardId = getDraggedCardId;
+    window.allowRitualDrop = allowRitualDrop;
+    window.handleRitualDrop = handleRitualDrop;
     window.autoPlaceCardInSiege = autoPlaceCardInSiege;
     window.removeCardFromSiegeSlot = removeCardFromSiegeSlot;
     window.setHandSort = setHandSort;
@@ -2398,6 +2448,7 @@
 
     window.handleCardDragStart = function(event, cardId) {
       event.dataTransfer.setData("text/plain", cardId);
+      event.dataTransfer.effectAllowed = "move";
       event.target.classList.add("dragging");
       
       // Highlight valid drop targets
@@ -2406,6 +2457,7 @@
       });
       
       window.draggedCardId = cardId;
+      window.draggingCardId = cardId;
     };
 
     window.handleCardDragEnd = function(event, cardId) {
@@ -2414,18 +2466,28 @@
         el.classList.remove("potential-target", "drag-over");
       });
       window.draggedCardId = null;
+      window.draggingCardId = null;
     };
 
     window.playCardIntoRitual = function(cardId, targetType, targetId) {
-      // LIVE: a card dragged onto a ZONE deploys into the faction war via the
-      // deploy_card reducer (pushes your faction's control + garrisons the card),
-      // instead of the offline ritual-chain. Other targets keep the local path.
+      // LIVE: a card dragged onto a STAR or ZONE executes an instant raid strike or deploy
       const net = window.Pentacles && window.Pentacles.net;
+      if ((targetType === "star" || targetType === "hip") && net && net.isLive && window.Pentacles.deploy && window.Pentacles.deploy.strikeStarSingleLive) {
+        if (synth.playSelect) synth.playSelect();
+        window.Pentacles.deploy.strikeStarSingleLive(targetId, cardId)
+          .then((r) => {
+            if (r && r.ok === false) return;
+            toast(`Instant Raid Strike launched against Star HIP ${targetId}! Chipping away at control threshold...`, { type: "success", title: "Star Strike" });
+            renderActiveHand();
+          })
+          .catch((e) => toast((e && e.message) || "Star strike failed", { type: "error", title: "Star Strike" }));
+        return;
+      }
       if (targetType === "zone" && net && net.isLive && window.Pentacles.deploy) {
         if (synth.playSelect) synth.playSelect();
         window.Pentacles.deploy.deployCardLive(cardId, targetId)
           .then((r) => {
-            if (r && r.ok === false) return; // offline guard — shouldn't hit when isLive
+            if (r && r.ok === false) return;
             toast(`Deployed to Zone ${targetId} — your faction pushes the meter and the card joins the garrison.`, { type: "success", title: "Faction War" });
             renderActiveHand();
           })

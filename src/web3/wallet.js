@@ -14,6 +14,7 @@ const RECONNECT_KEY = 'pentacles_wallet_reconnect'
 class Wallet {
   constructor() {
     this.address = null
+    this.solanaAddress = null
     this.chainId = null
     this.connected = false
     this.provider = null // EIP-1193
@@ -28,6 +29,7 @@ class Wallet {
   snapshot() {
     return {
       address: this.address,
+      solanaAddress: this.solanaAddress,
       chainId: this.chainId,
       connected: this.connected,
       source: this.source,
@@ -39,11 +41,21 @@ class Wallet {
     cb(this.snapshot())
     return () => this._listeners.delete(cb)
   }
+  async bindToSpacetime() {
+    try {
+      const spacetime = (await import('../net/spacetime.js')).default
+      if (spacetime && spacetime.isLive && (this.address || this.solanaAddress)) {
+        await spacetime.callReducer('bind_wallet_address', [this.address || null, this.solanaAddress || null])
+      }
+    } catch {}
+  }
+
   _emit() {
     const snap = this.snapshot()
     this._listeners.forEach((cb) => {
       try { cb(snap) } catch {}
     })
+    this.bindToSpacetime()
   }
 
   // ---- injected (window.ethereum) ----
@@ -151,12 +163,13 @@ class Wallet {
   }
 
   /** Called by the Dynamic React island when its primary wallet changes. */
-  setDynamicWallet({ address, chainId, provider } = {}) {
+  setDynamicWallet({ address, solanaAddress, chainId, provider } = {}) {
     this.source = 'dynamic'
     if (provider) this.provider = provider
     this.address = address ? getAddress(address) : null
+    this.solanaAddress = solanaAddress ?? this.solanaAddress
     this.chainId = chainId ?? this.chainId
-    this.connected = !!address
+    this.connected = !!(address || solanaAddress)
     if (this.connected) {
       if (window.CookieSync) {
         window.CookieSync.persist(RECONNECT_KEY, '1')

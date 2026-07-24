@@ -55,6 +55,7 @@ const SERVICES: Service[] = [
   { name: "jing", file: "jing-service.ts" },
   { name: "constellation", file: "constellation-service.ts" },
   { name: "ephemeris", file: "push-ephemeris.ts" },
+  { name: "solana-sync", file: "solana-sync-service.ts" },
 ];
 
 const BACKOFF_MIN_MS = 1_000; // first restart delay

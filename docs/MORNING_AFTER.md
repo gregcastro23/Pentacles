@@ -55,8 +55,8 @@ A location-based AR MMO with a genuinely ambitious backend for a hackathon. The 
   and mutate transactionally. `~3,900` lines across `lib / types / tables / chart / combat / reducers`.
 - **Private tables:** `natal_chart`, `player_location`, `oracle_rate` (everything else is `public`
   and streams to clients as the live map).
-- **Scheduled reducers:** `tick_sky` (the world clock: weather wheel, bot raids, ephemeris→zone
-  mapping) and `resolve_round` (per-player Ascendant clock that paces the re-draft).
+- **Scheduled reducers:** `tick_sky` (the world clock: weather wheel, `agent_war` automated raids vs defender sentinel garrisons, ephemeris→zone mapping) and `resolve_round` (per-player Ascendant clock that paces the re-draft).
+- **Raid Reducers:** `resolve_star_battle` (multi-card Auto-Siege battles) & `strike_star_single` (instant single-card Drag & Drop threshold strikes).
 - **Owner-gated reducers:** `push_ephemeris` and `answer_oracle` — only the module owner identity
   may call them. This is the integration seam for our trusted off-module jobs.
 

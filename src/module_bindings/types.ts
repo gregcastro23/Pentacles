@@ -415,6 +415,8 @@ export const Player = __t.object("Player", {
   lastActive: __t.timestamp(),
   tokens: __t.u64(),
   wordWins: __t.u32(),
+  evmAddress: __t.option(__t.string()),
+  solanaPubkey: __t.option(__t.string()),
 });
 export type Player = __Infer<typeof Player>;
 
@@ -425,6 +427,14 @@ export const PlayerLocation = __t.object("PlayerLocation", {
   updatedAt: __t.timestamp(),
 });
 export type PlayerLocation = __Infer<typeof PlayerLocation>;
+
+export const ProcessedTx = __t.object("ProcessedTx", {
+  txHash: __t.string(),
+  chain: __t.string(),
+  eventType: __t.string(),
+  processedAt: __t.timestamp(),
+});
+export type ProcessedTx = __Infer<typeof ProcessedTx>;
 
 export const RoundParticipant = __t.object("RoundParticipant", {
   id: __t.u64(),
@@ -482,6 +492,14 @@ export const StarNode = __t.object("StarNode", {
   ra: __t.f64(),
   dec: __t.f64(),
   magnitude: __t.f32(),
+  constellation: __t.string(),
+  zodiacSign: __t.string(),
+  eclipticDeg: __t.u8(),
+  eclipticMin: __t.u8(),
+  eclipticSec: __t.u8(),
+  refractedAlt: __t.f32(),
+  azimuth: __t.f32(),
+  horizonState: __t.string(),
   get heldBy() {
     return __t.option(Planet);
   },
@@ -498,6 +516,8 @@ export const StarStake = __t.object("StarStake", {
   shares: __t.u128(),
   accruedEssence: __t.u128(),
   claimedEssence: __t.u128(),
+  pendingEssence: __t.u128(),
+  claimNonce: __t.u64(),
   stakedAt: __t.timestamp(),
   lastAccrualAt: __t.timestamp(),
 });

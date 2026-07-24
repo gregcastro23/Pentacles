@@ -149,7 +149,7 @@
           <button class="btn" onclick="toggleARMode()">📹 Toggle AR Mode</button>
           <button class="btn" id="alchm-chart-btn" onclick="openAlchmChart()">✦ Alchm Chart</button>
           <button class="btn" id="faction-war-btn" onclick="openFactionWar()">⚔ Faction War</button>
-          <button class="btn" id="my-codex-btn" onclick="openMyCodex()">✦ My Codex</button>
+          <button class="btn" id="my-codex-btn" onclick="openMyCodex()" title="Open your full card collection and natal profile">✦ Deck</button>
           <button class="btn" id="star-pokedex-btn" onclick="openStarPokedex()">⭐ StarDex</button>
           <button class="btn" id="observatory-btn" style="display:none;" onclick="openAdminTelemetry()">🔭 Observatory</button>
         </div>
@@ -206,43 +206,16 @@
       </div>
 
       <!-- RITUAL CHAIN HUD OVERLAY -->
-      <div id="ritual-hud-overlay" class="ritual-hud-overlay" style="display: none;"></div>
+      <div id="ritual-hud-overlay" class="ritual-hud-overlay" style="display: none;"
+           ondragover="allowRitualDrop(event)"
+           ondrop="handleRitualDrop(event)"></div>
 
-      <!-- BOTTOM PANEL: ACTIVE HAND STRIP & SORT CONTROLS -->
-      <footer class="hud-card-footer">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:8px;">
-          <div style="display:flex; align-items:center; gap:12px;">
-            <h3 class="title-orn">Dedicated Hand (<span id="hand-card-count">30</span> Cards)</h3>
-            <span id="active-hand-count" style="font-size:11px; color:var(--dim)">0 / 3 Slots Placed</span>
-          </div>
-
-          <!-- Deck Hand Sorting & Filter Bar -->
-          <div class="deck-sort-bar">
-            <span style="font-size:10px; color:var(--dim);">SORT:</span>
-            <button class="sort-chip active" id="sort-rank" onclick="setHandSort('rank')">Rank</button>
-            <button class="sort-chip" id="sort-suit" onclick="setHandSort('suit')">Suit</button>
-            <button class="sort-chip" id="sort-affinity" onclick="setHandSort('affinity')">Faction</button>
-            <button class="sort-chip" id="sort-power" onclick="setHandSort('power')">Power</button>
-            
-            <span style="font-size:10px; color:var(--dim); margin-left:8px;">FILTER:</span>
-            <button class="sort-chip active" id="filter-all" onclick="setHandFilter('all')">ALL</button>
-            <button class="sort-chip" id="filter-wands" onclick="setHandFilter('wands')">🔥 Wands</button>
-            <button class="sort-chip" id="filter-cups" onclick="setHandFilter('cups')">💧 Cups</button>
-            <button class="sort-chip" id="filter-swords" onclick="setHandFilter('swords')">💨 Swords</button>
-            <button class="sort-chip" id="filter-pentacles" onclick="setHandFilter('pentacles')">🪨 Pentacles</button>
-          </div>
-        </div>
-        
-        <div id="active-deck-strip" class="cards-scroller">
-          <!-- Populated by JS -->
-        </div>
-      </footer>
     </main>
 
-    <!-- RIGHT SIDEBAR: INVENTORY, FUSION & DUELS LOGS -->
+    <!-- RIGHT SIDEBAR: FOCUSED GAMEPLAY TOOLS -->
     <aside class="sidebar right">
       <div class="tab-headers">
-        <button class="tab-btn active" data-tab="tab-collection" onclick="switchTab('tab-collection')">Cards</button>
+        <button class="tab-btn active" data-tab="tab-collection" onclick="switchTab('tab-collection')">Tarot Hand</button>
         <button class="tab-btn" data-tab="tab-duel" onclick="switchTab('tab-duel')">Siege</button>
         <button class="tab-btn" data-tab="tab-word" onclick="switchTab('tab-word')">✦ Words</button>
         <button class="tab-btn" data-tab="tab-pools" onclick="switchTab('tab-pools')">✦ Pools</button>
@@ -251,14 +224,44 @@
       <div class="sidebar-content" style="padding-top:0">
         <!-- Collection Panel -->
         <div id="tab-collection" class="tab-pane active">
-          <p style="font-size:12px; color:var(--dim)">Cycle loadouts (Active / Defense / Bench). Tap a card and then a matching copy to fuse and level it up.</p>
-          <div id="collection-grid" style="display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; overflow-y:auto; flex:1;">
+          <div class="hand-panel-header">
+            <div>
+              <h3 class="title-orn">Tarot Hand</h3>
+              <p><span id="hand-card-count">0</span> active cards · <span id="active-hand-count">0 / 3 Slots Placed</span></p>
+            </div>
+            <button class="btn hand-deck-btn" onclick="openMyCodex()">Open Deck</button>
+          </div>
+
+          <p class="hand-help">Choose up to three cards for your next siege. Your full collection and natal profile live in Deck.</p>
+
+          <div class="deck-sort-bar hand-controls">
+            <span class="control-label">Sort</span>
+            <button class="sort-chip active" id="sort-rank" onclick="setHandSort('rank')">Rank</button>
+            <button class="sort-chip" id="sort-suit" onclick="setHandSort('suit')">Suit</button>
+            <button class="sort-chip" id="sort-affinity" onclick="setHandSort('affinity')">Faction</button>
+            <button class="sort-chip" id="sort-power" onclick="setHandSort('power')">Power</button>
+
+            <span class="control-label">Suit</span>
+            <button class="sort-chip active" id="filter-all" onclick="setHandFilter('all')">All</button>
+            <button class="sort-chip" id="filter-wands" onclick="setHandFilter('wands')" aria-label="Filter Wands">🔥</button>
+            <button class="sort-chip" id="filter-cups" onclick="setHandFilter('cups')" aria-label="Filter Cups">💧</button>
+            <button class="sort-chip" id="filter-swords" onclick="setHandFilter('swords')" aria-label="Filter Swords">💨</button>
+            <button class="sort-chip" id="filter-pentacles" onclick="setHandFilter('pentacles')" aria-label="Filter Pentacles">🪨</button>
+          </div>
+
+          <div id="active-deck-strip" class="cards-scroller tarot-hand-grid">
             <!-- Populated by JS -->
           </div>
-          <div id="fuse-controls-bar" style="display:none; padding:10px; background:rgba(216, 180, 106, 0.05); border:1px dashed var(--gold); border-radius:3px; justify-content:space-between; align-items:center;">
-            <span id="fuse-label" style="font-size:11px; color:var(--gold-bright)">Fusing...</span>
-            <button class="btn" style="padding:6px 12px;" onclick="cancelFuse()">Cancel</button>
-          </div>
+
+          <details class="fusion-drawer">
+            <summary>Fuse duplicate cards</summary>
+            <p>Choose a card, then a matching copy to level it up.</p>
+            <div id="collection-grid" class="fusion-grid"><!-- Populated by JS --></div>
+            <div id="fuse-controls-bar" class="fuse-controls">
+              <span id="fuse-label">Fusing...</span>
+              <button class="btn" onclick="cancelFuse()">Cancel</button>
+            </div>
+          </details>
         </div>
 
         <!-- Duel & Auto-Siege Console -->

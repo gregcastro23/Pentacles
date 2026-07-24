@@ -643,11 +643,17 @@
     <span class="c">// add weighted control to Zone, re-evaluate owner flip</span>
 }
 
+<span class="c">// Single-card Drag & Drop progressive raid strike</span>
+<span class="at">#[spacetimedb::reducer]</span>
+<span class="kw">fn</span> <span class="fn">strike_star_single</span>(ctx: &amp;<span class="ty">ReducerContext</span>, hip_id: <span class="ty">u32</span>, card_id: <span class="ty">u64</span>) {
+    <span class="c">// instant single-card strike: chip control threshold, weather affinity (+35%), magnitude scaling</span>
+}
+
 <span class="c">// Scheduled: advance clocks, zones &amp; decay control</span>
 <span class="at">#[spacetimedb::reducer]</span>
 <span class="kw">fn</span> <span class="fn">tick_sky</span>(ctx: &amp;<span class="ty">ReducerContext</span>, _timer: <span class="ty">SkyTickTimer</span>) {
-    <span class="c">// rotate star/planet zone hints, sweep stale duels,</span>
-    <span class="c">// bleed every Zone.control toward 0 by faction decay rate</span>
+    <span class="c">// agent_war: resolve automated raids against sentinel garrisons,</span>
+    <span class="c">// rotate star/planet zone hints, sweep stale duels, decay Zone control</span>
 }
 
 <span class="c">// Live PvP: pair two contesters into a synchronous duel</span>
@@ -667,7 +673,7 @@
           <div class="step"><div class="si">01</div><h4>Look Up</h4><p>Raise the device; AR resolves your pose and renders the Pentacle over the real sky (or your ceiling).</p></div>
           <div class="step"><div class="si">02</div><h4>Read the Map</h4><p>See zone owners, your faction's front line, and where your planet is transiting right now.</p></div>
           <div class="step"><div class="si">03</div><h4>Pick a Star</h4><p>Tap a contested node — a bright objective star or a quiet flank.</p></div>
-          <div class="step"><div class="si">04</div><h4>Duel</h4><p>Fight live or against the owner's Sentinel deck; suits &amp; chart stats decide it.</p></div>
+          <div class="step"><div class="si">04</div><h4>Raid &amp; Duel</h4><p>Drag tarot cards to launch instant strikes against defender Sentinels; weather suits &amp; magnitude stats decide it.</p></div>
           <div class="step"><div class="si">05</div><h4>Shift &amp; Hold</h4><p>Move the zone meter, bank control, set your own defense — then chase the next star.</p></div>
         </div>
       </section>
@@ -683,8 +689,8 @@
           <tbody>
             <tr><td><strong>Sky Renderer</strong></td><td>Unity scripts render horizon-anchored stars, zones, GPS gate, tap/long-press interactions</td><td>SkyRenderer + SkyMath + PentacleGrid</td></tr>
             <tr><td><strong>Identity</strong></td><td>Birth chart calculation, top-3 faction choice, idempotent player creation, 20-card starter deck</td><td>ChartCalculator + create_player + mint_deck</td></tr>
-            <tr><td><strong>Combat Core</strong></td><td>Auto-Siege star battles, Defense sentinels, live Lane Skirmish, environmental suits</td><td>resolve_star_battle + commit_duel</td></tr>
-            <tr><td><strong>Persistent War</strong></td><td>Zone decay, rotating weather, transit buffs, stale-duel cleanup, bot raids</td><td>tick_sky + push_ephemeris</td></tr>
+            <tr><td><strong>Combat Core</strong></td><td>Instant Drag &amp; Drop single-card raids, Auto-Siege star battles, Defense sentinels, live Lane Skirmish, environmental suits</td><td>resolve_star_battle + strike_star_single + commit_duel</td></tr>
+            <tr><td><strong>Persistent War</strong></td><td>Zone decay, rotating weather, transit buffs, stale-duel cleanup, automated faction raids vs sentinels</td><td>tick_sky + agent_war + push_ephemeris</td></tr>
             <tr><td><strong>Collection &amp; Oracle</strong></td><td>Fuse, trade, card tooltips, tutorial, proactive tips, Claude-backed chat</td><td>CollectionPanel + TradePanel + OraclePanel + feeder/oracle-service.ts</td></tr>
           </tbody>
         </table>

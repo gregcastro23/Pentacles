@@ -29,6 +29,7 @@ dist-alchm/
 
 # Rust (SpacetimeDB server target)
 server/target/
+target/
 
 # Unity temporary files & build artifacts
 [Ll]ibrary/
