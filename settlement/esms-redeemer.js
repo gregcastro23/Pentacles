@@ -82,7 +82,13 @@ async function defaultVerifyAuthorization(payload) {
     },
     types: REDEEM_AUTH_TYPES,
     primaryType: 'RedeemAuthorization',
-    message: payload,
+    message: {
+      from: payload.from,
+      orderId: payload.orderId,
+      ids: payload.ids,
+      amounts: payload.amounts,
+      deadline: payload.deadline,
+    },
     signature: payload.signature,
   })
 }

@@ -2914,7 +2914,13 @@ fn normalized_solana_signature(raw: &str, field: &str) -> Result<String, String>
 }
 
 fn ensure_unprocessed(ctx: &ReducerContext, hash: &str) -> Result<(), String> {
-    if ctx.db.processed_tx().tx_hash().find(hash).is_some() {
+    if ctx
+        .db
+        .processed_tx()
+        .tx_hash()
+        .find(hash.to_string())
+        .is_some()
+    {
         return Err("Transaction already processed".into());
     }
     Ok(())
@@ -4865,9 +4871,9 @@ pub fn bind_wallet_address(
     Ok(())
 }
 
-/// Register a verified source-chain ESMS burn as a pending mint on the other
-/// supported chain. Both wallet bindings are captured from the caller's Player
-/// row, so a pending transfer cannot redirect the destination mint.
+/// Register a claimed source-chain ESMS burn for feeder verification and a
+/// pending mint on the other supported chain. Both wallet bindings are captured
+/// from the caller's Player row, so the destination cannot be redirected.
 #[reducer]
 pub fn bridge_esms_crosschain(
     ctx: &ReducerContext,
