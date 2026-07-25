@@ -40,18 +40,38 @@ export interface TransferHookEvent {
   timestamp: number;
 }
 
-/**
- * Dispatch event to SpacetimeDB sync_solana_event reducer.
- */
-async function syncToSpacetime(event: EsmsEvent): Promise<void> {
-  const httpArgs = [
+const MAX_U64 = (1n << 64n) - 1n;
+
+function solanaSyncReducerArgs(event: EsmsEvent) {
+  return [
     event.signature,
     event.player,
     event.eventType,
     event.elementId,
-    event.amount.toString(),
-  ];
+    event.amount,
+  ] as const;
+}
 
+/**
+ * Encode the reducer argument tuple without routing a u64 through JavaScript's
+ * lossy Number type. SpacetimeDB's SATS decoder expects an unquoted JSON
+ * integer for u64, while JSON.stringify rejects bigint values.
+ */
+export function encodeSolanaSyncBody(event: EsmsEvent): string {
+  if (event.amount < 0n || event.amount > MAX_U64) {
+    throw new RangeError("Solana event amount must fit in u64");
+  }
+  const [signature, player, eventType, elementId, amount] = solanaSyncReducerArgs(event);
+  const encodedLeadingArgs = [signature, player, eventType, elementId]
+    .map((value) => JSON.stringify(value))
+    .join(",");
+  return `[${encodedLeadingArgs},${amount}]`;
+}
+
+/**
+ * Dispatch event to SpacetimeDB sync_solana_event reducer.
+ */
+async function syncToSpacetime(event: EsmsEvent): Promise<void> {
   try {
     if (SPACETIME_TOKEN) {
       const res = await fetch(`${SPACETIMEDB_URI}/v1/database/${DB}/call/sync_solana_event`, {
@@ -60,7 +80,7 @@ async function syncToSpacetime(event: EsmsEvent): Promise<void> {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${SPACETIME_TOKEN}`,
         },
-        body: JSON.stringify(httpArgs),
+        body: encodeSolanaSyncBody(event),
       });
       if (res.ok) {
         console.log(`[SolanaSync] Synced ${event.eventType} (sig: ${event.signature.slice(0, 12)}...) to SpacetimeDB.`);
@@ -69,13 +89,7 @@ async function syncToSpacetime(event: EsmsEvent): Promise<void> {
         console.warn(`[SolanaSync] sync_solana_event status ${res.status}: ${text}`);
       }
     } else {
-      await cliCall(DB, "sync_solana_event", [
-        event.signature,
-        event.player,
-        event.eventType,
-        event.elementId,
-        event.amount,
-      ]);
+      await cliCall(DB, "sync_solana_event", [...solanaSyncReducerArgs(event)]);
       console.log(`[SolanaSync] CLI synced ${event.eventType} (sig: ${event.signature.slice(0, 12)}...).`);
     }
   } catch (err) {

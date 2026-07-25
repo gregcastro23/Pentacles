@@ -10,12 +10,19 @@ capturable zones, fought over star-by-star.
 > hardening the SpacetimeDB integration, the Claude/AI calls, and the database situation, grounded
 > in the code as it shipped (indexing, deployable owner-token auth, fail-safe Oracle calls, prompt-
 > cache verification, and wiring the web client to the live module).
+>
+> **Testnet operations:** [`docs/TESTNET_DEPLOYMENT.md`](docs/TESTNET_DEPLOYMENT.md)
+> records the currently verified Solana Devnet, SpacetimeDB Maincloud, and
+> Railway feeder deployment, including the repeatable release and smoke-test
+> procedure. These resources are development infrastructure, not mainnet.
 
 ```
 Pentacles/
 ├── Pentacles_GDD.html          # the Game Design Document — open in a browser
 ├── pentacles.css               # GDD stylesheet
 ├── README.md
+├── docs/
+│   └── TESTNET_DEPLOYMENT.md  # deployed resources, release steps, verification
 ├── star-catalog.js             # the real sky: 5,041 naked-eye stars (web client copy)
 ├── sky.js                      # web client celestial math + pentacle partition
 ├── scripts/
@@ -38,10 +45,12 @@ Pentacles/
 │   ├── DeckPanel.cs                # live hand strip + selection + card-granted toast
 │   ├── BattlePanel.cs              # star-target overlay: strike + result
 │   └── DuelPanel.cs                # live PvP "Lane Skirmish" duel
-└── feeder/                     # real-ephemeris cron (Bun)
-    ├── ephemeris.ts                # low-precision geocentric positions
-    ├── push-ephemeris.ts           # pushes positions via the push_ephemeris reducer
-    └── package.json
+└── feeder/                     # supervised Bun side-service network
+    ├── all.ts                      # restarts and health-checks all seven workers
+    ├── push-ephemeris.ts           # real ephemeris → SpacetimeDB
+    ├── solana-sync-service.ts      # Token-2022 logs → idempotent Maincloud sync
+    ├── bridge-service.ts           # verified cross-chain burn/mint settlement
+    └── Dockerfile                  # Railway worker image (repo-root build context)
 ```
 
 ## Playable Web App Client
@@ -91,21 +100,25 @@ vercel --prod
 | Key | Value |
 | --- | --- |
 | Database (module) name | `cookingwithcastrollc` |
-| Owner identity | `c2007058fefb90b9ffcd33379c03d135cbecadda7b901575d9b8ed8ca06ddb52` |
-| Host | `wss://maincloud.spacetimedb.com` |
+| Owner identity | `0xc2007058fefb90b9ffcd33379c03d135cbecadda7b901575d9b8ed8ca06ddb52` |
+| Host | `https://maincloud.spacetimedb.com` |
 | CLI tested against | `spacetime` v2.4.1 |
 
 ### 1 · Deploy the backend
 
 ```bash
-cd server
-# Match Cargo.toml's spacetimedb version to your CLI. Cleanest:
-#   spacetime init --lang rust .     # then keep these src/*.rs files
-spacetime login                      # you're already logged in as the owner
-spacetime build
-spacetime publish cookingwithcastrollc   # runs `init` (seeds 11 zones + the brightest stars)
-spacetime logs cookingwithcastrollc -f
+# From the repository root, authenticated as the database owner.
+./scripts/prod-cutover.sh preflight
+./scripts/prod-cutover.sh backup
+./scripts/prod-cutover.sh publish
+./scripts/prod-cutover.sh verify
 ```
+
+The cutover script builds from current source, backs up every readable table,
+and refuses a migration that requires data deletion. Do not use
+`--delete-data=on-conflict` without a reviewed backup and explicit acceptance of
+the possible wipe. See the [testnet runbook](docs/TESTNET_DEPLOYMENT.md) for the
+release that was verified on 2026-07-24.
 
 **The full sky seeds itself.** `init` plants the brightest 512 stars immediately;
 `tick_sky` then backfills the rest of the embedded naked-eye catalogue
@@ -125,15 +138,17 @@ The Rust module is compile-tested against the generated bindings in this repo;
 if you add new schema or reducers, publish and regenerate the C# bindings before
 opening the Unity project.
 
-> After adding tables/reducers (e.g. the live-duel set: `duel` table +
-> `commit_duel` and the rewritten `enqueue_duel`), re-run `spacetime build &&
-> spacetime publish cookingwithcastrollc`, then `spacetime generate` again so the
-> C# bindings pick up the new table and reducers.
+> After adding tables or reducers, republish through `prod-cutover.sh`, then
+> regenerate both client binding sets with `bun run gen` and the C# command
+> below. Commit generated changes with the schema change.
 
 ### 2 · Generate the Unity bindings
 
 ```bash
-spacetime generate --lang csharp --out-dir ../unity/Assets/Autogen
+# Run from the repository root.
+bun run gen
+spacetime generate --lang csharp --module-path server \
+  --out-dir unity/Assets/Autogen -y
 ```
 
 Drop the `unity/*.cs` scripts into your Unity (AR Foundation) project. Wiring:
@@ -183,18 +198,32 @@ Drop the `unity/*.cs` scripts into your Unity (AR Foundation) project. Wiring:
   stake some of your cards and tap some of theirs (cards are public), and
   `propose_trade`; the swap commits only when both sides confirm.
 
-### 3 · Run the ephemeris feeder
+### 3 · Run the feeder supervisor
 
 ```bash
 cd feeder
-bun run push-ephemeris.ts          # loop (default every 15 min)
-bun run push-ephemeris.ts --once   # single pass — wire to cron/Railway if you like
+bun install
+bun run all
 ```
 
-It computes all ten bodies — position plus an apparent-**retrograde** flag (ecliptic
-longitude vs a day earlier; this drives a drafted card's inversion) — and calls
-`push_ephemeris` through the `spacetime` CLI, so it authenticates as your owner
-identity (the reducer is owner-gated). No token plumbing.
+`all.ts` supervises seven long-running workers: Oracle, Word Duel, Jing,
+constellation attestation, omnichain bridge settlement, ephemeris, and Solana
+Token-2022 synchronization. It restarts crashed children with bounded backoff
+and reports a `feeders 7/7 children up` heartbeat. Run one worker directly when
+debugging:
+
+```bash
+cd feeder
+bun run bridge
+bun run solana-sync-service.ts
+bun run push-ephemeris.ts --once
+```
+
+Hosted deployments require the owner bearer token and service-specific signer
+keys in server-only environment variables. Never use a `VITE_` prefix for a
+private key or token. Railway must build `feeder/Dockerfile` with the repository
+root as its build context; the exact CLI configuration is in the
+[testnet runbook](docs/TESTNET_DEPLOYMENT.md#railway-feeder-release).
 
 ### 4 · Run the Oracle service (Claude chat)
 

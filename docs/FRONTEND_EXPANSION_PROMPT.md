@@ -1,5 +1,10 @@
 # Prompt — Flesh out the Pentacles web client
 
+> **Historical implementation brief:** this file preserves requirements from an
+> earlier frontend pass. Statements about what is or is not connected are not
+> current operational status. See
+> [`TESTNET_DEPLOYMENT.md`](TESTNET_DEPLOYMENT.md) for the verified deployment.
+
 > Paste this into a fresh Claude Code session at the repo root
 > (`/Users/cookingwithcastro/Desktop/Spacetimedbhackathon/Pentacles`).
 

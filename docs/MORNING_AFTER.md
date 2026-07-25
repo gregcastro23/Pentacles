@@ -4,6 +4,11 @@
 situation — written against the code as it actually shipped, and updated 2026-06-08 with the
 cross-project plan we set with **planetary-agents**.*
 
+> **Historical snapshot:** this guide describes the codebase as it stood on
+> 2026-06-08. Several gaps below have since been implemented. Use
+> [`TESTNET_DEPLOYMENT.md`](TESTNET_DEPLOYMENT.md) for current deployed resources,
+> release commands, verification evidence, and known blockers.
+
 **Status:** post-hackathon retrospective + live cross-project roadmap · **Module:**
 `cookingwithcastrollc` (maincloud) · **Date:** 2026-06-08
 
