@@ -1100,7 +1100,7 @@ class GameState {
   }
 
   generateProceduralRitual(targetType, targetId) {
-    const types = ['suit', 'rank_asc', 'rank_desc', 'word', 'sum'];
+    const types = ['suit', 'gate_raid', 'rank_asc', 'rank_desc', 'sum'];
     const type = types[Math.floor(Math.random() * types.length)];
     
     let cardsNeeded = 3;
@@ -1124,22 +1124,23 @@ class GameState {
       targetSuit = SIGN_SUITS[suitIdx];
     }
 
-    if (type === 'suit') {
+    if (type === 'gate_raid') {
       cardsNeeded = 3;
-      description = `Chain ${cardsNeeded} ${SUIT_NAMES[targetSuit]} cards.`;
+      targetSum = 20 + Math.floor(Math.random() * 25);
+      description = `Drag Tarot cards to chip away at the Zone Gate Defense (${targetSum} total ATK).`;
+    } else if (type === 'suit') {
+      cardsNeeded = 3;
+      description = `Chain ${cardsNeeded} ${SUIT_NAMES[targetSuit]} cards to breach the gate.`;
     } else if (type === 'rank_asc') {
       cardsNeeded = 3;
       description = `Chain ${cardsNeeded} cards of ascending rank (e.g. 3 → 4 → 5).`;
     } else if (type === 'rank_desc') {
       cardsNeeded = 3;
       description = `Chain ${cardsNeeded} cards of descending rank (e.g. King → Queen → Knight).`;
-    } else if (type === 'word') {
-      cardsNeeded = 3;
-      description = `Spell a valid Codex Word of length ≥ 3 using card Letters in order.`;
     } else if (type === 'sum') {
       cardsNeeded = 3;
       targetSum = 15 + Math.floor(Math.random() * 15); // 15..30
-      description = `Chain ${cardsNeeded} cards summing to exactly ${targetSum} in rank (Page=11, Knight=12, Queen=13, King=14).`;
+      description = `Chain ${cardsNeeded} cards summing to at least ${targetSum} in rank.`;
     }
 
     return {
@@ -1186,25 +1187,8 @@ class GameState {
           return { valid: false, reason: `Rank must be strictly lower than last card (${rankName(lastCard.rank)} > ${rankName(card.rank)})!` };
         }
       }
-    } else if (ritual.type === 'sum') {
-      const currentSum = currentChain.reduce((sum, c) => sum + c.rank, 0);
-      const newSum = currentSum + card.rank;
-      if (currentChain.length === ritual.cardsNeeded - 1) {
-        if (newSum !== ritual.targetSum) {
-          return { valid: false, reason: `Sum would be ${newSum}, but must be exactly ${ritual.targetSum}!` };
-        }
-      } else {
-        if (newSum >= ritual.targetSum) {
-          return { valid: false, reason: `Sum would exceed/reach target sum of ${ritual.targetSum} too early!` };
-        }
-      }
-    } else if (ritual.type === 'word') {
-      if (currentChain.length === ritual.cardsNeeded - 1) {
-        const wordChars = currentChain.map(c => c.letter).concat([card.letter]).join("").toUpperCase();
-        if (!isValidWord(wordChars)) {
-          return { valid: false, reason: `"${wordChars}" is not a valid word in the Codex!` };
-        }
-      }
+    } else if (ritual.type === 'gate_raid' || ritual.type === 'sum') {
+      return { valid: true };
     }
 
     return { valid: true };
@@ -1234,7 +1218,10 @@ class GameState {
     ritual.chain.push(JSON.parse(JSON.stringify(card)));
 
     // Check if completed
-    const completed = ritual.chain.length === ritual.cardsNeeded;
+    const totalAttackDealt = ritual.chain.reduce((acc, c) => acc + (c.attack || c.rank || 5), 0);
+    const completed = (ritual.type === 'gate_raid' || ritual.type === 'sum')
+      ? (totalAttackDealt >= (ritual.targetSum || 20) || ritual.chain.length >= ritual.cardsNeeded)
+      : (ritual.chain.length === ritual.cardsNeeded);
     let completionReward = null;
 
     if (completed) {
@@ -1261,7 +1248,7 @@ class GameState {
       }
 
       // 3. Tokens reward
-      const baseTokens = ritual.type === 'word' ? 600 : 400;
+      const baseTokens = 500;
       this.player.tokens = (this.player.tokens || 0) + baseTokens;
 
       // 4. Spoils: Draft a reward card

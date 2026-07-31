@@ -456,7 +456,6 @@
       document.querySelectorAll(".sidebar-content > .tab-pane").forEach(pane => {
         pane.classList.toggle("active", pane.id === tabId);
       });
-      if (tabId === 'tab-word') renderWordDuel();
       if (tabId === 'tab-pools') renderPoolsPanel();
       synth.playClick();
     }
@@ -2259,160 +2258,13 @@
       renderStarsNodes();
       renderCollection();
       renderUserBanner();
-      renderWordDuel();
       renderPoolsPanel();
-    }
-
-    // ---- WORD DUELS OF THE SPHERES (the Lettered Arcana) ----
-    function renderWordDuel() {
-      if (!state.player) return;
-      document.getElementById("word-token-balance").innerText = "✦ " + (state.player.tokens || 0).toLocaleString();
-
-      const have = state.playerLetters();
-      const rackEl = document.getElementById("word-rack");
-      const letters = Object.keys(have).sort();
-      rackEl.innerHTML = letters.length === 0
-        ? `<span style="font-size:11px;color:var(--dim)">No lettered Arcana yet — win matches to draw tiles.</span>`
-        : letters.map(l => {
-            const val = LETTER_VALUES[l] || 0;
-            const count = have[l];
-            return `<span class="word-tile" onclick="appendLetter('${l}')"><b>${l}</b><sub>${val}</sub>${count > 1 ? `<i>×${count}</i>` : ""}</span>`;
-          }).join("");
-
-      const sel = document.getElementById("word-opponent");
-      if (!sel.options.length) {
-        sel.innerHTML = PLANET_NAMES.map((n, i) => `<option value="${i}">${PLANET_GLYPHS[i]} ${n}</option>`).join("");
-      }
-
-      const log = document.getElementById("word-log-console");
-      log.innerHTML = state.wordDuels.length === 0
-        ? `<span class="log-line system">No words cast yet. Spell your first Word of Power…</span>`
-        : state.wordDuels.map(d => {
-            const opp = PLANET_GLYPHS[d.opponent] + " " + PLANET_NAMES[d.opponent];
-            return `<span class="log-line ${d.won ? "win" : "loss"}">${d.won ? "✦" : "✗"} <b>${d.playerWord}</b> (${d.playerScore}) vs ${opp} ${d.agentWord || "—"} (${d.agentScore}) → +${d.tokens} ✦</span>`;
-          }).join("");
-
-      onWordInput();
-    }
-
-    function appendLetter(l) {
-      const inp = document.getElementById("word-input");
-      inp.value = (inp.value + l).toUpperCase();
-      onWordInput();
-      inp.focus();
-    }
-
-    function onWordInput() {
-      const w = (document.getElementById("word-input").value || "").trim().toUpperCase();
-      const prev = document.getElementById("word-preview");
-      if (!w) { prev.innerText = ""; return; }
-      const spellable = canSpell(w, state.playerLetters());
-      const valid = isValidWord(w);
-      let msg = `${w.length} letters · ${wordScore(w)} pts`;
-      if (!spellable) msg += " · ✗ missing letters";
-      else if (WORD_SET === null) msg += " · opening Codex…";
-      else if (!valid) msg += " · ✗ not in Codex";
-      else msg += " · ✓ ready";
-      prev.style.color = (spellable && valid) ? "var(--gold-bright)" : "var(--dim)";
-      prev.innerText = msg;
-    }
-
-    function renderDuelResult(res, opp, live) {
-      const out = document.getElementById("word-result");
-      out.style.color = res.won ? "var(--gold-bright)" : "var(--dim)";
-      const tag = live ? ' <span class="duel-live">● live</span>' : '';
-      let html = res.won
-        ? `✦ <b>Victory!</b> ${res.playerWord} (${res.playerScore}) bested ${PLANET_NAMES[opp]}'s ${res.agentWord || "—"} (${res.agentScore}). <b>+${res.tokens}</b> tokens!${tag}`
-        : `${PLANET_NAMES[opp]} answered <b>${res.agentWord || "—"}</b> (${res.agentScore}) to your ${res.playerWord} (${res.playerScore}). +${res.tokens} tokens.${tag}`;
-      if (res.rationale) html += `<br><span class="duel-rationale">“${res.rationale}”</span>`;
-      out.innerHTML = html;
-    }
-
-    // Fast local validation so the live path gives instant feedback before the
-    // round-trip (mirrors the server cast_word guards in words.rs).
-    function validateWordInput(w, skipLetters) {
-      if (!w || w.length < 2) return "A Word of Power needs at least two letters.";
-      if (!/^[A-Z]+$/.test(w)) return "Letters only.";
-      if (typeof WORD_SET === "undefined" || WORD_SET === null) return "The Codex is still opening — try again in a moment.";
-      if (!isValidWord(w)) return `"${w}" is not in the Codex.`;
-      // Online, the server validates letters against its authoritative rack.
-      if (!skipLetters && !canSpell(w, state.playerLetters())) return "Your Arcana don't hold those letters.";
-      return null;
-    }
-
-    async function castWordOfPower() {
-      if (!state.player) return;
-      const inp = document.getElementById("word-input");
-      const opp = parseInt(document.getElementById("word-opponent").value || "0", 10);
-      const out = document.getElementById("word-result");
-      const live = !!(window.Pentacles && window.Pentacles.net && window.Pentacles.net.isLive);
-
-      if (!live) {
-        // Offline solver — the bundled mirror of the server's cast_word.
-        const res = state.castWord(inp.value, opp);
-        if (res.error) {
-          out.style.color = "#e88a8a";
-          out.innerText = "✗ " + res.error;
-          synth.playClick();
-          return;
-        }
-        renderDuelResult(res, opp, false);
-        inp.value = "";
-        if (res.won) synth.playFanfare(); else synth.playClick();
-        renderWordDuel();
-        renderUserBanner();
-        return;
-      }
-
-      // Live path — cast_word reducer → the planetary agent answers via the feeder.
-      const w = inp.value.trim().toUpperCase();
-      const err = validateWordInput(w, true); // letters validated against the server rack below
-      if (err) {
-        out.style.color = "#e88a8a";
-        out.innerText = "✗ " + err;
-        synth.playClick();
-        return;
-      }
-      const castBtn = document.getElementById("word-cast-btn");
-      out.style.color = "var(--dim)";
-      out.innerHTML = `<span class="duel-thinking">✦ ${PLANET_NAMES[opp]} deliberates over its rack…</span>`;
-      if (castBtn) castBtn.disabled = true;
-      try {
-        // Validate letters against the live (authoritative) rack before casting.
-        const serverRack = await window.Pentacles.duels.getServerRack().catch(() => null);
-        if (serverRack && !canSpell(w, serverRack)) {
-          throw new Error("Your live Arcana don't hold the letters for that word.");
-        }
-        const res = await window.Pentacles.duels.castWordLive(w, opp);
-        // Mirror the offline side effects with the server's scored result.
-        state.player.tokens += res.tokens;
-        if (res.won) state.player.word_wins = (state.player.word_wins || 0) + 1;
-        state.wordDuels.unshift({
-          opponent: opp, playerWord: res.playerWord, playerScore: res.playerScore,
-          agentWord: res.agentWord, agentScore: res.agentScore, won: res.won, tokens: res.tokens, at: res.at,
-        });
-        if (state.wordDuels.length > 20) state.wordDuels.pop();
-        state.save();
-        renderDuelResult(res, opp, true);
-        inp.value = "";
-        if (res.won) synth.playFanfare(); else synth.playClick();
-        renderWordDuel();
-        renderUserBanner();
-      } catch (e) {
-        out.style.color = "#e88a8a";
-        out.innerText = "✗ " + (e.message || e);
-        toast(e.message || String(e), { type: "error", title: "Word Duel" });
-      } finally {
-        if (castBtn) castBtn.disabled = false;
-      }
     }
 
     // Init Page setup
     document.addEventListener("DOMContentLoaded", () => {
       initHologramControls();
       requestAnimationFrame(animateFrame);
-      // Open the Codex (shared wordlist.txt) for Word Duels; re-render when it lands.
-      loadCodex().then(() => { if (state.player) renderWordDuel(); });
 
       const loaded = state.load();
       if (loaded && state.player) {
@@ -2584,8 +2436,12 @@
       }
 
       const sigil = targetType === "planet" ? PLANET_GLYPHS[targetId] : "✦";
-      const name = targetType === "planet" ? `${PLANET_NAMES[targetId]} Alignment` : `Zone ${targetId} Ritual`;
+      const name = targetType === "planet" ? `${PLANET_NAMES[targetId]} Alignment` : `Zone ${targetId} Gate`;
       const titleColor = targetType === "planet" ? PLANET_COLORS[targetId] : "var(--gold-bright)";
+
+      const totalAtk = (ritual.chain || []).reduce((acc, c) => acc + (c.attack || c.rank || 5), 0);
+      const targetThreshold = ritual.targetSum || 25;
+      const percent = Math.min(100, Math.round((totalAtk / targetThreshold) * 100));
 
       let slotsHTML = "";
       for (let i = 0; i < ritual.cardsNeeded; i++) {
@@ -2599,20 +2455,20 @@
             <div class="ritual-slot filled ${card.suit}">
               <span class="ritual-slot-suit">${SUIT_GLYPHS[card.suit]}</span>
               <span class="ritual-slot-rank">${card.is_major ? 'Major' : rankName(card.rank)}</span>
-              <span class="ritual-slot-letter">${card.letter}</span>
+              <span class="ritual-slot-letter" style="color:var(--gold-bright);">⚔ ${card.attack || card.rank}</span>
             </div>
           `;
         } else {
           const isActiveSlot = i === ritual.chain.length;
           slotsHTML += `
             <div class="ritual-slot ${isActiveSlot ? 'active' : ''}">
-              <span class="ritual-slot-placeholder">${isActiveSlot ? 'Drop here' : 'Locked'}</span>
+              <span class="ritual-slot-placeholder">${isActiveSlot ? 'Drag Card Here' : 'Locked'}</span>
             </div>
           `;
         }
       }
 
-      const rewardsText = `Rewards: +${ritual.type === 'word' ? 600 : 400} Tokens · +500 Zone Control · Spoils Card (Lv 2)`;
+      const rewardsText = `Rewards: +500 Tokens · +500 Zone Control · Spoils Card (Lv 2)`;
 
       overlay.innerHTML = `
         <div class="ritual-header">
@@ -2623,6 +2479,17 @@
           <button class="btn btn-reset-ritual" onclick="resetActiveRitual()">Clear Chain</button>
         </div>
         <div class="ritual-challenge-desc">${ritual.description}</div>
+        
+        <div style="margin: 8px 0; width: 100%;">
+          <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--gold-bright); margin-bottom:4px;">
+            <span>Gate Threshold Progress</span>
+            <span><b>${totalAtk}</b> / ${targetThreshold} ATK (${percent}%)</span>
+          </div>
+          <div style="width: 100%; height: 8px; background: rgba(0,0,0,0.5); border-radius: 4px; overflow: hidden; border: 1px solid var(--line);">
+            <div style="width: ${percent}%; height: 100%; background: linear-gradient(90deg, var(--gold), #f6cf83); transition: width 0.3s ease;"></div>
+          </div>
+        </div>
+
         <div class="ritual-chain-row">
           ${slotsHTML}
         </div>
