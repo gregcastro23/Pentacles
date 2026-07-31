@@ -219,7 +219,74 @@ pub struct Zone {
     pub owner: Option<Planet>, // None = neutral
     pub control: i32,          // -1000..+1000 tug-of-war meter
     pub updated_at: Timestamp,
+    #[default(false)]
+    pub in_flux: bool,
+    #[default(0u8)]
+    pub flux_level: u8,        // 0..100 intensity of flux
+    #[default(None::<u16>)]
+    pub flux_constellation: Option<u16>, // Constellation driving the flux
+    #[default(None::<Identity>)]
+    pub flux_triggered_by: Option<Identity>, // Historical agent or system identity
+    #[default(None::<Timestamp>)]
+    pub flux_expires_at: Option<Timestamp>,
 }
+
+/// Verified AR camera capture of a constellation by a human player.
+/// Grants a temporary 4x Meta Advantage multiplier in that constellation's zone,
+/// and awards high-precision astronomical telemetry data and ESMS tokens.
+#[spacetimedb::table(accessor = ar_constellation_capture, public)]
+#[derive(Clone)]
+pub struct ArConstellationCapture {
+    #[primary_key]
+    #[auto_inc]
+    pub capture_id: u64,
+    #[index(btree)]
+    pub player: Identity,
+    pub constellation_id: u16,
+    pub zone_id: u8,
+    pub precision_score: u8, // 0..100 alignment score from AR camera sensors
+    #[default(0u32)]
+    pub azimuth_deg: u32,    // Device compass heading in arc-degrees
+    #[default(0i32)]
+    pub altitude_deg: i32,   // Device tilt angle in arc-degrees
+    #[default(0u64)]
+    pub tokens_harvested: u64, // Word/ESMS tokens awarded for camera alignment precision
+    pub captured_at: Timestamp,
+    pub expires_at: Timestamp,
+}
+
+/// Player 3D Volumetric Depth and Environment Tracking State (Indoor vs Outdoor).
+#[spacetimedb::table(accessor = seeker_state, public)]
+#[derive(Clone)]
+pub struct SeekerState {
+    #[primary_key]
+    pub player: Identity,
+    pub is_indoor: bool,     // True if indoor (volumetric spatial deep dive), False if outdoor (optical sky harvest)
+    pub x: f64,              // 3D Cartesian X coordinate in parsecs
+    pub y: f64,              // 3D Cartesian Y coordinate in parsecs
+    pub z: f64,              // 3D Cartesian Z coordinate / Depth in parsecs
+    pub active_layer: u8,    // 1: Ephemeris, 2: Bound, 3: Arm, 4: Deep Field
+    pub last_updated: Timestamp,
+}
+
+/// Encrypted Deep Space Cache Nodes seeded in volumetric Cartesian 3D space.
+#[spacetimedb::table(accessor = deep_space_cache, public)]
+#[derive(Clone)]
+pub struct DeepSpaceCache {
+    #[primary_key]
+    #[auto_inc]
+    pub cache_id: u64,
+    pub center_x: f64,
+    pub center_y: f64,
+    pub center_z: f64,
+    pub esms_yield: u32,
+    pub encryption_status: u8, // 0..100%
+    pub active_seekers: u32,   // Number of players currently anchored to this cache
+    pub created_at: Timestamp,
+}
+
+
+
 
 #[spacetimedb::table(accessor = star_node, public)]
 #[derive(Clone)]

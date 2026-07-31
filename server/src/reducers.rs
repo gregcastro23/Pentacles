@@ -122,6 +122,11 @@ pub fn init(ctx: &ReducerContext) {
                 owner: None,
                 control: 0,
                 updated_at: ctx.timestamp,
+                in_flux: false,
+                flux_level: 0,
+                flux_constellation: None,
+                flux_triggered_by: None,
+                flux_expires_at: None,
             });
         }
     }
@@ -138,6 +143,51 @@ pub fn init(ctx: &ReducerContext) {
 
     // Seed the comet registry (Chiron — the first comet).
     seed_comets(ctx);
+
+    // Seed initial Volumetric Deep Space Anomaly Caches across Cosmic Layers 1..4
+    if ctx.db.deep_space_cache().iter().count() == 0 {
+        ctx.db.deep_space_cache().insert(DeepSpaceCache {
+            cache_id: 0,
+            center_x: 10.5,
+            center_y: 4.2,
+            center_z: 12.8,
+            esms_yield: 2500,
+            encryption_status: 100,
+            active_seekers: 0,
+            created_at: ctx.timestamp,
+        });
+        ctx.db.deep_space_cache().insert(DeepSpaceCache {
+            cache_id: 0,
+            center_x: 145.0,
+            center_y: -89.4,
+            center_z: 310.2,
+            esms_yield: 5000,
+            encryption_status: 100,
+            active_seekers: 0,
+            created_at: ctx.timestamp,
+        });
+        ctx.db.deep_space_cache().insert(DeepSpaceCache {
+            cache_id: 0,
+            center_x: 2450.0,
+            center_y: 1200.0,
+            center_z: 4800.0,
+            esms_yield: 12000,
+            encryption_status: 100,
+            active_seekers: 0,
+            created_at: ctx.timestamp,
+        });
+        ctx.db.deep_space_cache().insert(DeepSpaceCache {
+            cache_id: 0,
+            center_x: 58000.0,
+            center_y: -14000.0,
+            center_z: 105000.0,
+            esms_yield: 25000,
+            encryption_status: 100,
+            active_seekers: 0,
+            created_at: ctx.timestamp,
+        });
+    }
+
 
     // Drive the persistent sky: tick every 10 seconds.
     ctx.db.sky_tick_timer().insert(SkyTickTimer {
@@ -2499,19 +2549,45 @@ fn decay_rate(z: &Zone) -> i32 {
     }
 }
 
+fn get_ar_multiplier(ctx: &ReducerContext, zone_id: u8, actor: Identity) -> f32 {
+    let mut mult = 1.0f32;
+    for cap in ctx.db.ar_constellation_capture().player().filter(&actor) {
+        if cap.zone_id == zone_id && cap.expires_at > ctx.timestamp {
+            let score_bonus = (cap.precision_score as f32 / 100.0) * 1.5;
+            mult = mult.max(3.5 + score_bonus);
+        }
+    }
+    mult
+}
+
 /// Single-meter tug-of-war: positive `control` = the current `owner`'s hold.
 fn apply_control(ctx: &ReducerContext, zone_id: u8, attacker: Planet, delta: i32) {
     if let Some(mut z) = ctx.db.zone().zone_id().find(&zone_id) {
+        // Expiry check on zone flux
+        if z.in_flux {
+            if let Some(exp) = z.flux_expires_at {
+                if ctx.timestamp >= exp {
+                    z.in_flux = false;
+                    z.flux_level = 0;
+                    z.flux_expires_at = None;
+                }
+            }
+        }
+
+        let flux_mult = if z.in_flux { 2.5f32 } else { 1.0f32 };
+        let ar_mult = get_ar_multiplier(ctx, zone_id, ctx.sender());
+        let effective_delta = ((delta as f32) * flux_mult * ar_mult) as i32;
+
         match z.owner {
             None => {
                 z.owner = Some(attacker);
-                z.control = delta.clamp(0, 1000);
+                z.control = effective_delta.clamp(0, 1000);
             }
             Some(o) if o == attacker => {
-                z.control = (z.control + delta).clamp(0, 1000);
+                z.control = (z.control + effective_delta).clamp(0, 1000);
             }
             Some(_) => {
-                z.control -= delta;
+                z.control -= effective_delta;
                 if z.control <= 0 {
                     z.owner = Some(attacker);
                     z.control = (-z.control).clamp(0, FLIP_THRESHOLD);
@@ -2522,6 +2598,7 @@ fn apply_control(ctx: &ReducerContext, zone_id: u8, attacker: Planet, delta: i32
         ctx.db.zone().zone_id().update(z);
     }
 }
+
 
 /// Canonical zone bucket: a 0..360° angle mapped into the eleven zones exactly
 /// the way the feeder maps a planet's ecliptic longitude
@@ -5548,7 +5625,268 @@ pub fn transfer_star_stake(
     Ok(())
 }
 
+// ── Zone Flux & Human AR Constellation Advantage ───────────────────────────
+
+
+/// Trigger or update Zone Flux state. Historical ALCHM agents and planetary transits call
+/// this to make a zone volatile and competitive ("setting the table").
+#[reducer]
+pub fn trigger_zone_flux(
+    ctx: &ReducerContext,
+    zone_id: u8,
+    constellation_id: u16,
+    intensity: u8,
+    duration_secs: u64,
+) -> Result<(), String> {
+    if zone_id > 10 {
+        return Err("invalid zone id".into());
+    }
+    let mut z = ctx
+        .db
+        .zone()
+        .zone_id()
+        .find(&zone_id)
+        .ok_or_else(|| "zone not found".to_string())?;
+
+    let constellation = ctx
+        .db
+        .constellation()
+        .constellation_id()
+        .find(&constellation_id)
+        .ok_or_else(|| "constellation not found".to_string())?;
+
+    let dur_micros = duration_secs as i64 * 1_000_000;
+    let expires = Timestamp::from_micros_since_unix_epoch(
+        ctx.timestamp.to_micros_since_unix_epoch() + dur_micros,
+    );
+
+    z.in_flux = true;
+    z.flux_level = intensity.clamp(1, 100);
+    z.flux_constellation = Some(constellation_id);
+    z.flux_triggered_by = Some(ctx.sender());
+    z.flux_expires_at = Some(expires);
+    z.updated_at = ctx.timestamp;
+
+    ctx.db.zone().zone_id().update(z);
+    log::info!(
+        "Zone {} entered FLUX (intensity {}, constellation {}, expires in {}s)",
+        zone_id,
+        intensity,
+        constellation.name,
+        duration_secs
+    );
+    Ok(())
+}
+
+/// Human player AR camera capture reducer. When a human points their camera at the
+/// constellation in question and aligns it, this verifies horizon visibility, records high-value
+/// optical telemetry data, awards ESMS tokens, and grants a 4x Meta Advantage multiplier.
+#[reducer]
+pub fn capture_ar_constellation(
+    ctx: &ReducerContext,
+    constellation_id: u16,
+    zone_id: u8,
+    precision_score: u8,
+    azimuth_deg: u32,
+    altitude_deg_val: i32,
+) -> Result<(), String> {
+    if zone_id > 10 {
+        return Err("invalid zone id".into());
+    }
+    if precision_score < 70 {
+        return Err("AR alignment precision too low (must be >= 70%)".into());
+    }
+
+    // Verify player is registered
+    let mut player = ctx
+        .db
+        .player()
+        .identity()
+        .find(&ctx.sender())
+        .ok_or_else(|| "register a Seeker first".to_string())?;
+
+    // Check if player is a historical agent (AgentChart row exists for this identity)
+    let is_agent = ctx.db.agent_chart().identity().find(&ctx.sender()).is_some();
+    if is_agent {
+        return Err("Only human Seekers may capture AR Constellations".into());
+    }
+
+    let loc = ctx
+        .db
+        .player_location()
+        .identity()
+        .find(&ctx.sender())
+        .ok_or_else(|| "set your location first (set_location)".to_string())?;
+
+    let con = ctx
+        .db
+        .constellation()
+        .constellation_id()
+        .find(&constellation_id)
+        .ok_or_else(|| "no such constellation".to_string())?;
+
+    // Verify star visibility above MIN_ALT_DEG
+    let mut visible: u16 = 0;
+    for cs in ctx
+        .db
+        .constellation_star()
+        .constellation_id()
+        .filter(&constellation_id)
+    {
+        if let Some(star) = ctx.db.star_node().hip_id().find(&cs.hip_id) {
+            if altitude_deg(star.ra, star.dec, loc.lat, loc.lon, ctx.timestamp) >= MIN_ALT_DEG {
+                visible += 1;
+            }
+        }
+    }
+
+    if visible < con.visible_threshold {
+        return Err(format!(
+            "Constellation {} is below your horizon ({}/{} stars visible)",
+            con.name, visible, con.visible_threshold
+        ));
+    }
+
+    // Calculate valuable telemetry harvest: precision 70..100 maps to 1,050..1,500 tokens
+    let tokens_harvested = (precision_score as u64) * 15;
+    player.tokens += tokens_harvested;
+    player.last_active = ctx.timestamp;
+    ctx.db.player().identity().update(player.clone());
+
+    // Capture valid for 1 hour (3600s)
+    let expires = Timestamp::from_micros_since_unix_epoch(
+        ctx.timestamp.to_micros_since_unix_epoch() + 3600 * 1_000_000,
+    );
+
+    ctx.db.ar_constellation_capture().insert(ArConstellationCapture {
+        capture_id: 0,
+        player: ctx.sender(),
+        constellation_id,
+        zone_id,
+        precision_score,
+        azimuth_deg,
+        altitude_deg: altitude_deg_val,
+        tokens_harvested,
+        captured_at: ctx.timestamp,
+        expires_at: expires,
+    });
+
+    // Immediate human influence surge: push +400 control for human's faction
+    apply_control(ctx, zone_id, player.faction, 400);
+
+    log::info!(
+        "Human player {:?} executed AR Capture for {} in Zone {} (precision {}%, harvested {} tokens)",
+        ctx.sender(),
+        con.name,
+        zone_id,
+        precision_score,
+        tokens_harvested
+    );
+
+    Ok(())
+}
+
+/// Updates player's Indoor/Outdoor environment state, Z-axis parsec depth, 3D Cartesian vectors,
+/// and active cosmic layer (1: Ephemeris, 2: Bound, 3: Arm, 4: Deep Field).
+#[reducer]
+pub fn update_seeker_environment(
+    ctx: &ReducerContext,
+    is_indoor: bool,
+    x: f64,
+    y: f64,
+    z: f64,
+    active_layer: u8,
+) -> Result<(), String> {
+    if active_layer < 1 || active_layer > 4 {
+        return Err("active_layer must be between 1 and 4".into());
+    }
+
+    if let Some(mut existing) = ctx.db.seeker_state().player().find(&ctx.sender()) {
+        existing.is_indoor = is_indoor;
+        existing.x = x;
+        existing.y = y;
+        existing.z = z;
+        existing.active_layer = active_layer;
+        existing.last_updated = ctx.timestamp;
+        ctx.db.seeker_state().player().update(existing);
+    } else {
+        ctx.db.seeker_state().insert(SeekerState {
+            player: ctx.sender(),
+            is_indoor,
+            x,
+            y,
+            z,
+            active_layer,
+            last_updated: ctx.timestamp,
+        });
+    }
+
+    Ok(())
+}
+
+/// Reducer triggered when an indoor player aligns their volumetric reticle with a Deep Space Cache.
+/// Verifies Cartesian 3D proximity, updates multiplayer active seekers, decrypts cache, and awards ESMS yield.
+#[reducer]
+pub fn lock_anomaly(
+    ctx: &ReducerContext,
+    cache_id: u64,
+    x: f64,
+    y: f64,
+    z: f64,
+) -> Result<(), String> {
+    let mut cache = ctx
+        .db
+        .deep_space_cache()
+        .cache_id()
+        .find(&cache_id)
+        .ok_or_else(|| "deep space cache node not found".to_string())?;
+
+    // Spatial Euclidean distance check in parsecs
+    let dx = cache.center_x - x;
+    let dy = cache.center_y - y;
+    let dz = cache.center_z - z;
+    let dist_sq = dx * dx + dy * dy + dz * dz;
+
+    // Tolerance limit: within 15 parsecs volumetric lock
+    if dist_sq > 225.0 {
+        return Err(format!(
+            "spatial alignment vector too far from anomaly cache (dist: {:.2} pc)",
+            dist_sq.sqrt()
+        ));
+    }
+
+    // Increment active seekers anchored to this node
+    cache.active_seekers += 1;
+    if cache.encryption_status > 10 {
+        cache.encryption_status -= 10;
+    } else {
+        cache.encryption_status = 0;
+    }
+    ctx.db.deep_space_cache().cache_id().update(cache.clone());
+
+    // Award ESMS tokens if fully decrypted
+    if cache.encryption_status == 0 {
+        if let Some(mut player) = ctx.db.player().identity().find(&ctx.sender()) {
+            let reward = cache.esms_yield as u64;
+            player.tokens += reward;
+            player.last_active = ctx.timestamp;
+            ctx.db.player().identity().update(player);
+            log::info!(
+                "Seeker {:?} unlocked DeepSpaceCache {} (rewarded {} ESMS tokens)",
+                ctx.sender(),
+                cache_id,
+                reward
+            );
+        }
+    }
+
+    Ok(())
+}
+
+
+
 #[cfg(test)]
+
 mod tests {
     use super::{
         auto_battle_win, catchup_rounds, compute_ecliptic, expand_constellation, has_duplicates, pick_weakest, question_hash,

@@ -13,7 +13,7 @@ crate-type = ["cdylib"]
 spacetimedb = "2.6"
 log = "0.4"
 sha2 = "0.10" # claim_profile: hash the one-time identity-link code
-alchm-astro-core = { path = "../../../planetary_agents-main/alchm-astro-core" }
+alchm-astro-core = { path = "../../../EthGlobalHackathon/AlchmAgentsETH-main/alchm-astro-core" }
 
 [profile.release]
 opt-level = "s"

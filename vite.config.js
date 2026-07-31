@@ -81,6 +81,7 @@ export default defineConfig(({ mode }) => {
         input: {
           main: 'index.html',
           observatory: 'observatory.html',
+          singularity: 'singularity.html',
         },
       },
     },

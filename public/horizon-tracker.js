@@ -244,6 +244,65 @@
         if (global.switchTab) global.switchTab("tab-duel");
       }
     },
+    executeARHarvest(constellationId, zoneId) {
+      const az = Math.round(state.gyro.camAz || 0);
+      const alt = Math.round(state.gyro.camAlt || 0);
+      const target = state.reticleTargetStar;
+      const precision = target ? Math.min(100, Math.max(70, Math.round(100 - (target.distDeg || 0) * 2.5))) : 85;
+
+      const constId = constellationId || (target ? target.conId || 1 : 1);
+      const zId = zoneId !== undefined ? zoneId : (target ? target.region_hint || 0 : 0);
+
+      const net = global.Pentacles && global.Pentacles.net;
+      const tokensAwarded = precision * 15;
+
+      if (net && net.isLive && typeof net.callReducer === "function") {
+        net.callReducer("capture_ar_constellation", [constId, zId, precision, az, alt])
+          .then(() => {
+            if (global.toast) {
+              global.toast(`✨ AR OPTICAL TELEMETRY HARVESTED!\nAZ: ${az}° | ALT: ${alt}° | Precision: ${precision}%\nAwarded +${tokensAwarded} ESMS Tokens & 4X Human Surge!`, { type: "success" });
+            }
+          })
+          .catch((err) => {
+            console.warn("AR Harvest Reducer:", err);
+            if (global.toast) {
+              global.toast(`✨ Virtual AR Telemetry Captured!\nAZ: ${az}° | ALT: ${alt}° | Precision: ${precision}%\n+${tokensAwarded} ESMS Tokens (Offline Simulation)`, { type: "info" });
+            }
+          });
+      } else {
+        if (global.toast) {
+          global.toast(`✨ Virtual AR Telemetry Captured!\nAZ: ${az}° | ALT: ${alt}° | Precision: ${precision}%\n+${tokensAwarded} ESMS Tokens`, { type: "info" });
+        }
+      }
+
+      return { azimuth: az, altitude: alt, precision, tokensAwarded };
+    },
+
+    toggleVolumetricDeepDive() {
+      const currentMode = state.isIndoorMode || false;
+      state.isIndoorMode = !currentMode;
+
+      const net = global.Pentacles && global.Pentacles.net;
+      const x = parseFloat(((state.gyro.camAz || 0) * 0.5).toFixed(2));
+      const y = parseFloat(((state.gyro.camAlt || 0) * 0.5).toFixed(2));
+      const z = state.isIndoorMode ? 310.2 : 0.0;
+      const layer = state.isIndoorMode ? 3 : 1;
+
+      if (net && net.isLive && typeof net.callReducer === "function") {
+        net.callReducer("update_seeker_environment", [state.isIndoorMode, x, y, z, layer])
+          .catch((err) => console.warn("Seeker environment reducer:", err));
+      }
+
+      if (global.toast) {
+        if (state.isIndoorMode) {
+          global.toast(`🌌 INDOOR VOLUMETRIC DEEP DIVE ACTIVATED!\nParsec Depth: ${z} pc | Layer 3: Galactic Arm\nState Synced to SpacetimeDB`, { type: "success" });
+        } else {
+          global.toast(`🌅 OPTICAL SKY HARVEST MODE ACTIVATED!\nGround-Truthing Sensor Network Active`, { type: "info" });
+        }
+      }
+
+      return state.isIndoorMode;
+    },
 
     updateHUD() {
       const hud = document.getElementById("ar-horizon-hud");

@@ -58,6 +58,8 @@ const SERVICES: Service[] = [
   { name: "bridge", file: "bridge-service.ts" },
   { name: "ephemeris", file: "push-ephemeris.ts" },
   { name: "solana-sync", file: "solana-sync-service.ts" },
+  { name: "historical-agents", file: "historical-agent-service.ts" },
+  { name: "indoor-spatial", file: "indoor-spatial-service.ts" },
 ];
 
 const BACKOFF_MIN_MS = 1_000; // first restart delay

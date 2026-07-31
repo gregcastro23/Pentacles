@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>Pentacles — Singularity Dashboard</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E⭐%3C/text%3E%3C/svg%3E">
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Inter:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
+  
+  <script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "nebula-gray": "#7e7e7e",
+            "outline-variant": "#4d4639",
+            "on-secondary": "#263142",
+            "secondary-fixed-dim": "#bcc7dd",
+            "tertiary-container": "#a6b8eb",
+            "on-error": "#690005",
+            "on-secondary-container": "#aab6cc",
+            "secondary": "#bcc7dd",
+            "on-background": "#e2e1ec",
+            "on-surface": "#e2e1ec",
+            "obsidian-glass": "rgba(13, 15, 25, 0.7)",
+            "surface-variant": "#33343c",
+            "element-water": "#4da6ff",
+            "element-earth": "#4dff88",
+            "tertiary-fixed-dim": "#b3c6f9",
+            "surface-container-lowest": "#0c0e15",
+            "inverse-on-surface": "#2f3038",
+            "on-secondary-fixed": "#111c2c",
+            "surface-tint": "#e7c276",
+            "surface-container": "#1e1f27",
+            "surface-dim": "#12131a",
+            "surface-container-highest": "#33343c",
+            "surface-container-high": "#282931",
+            "on-tertiary-fixed": "#021944",
+            "error-container": "#93000a",
+            "on-secondary-fixed-variant": "#3c475a",
+            "on-primary-fixed-variant": "#5c4300",
+            "tertiary-fixed": "#dae2ff",
+            "error": "#ffb4ab",
+            "surface": "#12131a",
+            "inverse-surface": "#e2e1ec",
+            "primary-fixed-dim": "#e7c276",
+            "on-tertiary-container": "#364874",
+            "inverse-primary": "#765a19",
+            "background": "#12131a",
+            "on-surface-variant": "#d0c5b4",
+            "primary-container": "#d8b46a",
+            "surface-bright": "#383941",
+            "on-primary": "#402d00",
+            "secondary-container": "#3c475a",
+            "on-primary-fixed": "#261a00",
+            "surface-container-low": "#1a1b22",
+            "outline": "#998f80",
+            "tertiary": "#c6d4ff",
+            "on-tertiary-fixed-variant": "#334671",
+            "primary": "#f6cf83",
+            "on-error-container": "#ffdad6",
+            "secondary-fixed": "#d8e3fa",
+            "element-fire": "#ff4d4d",
+            "on-tertiary": "#1c2f59",
+            "primary-fixed": "#ffdfa0",
+            "on-primary-container": "#5e4502"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.125rem",
+            "lg": "0.25rem",
+            "xl": "0.5rem",
+            "full": "0.75rem"
+          },
+          "spacing": {
+            "max-width": "1440px",
+            "gutter": "24px",
+            "base": "8px",
+            "margin-mobile": "16px",
+            "margin-desktop": "64px"
+          },
+          "fontFamily": {
+            "label-md": ["Space Grotesk"],
+            "body-md": ["Inter"],
+            "headline-md": ["Space Grotesk"],
+            "headline-lg-mobile": ["Space Grotesk"],
+            "headline-lg": ["Space Grotesk"],
+            "body-lg": ["Inter"],
+            "label-sm": ["Space Grotesk"],
+            "display-xl": ["Space Grotesk"]
+          },
+          "fontSize": {
+            "label-md": ["14px", { "lineHeight": "20px", "letterSpacing": "0.1em", "fontWeight": "600" }],
+            "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+            "headline-md": ["32px", { "lineHeight": "40px", "fontWeight": "500" }],
+            "headline-lg-mobile": ["32px", { "lineHeight": "40px", "fontWeight": "600" }],
+            "headline-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+            "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+            "label-sm": ["12px", { "lineHeight": "16px", "fontWeight": "500" }],
+            "display-xl": ["72px", { "lineHeight": "80px", "letterSpacing": "-0.02em", "fontWeight": "700" }]
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #05060C;
+      color: #e2e1ec;
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    .plasma-arc {
+      position: absolute;
+      top: -1px;
+      left: -1px;
+      width: 20px;
+      height: 2px;
+      background: linear-gradient(90deg, #d8b46a, transparent);
+      border-top-left-radius: 0.25rem;
+    }
+
+    .obsidian-panel {
+      background: rgba(13, 15, 25, 0.7);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(77, 70, 57, 0.3);
+      position: relative;
+    }
+
+    .glow-hover:hover {
+      box-shadow: 0 0 10px rgba(216, 180, 106, 0.4);
+      border-color: rgba(216, 180, 106, 0.6);
+    }
+    
+    .tab-content {
+      display: none;
+      animation: fadeIn 0.3s ease-in-out;
+    }
+    
+    .tab-content.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .shader-bg {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body class="font-body-md text-body-md">
+
+<!-- Background WebGL Shader -->
+<div class="shader-bg">
+  <canvas id="shader-canvas-ANIMATION_1" style="display:block;width:100%;height:100%"></canvas>
+</div>
+
+<!-- Top Navigation -->
+<header class="bg-obsidian-glass backdrop-blur-md shadow-[0_0_15px_rgba(216,180,106,0.1)] border-b border-outline-variant/30 docked full-width top-0 z-50 sticky">
+  <div class="flex justify-between items-center w-full px-margin-desktop py-4 max-w-max-width mx-auto">
+    <div class="flex items-center gap-6">
+      <a href="/index.html" class="font-headline-md text-headline-md font-bold text-primary tracking-tighter hover:opacity-80 transition-opacity">
+        Pentacles Singularity
+      </a>
+      <nav class="hidden md:flex gap-6 ml-8">
+        <button class="nav-tab active text-primary border-b-2 border-primary pb-1 font-label-md text-label-md hover:text-primary-fixed-dim transition-colors scale-95 duration-150" data-target="vault-view">
+          Vault
+        </button>
+        <button class="nav-tab text-on-surface-variant font-label-md text-label-md hover:text-primary-fixed-dim transition-colors" data-target="armory-view">
+          Armory
+        </button>
+        <button class="nav-tab text-on-surface-variant font-label-md text-label-md hover:text-primary-fixed-dim transition-colors" data-target="singularity-view">
+          Singularity
+        </button>
+      </nav>
+    </div>
+    <div class="flex items-center gap-4">
+      <a href="/index.html" class="bg-primary-container text-on-primary font-label-sm text-label-sm px-4 py-2 rounded shadow-[0_0_10px_rgba(216,180,106,0.4)] hover:scale-105 transition-transform duration-200 flex items-center gap-2">
+        Enter Sky Map 🌌
+      </a>
+      <div class="flex gap-2">
+        <button id="btn-wallet-connect" class="text-on-surface-variant hover:text-primary transition-colors p-2" title="Connect Wallet">
+          <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">account_balance_wallet</span>
+        </button>
+        <button class="text-on-surface-variant hover:text-primary transition-colors p-2" title="Settings">
+          <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">settings</span>
+        </button>
+      </div>
+      <img alt="Commander Avatar" class="w-10 h-10 rounded-full border border-primary/30 object-cover ml-2" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCMHuYr74GjOjcYUrCzN-Qe0GB2eQDuT410hZIVlMqTmlz7ze-9L6rt8LYNg51ruVSf0fA1W3kWnweipJW6lRbeOKioOLqSqU69jsTQOasFIEFjbrdbB3ZWkFEWsJBtZQ4fMy89LgLszlWH3Z2IWt9XS0umKKdMw0zXYB0A7tX-bsVxqwmwgnzd_G2nG8xNTVXS2dvjtC6WX4vDdAoNpT4xqKBO3qRwqG215ZGRFSe9wL6J-SrYuZqqgA"/>
+    </div>
+  </div>
+</header>
+
+<main class="max-w-max-width mx-auto px-margin-mobile md:px-margin-desktop py-8 md:py-12 relative z-10">
+
+  <!-- VIEW 1: Vault -->
+  <div class="tab-content active" id="vault-view">
+    <div class="flex flex-wrap justify-between items-end mb-8 gap-4">
+      <div>
+        <h1 class="font-headline-lg-mobile md:font-headline-lg text-primary tracking-tighter mb-2">Omnichain Stargate</h1>
+        <p class="text-on-surface-variant font-body-md">Token-2022 & EVM ESMS Staking Matrix</p>
+      </div>
+      <div class="flex gap-4 items-center">
+        <div class="obsidian-panel rounded-full px-4 py-1.5 flex items-center gap-3">
+          <div class="w-2 h-2 rounded-full bg-element-water shadow-[0_0_8px_#4da6ff]"></div>
+          <span class="font-label-sm text-on-surface text-xs">Solana Devnet: Sync</span>
+        </div>
+        <div class="obsidian-panel rounded-full px-4 py-1.5 flex items-center gap-3">
+          <div class="w-2 h-2 rounded-full bg-element-earth shadow-[0_0_8px_#4dff88]"></div>
+          <span class="font-label-sm text-on-surface text-xs">Base Sepolia: Sync</span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="flex gap-4 mb-12">
+      <div id="status-wallet-address" class="obsidian-panel rounded px-3 py-1 font-label-sm text-primary flex items-center gap-2 border border-primary/20">
+        <span class="material-symbols-outlined text-[16px]">key</span> Wallet: Anonymous Seeker
+      </div>
+      <div id="status-pda-address" class="obsidian-panel rounded px-3 py-1 font-label-sm text-secondary flex items-center gap-2 border border-secondary/20">
+        <span class="material-symbols-outlined text-[16px]">memory</span> SpacetimeDB Live
+      </div>
+    </div>
+
+    <!-- Staking Matrix -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+      <!-- Card 1: Essence -->
+      <div class="obsidian-panel rounded-lg p-6 glow-hover transition-all duration-300">
+        <div class="plasma-arc"></div>
+        <div class="flex justify-between items-start mb-6">
+          <h3 class="font-label-md text-primary">Essence</h3>
+          <span class="material-symbols-outlined text-element-fire shadow-[0_0_10px_#ff4d4d] rounded-full">local_fire_department</span>
+        </div>
+        <div class="mb-4">
+          <div class="text-on-surface-variant text-sm mb-1">APY</div>
+          <div class="font-headline-md text-element-fire">24.8%</div>
+        </div>
+        <div class="space-y-2 mb-6 border-t border-outline-variant/30 pt-4">
+          <div class="flex justify-between text-sm">
+            <span class="text-on-surface-variant">Staked</span>
+            <span class="font-label-sm text-on-surface">12,500 ESMS</span>
+          </div>
+          <div class="flex justify-between text-sm">
+            <span class="text-on-surface-variant">Claimable</span>
+            <span class="font-label-sm text-primary">342 ESMS</span>
+          </div>
+        </div>
+        <button class="w-full bg-transparent border border-primary text-primary hover:bg-primary hover:text-on-primary transition-colors py-2 rounded font-label-sm">
+          Manage Vault
+        </button>
+      </div>
+
+      <!-- Card 2: Spirit -->
+      <div class="obsidian-panel rounded-lg p-6 glow-hover transition-all duration-300">
+        <div class="plasma-arc"></div>
+        <div class="flex justify-between items-start mb-6">
+          <h3 class="font-label-md text-primary">Spirit</h3>
+          <span class="material-symbols-outlined text-element-water shadow-[0_0_10px_#4da6ff] rounded-full">water_drop</span>
+        </div>
+        <div class="mb-4">
+          <div class="text-on-surface-variant text-sm mb-1">APY</div>
+          <div class="font-headline-md text-element-water">18.2%</div>
+        </div>
+        <div class="space-y-2 mb-6 border-t border-outline-variant/30 pt-4">
+          <div class="flex justify-between text-sm">
+            <span class="text-on-surface-variant">Staked</span>
+            <span class="font-label-sm text-on-surface">8,200 ESMS</span>
+          </div>
+          <div class="flex justify-between text-sm">
+            <span class="text-on-surface-variant">Claimable</span>
+            <span class="font-label-sm text-primary">156 ESMS</span>
+          </div>
+        </div>
+        <button class="w-full bg-transparent border border-primary text-primary hover:bg-primary hover:text-on-primary transition-colors py-2 rounded font-label-sm">
+          Manage Vault
+        </button>
+      </div>
+
+      <!-- Card 3: Matter -->
+      <div class="obsidian-panel rounded-lg p-6 glow-hover transition-all duration-300">
+        <div class="plasma-arc"></div>
+        <div class="flex justify-between items-start mb-6">
+          <h3 class="font-label-md text-primary">Matter</h3>
+          <span class="material-symbols-outlined text-element-earth shadow-[0_0_10px_#4dff88] rounded-full">terrain</span>
+        </div>
+        <div class="mb-4">
+          <div class="text-on-surface-variant text-sm mb-1">APY</div>
+          <div class="font-headline-md text-element-earth">12.5%</div>
+        </div>
+        <div class="space-y-2 mb-6 border-t border-outline-variant/30 pt-4">
+          <div class="flex justify-between text-sm">
+            <span class="text-on-surface-variant">Staked</span>
+            <span class="font-label-sm text-on-surface">45,000 ESMS</span>
+          </div>
+          <div class="flex justify-between text-sm">
+            <span class="text-on-surface-variant">Claimable</span>
+            <span class="font-label-sm text-primary">890 ESMS</span>
+          </div>
+        </div>
+        <button class="w-full bg-transparent border border-primary text-primary hover:bg-primary hover:text-on-primary transition-colors py-2 rounded font-label-sm">
+          Manage Vault
+        </button>
+      </div>
+
+      <!-- Card 4: Substance -->
+      <div class="obsidian-panel rounded-lg p-6 glow-hover transition-all duration-300">
+        <div class="plasma-arc"></div>
+        <div class="flex justify-between items-start mb-6">
+          <h3 class="font-label-md text-primary">Substance</h3>
+          <span class="material-symbols-outlined text-tertiary-container shadow-[0_0_10px_#a6b8eb] rounded-full">air</span>
+        </div>
+        <div class="mb-4">
+          <div class="text-on-surface-variant text-sm mb-1">APY</div>
+          <div class="font-headline-md text-tertiary-container">31.0%</div>
+        </div>
+        <div class="space-y-2 mb-6 border-t border-outline-variant/30 pt-4">
+          <div class="flex justify-between text-sm">
+            <span class="text-on-surface-variant">Staked</span>
+            <span class="font-label-sm text-on-surface">2,100 ESMS</span>
+          </div>
+          <div class="flex justify-between text-sm">
+            <span class="text-on-surface-variant">Claimable</span>
+            <span class="font-label-sm text-primary">84 ESMS</span>
+          </div>
+        </div>
+        <button class="w-full bg-transparent border border-primary text-primary hover:bg-primary hover:text-on-primary transition-colors py-2 rounded font-label-sm">
+          Manage Vault
+        </button>
+      </div>
+    </div>
+
+    <!-- Global Actions -->
+    <div class="flex flex-wrap gap-4 justify-center mb-16">
+      <button class="obsidian-panel border-primary/50 text-primary px-8 py-3 rounded hover:border-primary shadow-[0_0_15px_rgba(216,180,106,0.2)] hover:shadow-[0_0_20px_rgba(216,180,106,0.6)] transition-all font-label-md">
+        Deposit USDC
+      </button>
+      <button class="bg-primary text-on-primary px-8 py-3 rounded shadow-[0_0_15px_rgba(216,180,106,0.4)] hover:scale-105 transition-transform font-label-md">
+        Claim Yield
+      </button>
+      <button class="obsidian-panel border-secondary/50 text-secondary px-8 py-3 rounded hover:border-secondary shadow-[0_0_15px_rgba(188,199,221,0.2)] hover:shadow-[0_0_20px_rgba(188,199,221,0.5)] transition-all font-label-md">
+        Cross-Chain Bridge
+      </button>
+    </div>
+  </div>
+
+  <!-- VIEW 2: Armory -->
+  <div class="tab-content" id="armory-view">
+    <div class="flex flex-wrap justify-between items-end mb-8 gap-4">
+      <div>
+        <h1 class="font-headline-lg-mobile md:font-headline-lg text-primary tracking-tighter mb-2">Tarot Armory</h1>
+        <p class="text-on-surface-variant font-body-md">Astrological Deckbuilder & Defense Sentinel Loadout</p>
+      </div>
+    </div>
+    
+    <div class="flex flex-col lg:flex-row gap-8">
+      <!-- Main Content -->
+      <div class="flex-1">
+        <!-- Active Loadout -->
+        <div class="obsidian-panel rounded-lg p-6 mb-8 border-primary/20">
+          <div class="plasma-arc"></div>
+          <h3 class="font-label-md text-primary mb-4 flex items-center gap-2">
+            <span class="material-symbols-outlined text-[20px]">view_comfy_alt</span> Active Loadout (10 Slots)
+          </h3>
+          <div class="grid grid-cols-5 sm:grid-cols-10 gap-2" id="loadout-slots-grid">
+            <div class="aspect-[2/3] border border-primary/50 rounded bg-obsidian-glass relative group overflow-hidden flex items-center justify-center text-primary font-bold">0.FOOL</div>
+            <div class="aspect-[2/3] border border-primary/50 rounded bg-obsidian-glass relative group overflow-hidden flex items-center justify-center text-primary font-bold">I.MAGUS</div>
+            <div class="aspect-[2/3] border border-outline-variant/50 rounded bg-surface-container-lowest/50 hover:border-primary/50 transition-colors"></div>
+            <div class="aspect-[2/3] border border-outline-variant/50 rounded bg-surface-container-lowest/50 hover:border-primary/50 transition-colors"></div>
+            <div class="aspect-[2/3] border border-element-water/50 rounded bg-obsidian-glass relative group overflow-hidden flex items-center justify-center text-element-water font-bold">II.PRIEST</div>
+            <div class="aspect-[2/3] border border-outline-variant/50 rounded bg-surface-container-lowest/50 hover:border-primary/50 transition-colors"></div>
+            <div class="aspect-[2/3] border border-outline-variant/50 rounded bg-surface-container-lowest/50 hover:border-primary/50 transition-colors"></div>
+            <div class="aspect-[2/3] border border-outline-variant/50 rounded bg-surface-container-lowest/50 hover:border-primary/50 transition-colors"></div>
+            <div class="aspect-[2/3] border border-outline-variant/50 rounded bg-surface-container-lowest/50 hover:border-primary/50 transition-colors"></div>
+            <div class="aspect-[2/3] border border-outline-variant/50 rounded bg-surface-container-lowest/50 hover:border-primary/50 transition-colors"></div>
+          </div>
+        </div>
+
+        <!-- Collection Grid -->
+        <h3 class="font-label-md text-primary mb-4">Procedural Major & Minor Arcana Collection</h3>
+        <div class="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-5 gap-4" id="collection-grid">
+          <div class="obsidian-panel rounded border-outline-variant/30 aspect-[2/3] relative group overflow-hidden cursor-pointer glow-hover p-2 flex flex-col justify-between">
+            <div class="flex justify-between items-start">
+              <span class="font-label-sm text-primary text-[10px] uppercase">Major</span>
+              <span class="material-symbols-outlined text-[14px] text-primary">star</span>
+            </div>
+            <div class="text-center font-label-md text-on-surface mb-2 tracking-widest">0. FOOL</div>
+          </div>
+          <div class="obsidian-panel rounded border-outline-variant/30 aspect-[2/3] relative group overflow-hidden cursor-pointer glow-hover p-2 flex flex-col justify-between">
+            <div class="flex justify-between items-start">
+              <span class="font-label-sm text-element-water text-[10px] uppercase">Cups</span>
+              <span class="material-symbols-outlined text-[14px] text-element-water">water_drop</span>
+            </div>
+            <div class="text-center font-label-md text-on-surface mb-2 tracking-widest">ACE OF CUPS</div>
+          </div>
+          <div class="obsidian-panel rounded border-outline-variant/30 aspect-[2/3] relative group overflow-hidden cursor-pointer glow-hover p-2 flex flex-col justify-between">
+            <div class="flex justify-between items-start">
+              <span class="font-label-sm text-element-fire text-[10px] uppercase">Wands</span>
+              <span class="material-symbols-outlined text-[14px] text-element-fire">local_fire_department</span>
+            </div>
+            <div class="text-center font-label-md text-on-surface mb-2 tracking-widest">KING OF WANDS</div>
+          </div>
+          <div class="obsidian-panel rounded border-outline-variant/30 aspect-[2/3] relative group overflow-hidden cursor-pointer glow-hover p-2 flex flex-col justify-between">
+            <div class="flex justify-between items-start">
+              <span class="font-label-sm text-element-earth text-[10px] uppercase">Pentacles</span>
+              <span class="material-symbols-outlined text-[14px] text-element-earth">terrain</span>
+            </div>
+            <div class="text-center font-label-md text-on-surface mb-2 tracking-widest">10 OF PENTACLES</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Inspection Drawer -->
+      <div class="w-full lg:w-80 obsidian-panel rounded-lg p-6 border-l-2 border-primary border-t-0 border-r-0 border-b-0 h-fit lg:sticky lg:top-24">
+        <h3 class="font-label-md text-primary mb-6">Inspection</h3>
+        <div class="aspect-[2/3] w-full max-w-[200px] mx-auto border border-primary/40 rounded-lg bg-surface-container-lowest relative shadow-[0_0_30px_rgba(216,180,106,0.15)] mb-6 overflow-hidden">
+          <div class="absolute inset-0 bg-gradient-to-tr from-primary/10 via-transparent to-primary/20 pointer-events-none"></div>
+          <div class="absolute bottom-4 w-full text-center font-headline-md text-primary tracking-widest" style="text-shadow: 0 0 10px rgba(216,180,106,0.8);">X. WHEEL</div>
+        </div>
+        <div class="space-y-4 font-label-sm">
+          <div class="flex justify-between border-b border-outline-variant/30 pb-2">
+            <span class="text-on-surface-variant">Decan Alignment</span>
+            <span class="text-primary">Jupiter in Leo</span>
+          </div>
+          <div class="flex justify-between border-b border-outline-variant/30 pb-2">
+            <span class="text-on-surface-variant">Dignity</span>
+            <span class="text-element-fire">Exalted (+5)</span>
+          </div>
+          <div class="flex justify-between border-b border-outline-variant/30 pb-2">
+            <span class="text-on-surface-variant">Scrabble Tile</span>
+            <span class="text-primary font-bold">Letter 'J'</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VIEW 3: Singularity -->
+  <div class="tab-content" id="singularity-view">
+    <div class="text-center mb-12">
+      <h1 class="font-headline-lg-mobile md:font-headline-lg text-primary tracking-tighter mb-4" style="text-shadow: 0 0 20px rgba(216,180,106,0.5);">Singularity Enhancement</h1>
+      <p class="text-on-surface-variant font-body-lg max-w-2xl mx-auto">Gravitational Snap & Zone Flux Mechanics Active.</p>
+    </div>
+
+    <!-- Central Hub -->
+    <div class="relative w-full h-[500px] flex items-center justify-center mb-12">
+      <!-- Rings -->
+      <div class="absolute w-[400px] h-[400px] rounded-full border border-primary/20 animate-[spin_60s_linear_infinite] pointer-events-none" style="box-shadow: inset 0 0 50px rgba(216,180,106,0.05);"></div>
+      <div class="absolute w-[300px] h-[300px] rounded-full border border-element-water/20 animate-[spin_40s_linear_infinite_reverse] pointer-events-none"></div>
+      
+      <!-- Core -->
+      <div class="relative w-32 h-32 rounded-full bg-black border-2 border-primary flex items-center justify-center cursor-pointer shadow-[0_0_50px_rgba(216,180,106,0.3)] hover:shadow-[0_0_80px_rgba(216,180,106,0.6)] transition-all z-10">
+        <span class="font-headline-md text-primary tracking-widest">PENT</span>
+        <div class="absolute inset-0 rounded-full bg-primary/20 animate-ping opacity-50"></div>
+      </div>
+
+      <!-- Orbital Nodes -->
+      <div class="absolute top-[20%] left-[30%] obsidian-panel w-12 h-12 rounded-full border-element-fire flex items-center justify-center shadow-[0_0_15px_#ff4d4d]" title="Fire Element Surge">
+        <span class="material-symbols-outlined text-element-fire">local_fire_department</span>
+      </div>
+      <div class="absolute bottom-[25%] right-[25%] obsidian-panel w-12 h-12 rounded-full border-element-earth flex items-center justify-center shadow-[0_0_15px_#4dff88]" title="Earth Element Surge">
+        <span class="material-symbols-outlined text-element-earth">terrain</span>
+      </div>
+    </div>
+
+    <!-- Victory State Trigger -->
+    <div class="text-center">
+      <button class="bg-primary/10 border border-primary text-primary px-6 py-2 rounded font-label-md hover:bg-primary hover:text-on-primary transition-colors">
+        Simulate Gate Breach
+      </button>
+    </div>
+  </div>
+
+</main>
+
+<!-- Bottom Nav for Mobile -->
+<nav class="md:hidden bg-obsidian-glass backdrop-blur-xl shadow-[0_-4px_20px_rgba(0,0,0,0.5)] border-t border-outline-variant/50 docked full-width bottom-0 rounded-t-xl fixed left-0 w-full z-50 flex justify-around items-center px-margin-mobile pb-4 pt-2">
+  <button class="nav-tab active flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-full px-6 py-1 shadow-[0_0_10px_rgba(216,180,106,0.4)] scale-90 duration-200" data-target="vault-view">
+    <span class="material-symbols-outlined">brightness_high</span>
+    <span class="font-label-sm text-label-sm mt-1">Vault</span>
+  </button>
+  <button class="nav-tab flex flex-col items-center justify-center text-on-surface-variant opacity-70 hover:opacity-100 hover:text-primary" data-target="armory-view">
+    <span class="material-symbols-outlined">style</span>
+    <span class="font-label-sm text-label-sm mt-1">Armory</span>
+  </button>
+  <button class="nav-tab flex flex-col items-center justify-center text-on-surface-variant opacity-70 hover:opacity-100 hover:text-primary" data-target="singularity-view">
+    <span class="material-symbols-outlined">auto_graph</span>
+    <span class="font-label-sm text-label-sm mt-1">Singularity</span>
+  </button>
+</nav>
+
+<!-- WebGL Shader Script -->
+<script>
+(function() {
+  const canvas = document.getElementById('shader-canvas-ANIMATION_1');
+  if (!canvas) return;
+
+  function syncSize() {
+    const w = canvas.clientWidth  || window.innerWidth || 1280;
+    const h = canvas.clientHeight || window.innerHeight || 720;
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width  = w;
+      canvas.height = h;
+    }
+  }
+  if (typeof ResizeObserver !== 'undefined') {
+    new ResizeObserver(syncSize).observe(canvas);
+  }
+  syncSize();
+
+  const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+  if (!gl) return;
+
+  const vs = `attribute vec2 a_position;
+varying vec2 v_texCoord;
+void main() {
+  v_texCoord = a_position * 0.5 + 0.5;
+  gl_Position = vec4(a_position, 0.0, 1.0);
+}`;
+
+  const fs = `precision highp float;
+uniform float u_time;
+uniform vec2 u_resolution;
+uniform vec2 u_mouse;
+varying vec2 v_texCoord;
+
+#define PI 3.14159265359
+
+void main() {
+    vec2 uv = (gl_FragCoord.xy * 2.0 - u_resolution.xy) / min(u_resolution.x, u_resolution.y);
+    float dist = length(uv);
+    
+    // Gravitational Lensing effect
+    float distort = 1.0 / (dist + 0.1);
+    vec2 distortedUv = uv * (1.0 + 0.05 * sin(dist * 10.0 - u_time * 2.0) * distort);
+    float dist2 = length(distortedUv);
+
+    // Singularity Core (The Black Hole)
+    float core = smoothstep(0.35, 0.34, dist2);
+    
+    // Accretion Disk (Rotating Glow)
+    float angle = atan(distortedUv.y, distortedUv.x);
+    float disk = smoothstep(0.7, 0.35, dist2) * smoothstep(0.34, 0.45, dist2);
+    disk *= 0.5 + 0.5 * sin(angle * 3.0 + u_time * 1.5 + dist2 * 5.0);
+    
+    // Photon Sphere Ring (Gold Accents)
+    float ring = smoothstep(0.01, 0.0, abs(dist2 - 0.48 + 0.02 * sin(u_time * 4.0 + angle * 5.0)));
+    
+    // Event Horizon Particles (Noise/Shimmer)
+    float particles = 0.0;
+    for(float i = 0.0; i < 3.0; i++) {
+        float t = u_time * (0.5 + i * 0.2);
+        float r = 0.5 + 0.1 * sin(t + angle * (2.0 + i));
+        particles += smoothstep(0.02, 0.0, abs(dist2 - r)) * (0.3 / (dist2 + 0.5));
+    }
+
+    vec3 backgroundColor = vec3(0.02, 0.023, 0.047); // #05060c
+    vec3 goldColor = vec3(0.847, 0.706, 0.416); // #d8b46a
+    vec3 glowColor = vec3(0.4, 0.3, 0.1);
+    
+    vec3 color = backgroundColor;
+    color = mix(color, glowColor * 1.5, disk);
+    color = mix(color, goldColor, ring * 0.8);
+    color = mix(color, goldColor, particles * 0.5);
+    color *= (1.0 - core); // The black hole swallows light
+    
+    gl_FragColor = vec4(color, 1.0);
+}`;
+
+  function cs(type, src) {
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src);
+    gl.compileShader(s);
+    return s;
+  }
+
+  const prog = gl.createProgram();
+  gl.attachShader(prog, cs(gl.VERTEX_SHADER, vs));
+  gl.attachShader(prog, cs(gl.FRAGMENT_SHADER, fs));
+  gl.linkProgram(prog);
+  gl.useProgram(prog);
+
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+
+  const pos = gl.getAttribLocation(prog, 'a_position');
+  gl.enableVertexAttribArray(pos);
+  gl.vertexAttribPointer(pos, 2, gl.FLOAT, false, 0, 0);
+
+  const uTime = gl.getUniformLocation(prog, 'u_time');
+  const uRes = gl.getUniformLocation(prog, 'u_resolution');
+  const uMouse = gl.getUniformLocation(prog, 'u_mouse');
+
+  let mouse = { x: canvas.width / 2, y: canvas.height / 2 };
+  window.addEventListener('mousemove', (event) => {
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width && rect.height) {
+      const nx = (event.clientX - rect.left) / rect.width;
+      const ny = 1.0 - (event.clientY - rect.top) / rect.height;
+      mouse.x = nx * canvas.width;
+      mouse.y = ny * canvas.height;
+    }
+  });
+
+  function render(t) {
+    if (typeof ResizeObserver === 'undefined') syncSize();
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    if (uTime) gl.uniform1f(uTime, t * 0.001);
+    if (uRes) gl.uniform2f(uRes, canvas.width, canvas.height);
+    if (uMouse) gl.uniform2f(uMouse, mouse.x, mouse.y);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    requestAnimationFrame(render);
+  }
+  render(0);
+})();
+</script>
+
+<script>
+  // Tab switching logic
+  const tabs = document.querySelectorAll('.nav-tab');
+  const contents = document.querySelectorAll('.tab-content');
+
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      tabs.forEach(t => {
+        t.classList.remove('text-primary', 'border-b-2', 'border-primary', 'pb-1', 'scale-95');
+        t.classList.add('text-on-surface-variant');
+      });
+      contents.forEach(c => c.classList.remove('active'));
+
+      tab.classList.remove('text-on-surface-variant');
+      tab.classList.add('text-primary', 'border-b-2', 'border-primary', 'pb-1', 'scale-95');
+      
+      const targetId = tab.getAttribute('data-target');
+      const targetContent = document.getElementById(targetId);
+      if (targetContent) targetContent.classList.add('active');
+    });
+  });
+</script>
+
+<!-- SpacetimeDB & Live App Bindings -->
+<script type="module" src="/src/main.js"></script>
+
+</body>
+</html>

@@ -36,7 +36,9 @@
       </div>
       <div class="ar-encounter-sub" id="ar-encounter-sub">Alpha Canis Majoris · Alt 4.2° · Mag -1.44</div>
       <div class="ar-encounter-actions">
-        <button class="btn btn-primary" onclick="HorizonTrackerUI.openStardexForTarget()">⭐ Open Stardex Entry</button>
+        <button class="btn btn-primary" style="background:var(--gold-bright); color:#000; font-weight:bold;" onclick="HorizonTrackerUI.executeARHarvest()">✨ Harvest AR Telemetry (+ESMS Tokens)</button>
+        <button class="btn" style="background:rgba(34,211,238,0.2); color:#22D3EE; font-weight:bold; border-color:#22D3EE;" onclick="HorizonTrackerUI.toggleVolumetricDeepDive()">🌌 Volumetric Deep Dive</button>
+        <button class="btn" onclick="HorizonTrackerUI.openStardexForTarget()">⭐ Open Stardex Entry</button>
         <button class="btn" onclick="HorizonTrackerUI.siegeEncounteredStar()">⚔ Initiate Siege Strike</button>
       </div>
     </div>
@@ -148,6 +150,7 @@
           <button class="btn" onclick="toggleSound()">🔊 Sound: ON</button>
           <button class="btn" onclick="toggleARMode()">📹 Toggle AR Mode</button>
           <button class="btn" id="alchm-chart-btn" onclick="openAlchmChart()">✦ Alchm Chart</button>
+          <button class="btn" id="singularity-btn" onclick="window.location.href='/singularity.html'" style="border-color: var(--gold-bright); color: var(--gold-bright);" title="Open Pentacles Singularity Dashboard">✨ Singularity</button>
           <button class="btn" id="faction-war-btn" onclick="openFactionWar()">⚔ Faction War</button>
           <button class="btn" id="my-codex-btn" onclick="openMyCodex()" title="Open your full card collection and natal profile">✦ Deck</button>
           <button class="btn" id="star-pokedex-btn" onclick="openStarPokedex()">⭐ StarDex</button>
