@@ -1155,6 +1155,37 @@ class GameState {
     };
   }
 
+  calculateCardAttackPower(card, ritual, chainIndex = 0) {
+    let baseAtk = card.attack || card.rank || 5;
+    if (card.is_major) baseAtk += 10;
+
+    let elemMult = 1.0;
+    if (ritual.targetSuit && card.suit === ritual.targetSuit) {
+      elemMult = 1.8;
+    }
+
+    const comboMult = 1.0 + (chainIndex * 0.4); // 1.0x, 1.4x, 1.8x, 2.2x
+    let bonusAtk = 0;
+
+    // Check sequence bonus if preceding card exists
+    if (ritual.chain && ritual.chain.length > 0) {
+      const prevCard = ritual.chain[ritual.chain.length - 1];
+      if (card.rank === prevCard.rank + 1 || card.rank === prevCard.rank - 1) {
+        bonusAtk += 5;
+        elemMult *= 1.25;
+      }
+    }
+
+    const finalAtk = Math.round((baseAtk + bonusAtk) * elemMult * comboMult);
+    return {
+      baseAtk,
+      bonusAtk,
+      elemMult: Number(elemMult.toFixed(2)),
+      comboMult: Number(comboMult.toFixed(2)),
+      finalAtk
+    };
+  }
+
   validateCardForChain(card, ritual) {
     const currentChain = ritual.chain;
     
@@ -1170,25 +1201,23 @@ class GameState {
 
     // 3. Validation based on type
     if (ritual.type === 'suit') {
-      if (card.suit !== ritual.targetSuit) {
-        return { valid: false, reason: `Must be a ${SUIT_NAMES[ritual.targetSuit]} card!` };
+      if (card.suit !== ritual.targetSuit && !card.is_major) {
+        return { valid: false, reason: `Must be a ${SUIT_NAMES[ritual.targetSuit]} card or Major Arcana!` };
       }
     } else if (ritual.type === 'rank_asc') {
       if (currentChain.length > 0) {
         const lastCard = currentChain[currentChain.length - 1];
-        if (card.rank <= lastCard.rank) {
+        if (card.rank <= lastCard.rank && !card.is_major) {
           return { valid: false, reason: `Rank must be strictly greater than last card (${rankName(lastCard.rank)} < ${rankName(card.rank)})!` };
         }
       }
     } else if (ritual.type === 'rank_desc') {
       if (currentChain.length > 0) {
         const lastCard = currentChain[currentChain.length - 1];
-        if (card.rank >= lastCard.rank) {
+        if (card.rank >= lastCard.rank && !card.is_major) {
           return { valid: false, reason: `Rank must be strictly lower than last card (${rankName(lastCard.rank)} > ${rankName(card.rank)})!` };
         }
       }
-    } else if (ritual.type === 'gate_raid' || ritual.type === 'sum') {
-      return { valid: true };
     }
 
     return { valid: true };
@@ -1214,11 +1243,17 @@ class GameState {
       return { error: check.reason };
     }
 
+    // Calculate attack power with dynamic multipliers
+    const power = this.calculateCardAttackPower(card, ritual, ritual.chain.length);
+    const enrichedCard = JSON.parse(JSON.stringify(card));
+    enrichedCard.effectiveAtk = power.finalAtk;
+    enrichedCard.powerBreakdown = power;
+
     // Add card to chain
-    ritual.chain.push(JSON.parse(JSON.stringify(card)));
+    ritual.chain.push(enrichedCard);
 
     // Check if completed
-    const totalAttackDealt = ritual.chain.reduce((acc, c) => acc + (c.attack || c.rank || 5), 0);
+    const totalAttackDealt = ritual.chain.reduce((acc, c) => acc + (c.effectiveAtk || c.attack || c.rank || 5), 0);
     const completed = (ritual.type === 'gate_raid' || ritual.type === 'sum')
       ? (totalAttackDealt >= (ritual.targetSum || 20) || ritual.chain.length >= ritual.cardsNeeded)
       : (ritual.chain.length === ritual.cardsNeeded);
