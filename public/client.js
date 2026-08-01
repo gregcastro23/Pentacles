@@ -1124,24 +1124,19 @@ class GameState {
       targetSuit = SIGN_SUITS[suitIdx];
     }
 
-    if (type === 'gate_raid') {
-      cardsNeeded = 3;
-      targetSum = 20 + Math.floor(Math.random() * 25);
-      description = `Drag Tarot cards to chip away at the Zone Gate Defense (${targetSum} total ATK).`;
-    } else if (type === 'suit') {
-      cardsNeeded = 3;
-      description = `Chain ${cardsNeeded} ${SUIT_NAMES[targetSuit]} cards to breach the gate.`;
-    } else if (type === 'rank_asc') {
-      cardsNeeded = 3;
-      description = `Chain ${cardsNeeded} cards of ascending rank (e.g. 3 → 4 → 5).`;
-    } else if (type === 'rank_desc') {
-      cardsNeeded = 3;
-      description = `Chain ${cardsNeeded} cards of descending rank (e.g. King → Queen → Knight).`;
-    } else if (type === 'sum') {
-      cardsNeeded = 3;
-      targetSum = 15 + Math.floor(Math.random() * 15); // 15..30
-      description = `Chain ${cardsNeeded} cards summing to at least ${targetSum} in rank.`;
+    let cardsNeeded = 4;
+    let targetSum = 50; // Target Pentacles threshold
+    if (targetType === 'planet') {
+      targetSum = 150 + (targetId * 15);
+    } else if (targetId === 10) { // Crown zone
+      targetSum = 200;
+    } else if (targetId >= 5) { // Spire zones
+      targetSum = 100;
+    } else { // House zones
+      targetSum = 50;
     }
+
+    description = `Drop cards into the Alchemical Manifold to trigger reactions (14 Pillars). Reach ${targetSum} Pentacles to breach.`;
 
     return {
       targetType,
@@ -1151,7 +1146,12 @@ class GameState {
       description,
       targetSuit,
       targetSum,
-      chain: []
+      chain: [],
+      manifold: {
+        cards: [],
+        activeReaction: null,
+        pentaclesYield: 0
+      }
     };
   }
 
@@ -1164,22 +1164,11 @@ class GameState {
       elemMult = 1.8;
     }
 
-    const comboMult = 1.0 + (chainIndex * 0.4); // 1.0x, 1.4x, 1.8x, 2.2x
-    let bonusAtk = 0;
-
-    // Check sequence bonus if preceding card exists
-    if (ritual.chain && ritual.chain.length > 0) {
-      const prevCard = ritual.chain[ritual.chain.length - 1];
-      if (card.rank === prevCard.rank + 1 || card.rank === prevCard.rank - 1) {
-        bonusAtk += 5;
-        elemMult *= 1.25;
-      }
-    }
-
-    const finalAtk = Math.round((baseAtk + bonusAtk) * elemMult * comboMult);
+    const comboMult = 1.0 + (chainIndex * 0.35);
+    const finalAtk = Math.round(baseAtk * elemMult * comboMult);
     return {
       baseAtk,
-      bonusAtk,
+      bonusAtk: 0,
       elemMult: Number(elemMult.toFixed(2)),
       comboMult: Number(comboMult.toFixed(2)),
       finalAtk
@@ -1187,37 +1176,19 @@ class GameState {
   }
 
   validateCardForChain(card, ritual) {
-    const currentChain = ritual.chain;
+    if (!ritual.manifold) {
+      ritual.manifold = { cards: [], activeReaction: null, pentaclesYield: 0 };
+    }
+    const currentCards = ritual.manifold.cards;
     
-    // 1. Basic sanity: Is card already in the chain?
-    if (currentChain.some(c => c.card_id === card.card_id)) {
-      return { valid: false, reason: "Card is already in this chain!" };
+    // 1. Basic sanity: Is card already in the manifold vessel?
+    if (currentCards.some(c => c.card_id === card.card_id)) {
+      return { valid: false, reason: "Card is already inside the Alchemical Manifold!" };
     }
 
-    // 2. Max capacity
-    if (currentChain.length >= ritual.cardsNeeded) {
-      return { valid: false, reason: "Chain is already full!" };
-    }
-
-    // 3. Validation based on type
-    if (ritual.type === 'suit') {
-      if (card.suit !== ritual.targetSuit && !card.is_major) {
-        return { valid: false, reason: `Must be a ${SUIT_NAMES[ritual.targetSuit]} card or Major Arcana!` };
-      }
-    } else if (ritual.type === 'rank_asc') {
-      if (currentChain.length > 0) {
-        const lastCard = currentChain[currentChain.length - 1];
-        if (card.rank <= lastCard.rank && !card.is_major) {
-          return { valid: false, reason: `Rank must be strictly greater than last card (${rankName(lastCard.rank)} < ${rankName(card.rank)})!` };
-        }
-      }
-    } else if (ritual.type === 'rank_desc') {
-      if (currentChain.length > 0) {
-        const lastCard = currentChain[currentChain.length - 1];
-        if (card.rank >= lastCard.rank && !card.is_major) {
-          return { valid: false, reason: `Rank must be strictly lower than last card (${rankName(lastCard.rank)} > ${rankName(card.rank)})!` };
-        }
-      }
+    // 2. Vessel capacity (max 4 cards per reaction)
+    if (currentCards.length >= 4) {
+      return { valid: false, reason: "Alchemical Manifold vessel is at maximum capacity (4 cards)!" };
     }
 
     return { valid: true };
@@ -1238,25 +1209,41 @@ class GameState {
     const ritual = this.rituals[key];
     if (!ritual) return { error: "Ritual not found." };
 
+    if (!ritual.manifold) {
+      ritual.manifold = { cards: [], activeReaction: null, pentaclesYield: 0 };
+    }
+
     const check = this.validateCardForChain(card, ritual);
     if (!check.valid) {
       return { error: check.reason };
     }
 
-    // Calculate attack power with dynamic multipliers
-    const power = this.calculateCardAttackPower(card, ritual, ritual.chain.length);
+    // Add card to Manifold vessel
     const enrichedCard = JSON.parse(JSON.stringify(card));
-    enrichedCard.effectiveAtk = power.finalAtk;
-    enrichedCard.powerBreakdown = power;
+    ritual.manifold.cards.push(enrichedCard);
+    ritual.chain = ritual.manifold.cards; // mirror to chain array for legacy compatibility
 
-    // Add card to chain
-    ritual.chain.push(enrichedCard);
+    // Compute Alchemical Reaction via 14 Alchemical Pillars & Kalchm Thermodynamics
+    let reaction = null;
+    if (typeof window !== 'undefined' && window.AlchemicalEngine) {
+      reaction = window.AlchemicalEngine.resolveReaction(ritual.manifold.cards);
+    } else {
+      // Fallback calculation if module is loading
+      const baseAtk = ritual.manifold.cards.reduce((acc, c) => acc + (c.attack || c.rank || 5), 0);
+      reaction = {
+        pillar: { id: 1, name: "Solution", color: "#5f93d8", sigil: "🜔" },
+        esms: { Spirit: 5, Essence: 5, Matter: 5, Substance: 5 },
+        thermodynamics: { heat: 40, entropy: 15, reactivity: 2.1, freeEnergy: 25 },
+        pentaclesYield: baseAtk * 2
+      };
+    }
 
-    // Check if completed
-    const totalAttackDealt = ritual.chain.reduce((acc, c) => acc + (c.effectiveAtk || c.attack || c.rank || 5), 0);
-    const completed = (ritual.type === 'gate_raid' || ritual.type === 'sum')
-      ? (totalAttackDealt >= (ritual.targetSum || 20) || ritual.chain.length >= ritual.cardsNeeded)
-      : (ritual.chain.length === ritual.cardsNeeded);
+    ritual.manifold.activeReaction = reaction;
+    ritual.manifold.pentaclesYield = reaction.pentaclesYield;
+
+    // Check if Pentacles yield satisfies the Zone Singularity Threshold
+    const targetThreshold = ritual.targetSum || 50;
+    const completed = ritual.manifold.pentaclesYield >= targetThreshold;
     let completionReward = null;
 
     if (completed) {
@@ -1351,6 +1338,7 @@ class GameState {
     const ritual = this.rituals[key];
     if (!ritual) return;
     ritual.chain = [];
+    ritual.manifold = { cards: [], activeReaction: null, pentaclesYield: 0 };
     this.save();
   }
 }

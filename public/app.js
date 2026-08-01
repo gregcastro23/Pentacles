@@ -2540,33 +2540,47 @@ void main() {
         return;
       }
 
+      if (!ritual.manifold) {
+        ritual.manifold = { cards: [], activeReaction: null, pentaclesYield: 0 };
+      }
+
       const sigil = targetType === "planet" ? PLANET_GLYPHS[targetId] : "✦";
       const name = targetType === "planet" ? `${PLANET_NAMES[targetId]} Alignment` : `Zone ${targetId} Gate`;
       const titleColor = targetType === "planet" ? PLANET_COLORS[targetId] : "var(--gold-bright)";
 
-      const totalAtk = (ritual.chain || []).reduce((acc, c) => acc + (c.effectiveAtk || c.attack || c.rank || 5), 0);
-      const targetThreshold = ritual.targetSum || 25;
-      const percent = Math.min(100, Math.round((totalAtk / targetThreshold) * 100));
+      // Resolve reaction state
+      let reaction = ritual.manifold.activeReaction;
+      if (!reaction && typeof window !== 'undefined' && window.AlchemicalEngine) {
+        reaction = window.AlchemicalEngine.resolveReaction(ritual.manifold.cards);
+        ritual.manifold.activeReaction = reaction;
+        ritual.manifold.pentaclesYield = reaction.pentaclesYield;
+      }
 
-      const comboStep = Math.min(2.2, 1.0 + (ritual.chain.length * 0.4)).toFixed(1);
+      const currentPentacles = ritual.manifold.pentaclesYield || 0;
+      const targetThreshold = ritual.targetSum || 50;
+      const percent = Math.min(100, Math.round((currentPentacles / targetThreshold) * 100));
 
+      const pillar = reaction ? reaction.pillar : { id: 1, name: "Awaiting Reagents", sigil: "🜔", color: "var(--dim)", description: "Drop Tarot cards into the Manifold chamber to initiate a reaction." };
+      const esms = reaction ? reaction.esms : { Spirit: 0, Essence: 0, Matter: 0, Substance: 0 };
+      const thermo = reaction ? reaction.thermodynamics : { heat: 0, entropy: 0, reactivity: 0, freeEnergy: 0 };
+
+      // Render manifold reagent slots (4 slots)
       let slotsHTML = "";
-      for (let i = 0; i < ritual.cardsNeeded; i++) {
-        const card = ritual.chain[i];
+      for (let i = 0; i < 4; i++) {
+        const card = ritual.manifold.cards[i];
         if (card) {
-          const multText = card.powerBreakdown ? ` [${card.powerBreakdown.elemMult}x]` : '';
           slotsHTML += `
             <div class="ritual-slot filled ${card.suit}">
-              <span class="ritual-slot-suit">${SUIT_GLYPHS[card.suit]}</span>
+              <span class="ritual-slot-suit">${SUIT_GLYPHS[card.suit] || '✦'}</span>
               <span class="ritual-slot-rank">${card.is_major ? 'Major' : rankName(card.rank)}</span>
-              <span class="ritual-slot-letter" style="color:var(--gold-bright);">⚔ ${card.effectiveAtk || card.attack || card.rank}${multText}</span>
+              <span class="ritual-slot-letter" style="color:var(--gold-bright); font-size:11px;">${card.title || 'Reagent'}</span>
             </div>
           `;
         } else {
-          const isActiveSlot = i === ritual.chain.length;
+          const isActiveSlot = i === ritual.manifold.cards.length;
           slotsHTML += `
             <div class="ritual-slot ${isActiveSlot ? 'active magnetic-hover' : ''}">
-              <span class="ritual-slot-placeholder">${isActiveSlot ? 'Drag Card Here' : 'Locked'}</span>
+              <span class="ritual-slot-placeholder">${isActiveSlot ? '✦ Drop Card' : 'Vessel Slot'}</span>
             </div>
           `;
         }
@@ -2580,29 +2594,65 @@ void main() {
             <span class="ritual-target-sigil" style="color: ${titleColor};">${sigil}</span>
             <span class="ritual-target-title" style="color: ${titleColor};">${name}</span>
           </div>
-          <button class="btn btn-reset-ritual" onclick="resetActiveRitual()">Clear Chain</button>
+          <button class="btn btn-reset-ritual" onclick="resetActiveRitual()">Purge Vessel</button>
         </div>
         <div class="ritual-challenge-desc">${ritual.description}</div>
         
-        <div style="margin: 8px 0; width: 100%;">
-          <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--gold-bright); margin-bottom:4px;">
-            <span>Singularity Threshold Collapse</span>
-            <span><b>${totalAtk}</b> / ${targetThreshold} ATK (${percent}%) — Multiplier: <b>${comboStep}x</b></span>
+        <!-- Pentacles Yield Singularity Bar -->
+        <div style="margin: 10px 0; width: 100%;">
+          <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--gold-bright); margin-bottom:6px;">
+            <span><b>Pentacles Singularity Yield</b></span>
+            <span><b style="font-size:14px; color:#ffd700;">${currentPentacles}</b> / ${targetThreshold} P (${percent}%)</span>
           </div>
-          <div style="width: 100%; height: 8px; background: rgba(0,0,0,0.5); border-radius: 4px; overflow: hidden; border: 1px solid var(--line);">
-            <div style="width: ${percent}%; height: 100%; background: linear-gradient(90deg, var(--gold), #f6cf83); transition: width 0.3s ease;"></div>
+          <div style="width: 100%; height: 10px; background: rgba(0,0,0,0.6); border-radius: 5px; overflow: hidden; border: 1px solid var(--line);">
+            <div style="width: ${percent}%; height: 100%; background: linear-gradient(90deg, #74ab6c, var(--gold-bright), #ffd700); transition: width 0.3s ease;"></div>
           </div>
         </div>
 
-        <div class="singularity-manifold-container" style="position:relative; display:flex; align-items:center; justify-content:center; margin:12px 0; min-height:180px;">
+        <!-- Alchemical Manifold & Central Shader -->
+        <div class="singularity-manifold-container" style="position:relative; display:flex; align-items:center; justify-content:center; margin:14px 0; min-height:160px; background: rgba(10,14,26,0.6); border-radius: 12px; border: 1px solid rgba(216,180,106,0.2); padding: 12px;">
           <!-- Central Singularity Shader Core -->
-          <div style="position:relative; width:140px; height:140px; border-radius:50%; overflow:hidden; border:2px solid var(--gold); box-shadow:0 0 25px rgba(216,180,106,0.4); z-index:1;">
+          <div style="position:relative; width:130px; height:130px; border-radius:50%; overflow:hidden; border:2px solid ${pillar.color || 'var(--gold)'}; box-shadow:0 0 25px ${pillar.color || 'rgba(216,180,106,0.4)'}; z-index:1;">
             <canvas id="singularity-shader-canvas" style="width:100%; height:100%; display:block;"></canvas>
           </div>
 
-          <!-- Orbital Card Chain Row -->
-          <div class="ritual-chain-row" style="position:relative; z-index:2; margin-left:-30px;">
+          <!-- Orbital Vessel Card Slots -->
+          <div class="ritual-chain-row" style="position:relative; z-index:2; margin-left:-25px; display:flex; gap:8px;">
             ${slotsHTML}
+          </div>
+        </div>
+
+        <!-- Alchemical Pillar & Kalchm Telemetry Readout -->
+        <div class="alchemical-telemetry-hud" style="background: rgba(0,0,0,0.4); border: 1px solid var(--line); border-radius: 8px; padding: 10px; margin: 10px 0; font-size: 11px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px dashed rgba(255,255,255,0.1); padding-bottom: 6px; margin-bottom: 6px;">
+            <span style="font-weight:bold; color:${pillar.color || 'var(--gold-bright)'}; font-size:13px;">
+              ${pillar.sigil || '🜔'} Pillar ${pillar.id || ''}: ${pillar.name}
+            </span>
+            <span style="color:var(--dim);">Primary: <b>${pillar.primaryElement || 'None'}</b> ${pillar.secondaryElement ? '· Sec: <b>' + pillar.secondaryElement + '</b>' : ''}</span>
+          </div>
+          
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+            <!-- ESMS Shift -->
+            <div style="display:flex; flex-direction:column; gap:2px;">
+              <span style="color:var(--dim); font-size:10px; font-weight:bold;">ESMS VECTOR DELTAS</span>
+              <div style="display:flex; gap:6px; font-family:var(--font-mono); font-size:11px;">
+                <span title="Spirit" style="color:#e85f5f;">S:${esms.Spirit > 0 ? '+' : ''}${esms.Spirit}</span>
+                <span title="Essence" style="color:#5f93d8;">E:${esms.Essence > 0 ? '+' : ''}${esms.Essence}</span>
+                <span title="Matter" style="color:#74ab6c;">M:${esms.Matter > 0 ? '+' : ''}${esms.Matter}</span>
+                <span title="Substance" style="color:#aebbd6;">Su:${esms.Substance > 0 ? '+' : ''}${esms.Substance}</span>
+              </div>
+            </div>
+
+            <!-- Kalchm Thermodynamics -->
+            <div style="display:flex; flex-direction:column; gap:2px;">
+              <span style="color:var(--dim); font-size:10px; font-weight:bold;">KALCHM THERMODYNAMICS</span>
+              <div style="display:flex; gap:6px; font-family:var(--font-mono); font-size:11px;">
+                <span title="Heat (Q)" style="color:#f0a04b;">Q:${thermo.heat}</span>
+                <span title="Entropy (S)" style="color:#e6b3eb;">S:${thermo.entropy}</span>
+                <span title="Reactivity (Ω)" style="color:#67d8d6;">Ω:${thermo.reactivity}</span>
+                <span title="Free Energy (ΔG)" style="color:#ffd700;">ΔG:${thermo.freeEnergy}</span>
+              </div>
+            </div>
           </div>
         </div>
 

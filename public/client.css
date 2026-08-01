@@ -1092,25 +1092,32 @@ body {
 }
 
 .ritual-slot {
-  width: 50px;
-  height: 70px;
+  width: 54px;
+  height: 74px;
   border: 1.5px dashed rgba(216, 180, 106, 0.25);
-  border-radius: 4px;
+  border-radius: 6px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: rgba(5, 6, 12, 0.5);
+  background: rgba(5, 6, 12, 0.6);
   font-size: 11px;
   color: var(--dim);
-  transition: all 0.2s;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
+  backdrop-filter: blur(4px);
 }
 
 .ritual-slot.active {
-  border-color: var(--gold);
-  background: rgba(216, 180, 106, 0.03);
-  box-shadow: inset 0 0 8px rgba(241, 219, 161, 0.1);
+  border-color: var(--gold-bright);
+  background: rgba(216, 180, 106, 0.08);
+  box-shadow: 0 0 12px rgba(241, 219, 161, 0.25), inset 0 0 8px rgba(241, 219, 161, 0.15);
+  animation: pulseSlot 2s infinite ease-in-out;
+}
+
+@keyframes pulseSlot {
+  0%, 100% { border-color: rgba(241, 219, 161, 0.4); }
+  50% { border-color: rgba(241, 219, 161, 1.0); box-shadow: 0 0 16px rgba(241, 219, 161, 0.4); }
 }
 
 .ritual-slot.filled {
@@ -1118,6 +1125,18 @@ body {
   border-color: var(--gold-bright);
   background: rgba(8, 10, 20, 0.95);
   color: #fff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+.alchemical-telemetry-hud {
+  box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  transition: all 0.3s ease;
+}
+
+.alchemical-telemetry-hud:hover {
+  border-color: var(--gold);
+}
 }
 
 .ritual-slot.filled.cups { border-color: var(--cups); }
