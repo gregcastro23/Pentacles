@@ -58,41 +58,44 @@
   <!-- ===================== ONBOARDING OVERLAY ===================== -->
   <div id="onboarding-overlay" class="overlay-fullscreen">
     <div class="onboarding-window">
-      <h2 style="font-family: var(--display); font-size: 28px; color: var(--gold-bright); text-align: center;">Forge Natal Deck</h2>
-      <p style="font-size: 13px; color: var(--dim); text-align: center; margin-top: -10px;">Enter your birth details to calculate your chart, join a planetary faction, and mint your procedural cards.</p>
+      <h2 class="welcome-title">Pentacles</h2>
+      <p class="welcome-subtitle">Enter your birth details to calculate your chart, join a planetary faction, and mint your procedural cards.</p>
       
       <div id="onboarding-step-1" style="display: flex; flex-direction: column; gap: 16px;">
         <div class="form-group">
-          <label>Seeker Name / Handle</label>
+          <label for="ob-handle">Name / Cryptonym</label>
           <input type="text" id="ob-handle" class="form-input" placeholder="e.g. ArcturusSeeker" value="CelestialSeeker">
         </div>
         <div class="form-group">
-          <label>Birth Date</label>
+          <label for="ob-date">Birth Date</label>
           <input type="date" id="ob-date" class="form-input" value="1998-05-14">
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label>Birth Time</label>
+            <label for="ob-time">Birth Time</label>
             <input type="time" id="ob-time" class="form-input" value="14:30">
           </div>
           <div class="form-group">
-            <label>Location (City)</label>
+            <label for="ob-loc">Location (City)</label>
             <input type="text" id="ob-loc" class="form-input" placeholder="e.g. New York, US" value="New York, US">
           </div>
         </div>
         <div class="form-row" style="align-items: flex-end;">
           <div class="form-group">
-            <label>Observer Latitude</label>
+            <label for="ob-lat">Observer Latitude</label>
             <input type="number" id="ob-lat" class="form-input" step="0.0001" min="-90" max="90" value="40.7128">
           </div>
           <div class="form-group">
-            <label>Longitude (east +)</label>
+            <label for="ob-lon">Longitude (east +)</label>
             <input type="number" id="ob-lon" class="form-input" step="0.0001" min="-180" max="180" value="-74.0060">
           </div>
           <button class="btn" style="white-space:nowrap; height:38px;" onclick="useMyLocation()" title="Anchor the live star map to where you stand">📍 Locate</button>
         </div>
         <p style="font-size:11px; color:var(--dim); margin:-6px 0 0;">The observer anchors the live sky: every naked-eye star above your horizon — from the ascendant to the edge of the sky — is mapped into the Pentacle.</p>
-        <button class="btn" style="margin-top: 10px;" onclick="calculateNatalOnboarding()">✦ Calculate Placements</button>
+        <button type="button" class="btn btn-welcome-start" id="ob-start-btn" onclick="calculateNatalOnboarding()">
+          <span class="btn-start-label">Start</span>
+          <span class="btn-start-subtext">Claim your Deck</span>
+        </button>
       </div>
 
       <div id="onboarding-step-2" style="display: none; flex-direction: column; gap: 16px;">
@@ -103,7 +106,9 @@
           <!-- Populated by JS -->
         </div>
 
-        <button id="faction-confirm-btn" class="btn" disabled onclick="confirmFactionOnboarding()">Confirm Allegiance & Mint Deck ⚔</button>
+        <button type="button" id="faction-confirm-btn" class="btn btn-welcome-start" disabled onclick="confirmFactionOnboarding()">
+          <span class="btn-start-label" style="font-size: 15px;">Confirm Allegiance & Mint Deck ⚔</span>
+        </button>
       </div>
     </div>
   </div>

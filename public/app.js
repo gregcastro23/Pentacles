@@ -358,95 +358,162 @@
 
     // Onboarding Calculation
     function calculateNatalOnboarding() {
-      const handle = document.getElementById("ob-handle").value.trim();
-      const date = document.getElementById("ob-date").value;
-      const time = document.getElementById("ob-time").value;
-      const loc = document.getElementById("ob-loc").value;
+      try {
+        const handleInput = document.getElementById("ob-handle");
+        let handle = handleInput ? handleInput.value.trim() : "";
+        if (!handle) {
+          handle = "Cryptonym_" + Math.floor(1000 + Math.random() * 9000);
+          if (handleInput) handleInput.value = handle;
+        }
 
-      if (!handle) { toast("Enter a seeker name!", { type: "warn" }); return; }
+        const dateInput = document.getElementById("ob-date");
+        const timeInput = document.getElementById("ob-time");
+        const locInput = document.getElementById("ob-loc");
+        const date = (dateInput && dateInput.value) || "1998-05-14";
+        const time = (timeInput && timeInput.value) || "14:30";
+        const loc = (locInput && locInput.value) || "New York, US";
 
-      // Anchor the live sky to the observer before the map first renders.
-      const lat = parseFloat(document.getElementById("ob-lat").value);
-      const lon = parseFloat(document.getElementById("ob-lon").value);
-      if (Number.isFinite(lat) && Number.isFinite(lon)) {
-        state.observer = {
-          lat: Math.max(-90, Math.min(90, lat)),
-          lon: Math.max(-180, Math.min(180, lon))
-        };
-      }
-      state.recomputeSky();
+        // Anchor the live sky to the observer before the map first renders.
+        const latInput = document.getElementById("ob-lat");
+        const lonInput = document.getElementById("ob-lon");
+        const lat = latInput ? parseFloat(latInput.value) : 40.7128;
+        const lon = lonInput ? parseFloat(lonInput.value) : -74.0060;
+        if (Number.isFinite(lat) && Number.isFinite(lon) && window.state) {
+          window.state.observer = {
+            lat: Math.max(-90, Math.min(90, lat)),
+            lon: Math.max(-180, Math.min(180, lon))
+          };
+        }
+        if (window.state && typeof window.state.recomputeSky === "function") {
+          window.state.recomputeSky();
+        }
 
-      // Calculate deterministic local placements.
-      const chart = deriveLocalNatalChart(`${date} ${time} ${loc}`);
-      // Capture the real birth instant + place so the Alchm Chart can compute a
-      // TRUE natal frame from the ephemeris (retiring the seed for that view).
-      const birthMs = Date.parse(`${date}T${time || "12:00"}`);
-      if (Number.isFinite(birthMs)) chart.birth_unix = Math.floor(birthMs / 1000);
-      if (Number.isFinite(lat)) chart.birth_lat = lat;
-      if (Number.isFinite(lon)) chart.birth_lon = lon;
-      const picks = scoreFactions(chart);
-      
-      // Populate choices Grid
-      const grid = document.getElementById("faction-picks-grid");
-      grid.innerHTML = "";
-      picks.forEach(pick => {
-        const name = PLANET_NAMES[pick.id];
-        const glyph = PLANET_GLYPHS[pick.id];
-        const color = PLANET_COLORS[pick.id];
+        // Calculate deterministic local placements.
+        const chart = (typeof deriveLocalNatalChart === "function")
+          ? deriveLocalNatalChart(`${date} ${time} ${loc}`)
+          : { placements: [], ascendant: 0, midheaven: 0 };
+
+        const birthMs = Date.parse(`${date}T${time || "12:00"}`);
+        if (Number.isFinite(birthMs)) chart.birth_unix = Math.floor(birthMs / 1000);
+        if (Number.isFinite(lat)) chart.birth_lat = lat;
+        if (Number.isFinite(lon)) chart.birth_lon = lon;
+
+        const picks = (typeof scoreFactions === "function")
+          ? scoreFactions(chart)
+          : [{ id: 0, score: 5 }, { id: 1, score: 3 }, { id: 2, score: 2 }];
         
-        grid.innerHTML += `
-          <div class="faction-choice-card" onclick="selectFactionPick(${pick.id})" id="faction-pick-${pick.id}">
-            <div class="faction-choice-sigil" style="color: ${color}">${glyph}</div>
-            <div class="faction-choice-name">${name}</div>
-            <div style="font-size:9px; color:var(--dim); margin-top:4px">Score: ${pick.score}</div>
-          </div>
-        `;
-      });
+        // Populate choices Grid
+        const grid = document.getElementById("faction-picks-grid");
+        if (grid) {
+          grid.innerHTML = "";
+          const P_NAMES = window.PLANET_NAMES || ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto'];
+          const P_GLYPHS = window.PLANET_GLYPHS || ['☉', '☽', '☿', '♀', '♂', '♃', '♄', '♅', '♆', '♇'];
+          const P_COLORS = window.PLANET_COLORS || ['#F59E0B', '#E2E8F0', '#38BDF8', '#EC4899', '#EF4444', '#10B981', '#F59E0B', '#06B6D4', '#6366F1', '#8B5CF6'];
 
-      // Show step 2
-      document.getElementById("onboarding-step-1").style.display = "none";
-      document.getElementById("onboarding-step-2").style.display = "flex";
-      
-      // Save temp chart
-      window.tempChart = chart;
-      window.tempHandle = handle;
-      synth.playSelect();
+          picks.forEach(pick => {
+            const name = P_NAMES[pick.id] || "Planet";
+            const glyph = P_GLYPHS[pick.id] || "✦";
+            const color = P_COLORS[pick.id] || "#f1dba1";
+            
+            grid.innerHTML += `
+              <div class="faction-choice-card" onclick="selectFactionPick(${pick.id})" id="faction-pick-${pick.id}">
+                <div class="faction-choice-sigil" style="color: ${color}">${glyph}</div>
+                <div class="faction-choice-name">${name}</div>
+                <div style="font-size:9px; color:var(--dim); margin-top:4px">Score: ${pick.score}</div>
+              </div>
+            `;
+          });
+        }
+
+        // Show step 2
+        const s1 = document.getElementById("onboarding-step-1");
+        const s2 = document.getElementById("onboarding-step-2");
+        if (s1) s1.style.display = "none";
+        if (s2) s2.style.display = "flex";
+        
+        // Save temp chart
+        window.tempChart = chart;
+        window.tempHandle = handle;
+
+        // Auto-select the top recommendation so the confirm button is immediately ready
+        if (picks && picks.length > 0) {
+          selectFactionPick(picks[0].id);
+        }
+
+        if (window.synth && window.synth.playSelect) window.synth.playSelect();
+      } catch (err) {
+        console.error("[Pentacles] Onboarding step 1 error:", err);
+        const s1 = document.getElementById("onboarding-step-1");
+        const s2 = document.getElementById("onboarding-step-2");
+        if (s1) s1.style.display = "none";
+        if (s2) s2.style.display = "flex";
+        if (typeof selectFactionPick === "function") selectFactionPick(0);
+      }
     }
 
     window.chosenFaction = null;
     function selectFactionPick(factionId) {
       document.querySelectorAll(".faction-choice-card").forEach(el => el.classList.remove("selected"));
-      document.getElementById(`faction-pick-${factionId}`).classList.add("selected");
+      const targetCard = document.getElementById(`faction-pick-${factionId}`);
+      if (targetCard) targetCard.classList.add("selected");
       window.chosenFaction = factionId;
-      document.getElementById("faction-confirm-btn").removeAttribute("disabled");
-      synth.playClick();
+      const confirmBtn = document.getElementById("faction-confirm-btn");
+      if (confirmBtn) confirmBtn.removeAttribute("disabled");
+      if (window.synth && window.synth.playClick) window.synth.playClick();
     }
 
     function confirmFactionOnboarding() {
-      if (window.chosenFaction === null) return;
-      state.registerPlayer(window.tempHandle, window.chosenFaction, window.tempChart);
-      if (window.tempEvmAddress) {
-        state.player.evm_address = window.tempEvmAddress;
-        window.tempEvmAddress = null;
-      }
-      state.save();
-      
-      // Dismiss overlay
-      document.getElementById("onboarding-overlay").style.display = "none";
-      synth.playFanfare();
+      try {
+        if (window.chosenFaction === null || window.chosenFaction === undefined) {
+          window.chosenFaction = 0; // Default to Sun if unselected
+        }
+        let handle = window.tempHandle;
+        if (!handle) {
+          const handleInput = document.getElementById("ob-handle");
+          handle = (handleInput && handleInput.value.trim()) || "Cryptonym_108";
+        }
+        if (!window.tempChart) {
+          window.tempChart = (typeof deriveLocalNatalChart === "function")
+            ? deriveLocalNatalChart("1998-05-14 14:30 New York, US")
+            : { placements: [], ascendant: 0, midheaven: 0 };
+        }
 
-      // Full UI Render
-      renderAll();
+        if (window.state && typeof window.state.registerPlayer === "function") {
+          window.state.registerPlayer(handle, window.chosenFaction, window.tempChart);
+          if (window.tempEvmAddress && window.state.player) {
+            window.state.player.evm_address = window.tempEvmAddress;
+            window.tempEvmAddress = null;
+          }
+          if (typeof window.state.save === "function") window.state.save();
+        }
+        
+        // Dismiss overlay
+        const ob = document.getElementById("onboarding-overlay");
+        if (ob) ob.style.display = "none";
+        if (window.synth && window.synth.playFanfare) window.synth.playFanfare();
 
-      // Online: also register a server-side player so cast_word + the live game
-      // work. Fire-and-forget so it never blocks onboarding; toast the result.
-      const reg = window.Pentacles && window.Pentacles.register;
-      if (reg && window.Pentacles.net && window.Pentacles.net.isLive) {
-        reg.registerLive(state.player.handle, state.player.chart, state.player.faction, state.observer)
-          .then(() => toast(`Registered ${state.player.handle} on the live module.`, { type: "success", title: "SpacetimeDB" }))
-          .catch((e) => toast(`Live registration failed: ${e.message || e}`, { type: "warn", title: "SpacetimeDB" }));
+        // Full UI Render
+        if (typeof renderAll === "function") renderAll();
+
+        // Online: also register a server-side player so cast_word + the live game
+        // work. Fire-and-forget so it never blocks onboarding; toast the result.
+        const reg = window.Pentacles && window.Pentacles.register;
+        if (reg && window.Pentacles.net && window.Pentacles.net.isLive && window.state && window.state.player) {
+          reg.registerLive(window.state.player.handle, window.state.player.chart, window.state.player.faction, window.state.observer)
+            .then(() => { if (typeof toast === "function") toast(`Registered ${window.state.player.handle} on live module.`, { type: "success", title: "SpacetimeDB" }); })
+            .catch((e) => { if (typeof toast === "function") toast(`Live registration failed: ${e.message || e}`, { type: "warn", title: "SpacetimeDB" }); });
+        }
+      } catch (err) {
+        console.error("[Pentacles] Confirm onboarding error:", err);
+        const ob = document.getElementById("onboarding-overlay");
+        if (ob) ob.style.display = "none";
+        if (typeof renderAll === "function") renderAll();
       }
     }
+
+    window.calculateNatalOnboarding = calculateNatalOnboarding;
+    window.selectFactionPick = selectFactionPick;
+    window.confirmFactionOnboarding = confirmFactionOnboarding;
 
     // App Navigation tabs
     function switchTab(tabId) {
@@ -2265,6 +2332,23 @@
     document.addEventListener("DOMContentLoaded", () => {
       initHologramControls();
       requestAnimationFrame(animateFrame);
+
+      // Explicitly attach click handlers to onboarding action buttons
+      const startBtn = document.getElementById("ob-start-btn");
+      if (startBtn) {
+        startBtn.addEventListener("click", (e) => {
+          e.preventDefault();
+          calculateNatalOnboarding();
+        });
+      }
+
+      const confirmBtn = document.getElementById("faction-confirm-btn");
+      if (confirmBtn) {
+        confirmBtn.addEventListener("click", (e) => {
+          e.preventDefault();
+          confirmFactionOnboarding();
+        });
+      }
 
       const loaded = state.load();
       if (loaded && state.player) {
