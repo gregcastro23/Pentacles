@@ -257,7 +257,7 @@ export async function transfer(stakeId) {
 }
 
 export function trade(starId) {
-  dex.openSwap(starId)
+  openSwap(starId)
 }
 
 // Global binding
@@ -275,15 +275,15 @@ Pentacles.dex.openSeed = openSeed
 Pentacles.dex.closeDrawer = closeDrawer
 
 function openSwap(constId) {
-  dex.openSwap?.(constId)
+  if (typeof window.openAlchmChart === 'function') window.openAlchmChart(constId)
 }
 
 function openSeed(constId) {
-  dex.openSeed?.(constId)
+  if (typeof window.openAlchmChart === 'function') window.openAlchmChart(constId)
 }
 
 function closeDrawer() {
-  dex.closeDrawer?.()
+  if (typeof window.closeAlchmChart === 'function') window.closeAlchmChart()
 }
 
 export function installPoolsUI() {

@@ -1109,9 +1109,9 @@ class GameState {
     const types = ['suit', 'gate_raid', 'rank_asc', 'rank_desc', 'sum'];
     const type = types[Math.floor(Math.random() * types.length)];
     
-    let cardsNeeded = 3;
+    let cardsNeeded = 4;
     let targetSuit = "";
-    let targetSum = 0;
+    let targetSum = 50;
     let description = "";
 
     if (targetType === 'planet') {
@@ -1130,8 +1130,6 @@ class GameState {
       targetSuit = SIGN_SUITS[suitIdx];
     }
 
-    let cardsNeeded = 4;
-    let targetSum = 50; // Target Pentacles threshold
     if (targetType === 'planet') {
       targetSum = 150 + (targetId * 15);
     } else if (targetId === 10) { // Crown zone
