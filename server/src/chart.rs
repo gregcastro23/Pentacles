@@ -18,6 +18,16 @@ pub fn sign_element(sign: u8) -> Suit {
     }
 }
 
+/// Helper to calculate if user is under 18 years old from birth_unix (NY SAFE Kids Act & Child Data Protection Act).
+pub fn is_minor(birth_unix: i64, current_unix: i64) -> bool {
+    if birth_unix >= current_unix {
+        return true;
+    }
+    const EIGHTEEN_YEARS_SECS: i64 = 18 * 365 * 86400 + 4 * 86400; // ~18 years in seconds
+    (current_unix - birth_unix) < EIGHTEEN_YEARS_SECS
+}
+
+
 /// Traditional/modern rulerships (outer planets rule the modern signs).
 pub fn sign_ruler(sign: u8) -> Planet {
     match sign % 12 {

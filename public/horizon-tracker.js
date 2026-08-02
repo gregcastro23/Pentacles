@@ -35,6 +35,21 @@
 
   // ── HIGH-PRECISION GEOLOCATION WATCH ──────────────────────────────────────
   function startGPSWatch(onUpdate) {
+    const consent = localStorage.getItem("pentacles_location_consent");
+    if (consent === "denied") {
+      console.log("GPS Watch skipped: user selected Fixed Sky View.");
+      return false;
+    }
+    if (consent !== "granted") {
+      if (global.requestGeolocationConsent) {
+        global.requestGeolocationConsent(
+          () => startGPSWatch(onUpdate),
+          () => {}
+        );
+      }
+      return false;
+    }
+
     if (!navigator.geolocation) {
       if (global.toast) global.toast("Geolocation is unavailable in this browser.", { type: "warn" });
       return false;
@@ -63,11 +78,14 @@
           if (global.state.recomputeSky) global.state.recomputeSky();
         }
 
-        // Keep the public location current. StarDex ephemeris mutations require
-        // a separate feeder-attested horizon intent and cannot be GPS-spoofed.
+        // Keep the location current. NY Child Data Protection Act: minors have exact GPS coarsened.
+        const isUserMinor = global.isMinor && global.state && global.state.natal && global.isMinor(global.state.natal.birthUnix);
+        const sendLat = isUserMinor ? Math.round(coords.latitude * 10) / 10 : coords.latitude;
+        const sendLon = isUserMinor ? Math.round(coords.longitude * 10) / 10 : coords.longitude;
+
         const net = global.Pentacles && global.Pentacles.net;
         if (net && net.isLive && typeof net.callReducer === "function") {
-          net.callReducer("set_location", [coords.latitude, coords.longitude]).catch(() => {});
+          net.callReducer("set_location", [sendLat, sendLon]).catch(() => {});
         }
 
         if (onUpdate) onUpdate(state.gps);

@@ -437,17 +437,54 @@ fn purge_player_fully(ctx: &ReducerContext, id: Identity) {
     clear_round_timers(ctx, id);
 }
 
+/// GDPR Art. 17 — Right to be Forgotten / Right to Erasure reducer.
+/// Deletes private NatalChart, removes verified EVM/Solana wallets, and resets
+/// the Player handle to anonymized-seeker-<identity> while clearing linked wallets.
+#[reducer]
+pub fn delete_player_data(ctx: &ReducerContext) -> Result<(), String> {
+    let sender = ctx.sender();
+    if let Some(mut player) = ctx.db.player().identity().find(&sender) {
+        player.handle = format!("anonymized-seeker-{}", sender);
+        player.evm_address = None;
+        player.solana_pubkey = None;
+        ctx.db.player().identity().update(player);
+    }
+    if ctx.db.natal_chart().identity().find(&sender).is_some() {
+        ctx.db.natal_chart().identity().delete(&sender);
+    }
+    if ctx.db.verified_evm_wallet().identity().find(&sender).is_some() {
+        ctx.db.verified_evm_wallet().identity().delete(&sender);
+    }
+    if ctx.db.verified_solana_wallet().identity().find(&sender).is_some() {
+        ctx.db.verified_solana_wallet().identity().delete(&sender);
+    }
+    Ok(())
+}
+
 /// Record the caller's real-world location (private). The horizon it anchors
 /// gates which stars they can engage. East-positive longitude, like the charts.
+/// Minors (under 18) have exact GPS lat/lon coarsened for privacy (NY Child Data Protection Act).
 #[reducer]
 pub fn set_location(ctx: &ReducerContext, lat: f64, lon: f64) -> Result<(), String> {
     if !(-90.0..=90.0).contains(&lat) || !(-180.0..=180.0).contains(&lon) {
         return Err("lat/lon out of range".into());
     }
+
+    let now_sec = (ctx.timestamp.to_micros_since_unix_epoch() / 1_000_000) as i64;
+    let (final_lat, final_lon) = if let Some(chart) = ctx.db.natal_chart().identity().find(&ctx.sender()) {
+        if chart::is_minor(chart.birth_unix, now_sec) {
+            ((lat * 10.0).round() / 10.0, (lon * 10.0).round() / 10.0)
+        } else {
+            (lat, lon)
+        }
+    } else {
+        (lat, lon)
+    };
+
     let row = PlayerLocation {
         identity: ctx.sender(),
-        lat,
-        lon,
+        lat: final_lat,
+        lon: final_lon,
         updated_at: ctx.timestamp,
     };
     if ctx
@@ -5025,6 +5062,13 @@ pub fn bind_wallet_address(
         .identity()
         .find(&ctx.sender())
         .ok_or_else(|| "player profile not found — register first (create_player)".to_string())?;
+
+    let now_sec = (ctx.timestamp.to_micros_since_unix_epoch() / 1_000_000) as i64;
+    if let Some(chart) = ctx.db.natal_chart().identity().find(&ctx.sender()) {
+        if chart::is_minor(chart.birth_unix, now_sec) {
+            return Err("Minor age restriction: Web3 / Token-2022 wallet binding requires verified parental consent under NY SAFE Kids Act".into());
+        }
+    }
 
     if let Some(ref evm) = evm_address {
         let clean_evm = evm.trim().to_lowercase();

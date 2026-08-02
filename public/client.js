@@ -649,6 +649,11 @@ class GameState {
       rituals: this.rituals || {}
     };
     
+    if (localStorage.getItem("pentacles_storage_consent") === "denied") {
+      console.log("Local storage save skipped: storage consent disabled.");
+      return;
+    }
+
     localStorage.setItem(`pentacles_save_${activeHandle}`, JSON.stringify(data));
     localStorage.setItem("pentacles_active_profile", activeHandle);
     this.addProfileToList(activeHandle);
@@ -656,6 +661,7 @@ class GameState {
   }
 
   addProfileToList(handle) {
+    if (localStorage.getItem("pentacles_storage_consent") === "denied") return;
     let list = [];
     const rawList = localStorage.getItem("pentacles_profiles_list");
     if (rawList) {

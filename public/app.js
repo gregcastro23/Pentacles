@@ -345,6 +345,16 @@
 
     // Geolocation → observer inputs (anchors the live star map to where you stand)
     function useMyLocation() {
+      requestGeolocationConsent(
+        () => useMyLocationImpl(),
+        () => {
+          document.getElementById("ob-lat").value = "40.7128";
+          document.getElementById("ob-lon").value = "-74.0060";
+        }
+      );
+    }
+
+    function useMyLocationImpl() {
       if (!navigator.geolocation) { toast("Geolocation is not available in this browser.", { type: "warn" }); return; }
       navigator.geolocation.getCurrentPosition(
         pos => {
@@ -2207,6 +2217,11 @@
     }
 
     async function connectWeb3Wallet() {
+      if (state && state.natal && state.natal.birthUnix && isMinor(state.natal.birthUnix)) {
+        toast("Minor age restriction: Web3 / Token-2022 wallet binding requires verified parental consent under NY SAFE Kids Act.", { type: "warn" });
+        return;
+      }
+
       const wallet = window.Pentacles && window.Pentacles.wallet;
       if (!wallet || typeof window.ethereum === 'undefined') {
         toast("No EVM wallet extension (e.g. MetaMask) detected. Please install one to use Web3 login.", { type: "warn" });
@@ -2753,3 +2768,119 @@ void main() {
         }
       }, 20);
     };
+
+// ── LEGAL COMPLIANCE & PRIVACY REMEDIATION API ────────────────────────────
+function isMinor(birthUnix) {
+  if (!birthUnix) return false;
+  const ageSecs = (Date.now() / 1000) - birthUnix;
+  return ageSecs < (18 * 365.25 * 86400);
+}
+
+let pendingGeoAllowCb = null;
+let pendingGeoFixedCb = null;
+
+function requestGeolocationConsent(onAllow, onFixed) {
+  const consent = localStorage.getItem("pentacles_location_consent");
+  if (consent === "granted") {
+    if (onAllow) onAllow();
+  } else if (consent === "denied") {
+    if (onFixed) onFixed();
+  } else {
+    pendingGeoAllowCb = onAllow;
+    pendingGeoFixedCb = onFixed;
+    const modal = document.getElementById("geolocation-consent-modal");
+    if (modal) modal.style.display = "flex";
+  }
+}
+
+function setGeolocationConsent(status) {
+  try {
+    localStorage.setItem("pentacles_location_consent", status);
+  } catch (e) {}
+  const modal = document.getElementById("geolocation-consent-modal");
+  if (modal) modal.style.display = "none";
+
+  if (status === "granted") {
+    if (typeof toast === "function") toast("Live Geolocation granted. Horizon anchored to your position.", { type: "info" });
+    if (pendingGeoAllowCb) {
+      pendingGeoAllowCb();
+      pendingGeoAllowCb = null;
+    }
+  } else {
+    if (typeof toast === "function") toast("Fixed sky view selected. Using default horizon coordinates.", { type: "info" });
+    if (pendingGeoFixedCb) {
+      pendingGeoFixedCb();
+      pendingGeoFixedCb = null;
+    }
+  }
+}
+
+async function deleteSeekerIdentity() {
+  if (!confirm("Are you sure you want to delete your Seeker identity & on-chain links? This action is permanent and irreversible under GDPR Art. 17 (Right to Erasure).")) {
+    return;
+  }
+
+  try {
+    const net = window.Pentacles && window.Pentacles.net;
+    if (net && net.isLive && typeof net.callReducer === "function") {
+      await net.callReducer("delete_player_data", []);
+    }
+
+    const activeHandle = localStorage.getItem("pentacles_active_profile");
+    if (activeHandle) {
+      localStorage.removeItem(`pentacles_save_${activeHandle}`);
+    }
+    localStorage.removeItem("pentacles_active_profile");
+    localStorage.removeItem("pentacles_profiles_list");
+    localStorage.removeItem("pentacles_astral_key");
+
+    if (typeof toast === "function") toast("Seeker identity & on-chain links permanently deleted.", { type: "info" });
+    if (typeof closeSignInModal === "function") closeSignInModal();
+    setTimeout(() => {
+      window.location.reload();
+    }, 1200);
+  } catch (e) {
+    console.error("Right to erasure request failed:", e);
+    if (typeof toast === "function") toast("Erasure request failed: " + (e.message || e), { type: "warn" });
+  }
+}
+
+function getLocalStorageConsent() {
+  return localStorage.getItem("pentacles_storage_consent") !== "denied";
+}
+
+function toggleLocalStorageConsent() {
+  const current = getLocalStorageConsent();
+  const nextStatus = current ? "denied" : "granted";
+  try {
+    localStorage.setItem("pentacles_storage_consent", nextStatus);
+  } catch (e) {}
+
+  const btn = document.getElementById("storage-consent-toggle-btn");
+  if (nextStatus === "denied") {
+    if (btn) {
+      btn.innerText = "✦ Storage Consent: Disabled";
+      btn.style.color = "#ff6b6b";
+    }
+    const activeHandle = localStorage.getItem("pentacles_active_profile");
+    if (activeHandle) {
+      localStorage.removeItem(`pentacles_save_${activeHandle}`);
+    }
+    localStorage.removeItem("pentacles_profiles_list");
+    localStorage.removeItem("pentacles_astral_key");
+    if (typeof toast === "function") toast("Local storage persistence disabled & cached credentials purged.", { type: "info" });
+  } else {
+    if (btn) {
+      btn.innerText = "✦ Storage Consent: Active";
+      btn.style.color = "var(--gold-bright)";
+    }
+    if (typeof toast === "function") toast("Local storage persistence enabled.", { type: "info" });
+  }
+}
+
+window.isMinor = isMinor;
+window.requestGeolocationConsent = requestGeolocationConsent;
+window.setGeolocationConsent = setGeolocationConsent;
+window.deleteSeekerIdentity = deleteSeekerIdentity;
+window.getLocalStorageConsent = getLocalStorageConsent;
+window.toggleLocalStorageConsent = toggleLocalStorageConsent;
