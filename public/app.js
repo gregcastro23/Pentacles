@@ -1433,7 +1433,7 @@
           if (state.player && state.rituals) {
             const rit = state.rituals[`zone_${star.zone}`];
             if (rit) {
-              starRitualText = ` · Ritual: ${rit.description} (${rit.chain.length}/${rit.cardsNeeded})`;
+              starRitualText = ` · Manifold: ${rit.manifold ? rit.manifold.cards.length : 0}/4 Reagents`;
             }
           }
           tip.textContent = `${star.name} · mag ${star.magnitude} · alt ${Math.round(star.alt)}° · ${zoneName}${starRitualText}` +
@@ -2647,10 +2647,18 @@ void main() {
       const name = targetType === "planet" ? `${PLANET_NAMES[targetId]} Alignment` : `Zone ${targetId} Gate`;
       const titleColor = targetType === "planet" ? PLANET_COLORS[targetId] : "var(--gold-bright)";
 
+      // Build zone character context for AlchemicalEngine
+      const targetZoneInfo = {
+        targetType,
+        targetId,
+        zone_id: targetType === 'zone' ? targetId : (state.planets && state.planets[targetId] ? state.planets[targetId].zone : 0),
+        targetSuit: ritual.targetSuit
+      };
+
       // Resolve reaction state
       let reaction = ritual.manifold.activeReaction;
       if (!reaction && typeof window !== 'undefined' && window.AlchemicalEngine) {
-        reaction = window.AlchemicalEngine.resolveReaction(ritual.manifold.cards);
+        reaction = window.AlchemicalEngine.resolveReaction(ritual.manifold.cards, targetZoneInfo);
         ritual.manifold.activeReaction = reaction;
         ritual.manifold.pentaclesYield = reaction.pentaclesYield;
       }
@@ -2662,6 +2670,7 @@ void main() {
       const pillar = reaction ? reaction.pillar : { id: 1, name: "Awaiting Reagents", sigil: "🜔", color: "var(--dim)", description: "Drop Tarot cards into the Manifold chamber to initiate a reaction." };
       const esms = reaction ? reaction.esms : { Spirit: 0, Essence: 0, Matter: 0, Substance: 0 };
       const thermo = reaction ? reaction.thermodynamics : { heat: 0, entropy: 0, reactivity: 0, freeEnergy: 0 };
+      const alignment = reaction ? reaction.zoneAlignment : { multiplier: 1.0, rating: "Neutral Alchemy", favoredSuit: ritual.targetSuit || "pentacles", matchingCardsCount: 0 };
 
       // Render manifold reagent slots (4 slots)
       let slotsHTML = "";
@@ -2705,6 +2714,22 @@ void main() {
           </div>
           <div style="width: 100%; height: 10px; background: rgba(0,0,0,0.6); border-radius: 5px; overflow: hidden; border: 1px solid var(--line);">
             <div style="width: ${percent}%; height: 100%; background: linear-gradient(90deg, #74ab6c, var(--gold-bright), #ffd700); transition: width 0.3s ease;"></div>
+          </div>
+        </div>
+
+        <!-- Zone Character Alignment Telemetry -->
+        <div style="margin: 8px 0; padding: 8px 12px; background: rgba(24,27,39,0.7); border: 1px solid rgba(216,180,106,0.3); border-radius: 8px; display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <span style="color:var(--dim); font-size:10px; font-weight:bold; display:block; text-transform:uppercase; letter-spacing:0.5px;">Zone Character Alignment</span>
+            <span style="color:${alignment.multiplier >= 1.5 ? '#ffd700' : (alignment.multiplier >= 1.0 ? '#74ab6c' : '#e85f5f')}; font-weight:bold; font-size:12px;">
+              ${alignment.rating}
+            </span>
+          </div>
+          <div style="text-align:right;">
+            <span style="font-family:var(--font-mono); font-weight:bold; font-size:13px; color:${alignment.multiplier >= 1.5 ? '#ffd700' : '#d8b46a'};">
+              ${alignment.multiplier}x Multiplier
+            </span>
+            <span style="display:block; color:var(--dim); font-size:10px;">Favored Suit: <b style="color:var(--gold-bright); text-transform:uppercase;">${alignment.favoredSuit || ritual.targetSuit}</b> (${alignment.matchingCardsCount || 0}/${ritual.manifold.cards.length} matched)</span>
           </div>
         </div>
 

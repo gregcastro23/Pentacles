@@ -1093,26 +1093,30 @@ class GameState {
     if (!this.rituals) this.rituals = {};
     for (let p = 0; p <= 10; p++) {
       const key = `planet_${p}`;
-      if (!this.rituals[key]) {
+      if (!this.rituals[key] || this.isObsoleteRitual(this.rituals[key])) {
         this.rituals[key] = this.generateProceduralRitual('planet', p);
       }
     }
     for (let z = 0; z <= 10; z++) {
       const key = `zone_${z}`;
-      if (!this.rituals[key]) {
+      if (!this.rituals[key] || this.isObsoleteRitual(this.rituals[key])) {
         this.rituals[key] = this.generateProceduralRitual('zone', z);
       }
     }
   }
 
+  isObsoleteRitual(r) {
+    if (!r) return true;
+    if (r.type === 'rank_desc' || r.type === 'rank_asc' || r.type === 'gate_raid' || r.type === 'suit') return true;
+    if (!r.manifold) return true;
+    if (r.description && (r.description.includes('descending') || r.description.includes('Chain 3') || r.description.includes('rank'))) return true;
+    return false;
+  }
+
   generateProceduralRitual(targetType, targetId) {
-    const types = ['suit', 'gate_raid', 'rank_asc', 'rank_desc', 'sum'];
-    const type = types[Math.floor(Math.random() * types.length)];
-    
     let cardsNeeded = 4;
     let targetSuit = "";
     let targetSum = 50;
-    let description = "";
 
     if (targetType === 'planet') {
       const name = PLANET_NAMES[targetId] || "Chiron";
@@ -1125,27 +1129,25 @@ class GameState {
       } else { // Saturn, Jupiter, Chiron -> Earth/Pentacles
         targetSuit = "pentacles";
       }
+      targetSum = 150 + (targetId * 15);
     } else {
       const suitIdx = targetId % 12;
       targetSuit = SIGN_SUITS[suitIdx];
+      if (targetId === 10) { // Crown zone
+        targetSum = 200;
+      } else if (targetId >= 5) { // Spire zones
+        targetSum = 100;
+      } else { // House zones
+        targetSum = 50;
+      }
     }
 
-    if (targetType === 'planet') {
-      targetSum = 150 + (targetId * 15);
-    } else if (targetId === 10) { // Crown zone
-      targetSum = 200;
-    } else if (targetId >= 5) { // Spire zones
-      targetSum = 100;
-    } else { // House zones
-      targetSum = 50;
-    }
-
-    description = `Drop cards into the Alchemical Manifold to trigger reactions (14 Pillars). Reach ${targetSum} Pentacles to breach.`;
+    const description = `Drop Tarot cards into the Alchemical Manifold vessel to break down the gate. Pentacles yield scales with Zone Character Alignment.`;
 
     return {
       targetType,
       targetId,
-      type,
+      type: 'manifold',
       cardsNeeded,
       description,
       targetSuit,
@@ -1227,10 +1229,18 @@ class GameState {
     ritual.manifold.cards.push(enrichedCard);
     ritual.chain = ritual.manifold.cards; // mirror to chain array for legacy compatibility
 
-    // Compute Alchemical Reaction via 14 Alchemical Pillars & Kalchm Thermodynamics
+    // Build zone character context for AlchemicalEngine
+    const targetZoneInfo = {
+      targetType,
+      targetId,
+      zone_id: targetType === 'zone' ? targetId : (this.planets && this.planets[targetId] ? this.planets[targetId].zone : 0),
+      targetSuit: ritual.targetSuit
+    };
+
+    // Compute Alchemical Reaction via 14 Alchemical Pillars & Kalchm Thermodynamics with Zone Character Alignment
     let reaction = null;
     if (typeof window !== 'undefined' && window.AlchemicalEngine) {
-      reaction = window.AlchemicalEngine.resolveReaction(ritual.manifold.cards);
+      reaction = window.AlchemicalEngine.resolveReaction(ritual.manifold.cards, targetZoneInfo);
     } else {
       // Fallback calculation if module is loading
       const baseAtk = ritual.manifold.cards.reduce((acc, c) => acc + (c.attack || c.rank || 5), 0);
@@ -1238,6 +1248,7 @@ class GameState {
         pillar: { id: 1, name: "Solution", color: "#5f93d8", sigil: "🜔" },
         esms: { Spirit: 5, Essence: 5, Matter: 5, Substance: 5 },
         thermodynamics: { heat: 40, entropy: 15, reactivity: 2.1, freeEnergy: 25 },
+        zoneAlignment: { multiplier: 1.0, rating: "Neutral Alchemy", favoredSuit: ritual.targetSuit || "pentacles", zoneElement: "Earth", matchingCardsCount: 0 },
         pentaclesYield: baseAtk * 2
       };
     }

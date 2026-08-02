@@ -236,14 +236,109 @@
   }
 
   /**
+   * Calculates how well the combination of cards & resolved pillar match the character of the target zone/planet
+   */
+  function calculateZoneCharacterAlignment(cards, pillar, targetZoneInfo) {
+    if (!cards || cards.length === 0 || !targetZoneInfo) {
+      return {
+        multiplier: 1.0,
+        rating: "Neutral Alchemy",
+        favoredSuit: targetZoneInfo?.targetSuit || "pentacles",
+        zoneElement: "Earth",
+        matchingCardsCount: 0
+      };
+    }
+
+    const suitToElement = {
+      wands: "Fire",
+      cups: "Water",
+      swords: "Air",
+      pentacles: "Earth"
+    };
+
+    const complementaryElements = {
+      Fire: "Air",
+      Air: "Fire",
+      Water: "Earth",
+      Earth: "Water"
+    };
+
+    const favoredSuit = (targetZoneInfo.targetSuit || "pentacles").toLowerCase();
+    const zoneElement = suitToElement[favoredSuit] || "Earth";
+    const compElement = complementaryElements[zoneElement];
+
+    let alignmentMult = 1.0;
+    let matchingCardsCount = 0;
+    let compCardsCount = 0;
+
+    cards.forEach(c => {
+      const cardSuit = (c.suit || "pentacles").toLowerCase();
+      const cardElem = suitToElement[cardSuit] || "Earth";
+
+      if (cardSuit === favoredSuit || cardElem === zoneElement) {
+        matchingCardsCount++;
+        alignmentMult += 0.25;
+      } else if (cardElem === compElement) {
+        compCardsCount++;
+        alignmentMult += 0.10;
+      }
+
+      if (c.is_major) {
+        alignmentMult += 0.15;
+      }
+    });
+
+    // Pillar element synergy with Zone character
+    if (pillar) {
+      if (pillar.primaryElement === zoneElement) {
+        alignmentMult += 0.35;
+      } else if (pillar.secondaryElement === zoneElement) {
+        alignmentMult += 0.20;
+      } else if (pillar.primaryElement === compElement) {
+        alignmentMult += 0.15;
+      }
+    }
+
+    // Pure elemental resonance bonus if all cards match favored suit
+    if (cards.length > 0 && matchingCardsCount === cards.length) {
+      alignmentMult += 0.40;
+    }
+
+    const finalMultiplier = Number(Math.min(2.5, Math.max(0.8, alignmentMult)).toFixed(2));
+
+    let rating = "Neutral Alchemy";
+    if (finalMultiplier >= 2.0) {
+      rating = "✦✦✦ Resonant Master Alignment";
+    } else if (finalMultiplier >= 1.5) {
+      rating = "✦✦ Harmonious Elemental Affinity";
+    } else if (finalMultiplier >= 1.15) {
+      rating = "✦ Favorable Synergy";
+    } else if (finalMultiplier >= 0.95) {
+      rating = "Neutral Alchemy";
+    } else {
+      rating = "Dissonant Vector";
+    }
+
+    return {
+      multiplier: finalMultiplier,
+      rating,
+      favoredSuit,
+      zoneElement,
+      matchingCardsCount,
+      compCardsCount
+    };
+  }
+
+  /**
    * Calculates Kalchm thermodynamic quantities and Pentacles Yield
    */
-  function calculateReactionThermodynamics(cards, pillar) {
+  function calculateReactionThermodynamics(cards, pillar, targetZoneInfo) {
     if (!cards || cards.length === 0) {
       return {
         pillar: ALCHEMICAL_PILLARS[0],
         esms: { Spirit: 0, Essence: 0, Matter: 0, Substance: 0 },
         thermodynamics: { heat: 0, entropy: 0, reactivity: 0, freeEnergy: 0 },
+        zoneAlignment: { multiplier: 1.0, rating: "Neutral Alchemy", favoredSuit: "pentacles", zoneElement: "Earth", matchingCardsCount: 0 },
         pentaclesYield: 0
       };
     }
@@ -276,11 +371,15 @@
     const reactivity = Number(((heat / (entropy + 8)) * (1.0 + (pillar.id % 5) * 0.15)).toFixed(2));
     const freeEnergy = Math.round(heat - (0.45 * entropy * (1 + reactivity)));
 
-    // 4. Pentacles Yield calculation
-    // Base power + thermodynamic amplification + pillar synergy
+    // 4. Zone Character Alignment matching
+    const zoneAlignment = calculateZoneCharacterAlignment(cards, pillar, targetZoneInfo);
+
+    // 5. Pentacles Yield calculation
+    // Base power + thermodynamic amplification + pillar synergy * zone character alignment multiplier
     const basePower = cards.reduce((acc, c) => acc + (c.effectiveAtk || c.attack || c.rank || 5), 0);
     const comboMult = 1.0 + (cardCount * 0.35); // 1.35x, 1.7x, 2.05x, 2.4x
-    const pentaclesYield = Math.max(15, Math.round((basePower + (heat * 0.8) + (reactivity * 25)) * comboMult));
+    const rawYield = (basePower + (heat * 0.8) + (reactivity * 25)) * comboMult;
+    const pentaclesYield = Math.max(15, Math.round(rawYield * zoneAlignment.multiplier));
 
     return {
       pillar,
@@ -296,6 +395,7 @@
         reactivity,
         freeEnergy
       },
+      zoneAlignment,
       pentaclesYield
     };
   }
@@ -305,11 +405,12 @@
     ALCHEMICAL_PILLARS,
     SUIT_ESMS,
     resolveAlchemicalPillar,
+    calculateZoneCharacterAlignment,
     calculateReactionThermodynamics,
-    resolveReaction: function(cards) {
+    resolveReaction: function(cards, targetZoneInfo) {
       const pillar = resolveAlchemicalPillar(cards);
-      return calculateReactionThermodynamics(cards, pillar);
+      return calculateReactionThermodynamics(cards, pillar, targetZoneInfo);
     }
   };
 
-})(typeof window !== 'undefined' ? window : this);
+})(typeof window !== 'undefined' ? window : (typeof global !== 'undefined' ? global : this));
