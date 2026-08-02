@@ -803,8 +803,7 @@ class GameState {
   }
 
   mintSlot(cardId) {
-    const activeCount = this.deck.filter(d => d.loadout === "active").length;
-    this.deck.push({ card_id: cardId, loadout: activeCount < 8 ? "active" : "bench" });
+    this.deck.push({ card_id: cardId, loadout: "active" });
   }
 
   createCard(bodyIdx, isMajor, degree, minute, dignity, retrograde, rankOverride = null, signIdx = 0, receptionBoost = 0) {
@@ -1200,6 +1199,104 @@ class GameState {
     return { valid: true };
   }
 
+  synthesizeRewardCardsFromPlayed(playedCards, targetZoneId, pentaclesYield) {
+    if (!playedCards || playedCards.length === 0) {
+      const card = this.createCard(
+        this.player ? this.player.faction : 0,
+        false,
+        Math.floor(Math.random() * 30),
+        Math.floor(Math.random() * 60),
+        2, false, null, targetZoneId % 12
+      );
+      return [card];
+    }
+
+    const suitCounts = {};
+    const signCounts = {};
+    let totalAtk = 0;
+    let totalHp = 0;
+    let totalArm = 0;
+    let maxLevel = 1;
+    let maxRank = 1;
+    let hasMajor = false;
+    let dominantBody = this.player ? this.player.faction : 0;
+
+    playedCards.forEach(c => {
+      if (c.suit) suitCounts[c.suit] = (suitCounts[c.suit] || 0) + 1;
+      const s = (c.sign_idx !== undefined && c.sign_idx !== null) ? c.sign_idx : targetZoneId % 12;
+      signCounts[s] = (signCounts[s] || 0) + 1;
+      totalAtk += (c.attack || 5);
+      totalHp += (c.health || 15);
+      totalArm += (c.armour || 4);
+      if (c.level && c.level > maxLevel) maxLevel = c.level;
+      if (c.rank && c.rank > maxRank) maxRank = c.rank;
+      if (c.is_major) {
+        hasMajor = true;
+        dominantBody = c.source_body;
+      }
+    });
+
+    let dominantSuit = SIGN_SUITS[targetZoneId % 12] || "pentacles";
+    let maxSuitCount = 0;
+    for (const s in suitCounts) {
+      if (suitCounts[s] > maxSuitCount) {
+        maxSuitCount = suitCounts[s];
+        dominantSuit = s;
+      }
+    }
+
+    let dominantSign = targetZoneId % 12;
+    let maxSignCount = 0;
+    for (const s in signCounts) {
+      if (signCounts[s] > maxSignCount) {
+        maxSignCount = signCounts[s];
+        dominantSign = parseInt(s, 10);
+      }
+    }
+
+    const rewardCount = (playedCards.length >= 3 || pentaclesYield >= 100) ? 2 : 1;
+    const rewardCards = [];
+
+    const avgAtk = totalAtk / playedCards.length;
+    const avgHp = totalHp / playedCards.length;
+    const avgArm = totalArm / playedCards.length;
+
+    for (let i = 0; i < rewardCount; i++) {
+      const isMajor = (hasMajor && i === 0) || Math.random() < 0.20 || pentaclesYield >= 120;
+      const degree = Math.min(29, (dominantSign * 2 + i * 5 + Math.floor(pentaclesYield / 10)) % 30);
+      const minute = Math.floor(Math.random() * 60);
+
+      const card = this.createCard(
+        dominantBody,
+        isMajor,
+        degree,
+        minute,
+        3,
+        false,
+        isMajor ? null : Math.min(10, maxRank + 1),
+        dominantSign,
+        1.5
+      );
+
+      card.attack = Math.max(5, Math.round(avgAtk * 1.15 + (pentaclesYield / 40) + i * 2));
+      card.health = Math.max(12, Math.round(avgHp * 1.15 + (pentaclesYield / 30) + i * 4));
+      card.armour = Math.max(4, Math.round(avgArm + 2 + i));
+      card.level = Math.min(5, maxLevel + (pentaclesYield >= 80 ? 1 : 0));
+      card.suit = dominantSuit;
+
+      if (!isMajor) {
+        const capSuit = dominantSuit ? dominantSuit[0].toUpperCase() + dominantSuit.slice(1) : "Pentacles";
+        card.title = `Synthesized ${rankName(card.rank)} of ${capSuit}`;
+      } else {
+        card.title = `${MAJOR_NAMES[card.source_body] || "Alchemical Arcana"}`;
+      }
+
+      rewardCards.push(card);
+    }
+
+    return rewardCards;
+  }
+
   playCardIntoRitual(cardId, targetType, targetId) {
     if (!this.player) return { error: "Register a Seeker first." };
     const card = this.collection.find(c => c.card_id === cardId);
@@ -1262,6 +1359,8 @@ class GameState {
     let completionReward = null;
 
     if (completed) {
+      const playedCards = ritual.manifold.cards ? JSON.parse(JSON.stringify(ritual.manifold.cards)) : [];
+
       // 1. Consume the cards in the chain
       const chainedIds = new Set(ritual.chain.map(c => c.card_id));
       this.collection = this.collection.filter(c => !chainedIds.has(c.card_id));
@@ -1288,55 +1387,24 @@ class GameState {
       const baseTokens = 500;
       this.player.tokens = (this.player.tokens || 0) + baseTokens;
 
-      // 4. Spoils: Draft a reward card
-      const degree = Math.floor(Math.random() * 30);
-      const minute = Math.floor(Math.random() * 60);
-      const rewardCard = this.createCard(
-        this.player.faction,
-        Math.random() < 0.15, // 15% chance of a Major Arcana
-        degree,
-        minute,
-        2, // dignity boost
-        false,
-        null,
-        targetZoneId % 12
-      );
-      
-      // Add level boost
-      rewardCard.level = 2;
-      rewardCard.attack = Math.round(rewardCard.attack * 1.2);
-      rewardCard.health = Math.round(rewardCard.health * 1.2);
-
-      // Check Collection cap
+      // 4. Spoils: Synthesize card(s) derived directly from played cards
+      const rewardCards = this.synthesizeRewardCardsFromPlayed(playedCards, targetZoneId, ritual.manifold.pentaclesYield);
+      const addedCards = [];
       const COLLECTION_CAP = 100;
-      let addedToCollection = true;
-      if (this.collection.length >= COLLECTION_CAP) {
-        const benchSlots = this.deck.filter(d => d.loadout === "bench");
-        let weakest = null;
-        benchSlots.forEach(slot => {
-          const c = this.collection.find(cc => cc.card_id === slot.card_id);
-          if (c && !c.is_major) {
-            const power = c.attack + c.health / 2 + c.armour;
-            if (!weakest || power < weakest.power) weakest = { card: c, power };
-          }
-        });
-        const newPower = rewardCard.attack + rewardCard.health / 2 + rewardCard.armour;
-        if (weakest && newPower > weakest.power) {
-          this.collection = this.collection.filter(c => c.card_id !== weakest.card.card_id);
-          this.deck = this.deck.filter(d => d.card_id !== weakest.card.card_id);
+
+      rewardCards.forEach(rewardCard => {
+        if (this.collection.length < COLLECTION_CAP) {
           this.collection.push(rewardCard);
-          this.deck.push({ card_id: rewardCard.card_id, loadout: "bench" });
-        } else {
-          addedToCollection = false;
+          this.deck.push({ card_id: rewardCard.card_id, loadout: "active" });
+          addedCards.push(rewardCard);
         }
-      } else {
-        this.collection.push(rewardCard);
-        this.deck.push({ card_id: rewardCard.card_id, loadout: "bench" });
-      }
+      });
 
       completionReward = {
         tokens: baseTokens,
-        card: addedToCollection ? rewardCard : null,
+        pentaclesYield: ritual.manifold.pentaclesYield,
+        cards: addedCards,
+        card: addedCards[0] || null,
         zoneName: zone ? (zone.kind === "crown" ? "Crown Zenith" : `${zone.kind === "house" ? "House" : "Spire"} ${zone.zone_id}`) : "Unknown"
       };
 

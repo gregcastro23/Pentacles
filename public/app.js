@@ -596,7 +596,7 @@
 
     function setHandSort(mode) {
       handSortMode = mode;
-      const chips = ["rank", "suit", "affinity", "power"];
+      const chips = ["rank", "suit", "affinity", "power", "sign"];
       chips.forEach(m => {
         const btn = document.getElementById(`sort-${m}`);
         if (btn) btn.classList.toggle("active", m === mode);
@@ -673,6 +673,8 @@
           return (a.source_body || 0) - (b.source_body || 0) || b.attack - a.attack;
         } else if (handSortMode === "power") {
           return b.attack - a.attack;
+        } else if (handSortMode === "sign") {
+          return (a.sign_idx !== undefined ? a.sign_idx : 0) - (b.sign_idx !== undefined ? b.sign_idx : 0) || b.attack - a.attack;
         }
         return 0;
       });
@@ -2475,17 +2477,21 @@
         const rew = result.reward;
         if (synth.playWin) synth.playWin();
         
+        const cardList = (rew.cards || (rew.card ? [rew.card] : [])).filter(Boolean);
+        const cardText = cardList.map(c => `<b>${c.title}</b> (Lv ${c.level}, ⚔ ${c.attack} ♥ ${c.health})`).join(", ");
+
         if (consoleEl) {
-          consoleEl.innerHTML += `<div class="log-line victory">🌟 Ritual Completed for ${targetType === "planet" ? PLANET_NAMES[targetId] : `Zone ${targetId}`} in ${rew.zoneName}!</div>`;
-          consoleEl.innerHTML += `<div class="log-line victory">✦ Faction gains +500 Control in ${rew.zoneName}!</div>`;
+          consoleEl.innerHTML += `<div class="log-line victory">🌟 Zone Gate Breached for ${targetType === "planet" ? PLANET_NAMES[targetId] : `Zone ${targetId}`} in ${rew.zoneName}!</div>`;
+          consoleEl.innerHTML += `<div class="log-line victory">✦ Yielded +${rew.pentaclesYield || 0} Pentacles & Faction gains +500 Control!</div>`;
           consoleEl.innerHTML += `<div class="log-line victory">✦ Earned +${rew.tokens} Tokens!</div>`;
-          if (rew.card) {
-            consoleEl.innerHTML += `<div class="log-line victory">✦ Spoils: <b>${rew.card.title}</b> (Lv ${rew.card.level}, Letter ${rew.card.letter}) drafted to your Bench!</div>`;
+          if (cardText) {
+            consoleEl.innerHTML += `<div class="log-line victory">✦ Synthesized Card(s): ${cardText} added to your Active Hand!</div>`;
           }
           consoleEl.scrollTop = consoleEl.scrollHeight;
         }
 
-        toast(`Ritual Completed! Control +500, +${rew.tokens} Tokens!`, { type: "success", title: "Celestial Ritual" });
+        const cardSummary = cardList.length > 0 ? ` + ${cardList.length} Synthesized Card(s)` : "";
+        toast(`Zone Gate Breached! Yielded +${rew.pentaclesYield || 0} Pentacles${cardSummary}!`, { type: "success", title: "Zone Gate Breached" });
         
         renderLeaderboard();
         renderZonesList();

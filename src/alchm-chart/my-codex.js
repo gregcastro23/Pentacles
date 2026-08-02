@@ -85,7 +85,7 @@ class MyCodexInstance {
 
     root.appendChild(this._header(player, factionIdx));
     root.appendChild(this._chartSection(player.chart));
-    root.appendChild(this._deckSection(collection, deck));
+    root.appendChild(this._deckSection(collection, deck, player.chart));
     root.appendChild(this._decanSection(player.chart));
     root.appendChild(this._factionSection(player, factionIdx));
   }
@@ -152,22 +152,94 @@ class MyCodexInstance {
     ]);
   }
 
-  // ── My Deck: Active / Defense / Bench loadout columns ──
-  _deckSection(collection, deck) {
+  // ── My Deck: Sorted by Zodiac Sign (showing natal chart in cards) ──
+  _deckSection(collection, deck, chart) {
     const byId = new Map(collection.map((c) => [Number(c.card_id), c]));
-    const cols = { active: [], defense: [], bench: [] };
+
+    const placementsBySign = Array.from({ length: 12 }, () => []);
+    if (chart && chart.placements) {
+      for (const p of chart.placements) {
+        const sign = Number(p.sign) || 0;
+        placementsBySign[sign % 12].push(p);
+      }
+    }
+    
+    const ascSign = (chart && chart.ascendant != null && chart.time_known !== false) ? Math.floor((Number(chart.ascendant) / 1800) % 12) : null;
+    const mcSign = (chart && chart.midheaven != null && chart.time_known !== false) ? Math.floor((Number(chart.midheaven) / 1800) % 12) : null;
+
+    const cardsBySign = Array.from({ length: 12 }, () => []);
     for (const slot of deck) {
       const c = byId.get(Number(slot.card_id));
-      const lo = String(slot.loadout || "bench").toLowerCase();
-      if (c && cols[lo]) cols[lo].push(c);
+      if (c) {
+        const signIdx = (c.sign_idx !== undefined && c.sign_idx !== null) ? Number(c.sign_idx) % 12 : 0;
+        cardsBySign[signIdx].push(c);
+      }
     }
+
     const wrap = h("div", { class: "mc-panel" });
-    wrap.appendChild(h("div", { class: "mc-section-label", text: "My Deck" }));
-    wrap.appendChild(h("div", { class: "mc-deck" }, [
-      this._loadoutCol("Active Vanguard", cols.active, ACTIVE_CAP, "Drag onto a war zone to deploy"),
-      this._loadoutCol("Defense Garrison", cols.defense, DEFENSE_CAP, "Sentinels — defend held stars"),
-      this._loadoutCol("The Bench", cols.bench, null, "Reserves"),
+    wrap.appendChild(h("div", { class: "mc-panel-head" }, [
+      h("span", { class: "mc-section-label", text: "My Deck · Chart in Cards" }),
+      h("span", { class: "mc-dim", text: `${deck.length} Cards Total` })
     ]));
+    wrap.appendChild(h("div", { class: "mc-dim mc-decan-note", text: "Cards sorted by Zodiac Sign, highlighting your natal placements and active hand." }));
+
+    const grid = h("div", { class: "mc-zodiac-deck-grid" });
+
+    const SIGN_NAMES = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"];
+    const SIGN_ELEMENTS = ["Fire", "Earth", "Air", "Water", "Fire", "Earth", "Air", "Water", "Fire", "Earth", "Air", "Water"];
+
+    for (let s = 0; s < 12; s++) {
+      const cards = cardsBySign[s];
+      const placements = placementsBySign[s];
+      const isAsc = ascSign === s;
+      const isMc = mcSign === s;
+      
+      const hasPlacements = placements.length > 0 || isAsc || isMc;
+      const signCol = h("div", { class: "mc-zodiac-col" + (hasPlacements ? " has-natal" : "") });
+      
+      const head = h("div", { class: "mc-zodiac-head" }, [
+        h("div", { class: "mc-zodiac-title" }, [
+          h("span", { class: "mc-zodiac-glyph", text: SIGN_GLYPHS[s] }),
+          h("span", { class: "mc-zodiac-name", text: SIGN_NAMES[s] }),
+          h("span", { class: "mc-zodiac-elem mc-dim", text: ` · ${SIGN_ELEMENTS[s]}` })
+        ]),
+        h("span", { class: "mc-zodiac-count mc-dim", text: `${cards.length}` })
+      ]);
+      signCol.appendChild(head);
+
+      if (hasPlacements) {
+        const badges = h("div", { class: "mc-natal-badges" });
+        if (isAsc) {
+          const deg = Math.floor((Number(chart.ascendant) % 1800) / 60);
+          badges.appendChild(h("span", { class: "mc-natal-badge asc", text: `ASC ${deg}°` }));
+        }
+        if (isMc) {
+          const deg = Math.floor((Number(chart.midheaven) % 1800) / 60);
+          badges.appendChild(h("span", { class: "mc-natal-badge mc", text: `MC ${deg}°` }));
+        }
+        for (const p of placements) {
+          const bi = planetIdxOf(p.body);
+          const deg = Math.floor((Number(p.arc_minutes) || 0) / 60);
+          const col = PLANET_COLORS[bi] || "var(--ac-gold)";
+          badges.appendChild(h("span", { class: "mc-natal-badge", style: { color: col, borderColor: col }, text: `${PLANET_GLYPHS[bi]} ${PLANET_NAMES[bi]} ${deg}°` }));
+        }
+        signCol.appendChild(badges);
+      }
+
+      const list = h("div", { class: "mc-col-cards" });
+      if (cards.length === 0) {
+        list.appendChild(h("div", { class: "mc-dim mc-col-empty", text: "—" }));
+      } else {
+        for (const c of cards) {
+          list.appendChild(this._card(c));
+        }
+      }
+      signCol.appendChild(list);
+
+      grid.appendChild(signCol);
+    }
+
+    wrap.appendChild(grid);
     return wrap;
   }
   _loadoutCol(title, cards, cap, hint) {
