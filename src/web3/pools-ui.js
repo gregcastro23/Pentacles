@@ -8,10 +8,27 @@
 // Binds directly to SpacetimeDB TypeScript reducers (request_yield_claim, confirm_yield_claim,
 // transfer_star_stake, record_star_stake) and Solana Anchor Token-2022 bridges.
 
+import { PublicKey, Transaction } from '@solana/web3.js'
+import {
+  createTransferCheckedWithTransferHookInstruction,
+  getAssociatedTokenAddressSync,
+  TOKEN_2022_PROGRAM_ID,
+} from '@solana/spl-token'
 import { ESMS } from './esms.js'
 import { wallet } from './wallet.js'
 import * as dex from './dex.js'
 import * as sim from './dex-sim.js'
+import {
+  buildStakeStarInstruction,
+  buildUnstakeStarInstruction,
+  prepareStarVaultTransaction,
+  solanaConnection,
+} from './solana.js'
+import { CU_LIMITS } from './priority-fee.js'
+import { parseUnits } from './esms-units.js'
+
+/** USDC is 6-decimal on every cluster. */
+const USDC_DECIMALS = 6
 
 let poolsCache = []
 let positionsCache = []
@@ -196,60 +213,246 @@ function renderConstellationRows(meta) {
     .join('')
 }
 
-// Action Handlers
-export async function claimYield() {
+// ── Action handlers ─────────────────────────────────────────────────────────
+//
+// Settlement is chain-first: the player signs an on-chain transaction, the
+// program emits an event, and the feeder mirrors it into the ledger. The client
+// no longer writes settlement rows itself.
+//
+// It used to. `stake` called `record_star_stake` with a principal the client
+// chose, and `claimYield` called `confirm_yield_claim` with the string
+// `'sol_claim_tx_' + Date.now()` as its transaction hash — declaring a claim
+// settled against a transaction that never existed. Both reducers are now
+// owner-gated, so those calls would be rejected outright.
+
+/**
+ * Phase 1 of the yield claim: lock accrued yield so the attestor can mint
+ * against a frozen amount.
+ *
+ * Phase 2 is deliberately not called here. Settlement is the feeder's to
+ * record, once a real mint has confirmed on chain.
+ */
+export async function claimYield(stakeId) {
   const staker = wallet.solanaAddress || wallet.address
   if (!staker) {
     toast('Connect wallet first to claim yield', { type: 'warn' })
     return
   }
+  const client = window.Pentacles?.spacetime
+  if (!client) {
+    toast('Not connected to the ledger', { type: 'warn' })
+    return
+  }
 
-  toast('Initiating Two-Phase Yield Claim (request_yield_claim)...')
+  // The old call passed a literal `1` as the stake id, so it targeted whichever
+  // position happened to be first in the table regardless of who was claiming.
+  // Resolve the caller's own position with accrued yield instead.
+  let target = stakeId
+  if (!target) {
+    try {
+      const rows = await client.query(
+        'SELECT stake_id, accrued_essence FROM star_stake WHERE pending_essence = 0',
+      )
+      target = rows?.find((r) => BigInt(r.accrued_essence ?? 0) > 0n)?.stake_id
+    } catch {
+      target = undefined
+    }
+  }
+  if (!target) {
+    toast('No stake position with accrued yield to claim', { type: 'warn' })
+    return
+  }
+
+  toast('Locking accrued yield for settlement…')
   try {
-    // Phase 1: Lock accrued yield -> pending yield in SpacetimeDB
-    if (window.Pentacles?.spacetime) {
-      await window.Pentacles.spacetime.call('request_yield_claim', [1])
-    }
-    toast('Phase 1 Locked. Confirming signature (confirm_yield_claim)...')
-    // Phase 2: Confirm yield claim with transaction signature
-    const mockTxHash = 'sol_claim_tx_' + Date.now()
-    if (window.Pentacles?.spacetime) {
-      await window.Pentacles.spacetime.call('confirm_yield_claim', [mockTxHash, 1, 1])
-    }
-    toast('Yield Claimed Successfully! ESMS rewards transferred.', { type: 'success' })
+    await client.call('request_yield_claim', [Number(target)])
+    toast('Yield locked. The attestor will mint and settle it shortly.', { type: 'success' })
+    refreshPools(true)
   } catch (err) {
     toast(`Claim failed: ${err.message || err}`, { type: 'error' })
   }
 }
 
+/**
+ * Stake USDC by sending the real `stake_star_usdc` transaction. The ledger row
+ * follows from the `StarStaked` event, not from this call.
+ */
 export async function stake(starId, amountStr) {
   const amount = amountStr || prompt(`Enter USDC amount to stake into Star Vault #${starId}:`, '100')
-  if (!amount || isNaN(amount)) return
+  if (amount === null || amount === undefined || amount === '') return
 
-  toast(`Staking ${amount} USDC into Star Vault #${starId}...`)
+  let units
   try {
-    if (window.Pentacles?.spacetime) {
-      await window.Pentacles.spacetime.call('record_star_stake', [starId, 0, Number(amount), Number(amount) * 1000000])
-    }
-    toast(`Successfully staked ${amount} USDC into Star Vault!`, { type: 'success' })
+    units = parseUnits(String(amount), USDC_DECIMALS)
+  } catch {
+    toast(`"${amount}" is not a valid USDC amount`, { type: 'error' })
+    return
+  }
+  if (units <= 0n) {
+    toast('Stake amount must be greater than zero', { type: 'warn' })
+    return
+  }
+  if (!wallet.solanaAddress) {
+    toast('Connect a Solana wallet to stake into a Star Vault', { type: 'warn' })
+    return
+  }
+
+  toast(`Staking ${amount} USDC into Star Vault #${starId}…`)
+  try {
+    const signature = await sendStarVaultTransaction(
+      buildStakeStarInstruction({ staker: wallet.solanaAddress, starId, amount: units }),
+      CU_LIMITS.stakeStar,
+    )
+    toast(`Stake submitted (${signature.slice(0, 8)}…). The ledger updates once it confirms.`, {
+      type: 'success',
+    })
     refreshPools(true)
   } catch (err) {
     toast(`Stake failed: ${err.message || err}`, { type: 'error' })
   }
 }
 
-export async function transfer(stakeId) {
-  const recipient = prompt(`Enter recipient Solana address for Liquid Receipt transfer (stakeId #${stakeId}):`)
-  if (!recipient) return
+/** Withdraw staked USDC. Always available — the vault has no pause. */
+export async function unstake(starId, amountStr) {
+  const amount = amountStr || prompt(`Enter USDC amount to withdraw from Star Vault #${starId}:`)
+  if (amount === null || amount === undefined || amount === '') return
+  if (!wallet.solanaAddress) {
+    toast('Connect a Solana wallet to withdraw', { type: 'warn' })
+    return
+  }
 
-  toast(`Transferring Liquid Star Position to ${recipient.slice(0, 8)}...`)
+  let units
   try {
-    const txHash = 'sol_transfer_tx_' + Date.now()
-    const sender = wallet.solanaAddress || 'sol_sender_111111111111111111111111111111'
-    if (window.Pentacles?.spacetime) {
-      await window.Pentacles.spacetime.call('transfer_star_stake', [txHash, sender, recipient, 1000])
-    }
-    toast(`Transfer hook executed! Yield matrix re-attributed to ${recipient.slice(0, 8)}...`, { type: 'success' })
+    units = parseUnits(String(amount), USDC_DECIMALS)
+  } catch {
+    toast(`"${amount}" is not a valid USDC amount`, { type: 'error' })
+    return
+  }
+
+  toast(`Withdrawing ${amount} USDC from Star Vault #${starId}…`)
+  try {
+    const signature = await sendStarVaultTransaction(
+      buildUnstakeStarInstruction({ staker: wallet.solanaAddress, starId, amount: units }),
+      CU_LIMITS.unstakeStar,
+    )
+    toast(`Withdrawal submitted (${signature.slice(0, 8)}…).`, { type: 'success' })
+    refreshPools(true)
+  } catch (err) {
+    toast(`Withdrawal failed: ${err.message || err}`, { type: 'error' })
+  }
+}
+
+/**
+ * Send a starUSDC transfer so the on-chain transfer hook fires.
+ *
+ * `createTransferCheckedWithTransferHookInstruction` resolves the hook's
+ * ExtraAccountMetaList from chain, so the extra accounts the hook program
+ * requires are attached automatically rather than guessed.
+ */
+async function sendStarUsdcTransfer({ stakeId, mint, destination }) {
+  const provider = wallet.solanaProvider || globalThis.solana
+  if (!provider) throw new Error('No Solana wallet provider is available.')
+
+  const mintKey = new PublicKey(mint)
+  const owner = new PublicKey(wallet.solanaAddress)
+  const source = getAssociatedTokenAddressSync(mintKey, owner, false, TOKEN_2022_PROGRAM_ID)
+  const target = getAssociatedTokenAddressSync(mintKey, destination, false, TOKEN_2022_PROGRAM_ID)
+
+  const balance = await solanaConnection.getTokenAccountBalance(source)
+  const amount = BigInt(balance.value.amount)
+  if (amount <= 0n) throw new Error(`Star receipt #${stakeId} has no starUSDC balance to transfer.`)
+
+  const instruction = await createTransferCheckedWithTransferHookInstruction(
+    solanaConnection,
+    source,
+    mintKey,
+    target,
+    owner,
+    amount,
+    balance.value.decimals,
+    [],
+    'confirmed',
+    TOKEN_2022_PROGRAM_ID,
+  )
+  return sendStarVaultTransaction(instruction, CU_LIMITS.unstakeStar)
+}
+
+/**
+ * Sign and send one StarVault instruction, with an honest compute budget and a
+ * priority fee priced off recent activity.
+ */
+async function sendStarVaultTransaction(instruction, units) {
+  const provider = wallet.solanaProvider || globalThis.solana
+  if (!provider) throw new Error('No Solana wallet provider is available.')
+
+  const { instructions } = await prepareStarVaultTransaction([instruction], { units })
+  const latest = await solanaConnection.getLatestBlockhash('confirmed')
+  const transaction = new Transaction({
+    feePayer: new PublicKey(wallet.solanaAddress),
+    recentBlockhash: latest.blockhash,
+  }).add(...instructions)
+
+  let signature
+  if (typeof provider.signAndSendTransaction === 'function') {
+    const sent = await provider.signAndSendTransaction(transaction)
+    signature = typeof sent === 'string' ? sent : sent?.signature
+  } else if (typeof provider.signTransaction === 'function') {
+    const signed = await provider.signTransaction(transaction)
+    signature = await solanaConnection.sendRawTransaction(signed.serialize())
+  }
+  if (!signature) throw new Error('The Solana wallet returned no transaction signature.')
+
+  const confirmation = await solanaConnection.confirmTransaction(
+    { signature, blockhash: latest.blockhash, lastValidBlockHeight: latest.lastValidBlockHeight },
+    'confirmed',
+  )
+  if (confirmation.value.err) throw new Error('The StarVault transaction failed on chain.')
+  return signature
+}
+
+/**
+ * Transferring a liquid star receipt is a starUSDC token transfer: the
+ * Token-2022 transfer hook fires on chain, emits `StarStakeTransferred`, and
+ * the feeder re-attributes the position.
+ *
+ * The client cannot shortcut that. It previously called `transfer_star_stake`
+ * directly with a fabricated hash, a hardcoded amount of 1000, and a literal
+ * placeholder sender when no wallet was connected — re-attributing a real
+ * position on the strength of a button press. That reducer is owner-gated now.
+ */
+export async function transfer(stakeId) {
+  const recipient = prompt(
+    `Enter recipient Solana address for Liquid Receipt transfer (stakeId #${stakeId}):`,
+  )
+  if (!recipient) return
+  if (!wallet.solanaAddress) {
+    toast('Connect a Solana wallet to transfer a star receipt', { type: 'warn' })
+    return
+  }
+
+  let destination
+  try {
+    destination = new PublicKey(recipient.trim())
+  } catch {
+    toast(`"${recipient}" is not a valid Solana address`, { type: 'error' })
+    return
+  }
+
+  const mint = (import.meta.env.VITE_SOLANA_STARUSDC_MINT || '').trim()
+  if (!mint) {
+    toast(
+      'Liquid receipt transfers need the starUSDC mint (VITE_SOLANA_STARUSDC_MINT); it is not deployed yet.',
+      { type: 'warn' },
+    )
+    return
+  }
+
+  toast(`Transferring liquid star position to ${destination.toBase58().slice(0, 8)}…`)
+  try {
+    const signature = await sendStarUsdcTransfer({ stakeId, mint, destination })
+    toast(`Transfer submitted (${signature.slice(0, 8)}…). Re-attribution follows the hook.`, {
+      type: 'success',
+    })
     refreshPools(true)
   } catch (err) {
     toast(`Transfer failed: ${err.message || err}`, { type: 'error' })

@@ -17,10 +17,11 @@ import { PublicKey, Transaction } from '@solana/web3.js'
 import { CHAIN, RPC_URL, ADDRESSES, publicClient } from './chain.js'
 import { ESMS_ORDER_PREFIX, REDEEM_AUTH_TYPES } from './abis.js'
 import {
-  buildBridgeBurnEsmsInstruction,
-  buildBurnEsmsInstruction,
+  SOLANA_CAIP2,
+  buildRedeemAuthorizationMessage,
   solanaConnection,
 } from './solana.js'
+import { ASOL_PROGRAM_ID, asolClusterDomain } from './chains.js'
 import wallet from './wallet.js'
 
 const KEY = 'pentacles_burner_key'
@@ -154,60 +155,94 @@ async function defaultSettleEvmBurn(payload) {
   return body
 }
 
-async function sendSolanaBurn({
+/**
+ * Spend ESMS on Solana through ASOL's permissioned redeem path.
+ *
+ * The player signs a detached `ASOL_ESMS_REDEEM_V1` message and a relayer
+ * submits `redeem_for_esms`, which verifies that signature by introspecting the
+ * Ed25519 precompile instruction that precedes it. The player therefore never
+ * needs SOL for fees.
+ *
+ * This replaces a direct Token-2022 `Burn` with the holder as authority. That
+ * shape worked against the old Pentacles mints, which carried no extensions,
+ * and cannot work against ASOL's: they are NonTransferable with
+ * PermissionedBurn, so any burn must be co-signed by ASOL's mint authority PDA.
+ * The old call would have failed on chain, not merely been unauthorised.
+ */
+async function sendSolanaRedeem({
   address,
   elementId,
   amount,
   wallet: activeWallet,
-  buildInstruction,
-  commitment,
+  purpose,
 }) {
   const provider = activeWallet.solanaProvider || globalThis.solana
   if (!provider) throw new Error('No Solana wallet provider is available.')
-
-  const instruction = buildInstruction({
-    elementId,
-    amount,
-    playerPublicKey: address,
-  })
-  const latest = await solanaConnection.getLatestBlockhash('confirmed')
-  const transaction = new Transaction({
-    feePayer: new PublicKey(address),
-    recentBlockhash: latest.blockhash,
-  }).add(instruction)
-
-  let signature
-  if (typeof provider.signAndSendTransaction === 'function') {
-    const sent = await provider.signAndSendTransaction(transaction)
-    signature = typeof sent === 'string' ? sent : sent?.signature
-  } else if (typeof provider.signTransaction === 'function') {
-    const signed = await provider.signTransaction(transaction)
-    signature = await solanaConnection.sendRawTransaction(signed.serialize())
+  if (typeof provider.signMessage !== 'function') {
+    throw new Error('This Solana wallet cannot sign messages, which ASOL redemption requires.')
   }
-  if (!signature) throw new Error('The Solana wallet returned no transaction signature.')
 
-  const confirmation = await solanaConnection.confirmTransaction(
-    { signature, blockhash: latest.blockhash, lastValidBlockHeight: latest.lastValidBlockHeight },
-    commitment,
+  const relayer = (import.meta.env.VITE_SOLANA_RELAYER_URL || '').trim()
+  if (!relayer) {
+    throw new Error(
+      'Solana ESMS redemption is not available yet: no relayer is configured ' +
+        '(VITE_SOLANA_RELAYER_URL). ASOL burns must be co-signed by its mint authority.',
+    )
+  }
+
+  // A wrong cluster domain yields a signature that simply fails verification,
+  // so this throws rather than defaulting when the domain is unknown.
+  const clusterDomain = asolClusterDomain(
+    SOLANA_CAIP2,
+    import.meta.env.VITE_ASOL_CLUSTER_DOMAIN,
   )
-  if (confirmation.value.err) throw new Error('The Solana ESMS burn transaction failed.')
-  return { signature, spacetimeSynced: false }
+
+  const orderId = keccak256(
+    toHex(`pentacles-${purpose}:${address}:${elementId}:${amount}:${Date.now()}`),
+  )
+  const deadline = BigInt(Math.floor(Date.now() / 1000) + 600)
+  const amounts = [0n, 0n, 0n, 0n]
+  amounts[elementId] = BigInt(amount)
+
+  const message = buildRedeemAuthorizationMessage({
+    programId: ASOL_PROGRAM_ID,
+    clusterDomain,
+    holder: address,
+    orderId,
+    amounts,
+    deadline,
+  })
+
+  const signed = await provider.signMessage(new Uint8Array(message), 'utf8')
+  const signature = signed?.signature ?? signed
+  if (!signature) throw new Error('The Solana wallet returned no signature.')
+
+  const response = await fetch(`${relayer.replace(/\/+$/, '')}/api/solana/redeem`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      holder: address,
+      orderId,
+      amounts: amounts.map((value) => value.toString()),
+      deadline: deadline.toString(),
+      signature: Buffer.from(signature).toString('base64'),
+      purpose,
+    }),
+  })
+  if (!response.ok) {
+    throw new Error(`Solana relayer rejected the redemption: ${await response.text()}`)
+  }
+  const result = await response.json()
+  if (!result?.signature) throw new Error('The Solana relayer returned no transaction signature.')
+  return { signature: result.signature, spacetimeSynced: false }
 }
 
 async function defaultSendSolanaBurn(args) {
-  return sendSolanaBurn({
-    ...args,
-    buildInstruction: buildBurnEsmsInstruction,
-    commitment: 'confirmed',
-  })
+  return sendSolanaRedeem({ ...args, purpose: args.purpose ?? 'jing' })
 }
 
 async function defaultSendSolanaBridgeBurn(args) {
-  return sendSolanaBurn({
-    ...args,
-    buildInstruction: buildBridgeBurnEsmsInstruction,
-    commitment: 'finalized',
-  })
+  return sendSolanaRedeem({ ...args, purpose: 'bridge' })
 }
 
 async function submitEvmBurn({ activeWallet, elementId, amount, purpose, deps }) {

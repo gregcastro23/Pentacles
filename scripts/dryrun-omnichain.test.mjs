@@ -490,25 +490,75 @@ assert.match(serve, /path === "\/api\/web3\/burn-esms"/)
 assert.match(serve, /path === "\/api\/web3\/verify-wallet"/)
 assert.match(ui, /await pentacles\.burnEsmsForJing\(/)
 assert.match(ui, /walletConnected/)
-assert.match(solanaProgram, /for Jing cast by \{\}/)
-assert.match(solanaProgram, /pub fn bridge_burn_esms\(/)
-assert.match(solanaProgram, /pub fn bridge_mint_esms\(/)
-assert.match(solanaProgram, /seeds = \[b"bridge_mint", claim_id\.as_ref\(\)\]/)
-assert.match(solanaFeeder, /player: match\[3\]/)
-assert.doesNotMatch(solanaFeeder, /event\.amount\.toString\(\)/)
+// ── ASOL is the sole ESMS issuer ──────────────────────────────────────────
+// Pentacles' own ESMS mint/burn/slash instructions are retired. Asserting they
+// are absent matters as much as asserting the survivors are present: leaving one
+// behind would put a second, 18-decimal "ESMS" on the same cluster as ASOL's.
+for (const retired of [
+  /pub fn mint_esms_rewards\(/,
+  /pub fn burn_esms_for_jing\(/,
+  /pub fn bridge_burn_esms\(/,
+  /pub fn bridge_mint_esms\(/,
+  /pub fn initialize_element_mint\(/,
+  /pub fn slash_cheater\(/,
+  /mint::decimals = 18/,
+]) {
+  assert.doesNotMatch(solanaProgram, retired, `retired ESMS issuance must not return: ${retired}`)
+}
+assert.match(solanaProgram, /pub fn stake_star_usdc\(/)
+assert.match(solanaProgram, /pub fn unstake_star_usdc\(/, 'staked USDC must be withdrawable on chain')
+assert.match(solanaProgram, /fn checkpoint_position\(/, 'yield must be checkpointed before principal changes')
+assert.match(solanaProgram, /emit!\(StarStaked/)
+assert.match(solanaProgram, /emit!\(StarStakeTransferred/)
+
+// Ingestion is structural, not regex over msg! text.
+assert.match(solanaFeeder, /decodeAnchorEvents\(/)
+assert.match(solanaFeeder, /Program data: /)
+assert.doesNotMatch(
+  solanaFeeder,
+  /^\s*(?:const|let|if|for)?.*\blog\.match\(/m,
+  'events must be decoded, not scraped out of log text',
+)
+assert.doesNotMatch(
+  solanaFeeder,
+  /Number\(event\.amount\)/,
+  'a u64 must never be widened through a JS number',
+)
+
 assert.match(bridgeFeeder, /verifyEvmBurn/)
 assert.match(bridgeFeeder, /verifySolanaBurn/)
 assert.match(bridgeFeeder, /mintEvmDestination/)
 assert.match(bridgeFeeder, /mintSolanaDestination/)
-assert.match(bridgeFeeder, /compiledInstructionMatches/)
-assert.match(bridgeFeeder, /"bridge_burn_esms"/)
+assert.doesNotMatch(bridgeFeeder, /"bridge_burn_esms"/)
+assert.match(bridgeFeeder, /preTokenBalances/, 'Solana burns verify by balance delta')
 assert.match(bridgeFeeder, /commitment:\s*"finalized"/)
 assert.match(bridgeFeeder, /EVM_CONFIRMATIONS/)
+
+// Mainnet hardening seams.
+assert.doesNotMatch(
+  bridgeFeeder,
+  /SOLANA_MINTER_SECRET_KEY/,
+  'the bridge must resolve its signer through solana-signer, not a raw env secret',
+)
+assert.match(bridgeFeeder, /getSolanaServiceSigner\(/)
+assert.match(bridgeFeeder, /assertGenesis\(/, 'the cluster must be proven before signing')
+assert.match(
+  bridgeFeeder,
+  /may not cross between testnet and mainnet/,
+  'a testnet burn must never mint on a mainnet ledger',
+)
 assert.match(walletVerifier, /__identity__:\s*spacetimeIdentity/)
 assert.match(dynamicBridge, /connector\?\.getSigner/)
-const burnDiscriminator = [...createHash('sha256').update('global:burn_esms_for_jing').digest().subarray(0, 8)]
-assert.match(solanaClient, new RegExp(`discriminator:\\s*\\[${burnDiscriminator.join(', ')}\\]`))
-const bridgeBurnDiscriminator = [...createHash('sha256').update('global:bridge_burn_esms').digest().subarray(0, 8)]
-assert.match(solanaClient, new RegExp(`discriminator:\\s*\\[${bridgeBurnDiscriminator.join(', ')}\\]`))
+// Instruction discriminators are pinned in the client so its builders stay
+// synchronous; recompute them here so a rename in the program is caught.
+const stakeDiscriminator = [...createHash('sha256').update('global:stake_star_usdc').digest().subarray(0, 8)]
+assert.match(solanaClient, new RegExp(`stakeStarUsdc:\\s*\\[${stakeDiscriminator.join(', ')}\\]`))
+const unstakeDiscriminator = [...createHash('sha256').update('global:unstake_star_usdc').digest().subarray(0, 8)]
+assert.match(solanaClient, new RegExp(`unstakeStarUsdc:\\s*\\[${unstakeDiscriminator.join(', ')}\\]`))
+assert.match(solanaClient, /ASOL_ESMS_REDEEM_V1|ASOL_REDEEM_DOMAIN/, 'burns route through ASOL redemption')
+// The retired Pentacles burn builders must not linger in the client: they built
+// a plain Token-2022 Burn with the holder as authority, which ASOL's
+// PermissionedBurn mints reject outright.
+assert.doesNotMatch(solanaClient, /buildBurnEsmsInstruction|buildBridgeBurnEsmsInstruction/)
 
 console.log('PASS hardened Stardex and pending omnichain bridge reducer contracts')
