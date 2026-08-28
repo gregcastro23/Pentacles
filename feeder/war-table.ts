@@ -18,6 +18,8 @@ import { sqlOneShot } from "./stdb-feed";
 import { cliCall } from "./spacetime-cli";
 import { signVector } from "../src/alchm-chart/sign-character.js";
 import { dignityScore } from "../src/alchm-chart/dignity.js";
+import { canAccessZone, accessRefusalReason } from "../src/alchm-chart/zone-access.js";
+export { canAccessZone, accessRefusalReason };
 
 // The engine is a classic IIFE; importing it for its side effect publishes it on
 // globalThis, exactly as the browser and the engine test suite do.
@@ -42,31 +44,8 @@ export const HAND_SIZE = 12;
 export const MAX_MAJORS_IN_HAND = 3;
 
 // ════════════════════════════════════════════════════════════════════════════
-//  PURE — claims, champions, seating
+//  PURE — claims, champions, seating (using consolidated zone-access.js)
 // ════════════════════════════════════════════════════════════════════════════
-
-/**
- * Mirror of `can_access_zone` in server/src/reducers.rs:2506. Houses (0-4) are
- * always reachable; a Spire (5-9) needs one of its two adjacent Houses; the Crown
- * (10) needs two Spires.
- *
- * The adjacency MUST match the Rust exactly — `house_b = (spire_idx + 4) % 5`,
- * i.e. `(zone_id - 1) % 5`, not `(zone_id - 4) % 5`. A parity test pins it, because
- * a mirror that drifts sends champions at zones the reducer will refuse.
- *
- * @param zoneOwners zone_id → owning faction index, or null when neutral
- */
-export function canAccessZone(zoneId: number, faction: number, zoneOwners: Array<number | null>): boolean {
-  const owns = (z: number) => zoneOwners[z] === faction;
-  if (zoneId < 5) return true;
-  if (zoneId < 10) {
-    const spireIdx = zoneId - 5;
-    return owns(spireIdx) || owns((spireIdx + 4) % 5);
-  }
-  let ownedSpires = 0;
-  for (let s = 5; s < 10; s++) if (owns(s)) ownedSpires++;
-  return ownedSpires >= 2;
-}
 
 /** How much of this zone is up for grabs: flux, a weak hold, a rival's flag. */
 export function opportunity(zone: { control: number; owner: number | null; inFlux: boolean }, faction: number): number {
@@ -212,7 +191,22 @@ export function dealHand(active: Agent["active"], rng: () => number): Agent["act
   return [...majors, ...minors].slice(0, HAND_SIZE);
 }
 
-export interface SeatOutcome { faction: number; occupant: string; counters: number; meldsValue: number; tookFinalTrick: boolean }
+export interface SeatOutcome {
+  faction: number;
+  occupant: string;
+  counters: number;
+  meldsValue: number;
+  tookFinalTrick: boolean;
+  plays?: Array<{ trickNumber: number; card: any }>;
+}
+
+export type MovePicker = (
+  faction: number,
+  hand: Agent["active"],
+  ledSuit: string | null,
+  trick: Array<{ player: number; card: any }>,
+  ladder: Record<number, number>
+) => any | null;
 
 /**
  * Play one table to completion with the shared engine. Every play is filtered
@@ -224,10 +218,13 @@ export function playMelee(
   order: number[],
   trumpSuit: string,
   ladder: Record<number, number>,
+  movePicker?: MovePicker,
+  onPlay?: (play: { trickNumber: number; faction: number; card: any }) => void,
 ): SeatOutcome[] {
   const live = new Map(order.map((f) => [f, [...(hands.get(f) ?? [])]]));
   const counters = new Map(order.map((f) => [f, 0]));
   const melds = new Map(order.map((f) => [f, 0]));
+  const seatPlays = new Map<number, Array<{ trickNumber: number; card: any }>>(order.map((f) => [f, []]));
 
   for (const f of order) {
     const detected = Engine.detectMelds(live.get(f) ?? [], trumpSuit, ladder) ?? [];
@@ -245,7 +242,8 @@ export function playMelee(
       const f = order[(leader + k) % order.length];
       const hand = live.get(f) ?? [];
       if (!hand.length) continue;
-      const card = Engine.GuardianAI.choose(hand, ledSuit, trumpSuit, trick, ladder);
+      const proposed = movePicker ? movePicker(f, hand, ledSuit, trick, ladder) : null;
+      const card = proposed || Engine.GuardianAI.choose(hand, ledSuit, trumpSuit, trick, ladder);
       const legal = Engine.getLegalMoves(hand, ledSuit, trumpSuit, trick, ladder);
       // The filter is authoritative: fall back to its first legal card if the AI
       // ever proposes something the rules reject.
@@ -255,6 +253,8 @@ export function playMelee(
       live.set(f, hand.filter((c) => c.card_id !== chosen.card_id));
       if (trick.length === 0 && !chosen.is_major) ledSuit = (chosen.suit || "").toLowerCase();
       trick.push({ player: f, card: chosen });
+      seatPlays.get(f)?.push({ trickNumber: t, card: chosen });
+      if (onPlay) onPlay({ trickNumber: t, faction: f, card: chosen });
     }
     if (!trick.length) break;
 
@@ -280,6 +280,7 @@ export function playMelee(
     counters: counters.get(f) ?? 0,
     meldsValue: melds.get(f) ?? 0,
     tookFinalTrick: f === finalTrickWinner,
+    plays: seatPlays.get(f) ?? [],
   }));
 }
 
@@ -428,24 +429,55 @@ export async function runRound(roundIndex: number): Promise<number> {
     const lead = byId.get(plan.seats[0].occupant);
     const ladder = Engine.buildArcanaLadder(planets, lead ? lead.signVector : null);
 
+    const ladderJson = JSON.stringify(ladder);
     await call("open_melee_round", [
       plan.zoneId,
       roundIndex,
+      ladderJson,
       plan.seats.map((s) => ({ faction: planetEnum(s.faction), occupant: { __identity__: s.occupant }, claim: s.claim })),
     ]);
     opened++;
 
     const hands = new Map<number, Agent["active"]>();
     for (const s of plan.seats) hands.set(s.faction, dealHand(byId.get(s.occupant)?.active ?? [], rng));
+
     const outcomes = playMelee(hands, order, plan.trumpSuit, ladder);
 
-    const seatRows = await sql(`SELECT seat_id, faction FROM melee_seat WHERE table_id = (SELECT MAX(table_id) FROM melee_table WHERE zone_id = ${plan.zoneId})`)
+    const seatRows = await sql(`SELECT seat_id, faction, is_human, table_id FROM melee_seat WHERE table_id = (SELECT MAX(table_id) FROM melee_table WHERE zone_id = ${plan.zoneId})`)
       .catch(() => [] as any[]);
     const seatIdOf = new Map<number, number>();
     for (const r of seatRows) {
       const f = planetIdx(r.faction);
       if (f !== null) seatIdOf.set(f, Number(r.seat_id));
     }
+
+    const tableId = seatRows.length ? Number(seatRows[0]?.table_id ?? 0) : await latestTableId(plan.zoneId);
+
+    // Record plays on-chain if tableId is known
+    for (const outcome of outcomes) {
+      const seatId = seatIdOf.get(outcome.faction);
+      if (seatId && outcome.plays) {
+        for (const play of outcome.plays) {
+          const c = play.card;
+          const suitName = String(c.suit || "wands").toLowerCase();
+          const suitEnum = { [suitName]: [] };
+          try {
+            await call("record_melee_play", [
+              tableId,
+              play.trickNumber,
+              seatId,
+              Number(c.card_id || 0),
+              Boolean(c.is_major),
+              Number(c.rank || 0),
+              suitEnum,
+            ]);
+          } catch {
+            // non-fatal if play recording encounters a transient bridge issue
+          }
+        }
+      }
+    }
+
     const results = outcomes
       .filter((o) => seatIdOf.has(o.faction))
       .map((o) => ({
@@ -455,8 +487,7 @@ export async function runRound(roundIndex: number): Promise<number> {
         took_final_trick: o.tookFinalTrick,
       }));
     if (results.length) {
-      const tableId = [...seatIdOf.values()].length ? Number(seatRows[0]?.table_id ?? 0) : 0;
-      await call("submit_melee_result", [tableId || (await latestTableId(plan.zoneId)), results]);
+      await call("submit_melee_result", [tableId, results]);
     }
   }
   return opened;

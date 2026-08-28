@@ -4,11 +4,12 @@ import assert from "node:assert/strict";
 import {
   buildZones, computeStandings, factionRoster, deriveEvents, standingsTrend,
   agentIdentitySet, agentByIdentity, planetIdx, zoneName, zoneKindOf, PLANET_NAMES,
+  canAccessZone, accessRefusalReason, buildTables, roundClock,
 } from "../war-model.js";
 
 let passed = 0;
 const t = (name, fn) => { fn(); passed++; console.log("  ✓", name); };
-const JUP = 5, MOON = 1, MARS = 4;
+const JUP = 5, MOON = 1, MARS = 4, SAT = 6;
 
 console.log("Faction War model:");
 
@@ -99,6 +100,94 @@ t("standingsTrend marks rising/falling vs prior snapshot", () => {
   const tr = standingsTrend(b, a);
   assert.equal(tr[JUP], 1);
   assert.equal(tr[MOON], 0);
+});
+
+t("canAccessZone & accessRefusalReason gate access correctly", () => {
+  const zoneOwners = new Array(11).fill(null);
+  // Houses always open
+  for (let h = 0; h < 5; h++) {
+    assert.equal(canAccessZone(h, SAT, zoneOwners), true);
+    assert.equal(accessRefusalReason(h, SAT, zoneOwners), null);
+  }
+
+  // Spire 0 (zone 5) needs House 0 or House 4
+  assert.equal(canAccessZone(5, SAT, zoneOwners), false);
+  assert.equal(accessRefusalReason(5, SAT, zoneOwners), "Spire 0 is out of reach — Saturn must hold an adjacent House first.");
+
+  zoneOwners[0] = SAT; // Saturn holds House 0
+  assert.equal(canAccessZone(5, SAT, zoneOwners), true);
+  assert.equal(accessRefusalReason(5, SAT, zoneOwners), null);
+
+  // Crown (zone 10) needs two Spires
+  assert.equal(canAccessZone(10, SAT, zoneOwners), false);
+  assert.equal(accessRefusalReason(10, SAT, zoneOwners), "The Crown is sealed to your faction — hold two Spires first.");
+
+  zoneOwners[5] = SAT; // 1 spire
+  assert.equal(canAccessZone(10, SAT, zoneOwners), false);
+  zoneOwners[6] = SAT; // 2 spires
+  assert.equal(canAccessZone(10, SAT, zoneOwners), true);
+  assert.equal(accessRefusalReason(10, SAT, zoneOwners), null);
+});
+
+t("buildTables normalizes melee table, seat, and play manifests", () => {
+  const tables = [{ table_id: 1, zone_id: 2, round_index: 42, trump_suit: "swords", state: "Seated", seat_count: 3, opened_at: 1000000000, ladder_raw: '{"0":50,"1":80}' }];
+  const seats = [
+    { seat_id: 101, table_id: 1, occupant: "0x111", faction: "Mars", is_human: false, claim: 85, counters: 20, melds_value: 40, score: 60 },
+    { seat_id: 102, table_id: 1, occupant: "0x222", faction: "Moon", is_human: true, claim: 70, counters: 30, melds_value: 0, score: 30 },
+  ];
+  const players = [{ identity: "0x222", handle: "PlayerOne" }];
+  const agents = { "0x111": { handle: "Marie Curie" } };
+  const plays = [
+    { play_id: 1, table_id: 1, trick_number: 1, seat_id: 101, card_id: 55, is_major: false, rank: 14, suit: "swords", played_at: 1000005000 },
+  ];
+
+  const m = buildTables(tables, seats, players, agents, PLANET_NAMES, plays);
+  assert.equal(m.tables.length, 1);
+  const t1 = m.byId[1];
+  assert.ok(t1);
+  assert.equal(t1.zoneId, 2);
+  assert.equal(t1.hasHuman, true);
+  assert.equal(t1.seats.length, 2);
+  assert.equal(t1.seats[0].handle, "Marie Curie");
+  assert.equal(t1.seats[0].isAgent, true);
+  assert.equal(t1.seats[1].handle, "PlayerOne");
+  assert.equal(t1.seats[1].isHuman, true);
+  assert.equal(t1.ladder[1], 80);
+  assert.equal(m.byZone[2].tableId, 1);
+});
+
+t("roundClock determines phase and progress for 60s and 120s tables", () => {
+  const baseTime = 1700000000000;
+  const agentTable = { tableId: 1, openedAt: baseTime, hasHuman: false, state: "Seated" };
+
+  // 5s in -> muster
+  const c1 = roundClock(agentTable, baseTime + 5000);
+  assert.equal(c1.phase, "muster");
+  assert.equal(c1.secondsRemaining, 55);
+
+  // 12s in -> seating
+  const c2 = roundClock(agentTable, baseTime + 12000);
+  assert.equal(c2.phase, "seating");
+
+  // 30s in -> play
+  const c3 = roundClock(agentTable, baseTime + 30000);
+  assert.equal(c3.phase, "play");
+
+  // 57s in -> resolve
+  const c4 = roundClock(agentTable, baseTime + 57000);
+  assert.equal(c4.phase, "resolve");
+
+  // resolved state
+  const resolvedTable = { tableId: 1, openedAt: baseTime, resolvedAt: baseTime + 58000, hasHuman: false, state: "Resolved" };
+  const c5 = roundClock(resolvedTable, baseTime + 65000);
+  assert.equal(c5.phase, "resolved");
+  assert.equal(c5.progressPct, 100);
+
+  // human table (120s) at 70s -> play
+  const humanTable = { tableId: 2, openedAt: baseTime, hasHuman: true, state: "Seated" };
+  const c6 = roundClock(humanTable, baseTime + 70000);
+  assert.equal(c6.phase, "play");
+  assert.equal(c6.totalDuration, 120);
 });
 
 console.log(`\n${passed} passed`);

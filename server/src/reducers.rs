@@ -3036,6 +3036,7 @@ pub fn open_melee_round(
     ctx: &ReducerContext,
     zone_id: u8,
     round_index: u64,
+    ladder_raw: String,
     seats: Vec<SeatSpec>,
 ) -> Result<(), String> {
     let cfg = ctx.db.game_config().id().find(&0).ok_or("game not initialised")?;
@@ -3064,6 +3065,7 @@ pub fn open_melee_round(
         trump_suit: chart::sign_element(zone_id % 12),
         state: MeleeState::Seated,
         seat_count: seats.len() as u8,
+        ladder_raw,
         opened_at: ctx.timestamp,
         resolved_at: None,
     });
@@ -3161,6 +3163,87 @@ pub fn submit_melee_result(
     table.state = MeleeState::Resolved;
     table.resolved_at = Some(ctx.timestamp);
     ctx.db.melee_table().table_id().update(table);
+    Ok(())
+}
+
+/// Play a card from hand into an active War Table trick. Player-callable.
+#[reducer]
+pub fn play_melee_card(
+    ctx: &ReducerContext,
+    table_id: u64,
+    card_id: u64,
+    trick_number: u8,
+) -> Result<(), String> {
+    let table = ctx
+        .db
+        .melee_table()
+        .table_id()
+        .find(&table_id)
+        .ok_or("play_melee_card: table not found")?;
+    if table.state == MeleeState::Resolved {
+        return Err("play_melee_card: table already resolved".into());
+    }
+
+    let seat = ctx
+        .db
+        .melee_seat()
+        .table_id()
+        .filter(&table_id)
+        .find(|s| s.occupant == ctx.sender() && s.is_human)
+        .ok_or("play_melee_card: sender is not a seated human player at this table")?;
+
+    let card = ctx
+        .db
+        .card()
+        .card_id()
+        .find(&card_id)
+        .ok_or("play_melee_card: card not found")?;
+    if card.owner != ctx.sender() {
+        return Err("play_melee_card: card not owned by sender".into());
+    }
+
+    ctx.db.melee_play().insert(MeleePlay {
+        play_id: 0,
+        table_id,
+        trick_number,
+        seat_id: seat.seat_id,
+        card_id,
+        is_major: card.is_major,
+        rank: card.rank,
+        suit: card.suit,
+        played_at: ctx.timestamp,
+    });
+
+    Ok(())
+}
+
+/// Record a card play at a War Table. Owner-gated (the feeder referee).
+#[reducer]
+pub fn record_melee_play(
+    ctx: &ReducerContext,
+    table_id: u64,
+    trick_number: u8,
+    seat_id: u64,
+    card_id: u64,
+    is_major: bool,
+    rank: u8,
+    suit: Suit,
+) -> Result<(), String> {
+    let cfg = ctx.db.game_config().id().find(&0).ok_or("game not initialised")?;
+    if ctx.sender() != cfg.owner {
+        return Err("record_melee_play: admin only".into());
+    }
+    ctx.db.melee_play().insert(MeleePlay {
+        play_id: 0,
+        table_id,
+        trick_number,
+        seat_id,
+        card_id,
+        is_major,
+        rank,
+        suit,
+        played_at: ctx.timestamp,
+    });
     Ok(())
 }
 

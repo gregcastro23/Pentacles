@@ -17,7 +17,8 @@
     "gen": "spacetime generate --lang typescript --module-path server --out-dir src/module_bindings -y && node scripts/patch-bindings.mjs",
     "test:module": "cargo test --manifest-path server/Cargo.toml",
     "test:war": "bun scripts/war-table.test.mjs",
-    "test:all": "bun run test:gameplay && bun run test:war && bun run test:module && bun run test:chart"
+    "test:warmodel": "node src/alchm-chart/__tests__/war-model.test.js",
+    "test:all": "bun run test:gameplay && bun run test:war && bun run test:warmodel && bun run test:module && bun run test:chart"
   },
   "devDependencies": {
     "vite": "^8.0.16"
