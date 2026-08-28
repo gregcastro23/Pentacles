@@ -3,19 +3,19 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>My Pentacles + Deploy Tray — Harness</title>
+  <title>My Pentacles + Deploy Tray — Test Harness</title>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Space+Grotesk:wght@300;400;500;600&display=swap" rel="stylesheet" />
   <style>
     html, body { margin: 0; min-height: 100%; background: #05060c; color: #e8e3d4; font-family: "Space Grotesk", sans-serif; }
     .wrap { width: min(1200px, 96vw); margin: 0 auto; padding: 18px 0 60px; }
     h2.k { font-family: "Cormorant Garamond", serif; color: #d8b46a; font-weight: 500; margin: 26px 0 8px; }
-    #codex, #war { background: rgba(13,16,28,0.6); border: 1px solid rgba(216,180,106,0.18); border-radius: 14px; overflow: hidden; }
+    #pentacles-host, #war { background: rgba(13,16,28,0.6); border: 1px solid rgba(216,180,106,0.18); border-radius: 14px; overflow: hidden; }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h2 class="k">✦ My Pentacles</h2>
-    <div id="codex"></div>
+    <h2 class="k">✦ My Pentacles (Player Profile, Deck & Celestial Placements)</h2>
+    <div id="pentacles-host"></div>
     <h2 class="k">Faction War — deploy card-tray (drag a card onto a zone)</h2>
     <div id="war"></div>
   </div>
@@ -66,11 +66,11 @@
         },
       },
       collection, deck,
-      save() {},
+      save() { console.log("[save] deck updated:", window.state.deck); },
     };
     window.toast = (m, o) => console.log("[toast]", (o && o.title) || "", m);
 
-    const pentacles = MyPentacles.create({ el: document.getElementById("codex"), hooks: { onTip: () => console.log("[harness] tip→war"), onForge: () => console.log("[harness] forge") } });
+    const pentacles = MyPentacles.create({ el: document.getElementById("pentacles-host"), hooks: { onTip: () => console.log("[harness] tip→war"), onForge: () => console.log("[harness] forge") } });
     pentacles.mount();
     window.__pentacles = pentacles;
 

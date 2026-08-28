@@ -699,10 +699,10 @@
       });
       if (handCards.length === 0) {
         const message = activeTotal === 0
-          ? "Your Active Hand is empty. Open Deck and assign cards to Active."
+          ? "Your Active Hand is empty. Open My Pentacles and assign cards to Active."
           : "No Active Hand cards match this filter.";
         const emptyAction = activeTotal === 0
-          ? '<button class="btn" onclick="openMyCodex()">Open Deck</button>'
+          ? '<button class="btn" onclick="openMyPentacles()">Open My Pentacles</button>'
           : '<button class="btn" onclick="setHandFilter(\'all\')">Clear Filter</button>';
         container.innerHTML = `
           <div class="hand-empty">
@@ -1822,15 +1822,18 @@
         <strong>Board Attack Power:</strong> ⚔ <strong style="color:var(--gold-bright);">${syn.totalAtk} ATK</strong> ${syn.multiplier > 1.0 ? `(${syn.baseAtk} × ${syn.multiplier.toFixed(2)})` : ''}
         <div style="margin-top:9px; display:flex; gap:6px; flex-wrap:wrap;">
           ${named ? `<button id="open-star-agent" class="btn" style="padding:5px 11px;font-size:11px;border-color:var(--gold);color:var(--gold-bright);background:transparent;">✦ Commune with ${star.name}</button>` : ""}
-          <button id="open-star-pokedex" class="btn" style="padding:5px 11px;font-size:11px;border-color:var(--gold);color:var(--gold-bright);background:transparent;">⭐ Inspect in StarDex</button>
+          <button id="open-star-dex" class="btn" style="padding:5px 11px;font-size:11px;border-color:var(--gold);color:var(--gold-bright);background:transparent;">⭐ Inspect in Star-Dex</button>
         </div>
       `;
       if (named) {
         const sab = document.getElementById("open-star-agent");
         if (sab) sab.onclick = () => { if (window.openStarAgentPage) window.openStarAgentPage(star.hip_id); };
       }
-      const spb = document.getElementById("open-star-pokedex");
-      if (spb) spb.onclick = () => { if (window.openStarPokedex) window.openStarPokedex(star.hip_id); };
+      const spb = document.getElementById("open-star-dex") || document.getElementById("open-star-pokedex");
+      if (spb) spb.onclick = () => {
+        if (window.openStarDex) window.openStarDex(star.hip_id);
+        else if (window.openStarPokedex) window.openStarPokedex(star.hip_id);
+      };
 
       if (engageable) btn.removeAttribute("disabled");
       else btn.setAttribute("disabled", "true");
