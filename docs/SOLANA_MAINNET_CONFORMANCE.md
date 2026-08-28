@@ -68,33 +68,44 @@ coercion upstream go unnoticed until a balance is wrong.
 
 ---
 
-## 3. What changed
-
-### Solana program (`programs/pentacles-solana/src/lib.rs`)
+#### Solana program (`programs/pentacles-solana/src/lib.rs`)
 
 Retired: `initialize_element_mint`, `mint_esms_rewards`, `bridge_mint_esms`,
 `burn_esms_for_jing`, `bridge_burn_esms`, `slash_cheater`, and the
 `BridgeMintReceipt` account.
 
-Added / fixed:
+Added / fixed (Hardened via Phase 5 StarVault Review):
 
 - **`unstake_star_usdc`.** The previous program had **no withdrawal path at
   all** — USDC transferred into a star vault was permanently unrecoverable on
   chain. It is unconditional: no pause flag, no admin gate.
-- **Checkpointed yield.** `StakePosition` accrues against the principal that was
-  actually staked for each interval. `stake_star_usdc` checkpoints *before*
-  changing principal, so a top-up earns nothing retroactively. Proven by
-  `top_up_earns_nothing_retroactively`.
-- **Real state.** `StarVaultState`, `StarPool`, `StakePosition` replace an
+- **Infallible saturating checkpoint (P1).** `checkpoint_position` is infallible,
+  using `saturating_mul` and `saturating_add` and clamping `u128` narrowing to
+  `u64::MAX`. An accounting overflow cannot brick or hold user withdrawals hostage.
+  Enforced by rate ceiling `MAX_RATE_ATOMS_PER_USDC_DAY = 1_000_000_0000` (100k ESMS/USDC/day).
+- **Forward-only yield accumulator (P2).** `GameAuthority` maintains a global
+  `yield_index: u128` and `index_updated_at: i64`. `configure_star_vault` settles
+  the index to `now` at the old rate before updating the rate ceiling. `StakePosition`
+  stores `index_snapshot: u128`, making rate changes forward-only by construction
+  without per-position sweeps.
+- **Authority rotation & rent reclamation.** Added `set_game_authority` (gated on
+  current authority, rejecting default pubkey) and `close_stake_position` (gated on
+  `principal == 0 && accrued_cap == 0`, closing account to staker).
+- **Token-2022 mint extension validation (P4).** `validate_vault_usdc_mint` passes
+  classic SPL Token through and parses Token-2022 TLV regions from byte 166,
+  rejecting `TransferFeeConfig` (1), `PermanentDelegate` (12), and `TransferHook` (14).
+- **Proof depth bound (P7).** `activate_star` enforces `proof.len() <= MAX_STAR_PROOF_DEPTH` (32).
+- **Real state.** `GameAuthority`, `StarPool`, `StakePosition` replace an
   instruction that transferred USDC and only logged the amount.
 - **`activate_star`** with OpenZeppelin `StandardMerkleTree` proof over a `uint32`
   star id. The leaf hash is pinned against a value computed in JS
   (`star_leaf_matches_openzeppelin_standard_merkle_tree`) so the two languages
   cannot drift.
-- **Typed events** (`emit!`) replacing `msg!` strings.
-- All accrual arithmetic in checked `u128`.
+- **Typed events** (`emit!`) replacing `msg!` strings, with applied pool delta in
+  `StarUnstaked` to make saturating clamps observable.
+- All accrual arithmetic in checked/saturating `u128`.
 
-7 Rust unit tests, all passing.
+11 Rust unit tests, all passing.
 
 ### SpacetimeDB module (`server/`)
 
@@ -135,7 +146,8 @@ Added / fixed:
 | Profiled CU limits + 65th-percentile priority fees | `src/web3/priority-fee.js` |
 | Cloud KMS signer (AWS/GCP) with mainnet guard | `feeder/solana-signer.ts` |
 | Cluster resolution, genesis guard, 3-tier ingestion | `feeder/solana-cluster.ts` |
-| Structural event decoding, balance-delta ESMS reads | `feeder/solana-sync-service.ts` |
+| Structural event decoding, program-ID scoping, balance-delta ESMS reads | `feeder/solana-sync-service.ts` |
+| Event discriminators and Borsh layout pinning | `tests/solana-instructions.test.ts` |
 
 Notes worth keeping in mind:
 
@@ -151,6 +163,10 @@ Notes worth keeping in mind:
   event is simply never delivered.
 - **The signer refuses an in-memory keypair on mainnet**, independent of
   `NODE_ENV`. What makes a hot key dangerous is the cluster it settles on.
+- **Feeder event scoping by program ID (P3).** `decodeAnchorEvents` parses the
+  Solana log frame stack (`Program <id> invoke` / `Program <id> success`), preventing
+  cross-program event collisions on shared clusters when same-named Anchor events
+  are emitted.
 
 ### Client
 
@@ -188,9 +204,9 @@ Three fake-settlement paths in `src/web3/pools-ui.js` were removed:
 
 | Suite | Result |
 | --- | --- |
-| `cargo test` (Solana program) | 7 passed |
+| `cargo test` (Solana program) | 11 passed |
 | `cargo check` (SpacetimeDB module) | clean |
-| `bun test tests/` | 29 passed |
+| `bun test tests/` | 36 passed |
 | `bun run test:omnichain` | 5 groups passed |
 | `bun run test:gameplay` | passed |
 | `bun scripts/dryrun-star-staking.test.mjs` | 4 passed |
@@ -205,45 +221,58 @@ Ordered by what blocks what. These are the Solana-specific ones;
 EVM, module and hygiene items this pass did not touch.
 
 1. **ASOL claim/redeem integration.** `mintSolanaDestination` fails closed with
-   an explicit error. Completing it needs ASOL's `claim_mint_esms` account layout
-   and claim-receipt PDA seeds, plus a decision on who signs — most likely an
-   ASOL-side relayer, keeping ASOL's mint authority inside ASOL. Guessing the
-   layout would produce a bridge that fails on chain *after the source burn has
-   settled*, which is strictly worse than refusing to start.
+   an explicit error. ASOL Phase 5 introduced a second ESMS mint path:
+   `claim_star_yield`, whose replay protection is a per-position `claim_nonce`
+   rather than a receipt PDA (unlike `claim_mint_esms`). Any feeder reconciling
+   ASOL mints must handle both. Until ASOL PR 3 ships, there are no ASOL events
+   to reconcile against — only Token-2022 balance deltas, which carry no star id,
+   position, or nonce.
 
-2. **ASOL devnet cluster domain.** Only the mainnet value
+2. **Feeder discriminator collision with ASOL (P3).** Solved on the Pentacles side
+   by parsing the Solana `Program <id> invoke` / `success` frame stack in
+   `decodeAnchorEvents`. Once ASOL deploys PR 3, both programs emit same-named
+   events (`StarStaked`, `StarUnstaked`, `StarActivated`) with byte-identical
+   Anchor discriminators; program-ID scoping ensures the feeder only processes
+   Pentacles' events.
+
+3. **Shared P1 & P2 remediations.** Note that P1 (fallible withdrawal checkpoint)
+   and P2 (retroactive rate increases) were shared findings across both Pentacles
+   and ASOL, fixed in parallel in both codebases via infallible saturating accruals
+   and global accumulator indices.
+
+4. **ASOL devnet cluster domain.** Only the mainnet value
    (`sha256("ASOL_MAINNET_V1")`) is published. Devnet's is unset rather than
    guessed: a wrong domain yields a signature that fails verification with no
    useful error.
 
-3. **Module schema publish.** The `BridgeChain` variants and the reducer
+5. **Module schema publish.** The `BridgeChain` variants and the reducer
    signature changes need a publish. Run `./scripts/prod-cutover.sh preflight`
    and `backup` first. Variants were **appended** so existing tags keep their
    ordinals, but confirm 2.x treats it as a compatible update before touching
    production — this pass deliberately did not.
 
-4. **Devnet redeploy.** The program's instruction set changed, so the running
+6. **Devnet redeploy.** The program's instruction set changed, so the running
    devnet deployment is stale. Its 18-decimal mints are retired in place. Regenerate
    bindings (`bun run gen`) after publishing the module.
 
-5. **Squads v4 upgrade authority.** Still a plain devnet keypair
+7. **Squads v4 upgrade authority.** Still a plain devnet keypair
    (`AhNRjjyhJ4dR6ZSvWyJNSpbJFbFnxhkRdUNMY31fJ3S5`). Must move to a Squads vault
    before any mainnet deploy.
 
-6. **Verifiable build.** `anchor build --no-idl` is used because of a
+8. **Verifiable build.** `anchor build --no-idl` is used because of a
    `proc_macro2` conflict, so no IDL is published and `solana-verify` /
    explorer verification is degraded. Resolve before mainnet.
 
-7. **`alchm-astro-core` still resolves through an absolute-ish path outside the
+9. **`alchm-astro-core` still resolves through an absolute-ish path outside the
    repo.** A clean checkout on another machine cannot build the module. Vendor or
    publish it.
 
-8. **starUSDC LST mint** is not deployed. Receipt transfers are disabled with an
-   explicit message rather than simulated.
+10. **starUSDC LST mint** is not deployed. Receipt transfers are disabled with an
+    explicit message rather than simulated.
 
-9. **Untracked duplicate.** `public/star-pokedex-ui 2.js` is a Finder-copy
-   artifact sitting next to a modified `public/star-pokedex-ui.js`. Unrelated to
-   this work, but resolve it before cutting a release branch.
+11. **Untracked duplicate.** `public/star-pokedex-ui 2.js` is a Finder-copy
+    artifact sitting next to a modified `public/star-pokedex-ui.js`. Unrelated to
+    this work, but resolve it before cutting a release branch.
 
 ---
 
