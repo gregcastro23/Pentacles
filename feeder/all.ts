@@ -14,6 +14,7 @@
 //   constellation  constellation-service.ts  EIP-712 visibility attestor
 //   bridge         bridge-service.ts         verified burn-and-mint settlement
 //   ephemeris      push-ephemeris.ts         real ephemeris → push_ephemeris
+//   war-table      war-table.ts              the 60s multi-seat zone melee round
 //
 // push-ephemeris already loops on its own timer (FEED_INTERVAL_MIN, default
 // 15 min), so it is supervised like the long-running services rather than
@@ -59,6 +60,7 @@ const SERVICES: Service[] = [
   { name: "ephemeris", file: "push-ephemeris.ts" },
   { name: "solana-sync", file: "solana-sync-service.ts" },
   { name: "historical-agents", file: "historical-agent-service.ts" },
+  { name: "war-table", file: "war-table.ts" },
   { name: "indoor-spatial", file: "indoor-spatial-service.ts" },
 ];
 

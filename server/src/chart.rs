@@ -140,6 +140,30 @@ fn planet_major(p: Planet) -> u8 {
     }
 }
 
+/// Sign → its Major Arcana index (Golden Dawn / RWS attribution).
+///
+/// The twelve sign Majors are exactly the complement of the ten `planet_major`
+/// indices, so the arcana index ALONE tells the two families apart — there is no
+/// overlap and no gap across 0..21. `sign_majors_complement_planet_majors` in the
+/// test module below pins that invariant.
+fn sign_major(sign: u8) -> u8 {
+    const SIGN_MAJORS: [u8; 12] = [
+        4,  // Aries       — The Emperor
+        5,  // Taurus      — The Hierophant
+        6,  // Gemini      — The Lovers
+        7,  // Cancer      — The Chariot
+        8,  // Leo         — Strength
+        9,  // Virgo       — The Hermit
+        11, // Libra       — Justice
+        13, // Scorpio     — Death
+        14, // Sagittarius — Temperance
+        15, // Capricorn   — The Devil
+        17, // Aquarius    — The Star
+        18, // Pisces      — The Moon
+    ];
+    SIGN_MAJORS[(sign % 12) as usize]
+}
+
 /// Majors sit a tier above the pips (tunable). Stats still derive from the
 /// placement; this is the only rank-driven scaling, reserved for Majors.
 const MAJOR_MULT: f32 = 1.5;
@@ -283,6 +307,56 @@ pub fn mint_deck(
         major.letter = crate::words::letter_for(major_id);
         ctx.db.card().card_id().update(major);
         mint_slot(ctx, owner, major_id, &mut active);
+        count += 1;
+    }
+
+    // Every SIGN the chart occupies also mints its own Major Arcana, once — the
+    // twelve sign Arcana `planet_major` never reaches. Without this an agent holds
+    // ten Majors while a human holds twenty-two, and The Emperor could never appear
+    // in a seeded agent's hand. `Card.rank` is already a u8 over 0..21 and
+    // `is_major` already disambiguates, so this needs NO schema change.
+    let mut minted_sign = [false; 12];
+    for p in &chart.placements {
+        let sign_idx = (p.sign % 12) as usize;
+        if minted_sign[sign_idx] {
+            continue;
+        }
+        minted_sign[sign_idx] = true;
+
+        // Stats come from that sign's strongest tenant, so a stellium's Major
+        // outweighs a lone visitor's — the same "stats follow the placement" rule
+        // the planetary Majors already use.
+        let tenant = chart
+            .placements
+            .iter()
+            .filter(|q| q.sign % 12 == p.sign % 12)
+            .max_by_key(|q| q.dignity)
+            .unwrap_or(p);
+        let (health, attack, armour, cooldown_ms) =
+            card_stats(tenant, reception_boosts[tenant.body.idx()]);
+
+        let mut sign_card = ctx.db.card().insert(Card {
+            card_id: 0,
+            owner,
+            suit: sign_element(tenant.sign),
+            rank: sign_major(tenant.sign), // arcana index 0..21; is_major disambiguates
+            health: (health as f32 * MAJOR_MULT) as u16,
+            attack: (attack as f32 * MAJOR_MULT) as u16,
+            armour: (armour as f32 * MAJOR_MULT) as u16,
+            cooldown_ms,
+            // No planet mints a sign Major, so the sign's ruler stands in as the
+            // source body — `source_body` is a Planet and cannot hold a sign.
+            source_body: sign_ruler(tenant.sign),
+            inverted: tenant.retrograde,
+            is_major: true,
+            level: 1,
+            minted_at: ctx.timestamp,
+            letter: 0,
+        });
+        let sign_id = sign_card.card_id;
+        sign_card.letter = crate::words::letter_for(sign_id);
+        ctx.db.card().card_id().update(sign_card);
+        mint_slot(ctx, owner, sign_id, &mut active);
         count += 1;
     }
 
@@ -956,6 +1030,51 @@ mod tests {
 
     fn pl(body: Planet, sign: u8, deg: u8) -> Placement {
         Placement { body, sign, arc_minutes: deg as u16 * 60, retrograde: false, dignity: 0 }
+    }
+
+    /// The 22 Majors partition cleanly: ten come from planets, twelve from signs,
+    /// with no overlap and no gap. This is the invariant the whole Arcana family
+    /// split rests on — `is_major` plus the rank alone must identify a card's
+    /// family, with no table of exceptions.
+    #[test]
+    fn sign_majors_complement_planet_majors() {
+        let planetary: Vec<u8> = ALL_PLANETS.iter().map(|p| planet_major(*p)).collect();
+        let sign_based: Vec<u8> = (0u8..12).map(sign_major).collect();
+
+        assert_eq!(planetary.len(), 10, "ten planetary Majors");
+        assert_eq!(sign_based.len(), 12, "twelve sign Majors");
+
+        // No arcana index is claimed by both families...
+        for s in &sign_based {
+            assert!(!planetary.contains(s), "arcana {s} claimed by both a sign and a planet");
+        }
+        // ...and together they cover 0..=21 exactly once.
+        let mut all: Vec<u8> = planetary.iter().chain(sign_based.iter()).copied().collect();
+        all.sort_unstable();
+        let expected: Vec<u8> = (0u8..=21).collect();
+        assert_eq!(all, expected, "the two families must tile 0..=21 exactly once");
+    }
+
+    /// A sign Major is minted per OCCUPIED sign, once — never per placement. A
+    /// stellium must not mint The Emperor three times.
+    #[test]
+    fn sign_major_is_stable_and_wraps() {
+        assert_eq!(sign_major(0), 4, "Aries mints The Emperor (IV)");
+        assert_eq!(sign_major(11), 18, "Pisces mints The Moon (XVIII)");
+        // Wrapping is defensive: a sign value is always taken mod 12.
+        assert_eq!(sign_major(12), sign_major(0));
+        assert_eq!(sign_major(25), sign_major(1));
+    }
+
+    /// A sign Major's suit is the sign's own element, and its stand-in body is
+    /// that sign's ruler — the two fields `mint_deck` derives without a planet.
+    #[test]
+    fn sign_major_suit_and_ruler_follow_the_sign() {
+        // Aries → Fire/Wands, ruled by Mars. Taurus → Earth/Pentacles, ruled by Venus.
+        assert_eq!(sign_element(0), Suit::Wands);
+        assert_eq!(sign_ruler(0), Planet::Mars);
+        assert_eq!(sign_element(1), Suit::Pentacles);
+        assert_eq!(sign_ruler(1), Planet::Venus);
     }
 
     /// Build a chart and run the authoritative house derivation over it.

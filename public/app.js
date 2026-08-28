@@ -2639,155 +2639,247 @@ void main() {
       if (!overlay) return;
       
       const key = `${targetType}_${targetId}`;
-      const ritual = state.rituals ? state.rituals[key] : null;
+      let ritual = state.rituals ? state.rituals[key] : null;
+      if (!ritual || state.isObsoleteRitual(ritual)) {
+        ritual = state.generateProceduralRitual(targetType, targetId);
+        if (state.rituals) state.rituals[key] = ritual;
+      }
       if (!ritual) {
         overlay.style.display = "none";
         return;
       }
 
-      if (!ritual.manifold) {
-        ritual.manifold = { cards: [], activeReaction: null, pentaclesYield: 0 };
-      }
+      const melee = ritual.melee;
+      if (!melee) return;
 
+      const Engine = window.ArcanaTrickEngine || globalThis.ArcanaTrickEngine;
       const sigil = targetType === "planet" ? PLANET_GLYPHS[targetId] : "✦";
-      const name = targetType === "planet" ? `${PLANET_NAMES[targetId]} Alignment` : `Zone ${targetId} Gate`;
+      const name = targetType === "planet" ? `${PLANET_NAMES[targetId]} Alignment Melee` : `Zone ${targetId} Gate Melee`;
       const titleColor = targetType === "planet" ? PLANET_COLORS[targetId] : "var(--gold-bright)";
+      const trumpSuitCap = (melee.trumpSuit || "wands").toUpperCase();
+      const trumpGlyph = SUIT_GLYPHS[melee.trumpSuit] || "✦";
 
-      // Build zone character context for AlchemicalEngine
-      const targetZoneInfo = {
-        targetType,
-        targetId,
-        zone_id: targetType === 'zone' ? targetId : (state.planets && state.planets[targetId] ? state.planets[targetId].zone : 0),
-        targetSuit: ritual.targetSuit
-      };
+      // If Melee completed, show Climax / Post-Match Summary Screen
+      if (melee.status === "completed") {
+        const isWin = melee.outcome === "player_win";
+        const rew = ritual.lastReward || null;
+        overlay.className = "ritual-hud-overlay melee-hud-container";
+        overlay.innerHTML = `
+          <div class="ritual-header">
+            <div class="ritual-target-info">
+              <span class="ritual-target-sigil" style="color: ${titleColor};">${sigil}</span>
+              <span class="ritual-target-title" style="color: ${titleColor};">${name}</span>
+            </div>
+            <button class="btn btn-reset-ritual" onclick="resetActiveRitual()">Rematch</button>
+          </div>
 
-      // Resolve reaction state
-      let reaction = ritual.manifold.activeReaction;
-      if (!reaction && typeof window !== 'undefined' && window.AlchemicalEngine) {
-        reaction = window.AlchemicalEngine.resolveReaction(ritual.manifold.cards, targetZoneInfo);
-        ritual.manifold.activeReaction = reaction;
-        ritual.manifold.pentaclesYield = reaction.pentaclesYield;
+          <div style="text-align:center; padding: 16px 8px;">
+            <div style="font-size:24px; font-weight:bold; font-family:var(--display); color:${isWin ? '#ffd700' : '#f26262'}; text-shadow:0 0 20px ${isWin ? 'rgba(255,215,0,0.6)' : 'rgba(242,98,98,0.6)'};">
+              ${isWin ? '👑 ZONE GATE BREACHED — VICTORY' : '⚔ GUARDIAN REPUDIATION — DEFEAT'}
+            </div>
+            <div style="font-size:12px; color:var(--dim); margin-top:4px;">
+              ${isWin ? 'You have triumphed across the 12-trick Melee and seized control of the zone!' : 'The Zone Guardian defended the threshold. Restructure your loadout and challenge again.'}
+            </div>
+
+            <div style="display:flex; justify-content:center; gap:24px; margin:16px 0;">
+              <div style="text-align:center;">
+                <span style="font-size:11px; color:var(--dim); text-transform:uppercase; display:block;">Your Final Score</span>
+                <span style="font-size:24px; font-weight:bold; color:#ffd700; font-family:var(--font-mono);">${melee.playerScore}</span>
+                <span style="font-size:10px; color:var(--dim); display:block;">(${melee.playerTricksWon} Tricks Won)</span>
+              </div>
+              <div style="font-size:20px; align-self:center; color:var(--dim);">VS</div>
+              <div style="text-align:center;">
+                <span style="font-size:11px; color:var(--dim); text-transform:uppercase; display:block;">Guardian Score</span>
+                <span style="font-size:24px; font-weight:bold; color:#f26262; font-family:var(--font-mono);">${melee.guardianScore}</span>
+                <span style="font-size:10px; color:var(--dim); display:block;">(${melee.guardianTricksWon} Tricks Won)</span>
+              </div>
+            </div>
+
+            ${isWin ? `
+              <div style="background:rgba(216,180,106,0.1); border:1px solid rgba(216,180,106,0.3); border-radius:8px; padding:10px; font-size:11.5px; color:var(--gold-bright); margin-bottom:12px;">
+                ✦ Yielded <b>+500 Tokens</b> · Zone Control <b>+500</b> · Synthesized Spoils in Deck
+              </div>
+            ` : ''}
+
+            <button class="btn btn-primary" style="padding:8px 24px; font-size:12px; font-weight:bold;" onclick="resetActiveRitual()">
+              Challenge Again
+            </button>
+          </div>
+        `;
+        return;
       }
 
-      const currentPentacles = ritual.manifold.pentaclesYield || 0;
-      const targetThreshold = ritual.targetSum || 50;
-      const percent = Math.min(100, Math.round((currentPentacles / targetThreshold) * 100));
+      // Live Melee Active Stage
+      const playerLegalMoves = Engine ? Engine.getLegalMoves(
+        melee.playerHand,
+        melee.ledSuit,
+        melee.trumpSuit,
+        melee.currentTrick,
+        melee.arcanaLadder
+      ) : melee.playerHand.map(c => ({ card: c, legal: true }));
 
-      const pillar = reaction ? reaction.pillar : { id: 1, name: "Awaiting Reagents", sigil: "🜔", color: "var(--dim)", description: "Drop Tarot cards into the Manifold chamber to initiate a reaction." };
-      const esms = reaction ? reaction.esms : { Spirit: 0, Essence: 0, Matter: 0, Substance: 0 };
-      const thermo = reaction ? reaction.thermodynamics : { heat: 0, entropy: 0, reactivity: 0, freeEnergy: 0 };
-      const alignment = reaction ? reaction.zoneAlignment : { multiplier: 1.0, rating: "Neutral Alchemy", favoredSuit: ritual.targetSuit || "pentacles", matchingCardsCount: 0 };
+      // Melds pills HTML
+      let meldsHTML = "";
+      if (melee.playerMelds && melee.playerMelds.length > 0) {
+        meldsHTML = melee.playerMelds.map(m => `<span class="melee-meld-pill" title="${m.name}">✦ ${m.name} (+${m.value})</span>`).join("");
+      } else {
+        meldsHTML = `<span style="color:var(--dim); font-size:10px;">No starting melds detected in hand</span>`;
+      }
 
-      // Render manifold reagent slots (4 slots)
-      let slotsHTML = "";
-      for (let i = 0; i < 4; i++) {
-        const card = ritual.manifold.cards[i];
-        if (card) {
-          slotsHTML += `
-            <div class="ritual-slot filled ${card.suit}">
-              <span class="ritual-slot-suit">${SUIT_GLYPHS[card.suit] || '✦'}</span>
-              <span class="ritual-slot-rank">${card.is_major ? 'Major' : rankName(card.rank)}</span>
-              <span class="ritual-slot-letter" style="color:var(--gold-bright); font-size:11px;">${card.title || 'Reagent'}</span>
-            </div>
-          `;
-        } else {
-          const isActiveSlot = i === ritual.manifold.cards.length;
-          slotsHTML += `
-            <div class="ritual-slot ${isActiveSlot ? 'active magnetic-hover' : ''}">
-              <span class="ritual-slot-placeholder">${isActiveSlot ? '✦ Drop Card' : 'Vessel Slot'}</span>
+      // Trick cards played on table
+      const playerPlayed = melee.currentTrick.find(t => t.player === "player");
+      const guardianPlayed = melee.currentTrick.find(t => t.player === "guardian");
+
+      function renderTrickSlot(play, label) {
+        if (play && play.card) {
+          const c = play.card;
+          const cSuit = c.suit || "wands";
+          const glyph = SUIT_GLYPHS[cSuit] || "✦";
+          const isTrump = c.suit && c.suit.toLowerCase() === (melee.trumpSuit || "").toLowerCase();
+          const pot = c.is_major && melee.arcanaLadder ? (melee.arcanaLadder[c.rank] || 50) : null;
+          return `
+            <div class="melee-trick-card-slot played ${cSuit}">
+              <span style="font-size:9px; color:var(--dim); text-transform:uppercase;">${label}</span>
+              <span style="font-size:18px; margin:2px 0;">${glyph}</span>
+              <span style="font-size:11px; font-weight:bold; color:${c.is_major ? '#ffd700' : (isTrump ? 'var(--gold-bright)' : '#fff')}; text-align:center; padding:0 2px; line-height:1.1;">
+                ${c.is_major ? c.title : `${rankName(c.rank)}`}
+              </span>
+              ${pot !== null ? `<span class="melee-potency-badge">⚡${pot}</span>` : ''}
+              <span style="font-size:9px; color:var(--dim); margin-top:2px;">${Engine ? Engine.counterValue(c) : 0} pts</span>
             </div>
           `;
         }
+        return `
+          <div class="melee-trick-card-slot">
+            <span style="font-size:9px; color:var(--dim); text-transform:uppercase;">${label}</span>
+            <span style="font-size:18px; color:rgba(216,180,106,0.2); margin:4px 0;">✦</span>
+            <span style="font-size:10px; color:var(--dim);">Awaiting Play</span>
+          </div>
+        `;
       }
 
-      const rewardsText = `Rewards: +500 Tokens · +500 Zone Control · Spoils Card (Lv 2)`;
+      // Turn instructions banner
+      let turnInstruction = "";
+      if (melee.currentTrick.length === 0) {
+        turnInstruction = `✦ YOUR LEAD: Play any Minor Card or Major Arcana from your hand`;
+      } else if (melee.ledSuit) {
+        const hasLedMinor = melee.playerHand.some(c => !c.is_major && c.suit && c.suit.toLowerCase() === melee.ledSuit.toLowerCase());
+        if (hasLedMinor) {
+          turnInstruction = `⚔ MUST FOLLOW SUIT: Guardian led ${melee.ledSuit.toUpperCase()}. You must play a ${melee.ledSuit.toUpperCase()} Minor!`;
+        } else {
+          turnInstruction = `⚡ VOID IN ${melee.ledSuit.toUpperCase()}: Play Zone Trump (${trumpSuitCap}) or any Major Arcana!`;
+        }
+      } else {
+        turnInstruction = `⚡ ARCANA LEAD: Follow with a Major Arcana or slough a Minor if void`;
+      }
 
+      if (melee.trickNumber === 12) {
+        turnInstruction += ` <b style="color:#ffd700;">(✦ FINAL TRICK: +10 CLIMAX BONUS)</b>`;
+      }
+
+      // Player hand chips HTML
+      let handHTML = "";
+      for (const opt of playerLegalMoves) {
+        const c = opt.card;
+        const legal = opt.legal;
+        const reason = opt.reason || "Illegal move";
+        const cSuit = c.suit || "wands";
+        const glyph = SUIT_GLYPHS[cSuit] || "✦";
+        const isTrump = c.suit && c.suit.toLowerCase() === (melee.trumpSuit || "").toLowerCase();
+        const pot = c.is_major && melee.arcanaLadder ? (melee.arcanaLadder[c.rank] || 50) : null;
+        const counters = Engine ? Engine.counterValue(c) : 0;
+
+        handHTML += `
+          <div class="melee-card-chip ${legal ? 'legal' : 'illegal'} ${cSuit}"
+               data-reason="${reason}"
+               ${legal ? `onclick="window.playCardIntoRitual(${c.card_id}, '${targetType}', ${targetId})"` : ''}
+               title="${legal ? 'Click to Play' : reason}">
+            <div style="display:flex; justify-content:space-between; width:100%; align-items:center;">
+              <span style="font-size:11px;">${glyph}</span>
+              ${counters > 0 ? `<span style="font-size:8.5px; font-weight:bold; color:#ffd700;">★${counters}</span>` : ''}
+            </div>
+            <div style="font-size:10px; font-weight:bold; text-align:center; line-height:1.1; color:${c.is_major ? '#ffd700' : (isTrump ? 'var(--gold-bright)' : '#fff')};">
+              ${c.is_major ? c.title : rankName(c.rank)}
+            </div>
+            <div style="font-size:8.5px; color:var(--dim); display:flex; justify-content:space-between; width:100%;">
+              <span>${c.is_major ? 'Major' : (isTrump ? 'TRUMP' : cSuit)}</span>
+              ${pot !== null ? `<span style="color:#ffd700; font-weight:bold;">⚡${pot}</span>` : `<span>⚔${c.attack || 5}</span>`}
+            </div>
+          </div>
+        `;
+      }
+
+      overlay.className = "ritual-hud-overlay melee-hud-container";
       overlay.innerHTML = `
         <div class="ritual-header">
           <div class="ritual-target-info">
             <span class="ritual-target-sigil" style="color: ${titleColor};">${sigil}</span>
             <span class="ritual-target-title" style="color: ${titleColor};">${name}</span>
           </div>
-          <button class="btn btn-reset-ritual" onclick="resetActiveRitual()">Purge Vessel</button>
-        </div>
-        <div class="ritual-challenge-desc">${ritual.description}</div>
-        
-        <!-- Pentacles Yield Singularity Bar -->
-        <div style="margin: 10px 0; width: 100%;">
-          <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--gold-bright); margin-bottom:6px;">
-            <span><b>Pentacles Singularity Yield</b></span>
-            <span><b style="font-size:14px; color:#ffd700;">${currentPentacles}</b> / ${targetThreshold} P (${percent}%)</span>
-          </div>
-          <div style="width: 100%; height: 10px; background: rgba(0,0,0,0.6); border-radius: 5px; overflow: hidden; border: 1px solid var(--line);">
-            <div style="width: ${percent}%; height: 100%; background: linear-gradient(90deg, #74ab6c, var(--gold-bright), #ffd700); transition: width 0.3s ease;"></div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:11px; font-weight:bold; color:var(--gold-bright); background:rgba(216,180,106,0.15); padding:2px 8px; border-radius:4px; border:1px solid rgba(216,180,106,0.3);">
+              TRUMP: ${trumpGlyph} ${trumpSuitCap}
+            </span>
+            <button class="btn btn-reset-ritual" onclick="resetActiveRitual()">Reset Table</button>
           </div>
         </div>
 
-        <!-- Zone Character Alignment Telemetry -->
-        <div style="margin: 8px 0; padding: 8px 12px; background: rgba(24,27,39,0.7); border: 1px solid rgba(216,180,106,0.3); border-radius: 8px; display:flex; justify-content:space-between; align-items:center;">
-          <div>
-            <span style="color:var(--dim); font-size:10px; font-weight:bold; display:block; text-transform:uppercase; letter-spacing:0.5px;">Zone Character Alignment</span>
-            <span style="color:${alignment.multiplier >= 1.5 ? '#ffd700' : (alignment.multiplier >= 1.0 ? '#74ab6c' : '#e85f5f')}; font-weight:bold; font-size:12px;">
-              ${alignment.rating}
-            </span>
+        <!-- Scoreboard Strip -->
+        <div class="melee-scoreboard">
+          <div class="melee-player-score">
+            <span class="melee-score-label">You (Seeker)</span>
+            <span class="melee-score-val">${melee.playerScore}</span>
+            <span style="font-size:9.5px; color:var(--dim);">${melee.playerTricksWon} Tricks Won</span>
           </div>
-          <div style="text-align:right;">
-            <span style="font-family:var(--font-mono); font-weight:bold; font-size:13px; color:${alignment.multiplier >= 1.5 ? '#ffd700' : '#d8b46a'};">
-              ${alignment.multiplier}x Multiplier
-            </span>
-            <span style="display:block; color:var(--dim); font-size:10px;">Favored Suit: <b style="color:var(--gold-bright); text-transform:uppercase;">${alignment.favoredSuit || ritual.targetSuit}</b> (${alignment.matchingCardsCount || 0}/${ritual.manifold.cards.length} matched)</span>
+
+          <div class="melee-trick-badge">
+            <div class="melee-trick-num">TRICK ${melee.trickNumber} / 12</div>
+            <div style="font-size:9.5px; color:var(--dim);">
+              ${melee.ledSuit ? `Led: <b style="color:#fff; text-transform:uppercase;">${melee.ledSuit}</b>` : 'Open Lead'}
+            </div>
+          </div>
+
+          <div class="melee-guardian-score" style="text-align:right;">
+            <span class="melee-score-label">Zone Guardian ${melee.guardianHandicap > 0 ? `(+${melee.guardianHandicap})` : ''}</span>
+            <span class="melee-score-val" style="color:#f26262;">${melee.guardianScore}</span>
+            <span style="font-size:9.5px; color:var(--dim);">${melee.guardianTricksWon} Tricks Won</span>
           </div>
         </div>
 
-        <!-- Alchemical Manifold & Central Shader -->
-        <div class="singularity-manifold-container" style="position:relative; display:flex; align-items:center; justify-content:center; margin:14px 0; min-height:160px; background: rgba(10,14,26,0.6); border-radius: 12px; border: 1px solid rgba(216,180,106,0.2); padding: 12px;">
-          <!-- Central Singularity Shader Core -->
-          <div style="position:relative; width:130px; height:130px; border-radius:50%; overflow:hidden; border:2px solid ${pillar.color || 'var(--gold)'}; box-shadow:0 0 25px ${pillar.color || 'rgba(216,180,106,0.4)'}; z-index:1;">
+        <!-- Dynamic Turn Action Banner -->
+        <div class="melee-turn-banner">
+          ${turnInstruction}
+        </div>
+
+        <!-- Celestial Singularity Trick Arena Ring -->
+        <div class="melee-arena-ring">
+          ${renderTrickSlot(playerPlayed, "Your Play")}
+
+          <!-- Central WebGL Singularity Core -->
+          <div class="melee-center-core">
             <canvas id="singularity-shader-canvas" style="width:100%; height:100%; display:block;"></canvas>
           </div>
 
-          <!-- Orbital Vessel Card Slots -->
-          <div class="ritual-chain-row" style="position:relative; z-index:2; margin-left:-25px; display:flex; gap:8px;">
-            ${slotsHTML}
+          ${renderTrickSlot(guardianPlayed, "Guardian")}
+        </div>
+
+        <!-- Melds Strip -->
+        <div style="display:flex; flex-direction:column; gap:3px;">
+          <span style="font-size:9.5px; font-weight:bold; color:var(--dim); text-transform:uppercase; letter-spacing:0.5px;">Your Melds & Honours</span>
+          <div class="melee-melds-strip">
+            ${meldsHTML}
           </div>
         </div>
 
-        <!-- Alchemical Pillar & Kalchm Telemetry Readout -->
-        <div class="alchemical-telemetry-hud" style="background: rgba(0,0,0,0.4); border: 1px solid var(--line); border-radius: 8px; padding: 10px; margin: 10px 0; font-size: 11px;">
-          <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px dashed rgba(255,255,255,0.1); padding-bottom: 6px; margin-bottom: 6px;">
-            <span style="font-weight:bold; color:${pillar.color || 'var(--gold-bright)'}; font-size:13px;">
-              ${pillar.sigil || '🜔'} Pillar ${pillar.id || ''}: ${pillar.name}
-            </span>
-            <span style="color:var(--dim);">Primary: <b>${pillar.primaryElement || 'None'}</b> ${pillar.secondaryElement ? '· Sec: <b>' + pillar.secondaryElement + '</b>' : ''}</span>
+        <!-- Player Active Hand Strip -->
+        <div style="display:flex; flex-direction:column; gap:3px;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span style="font-size:9.5px; font-weight:bold; color:var(--dim); text-transform:uppercase; letter-spacing:0.5px;">Your Hand (${melee.playerHand.length} Cards)</span>
+            <span style="font-size:9.5px; color:var(--gold-bright);">Click any glowing card to play</span>
           </div>
-          
-          <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-            <!-- ESMS Shift -->
-            <div style="display:flex; flex-direction:column; gap:2px;">
-              <span style="color:var(--dim); font-size:10px; font-weight:bold;">ESMS VECTOR DELTAS</span>
-              <div style="display:flex; gap:6px; font-family:var(--font-mono); font-size:11px;">
-                <span title="Spirit" style="color:#e85f5f;">S:${esms.Spirit > 0 ? '+' : ''}${esms.Spirit}</span>
-                <span title="Essence" style="color:#5f93d8;">E:${esms.Essence > 0 ? '+' : ''}${esms.Essence}</span>
-                <span title="Matter" style="color:#74ab6c;">M:${esms.Matter > 0 ? '+' : ''}${esms.Matter}</span>
-                <span title="Substance" style="color:#aebbd6;">Su:${esms.Substance > 0 ? '+' : ''}${esms.Substance}</span>
-              </div>
-            </div>
-
-            <!-- Kalchm Thermodynamics -->
-            <div style="display:flex; flex-direction:column; gap:2px;">
-              <span style="color:var(--dim); font-size:10px; font-weight:bold;">KALCHM THERMODYNAMICS</span>
-              <div style="display:flex; gap:6px; font-family:var(--font-mono); font-size:11px;">
-                <span title="Heat (Q)" style="color:#f0a04b;">Q:${thermo.heat}</span>
-                <span title="Entropy (S)" style="color:#e6b3eb;">S:${thermo.entropy}</span>
-                <span title="Reactivity (Ω)" style="color:#67d8d6;">Ω:${thermo.reactivity}</span>
-                <span title="Free Energy (ΔG)" style="color:#ffd700;">ΔG:${thermo.freeEnergy}</span>
-              </div>
-            </div>
+          <div class="melee-hand-row">
+            ${handHTML}
           </div>
-        </div>
-
-        <div class="ritual-rewards-preview">
-          ${rewardsText}
         </div>
       `;
 

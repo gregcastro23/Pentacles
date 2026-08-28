@@ -44,16 +44,29 @@ function ascLambda(latDeg: number, lonDeg: number, date: Date): number {
   return n360(Math.atan2(Math.cos(ramc), -(Math.sin(EPS_R) * Math.tan(lat) + Math.cos(EPS_R) * Math.sin(ramc))) * R2D);
 }
 
-// ── dignity (ported from public/astro-weather.js) ────────────────────────────
-const SIGN_RULERS = [4, 3, 2, 1, 0, 2, 3, 9, 5, 6, 7, 8]; // body idx ruling each sign
-const EXALT_SIGN: (number | null)[] = [0, 1, 5, 11, 9, 3, 6, null, null, null]; // exaltation sign per body
-function dignityScore(body: number, sign: number): number {
+// ── dignity (the ONE shared table) ───────────────────────────────────────────
+// This script used to carry its own fourth dignity implementation: exaltation +4,
+// fall -4, detriment -5 (so a fall read as MILDER than a detriment, inverted from
+// Ptolemy/Lilly), and no exaltations at all for Uranus, Neptune or Pluto. Every
+// agent's stored dignity — and therefore every faction assignment — came from it.
+// It now defers to src/alchm-chart/dignity.js, which is WTEN's canonical table:
+// Domicile +5 · Exaltation +3 · Detriment -3 · Fall -5, Domicile above Exaltation.
+// See docs/ZONE_MELEE_ARCANA_TRICK_PLAN.md §11. Re-seeding is REQUIRED after this,
+// and `--dry` prints a faction diff so any figure that changes side is visible.
+import { dignityScore as sharedDignityScore, SIGN_RULERS } from "../src/alchm-chart/dignity.js";
+
+const dignityScore = (body: number, sign: number): number =>
+  body >= 10 ? 0 : sharedDignityScore(body, ((sign % 12) + 12) % 12);
+
+/** The retired local table, kept ONLY to print the before/after faction diff. */
+const LEGACY_EXALT_SIGN: (number | null)[] = [0, 1, 5, 11, 9, 3, 6, null, null, null];
+function legacyDignityScore(body: number, sign: number): number {
   sign = ((sign % 12) + 12) % 12;
   if (body >= 10) return 0;
-  if (SIGN_RULERS[sign] === body) return 5;          // domicile
-  if (EXALT_SIGN[body] === sign) return 4;           // exaltation
-  if (SIGN_RULERS[(sign + 6) % 12] === body) return -5; // detriment
-  if (EXALT_SIGN[body] != null && ((EXALT_SIGN[body] as number) + 6) % 12 === sign) return -4; // fall
+  if (SIGN_RULERS[sign] === body) return 5;
+  if (LEGACY_EXALT_SIGN[body] === sign) return 4;
+  if (SIGN_RULERS[(sign + 6) % 12] === body) return -5;
+  if (LEGACY_EXALT_SIGN[body] != null && ((LEGACY_EXALT_SIGN[body] as number) + 6) % 12 === sign) return -4;
   return 0;
 }
 
@@ -106,7 +119,11 @@ function buildChart(fig: Figure) {
 
   // faction = top of faction_scores (mirrors server) → always passes top-3 gate
   const faction = topFaction(positions, ascendant, midheaven, fig.timeKnown);
-  return { chart, faction, positions, ascDeg, mcDeg };
+  // What the retired local dignity table would have chosen, so a consolidation
+  // that moves a figure between factions is visible rather than silent.
+  const legacyPositions = positions.map((p) => ({ ...p, dig: legacyDignityScore(p.body, p.sign) }));
+  const legacyFaction = topFaction(legacyPositions, ascendant, midheaven, fig.timeKnown);
+  return { chart, faction, legacyFaction, positions, ascDeg, mcDeg };
 }
 
 /** Mirror of server chart::faction_scores; returns the highest-scoring body idx,
@@ -146,14 +163,19 @@ function ownerToken(): string {
   return m[1];
 }
 
+/** Figures whose faction moves when the retired dignity table is dropped. */
+const FACTION_MOVES: { handle: string; from: number; to: number }[] = [];
+
 async function seed(fig: Figure, token: string, dry: boolean) {
-  const { chart, faction, positions, ascDeg } = buildChart(fig);
+  const { chart, faction, legacyFaction, positions, ascDeg } = buildChart(fig);
+  if (faction !== legacyFaction) FACTION_MOVES.push({ handle: fig.handle, from: legacyFaction, to: faction });
   const summary = positions
     .map((p) => `${PLANET_NAMES[p.body]} ${SIGN_NAMES[p.sign]} ${Math.floor(p.deg)}°${p.retro ? "℞" : ""}`)
     .join(", ");
   console.log(`\n▸ ${fig.handle}  [${fig.key}]  ${fig.note ?? ""}`);
   console.log(`  ${summary}`);
-  console.log(`  ASC ${SIGN_NAMES[Math.floor(n360(ascDeg) / 30) % 12]} ${Math.floor(n360(ascDeg) % 30)}° · faction ${PLANET_NAMES[faction]}`);
+  const moved = faction !== legacyFaction ? `  ⇠ was ${PLANET_NAMES[legacyFaction]}` : "";
+  console.log(`  ASC ${SIGN_NAMES[Math.floor(n360(ascDeg) / 30) % 12]} ${Math.floor(n360(ascDeg) % 30)}° · faction ${PLANET_NAMES[faction]}${moved}`);
   if (dry) return;
 
   const res = await fetch(`${URI}/v1/database/${DB}/call/seed_agent_player`, {
@@ -191,4 +213,22 @@ const token = dry ? "" : ownerToken();
 for (const fig of roster) {
   await seed(fig, token, dry).catch((e) => { console.error(String(e.message ?? e)); process.exitCode = 1; });
 }
+// The dignity consolidation is only safe if its effect is legible. Print every
+// figure that changes side, and the resulting roster, before anyone seeds.
+if (FACTION_MOVES.length) {
+  console.log(`\n── Faction moves from the dignity consolidation (${FACTION_MOVES.length}/${roster.length}) ──`);
+  for (const m of FACTION_MOVES) {
+    console.log(`  ${m.handle.padEnd(28)} ${PLANET_NAMES[m.from].padEnd(8)} → ${PLANET_NAMES[m.to]}`);
+  }
+} else {
+  console.log("\nNo figure changes faction under the shared dignity table.");
+}
+const tally = new Array(10).fill(0);
+for (const fig of roster) tally[buildChart(fig).faction]++;
+console.log("\n── Roster by faction ──");
+tally
+  .map((n, i) => ({ n, name: PLANET_NAMES[i] }))
+  .sort((a, b) => b.n - a.n)
+  .forEach((r) => console.log(`  ${String(r.n).padStart(3)}  ${r.name}`));
+
 console.log(`\nDone (${dry ? "dry-run" : "seeded " + roster.length} ).`);

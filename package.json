@@ -3,17 +3,21 @@
   "version": "0.1.1",
   "private": true,
   "type": "module",
-  "description": "Pentacles — a sky-gated astrology game and Constellation DEX web client",
+  "description": "Pentacles \u2014 a sky-gated astrology game and Constellation DEX web client",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
     "test:chart": "node src/alchm-chart/__tests__/math.test.js",
-    "test:gameplay": "node scripts/gameplay-contract.test.mjs",
+    "test:engine": "node scripts/arcana-trick-engine.test.mjs",
+    "test:gameplay": "node scripts/arcana-trick-engine.test.mjs && node scripts/gameplay-contract.test.mjs && node scripts/card-synthesis.test.mjs",
     "test:omnichain": "bun scripts/dryrun-omnichain.test.mjs && bun test tests/solana-sync-service.test.ts",
     "build:chart": "vite build --config vite.alchm.config.js",
     "serve": "bun run serve.ts",
-    "gen": "spacetime generate --lang typescript --module-path server --out-dir src/module_bindings -y && node scripts/patch-bindings.mjs"
+    "gen": "spacetime generate --lang typescript --module-path server --out-dir src/module_bindings -y && node scripts/patch-bindings.mjs",
+    "test:module": "cargo test --manifest-path server/Cargo.toml",
+    "test:war": "bun scripts/war-table.test.mjs",
+    "test:all": "bun run test:gameplay && bun run test:war && bun run test:module && bun run test:chart"
   },
   "devDependencies": {
     "vite": "^8.0.16"
