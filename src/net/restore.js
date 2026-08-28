@@ -94,7 +94,7 @@ export async function restoreProfileFromSpacetimeDB(net, state) {
     )
 
     // Map cards back to client shape
-    const clientCollection = myCards.map((c) => {
+    let clientCollection = myCards.map((c) => {
       const cardId = Number(c.card_id)
       return {
         card_id: cardId,
@@ -113,11 +113,19 @@ export async function restoreProfileFromSpacetimeDB(net, state) {
       }
     })
 
-    // Reconstruct active deck
-    const activeCardIds = new Set(
-      mySlots.filter((s) => loadoutName(s.loadout) === 'Active').map((s) => Number(s.card_id))
-    )
-    const clientDeck = clientCollection.filter((c) => activeCardIds.has(c.card_id))
+    // Reconstruct deck slots
+    let clientDeck = []
+    if (mySlots.length > 0) {
+      clientDeck = mySlots.map((s) => ({
+        card_id: Number(s.card_id),
+        loadout: (loadoutName(s.loadout) || 'active').toLowerCase(),
+      }))
+    } else if (clientCollection.length > 0) {
+      clientDeck = clientCollection.map((c, idx) => ({
+        card_id: c.card_id,
+        loadout: idx < 8 ? 'active' : 'bench',
+      }))
+    }
 
     // Reconstruct chart placements
     const clientPlacements = (ncRow.placements || []).map((p) => ({
@@ -142,6 +150,20 @@ export async function restoreProfileFromSpacetimeDB(net, state) {
           ? Object.keys(ncRow.house_system)[0]
           : ncRow.house_system
         : 'WholeSign',
+    }
+
+    // If cloud cards were empty, mint the procedural starter deck so game is playable
+    if (clientCollection.length === 0 && window.state && typeof window.state.mintStarterDeck === 'function') {
+      window.state.player = {
+        handle,
+        faction: planetIndex(pRow.faction),
+        chart: clientChart,
+        deck_seed: Number(pRow.deck_seed || 0),
+        tokens: Number(pRow.tokens || 0),
+        word_wins: Number(pRow.word_wins || 0),
+      }
+      clientCollection = window.state.mintStarterDeck(clientChart)
+      clientDeck = window.state.deck || []
     }
 
     // Reconstruct full profile state object

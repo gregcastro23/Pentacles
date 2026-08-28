@@ -586,6 +586,41 @@ body.alchm-open #pentacles-net { display: none; }
 .alchm-war .aw-pop-angle-v { font-size: 16px; color: var(--ac-text); }
 .alchm-war .aw-pop-solar { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ac-dim); border: 1px solid var(--ac-line); border-radius: 999px; padding: 4px 10px; }
 
+/* kitchen button affordance */
+.aw-kitchen-btn, .mc-kitchen-btn {
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 8px; font-size: 11px;
+  font-weight: 600; text-decoration: none; border: 1px solid rgba(216,180,106,0.35); background: rgba(216,180,106,0.08);
+  color: var(--ac-gold-bright); transition: transform 0.15s, background 0.15s, border-color 0.15s;
+}
+.aw-kitchen-btn:hover, .mc-kitchen-btn:hover {
+  transform: translateY(-1px); background: rgba(216,180,106,0.18); border-color: var(--ac-gold-bright); color: #fff;
+}
+
+/* categorical analytics grid */
+.aw-analytics-grid, .mc-analytics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin-bottom: 20px; }
+.aw-analytics-col, .mc-analytics-col { background: rgba(8,10,20,0.55); border: 1px solid var(--ac-line); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.aw-analytics-title, .mc-analytics-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ac-gold-bright); font-weight: 600; }
+.aw-bar-wrap, .mc-bar-wrap { display: flex; flex-direction: column; gap: 6px; }
+.aw-metric-row, .mc-metric-row { display: grid; grid-template-columns: 80px 1fr 36px; align-items: center; gap: 8px; font-size: 11px; }
+.aw-metric-label, .mc-metric-label { font-size: 11px; color: var(--ac-text); }
+.aw-metric-track, .mc-metric-track { height: 6px; border-radius: 3px; background: rgba(255,255,255,0.06); overflow: hidden; }
+.aw-metric-fill, .mc-metric-fill { height: 100%; border-radius: 3px; transition: width 0.4s ease-out; }
+.aw-metric-val, .mc-metric-val { font-size: 10px; font-variant-numeric: tabular-nums; text-align: right; }
+.aw-polarity-row, .mc-polarity-row { font-size: 10.5px; border-top: 1px solid var(--ac-line); padding-top: 6px; }
+.aw-analytics-sub { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; }
+
+/* lunar nodes cards */
+.aw-nodes-grid, .mc-nodes-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin-bottom: 20px; }
+.aw-node-card, .mc-node-card { background: rgba(8,10,20,0.65); border: 1px solid var(--ac-line); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
+.aw-node-card.north, .mc-node-card.north { border-left: 3px solid var(--ac-gold-bright); }
+.aw-node-card.south, .mc-node-card.south { border-left: 3px solid #aebbd6; }
+.aw-node-head, .mc-node-head { display: flex; align-items: center; gap: 8px; }
+.aw-node-glyph, .mc-node-glyph { font-size: 20px; line-height: 1; color: var(--ac-gold-bright); }
+.aw-node-name, .mc-node-name { font-size: 12.5px; font-weight: 600; color: var(--ac-text); }
+.mc-node-sub { font-size: 10px; }
+.aw-node-pos, .mc-node-pos { font-family: "Cormorant Garamond", Georgia, serif; font-size: 16px; color: var(--ac-gold-bright); }
+.aw-node-desc, .mc-node-desc { font-size: 11px; line-height: 1.35; }
+
 /* decan table */
 .alchm-war .aw-decan-tbl { display: flex; flex-direction: column; gap: 1px; margin-bottom: 20px; font-size: 12px; }
 .alchm-war .aw-decan-h, .alchm-war .aw-decan-r { display: grid; grid-template-columns: 1.4fr 0.9fr 0.8fr 0.5fr 1.3fr 1fr; gap: 8px; align-items: center; padding: 5px 6px; }

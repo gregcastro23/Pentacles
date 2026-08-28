@@ -194,10 +194,18 @@ function warMyFaction() {
 function warActiveCards() {
   try {
     const st = window.state
-    if (!st || !Array.isArray(st.deck) || !Array.isArray(st.collection)) return []
-    const activeIds = new Set(st.deck.filter((d) => d.loadout === 'active').map((d) => Number(d.card_id)))
+    if (!st) return []
+    if (st.player && typeof st.ensureStarterDeck === 'function') {
+      st.ensureStarterDeck()
+    }
+    if (!Array.isArray(st.deck) || !Array.isArray(st.collection)) return []
+    const activeIds = new Set(
+      st.deck
+        .filter((d) => (d.loadout || '').toLowerCase() === 'active')
+        .map((d) => Number(d.card_id))
+    )
     return st.collection.filter((c) => activeIds.has(Number(c.card_id)))
-  } catch { return null }
+  } catch { return [] }
 }
 /** Deploy a card onto a zone; keep local loadout state in sync (card → Defense). */
 async function warDeploy(cardId, zoneId) {
