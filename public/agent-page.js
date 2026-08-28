@@ -631,7 +631,7 @@
       const spellable = canSpell(w, state.playerLetters());
       const valid = (typeof WORD_SET !== "undefined" && WORD_SET) ? isValidWord(w) : null;
       let msg = `${w.length} letters · ${wordScore(w)} pts`;
-      if (!spellable) msg += " · ✗ missing letters"; else if (valid === null) msg += " · opening Codex…"; else if (!valid) msg += " · ✗ not in Codex"; else msg += " · ✓ ready";
+      if (!spellable) msg += " · ✗ missing letters"; else if (valid === null) msg += " · opening Lexicon…"; else if (!valid) msg += " · ✗ not in Lexicon"; else msg += " · ✓ ready";
       prev.textContent = msg;
     };
     inp.oninput = onInput;

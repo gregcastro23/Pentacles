@@ -305,7 +305,7 @@ export class FactionWarInstance {
       list.appendChild(h("div", {
         class: "aw-roster-row" + (openable ? " is-open" : ""),
         tabindex: openable ? "0" : null, role: openable ? "button" : null,
-        title: openable ? "View Tarot codex" : null,
+        title: openable ? "View Tarot Pentacles & Natal Dossier" : null,
         onClick: openable ? () => this.showAgentProfile(a, m.agentMap) : null,
         onKeydown: openable ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); this.showAgentProfile(a, m.agentMap); } } : null,
       }, [
@@ -598,7 +598,7 @@ export class FactionWarInstance {
     mt.mount();
   }
 
-  // ── Agent Codex ──
+  // ── Agent Dossier & Planetary Pentacles ──
   showAgentProfile(a, agentMap) {
     const chart = agentMap[a.identity];
     const pop = this.dom.pop;

@@ -600,7 +600,7 @@ interaction-style half is not needed here.
 - `signVector(placements, ascSign)` → `Float64Array(12)`, percentages summing to 100
 - `dominantSigns(vector, n)` · `elementalDistribution(vector)`
 
-Reusable by My Codex and faction war, which currently have no character read.
+Reusable by My Pentacles and faction war, which currently have no character read.
 
 ### [MODIFY] `public/sky.js`
 

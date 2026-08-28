@@ -246,8 +246,9 @@
   const HorizonTrackerUI = {
     openStardexForTarget() {
       const star = state.reticleTargetStar || (state.horizonEncounterStars[0] || null);
-      if (star && global.openStarPokedex) {
-        global.openStarPokedex(star.hip_id);
+      if (star) {
+        if (global.openStarDex) global.openStarDex(star.hip_id);
+        else if (global.openStarPokedex) global.openStarPokedex(star.hip_id);
       }
     },
 

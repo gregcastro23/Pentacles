@@ -157,8 +157,8 @@
           <button class="btn" id="alchm-chart-btn" onclick="openAlchmChart()">✦ Alchm Chart</button>
           <button class="btn" id="singularity-btn" onclick="window.location.href='/singularity.html'" style="border-color: var(--gold-bright); color: var(--gold-bright);" title="Open Pentacles Singularity Dashboard">✨ Singularity</button>
           <button class="btn" id="faction-war-btn" onclick="openFactionWar()">⚔ Faction War</button>
-          <button class="btn" id="my-codex-btn" onclick="openMyCodex()" title="Open your full card collection and natal profile">✦ Deck</button>
-          <button class="btn" id="star-pokedex-btn" onclick="openStarPokedex()">⭐ StarDex</button>
+          <button class="btn" id="my-pentacles-btn" onclick="openMyPentacles()" title="Open your full celestial deck, loadout manager, and natal profile">✦ My Pentacles</button>
+          <button class="btn" id="star-dex-btn" onclick="openStarDex()">⭐ Star-Dex</button>
           <button class="btn" id="observatory-btn" style="display:none;" onclick="openAdminTelemetry()">🔭 Observatory</button>
         </div>
       </div>
@@ -236,10 +236,10 @@
               <h3 class="title-orn">Tarot Hand</h3>
               <p><span id="hand-card-count">0</span> active cards · <span id="active-hand-count">0 / 3 Slots Placed</span></p>
             </div>
-            <button class="btn hand-deck-btn" onclick="openMyCodex()">Open Deck</button>
+            <button class="btn hand-deck-btn" onclick="openMyPentacles()">Open My Pentacles</button>
           </div>
 
-          <p class="hand-help">Choose up to three cards for your next siege. Your full collection and natal profile live in Deck.</p>
+          <p class="hand-help">Choose up to three cards for your next siege. Your full collection, loadout manager, and natal profile live in My Pentacles.</p>
 
           <div class="deck-sort-bar hand-controls">
             <span class="control-label">Sort</span>
@@ -448,8 +448,8 @@
     </div>
   </div>
 
-  <!-- ===================== ⭐ REAL-SKY STAR POKÉDEX ===================== -->
-  <div id="star-pokedex-overlay" class="overlay-fullscreen pokedex-overlay" style="display:none; z-index:125;" role="dialog" aria-modal="true" aria-label="Real-Sky Star Pokédex"></div>
+  <!-- ===================== ⭐ REAL-SKY STAR-DEX ===================== -->
+  <div id="star-dex-overlay" class="overlay-fullscreen star-dex-overlay stardex-overlay pokedex-overlay" style="display:none; z-index:125;" role="dialog" aria-modal="true" aria-label="Real-Sky Star-Dex & Celestial Registry"></div>
 
   <!-- Celestial data + math + legacy game logic + UI bindings: classic GLOBAL
        scripts served verbatim from public/. Load order is load-bearing, and the
@@ -468,11 +468,11 @@
        ESM AlchmChart reads. Loads after astro-weather.js, before app.js. -->
   <script src="/natal-real.js"></script>
   <script src="/app.js"></script>
-  <!-- Agent + constellation + star pokédex pages (open from sky clicks). Load after
+  <!-- Agent + constellation + star-dex pages (open from sky clicks). Load after
        app.js so they can call its global render/tab/pool helpers. -->
   <script src="/agent-page.js"></script>
   <script src="/constellation-page.js"></script>
-  <script src="/star-pokedex-ui.js"></script>
+  <script src="/star-dex-ui.js"></script>
   <!-- New ES-module layer, bundled by Vite: toasts, a11y, web3, live SpacetimeDB. -->
   <script type="module" src="/src/main.js"></script>
 </body>

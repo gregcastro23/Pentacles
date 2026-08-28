@@ -4,7 +4,7 @@
    A comprehensive, single-pane operations console for the whole Pentacles stack:
    sky-tick health, player growth & retention, the token economy, the faction war,
    AI engagement (word duels / Jing arena / Claude oracle), the agent roster, and
-   the constellation DEX. Framework-agnostic like FactionWar / MyCodex:
+   the constellation DEX. Framework-agnostic like FactionWar / MyPentacles:
 
      const obs = AdminTelemetry.create({ el, spacetime, hooks })
      obs.mount(); obs.refresh(); … obs.destroy()

@@ -187,10 +187,10 @@ function canSpell(word, have) {
   return Object.keys(need).every(ch => (have[ch] || 0) >= need[ch]);
 }
 
-// The Codex — loaded once from the shared wordlist.txt (also embedded server-side).
+// The Lexicon — loaded once from the shared wordlist.txt (also embedded server-side).
 let WORD_SET = null;
 let WORD_LIST = [];
-async function loadCodex() {
+async function loadLexicon() {
   if (WORD_SET) return WORD_SET;
   try {
     const res = await fetch("wordlist.txt");
@@ -198,11 +198,12 @@ async function loadCodex() {
     WORD_LIST = text.split(/\r?\n/).map(w => w.trim().toUpperCase()).filter(w => w.length >= 2);
     WORD_SET = new Set(WORD_LIST);
   } catch (e) {
-    console.error("Failed to load the Codex (wordlist.txt)", e);
+    console.error("Failed to load the Lexicon (wordlist.txt)", e);
     WORD_SET = new Set();
   }
   return WORD_SET;
 }
+const loadCodex = loadLexicon; // Backward compatibility alias
 
 function isValidWord(word) {
   const w = (word || "").trim().toUpperCase();
@@ -1088,8 +1089,8 @@ class GameState {
     const w = (word || "").trim().toUpperCase();
     if (w.length < 2) return { error: "A Word of Power needs at least two letters." };
     if (!/^[A-Z]+$/.test(w)) return { error: "Letters only." };
-    if (WORD_SET === null) return { error: "The Codex is still opening — try again in a moment." };
-    if (!isValidWord(w)) return { error: `"${w}" is not in the Codex.` };
+    if (WORD_SET === null) return { error: "The Lexicon is still opening — try again in a moment." };
+    if (!isValidWord(w)) return { error: `"${w}" is not in the Lexicon.` };
     if (!canSpell(w, this.playerLetters())) return { error: "Your Arcana don't hold those letters." };
 
     const playerScore = wordScore(w);

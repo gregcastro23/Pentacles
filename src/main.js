@@ -28,7 +28,7 @@ import { initEsmsHud } from './web3/hud.js'
 import { installPoolsUI } from './web3/pools-ui.js'
 import AlchmChart from './alchm-chart/index.js'
 import FactionWar from './alchm-chart/faction-war.js'
-import MyCodex from './alchm-chart/my-codex.js'
+import MyPentacles, { MyCodex } from './alchm-chart/my-pentacles.js'
 import AdminTelemetry from './alchm-chart/admin-telemetry.js'
 import './alchm-chart/alchm-chart.css'
 import * as dex from './web3/dex.js'
@@ -301,30 +301,31 @@ window.openFactionWar = openFactionWar
 window.closeFactionWar = closeFactionWar
 Pentacles.openWar = openFactionWar
 
-// ── ✦ Deck: the player's natal profile + full card collection ──
-let codexInst = null, codexEsc = null
-function openMyCodex() {
-  let ov = document.getElementById('mc-overlay')
+// ── ✦ My Pentacles: the player's natal profile, celestial deck, and loadout manager ──
+let myPentaclesInst = null, myPentaclesEsc = null
+function openMyPentacles() {
+  let ov = document.getElementById('mp-overlay') || document.getElementById('mc-overlay')
   if (!ov) {
     ov = document.createElement('div')
-    ov.id = 'mc-overlay'
+    ov.id = 'mp-overlay'
     const win = document.createElement('div'); win.className = 'mc-window'
     const close = document.createElement('button'); close.className = 'mc-window-close'; close.textContent = '✕'
-    close.setAttribute('aria-label', 'Close'); close.onclick = closeMyCodex
-    const host = document.createElement('div'); host.id = 'mc-host'
+    close.setAttribute('aria-label', 'Close'); close.onclick = closeMyPentacles
+    const host = document.createElement('div'); host.id = 'mp-host'
     win.appendChild(close); win.appendChild(host); ov.appendChild(win)
     document.body.appendChild(ov)
   }
   try {
-    if (codexInst) codexInst.destroy()
-    codexInst = MyCodex.create({
-      el: document.getElementById('mc-host'),
+    if (myPentaclesInst) myPentaclesInst.destroy()
+    const hostEl = document.getElementById('mp-host') || document.getElementById('mc-host')
+    myPentaclesInst = MyPentacles.create({
+      el: hostEl,
       hooks: {
         // "Tip the Scales" → carry the player into the live war board (deploy lives there).
-        onTip: () => { closeMyCodex(); openFactionWar() },
+        onTip: () => { closeMyPentacles(); openFactionWar() },
         // No chart yet → route to onboarding to forge one.
         onForge: () => {
-          closeMyCodex()
+          closeMyPentacles()
           const ob = document.getElementById('onboarding-overlay')
           if (ob) {
             ob.style.display = 'flex'
@@ -335,28 +336,47 @@ function openMyCodex() {
         },
       },
     })
-    codexInst.mount()
+    myPentaclesInst.mount()
   } catch (e) {
-    console.error('[Pentacles] Deck failed to mount', e)
-    if (window.toast) window.toast('Deck failed to open — see console.', { type: 'error' })
+    console.error('[Pentacles] My Pentacles failed to mount', e)
+    if (window.toast) window.toast('My Pentacles failed to open — see console.', { type: 'error' })
     return
   }
   ov.classList.add('is-open')
   document.body.classList.add('alchm-open')
-  ov.onclick = (e) => { if (e.target === ov) closeMyCodex() }
-  codexEsc = (e) => { if (e.key === 'Escape') closeMyCodex() }
-  document.addEventListener('keydown', codexEsc)
+  ov.onclick = (e) => { if (e.target === ov) closeMyPentacles() }
+  myPentaclesEsc = (e) => { if (e.key === 'Escape') closeMyPentacles() }
+  document.addEventListener('keydown', myPentaclesEsc)
 }
-function closeMyCodex() {
-  const ov = document.getElementById('mc-overlay')
+function closeMyPentacles() {
+  const ov = document.getElementById('mp-overlay') || document.getElementById('mc-overlay')
   if (ov) ov.classList.remove('is-open')
   document.body.classList.remove('alchm-open')
-  if (codexInst) { try { codexInst.destroy() } catch {} codexInst = null }
-  if (codexEsc) { document.removeEventListener('keydown', codexEsc); codexEsc = null }
+  if (myPentaclesInst) { try { myPentaclesInst.destroy() } catch {} myPentaclesInst = null }
+  if (myPentaclesEsc) { document.removeEventListener('keydown', myPentaclesEsc); myPentaclesEsc = null }
 }
-window.openMyCodex = openMyCodex
-window.closeMyCodex = closeMyCodex
-Pentacles.openCodex = openMyCodex
+
+// Global bridges
+window.openMyPentacles = openMyPentacles
+window.closeMyPentacles = closeMyPentacles
+Pentacles.openPentacles = openMyPentacles
+Pentacles.openMyPentacles = openMyPentacles
+
+// Backwards-compatibility aliases
+window.openMyCodex = openMyPentacles
+window.closeMyCodex = closeMyPentacles
+Pentacles.openCodex = openMyPentacles
+
+// Global hotkeys (when not in input/textarea)
+document.addEventListener('keydown', (e) => {
+  if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)) return
+  if (e.metaKey || e.ctrlKey || e.altKey) return
+  if (e.key === 'p' || e.key === 'P') {
+    const ov = document.getElementById('mp-overlay') || document.getElementById('mc-overlay')
+    if (ov && ov.classList.contains('is-open')) closeMyPentacles()
+    else openMyPentacles()
+  }
+})
 
 // ── ✦ The Observatory: admin-only telemetry console ──
 // Expose the live client so the telemetry model can default to it (console use).
