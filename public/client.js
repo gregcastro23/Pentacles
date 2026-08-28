@@ -30,6 +30,21 @@ const MAJOR_NAMES = ["The Sun", "The High Priestess", "The Magician", "The Empre
 const MAJOR_NUMERALS = ["XIX", "II", "I", "III", "XVI", "X", "XXI", "0", "XII", "XX"];
 const MAJOR_INDEX = [19, 2, 1, 3, 16, 10, 21, 0, 12, 20];
 
+// 22 Major Arcana (Arcana Index 0..21)
+const ARCANA_NAMES = [
+  "The Fool", "The Magician", "The High Priestess", "The Empress", "The Emperor",
+  "The Hierophant", "The Lovers", "The Chariot", "Strength", "The Hermit",
+  "Wheel of Fortune", "Justice", "The Hanged Man", "Death", "Temperance",
+  "The Devil", "The Tower", "The Star", "The Moon", "The Sun",
+  "Judgement", "The World"
+];
+const ARCANA_NUMERALS = [
+  "0", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX",
+  "X", "XI", "XII", "XIII", "XIV", "XV", "XVI", "XVII", "XVIII", "XIX",
+  "XX", "XXI"
+];
+const SIGN_MAJOR_ARCANA = [4, 5, 6, 7, 8, 9, 11, 13, 14, 15, 17, 18];
+
 function isFixedSign(sign) {
   return [1, 4, 7, 10].includes(sign % 12);
 }
@@ -799,6 +814,27 @@ class GameState {
       this.mintSlot(major.card_id);
     });
 
+    // Mint Sign Majors for distinct signs occupied by chart placements
+    const occupiedSigns = [...new Set(chart.placements.map(p => p.sign))];
+    occupiedSigns.forEach(s => {
+      const signIdx = ((s % 12) + 12) % 12;
+      const arcanaIdx = SIGN_MAJOR_ARCANA[signIdx];
+      const ruler = SIGN_RULERS[signIdx];
+      const signMajor = this.createCard(
+        ruler,
+        true,
+        15,
+        0,
+        3,
+        false,
+        arcanaIdx,
+        signIdx,
+        0
+      );
+      this.collection.push(signMajor);
+      this.mintSlot(signMajor.card_id);
+    });
+
     this.save();
   }
 
@@ -825,7 +861,7 @@ class GameState {
 
     let title = "";
     if (isMajor) {
-      title = MAJOR_NAMES[bodyIdx];
+      title = ARCANA_NAMES[rank] || MAJOR_NAMES[bodyIdx] || "Major Arcana";
     } else {
       title = rankName(rank) + " of " + SUIT_NAMES[suit];
     }
@@ -1106,56 +1142,72 @@ class GameState {
 
   isObsoleteRitual(r) {
     if (!r) return true;
-    if (r.type === 'rank_desc' || r.type === 'rank_asc' || r.type === 'gate_raid' || r.type === 'suit') return true;
-    if (!r.manifold) return true;
-    if (r.description && (r.description.includes('descending') || r.description.includes('Chain 3') || r.description.includes('rank'))) return true;
+    if (r.type === 'rank_desc' || r.type === 'rank_asc' || r.type === 'gate_raid' || r.type === 'suit' || r.type === 'manifold') return true;
+    if (!r.melee) return true;
+    if (r.description && (r.description.includes('descending') || r.description.includes('Chain 3') || r.description.includes('rank') || r.description.includes('Alchemical Manifold vessel'))) return true;
     return false;
   }
 
   generateProceduralRitual(targetType, targetId) {
-    let cardsNeeded = 4;
-    let targetSuit = "";
-    let targetSum = 50;
+    const zoneId = targetType === 'zone' ? Number(targetId) : (this.planets && this.planets[targetId] ? this.planets[targetId].zone : 0);
+    const suitIdx = zoneId % 12;
+    const targetSuit = SIGN_SUITS[suitIdx] || "wands";
 
-    if (targetType === 'planet') {
-      const name = PLANET_NAMES[targetId] || "Chiron";
-      if (targetId === 4 || targetId === 0) { // Mars, Sun -> Fire/Wands preferred
-        targetSuit = "wands";
-      } else if (targetId === 3 || targetId === 1 || targetId === 8) { // Venus, Moon, Neptune -> Water/Cups
-        targetSuit = "cups";
-      } else if (targetId === 2 || targetId === 7 || targetId === 9) { // Mercury, Uranus, Pluto -> Air/Swords
-        targetSuit = "swords";
-      } else { // Saturn, Jupiter, Chiron -> Earth/Pentacles
-        targetSuit = "pentacles";
-      }
-      targetSum = 150 + (targetId * 15);
-    } else {
-      const suitIdx = targetId % 12;
-      targetSuit = SIGN_SUITS[suitIdx];
-      if (targetId === 10) { // Crown zone
-        targetSum = 200;
-      } else if (targetId >= 5) { // Spire zones
-        targetSum = 100;
-      } else { // House zones
-        targetSum = 50;
-      }
+    const activeCards = (this.deck || [])
+      .filter(d => d.loadout === "active")
+      .map(d => this.collection.find(c => c.card_id === d.card_id))
+      .filter(Boolean);
+
+    const skyContext = {
+      planets: (typeof computePlanets === "function" && this.player && this.player.chart)
+        ? computePlanets(this.player.chart.birth_lat || 0, this.player.chart.birth_lon || 0, new Date())
+        : (this.planets || []),
+      signVector: null
+    };
+
+    let melee = null;
+    if (typeof window !== "undefined" && window.ArcanaTrickEngine) {
+      melee = window.ArcanaTrickEngine.createMelee(targetType, targetId, activeCards, { zone_id: zoneId }, skyContext);
     }
 
-    const description = `Drop Tarot cards into the Alchemical Manifold vessel to break down the gate. Pentacles yield scales with Zone Character Alignment.`;
+    const description = `The Arcana Trick Engine: Engage in a 12-trick Melee against the Zone Guardian. Trump: ${targetSuit.toUpperCase()}.`;
 
     return {
       targetType,
       targetId,
-      type: 'manifold',
-      cardsNeeded,
+      type: 'melee',
+      cardsNeeded: 12,
       description,
       targetSuit,
-      targetSum,
+      targetSum: 50,
       chain: [],
-      manifold: {
-        cards: [],
-        activeReaction: null,
-        pentaclesYield: 0
+      melee: melee || {
+        targetType,
+        targetId,
+        zoneId,
+        trumpSuit: targetSuit,
+        arcanaLadder: {},
+        trickNumber: 1,
+        totalTricks: 12,
+        leader: "player",
+        currentTurn: "player",
+        ledSuit: null,
+        currentTrick: [],
+        playerHand: activeCards.slice(0, 12),
+        guardianHand: [],
+        playerMelds: [],
+        guardianMelds: [],
+        playerScore: 0,
+        guardianScore: 0,
+        guardianHandicap: 0,
+        playerTricksWon: 0,
+        guardianTricksWon: 0,
+        playerHarvestPile: [],
+        guardianHarvestPile: [],
+        excuseSpent: { player: false, guardian: false },
+        log: [],
+        status: "active",
+        outcome: null
       }
     };
   }
@@ -1181,21 +1233,23 @@ class GameState {
   }
 
   validateCardForChain(card, ritual) {
-    if (!ritual.manifold) {
-      ritual.manifold = { cards: [], activeReaction: null, pentaclesYield: 0 };
+    if (!ritual.melee) {
+      return { valid: true };
     }
-    const currentCards = ritual.manifold.cards;
-    
-    // 1. Basic sanity: Is card already in the manifold vessel?
-    if (currentCards.some(c => c.card_id === card.card_id)) {
-      return { valid: false, reason: "Card is already inside the Alchemical Manifold!" };
-    }
+    const Engine = (typeof window !== "undefined" && window.ArcanaTrickEngine) || (typeof globalThis !== "undefined" && globalThis.ArcanaTrickEngine);
+    if (!Engine) return { valid: true };
 
-    // 2. Vessel capacity (max 4 cards per reaction)
-    if (currentCards.length >= 4) {
-      return { valid: false, reason: "Alchemical Manifold vessel is at maximum capacity (4 cards)!" };
+    const legalChecks = Engine.getLegalMoves(
+      ritual.melee.playerHand,
+      ritual.melee.ledSuit,
+      ritual.melee.trumpSuit,
+      ritual.melee.currentTrick,
+      ritual.melee.arcanaLadder
+    );
+    const check = legalChecks.find(m => m.card.card_id === card.card_id);
+    if (check && !check.legal) {
+      return { valid: false, reason: check.reason || "Illegal play under Pinochle filter rules!" };
     }
-
     return { valid: true };
   }
 
@@ -1288,7 +1342,7 @@ class GameState {
         const capSuit = dominantSuit ? dominantSuit[0].toUpperCase() + dominantSuit.slice(1) : "Pentacles";
         card.title = `Synthesized ${rankName(card.rank)} of ${capSuit}`;
       } else {
-        card.title = `${MAJOR_NAMES[card.source_body] || "Alchemical Arcana"}`;
+        card.title = `${ARCANA_NAMES[card.rank] || MAJOR_NAMES[card.source_body] || "Alchemical Arcana"}`;
       }
 
       rewardCards.push(card);
@@ -1297,7 +1351,7 @@ class GameState {
     return rewardCards;
   }
 
-  playCardIntoRitual(cardId, targetType, targetId) {
+  playCardIntoMelee(cardId, targetType, targetId) {
     if (!this.player) return { error: "Register a Seeker first." };
     const card = this.collection.find(c => c.card_id === cardId);
     if (!card) return { error: "Card not found in collection." };
@@ -1309,119 +1363,174 @@ class GameState {
     }
 
     const key = `${targetType}_${targetId}`;
-    const ritual = this.rituals[key];
-    if (!ritual) return { error: "Ritual not found." };
-
-    if (!ritual.manifold) {
-      ritual.manifold = { cards: [], activeReaction: null, pentaclesYield: 0 };
+    let ritual = this.rituals[key];
+    if (!ritual || this.isObsoleteRitual(ritual)) {
+      ritual = this.generateProceduralRitual(targetType, targetId);
+      this.rituals[key] = ritual;
     }
 
-    const check = this.validateCardForChain(card, ritual);
-    if (!check.valid) {
-      return { error: check.reason };
+    const melee = ritual.melee;
+    if (!melee) return { error: "Melee state missing." };
+    if (melee.status === "completed") {
+      return { error: "Melee already concluded. Reset the table to challenge again." };
     }
 
-    // Add card to Manifold vessel
-    const enrichedCard = JSON.parse(JSON.stringify(card));
-    ritual.manifold.cards.push(enrichedCard);
-    ritual.chain = ritual.manifold.cards; // mirror to chain array for legacy compatibility
+    // Validate legality with ArcanaTrickEngine
+    const Engine = (typeof window !== "undefined" && window.ArcanaTrickEngine) || (typeof globalThis !== "undefined" && globalThis.ArcanaTrickEngine);
+    if (!Engine) return { error: "Arcana Trick Engine not loaded." };
 
-    // Build zone character context for AlchemicalEngine
-    const targetZoneInfo = {
-      targetType,
-      targetId,
-      zone_id: targetType === 'zone' ? targetId : (this.planets && this.planets[targetId] ? this.planets[targetId].zone : 0),
-      targetSuit: ritual.targetSuit
-    };
+    const legalChecks = Engine.getLegalMoves(
+      melee.playerHand,
+      melee.ledSuit,
+      melee.trumpSuit,
+      melee.currentTrick,
+      melee.arcanaLadder
+    );
 
-    // Compute Alchemical Reaction via 14 Alchemical Pillars & Kalchm Thermodynamics with Zone Character Alignment
-    let reaction = null;
-    if (typeof window !== 'undefined' && window.AlchemicalEngine) {
-      reaction = window.AlchemicalEngine.resolveReaction(ritual.manifold.cards, targetZoneInfo);
+    const cardMove = legalChecks.find(m => m.card.card_id === cardId);
+    if (!cardMove || !cardMove.legal) {
+      return { error: cardMove ? cardMove.reason : "Illegal play under Pinochle filter rules!" };
+    }
+
+    // 1. Play player's card
+    melee.playerHand = melee.playerHand.filter(c => c.card_id !== cardId);
+    melee.currentTrick.push({ player: "player", card: card });
+    if (!melee.ledSuit && !card.is_major) {
+      melee.ledSuit = card.suit ? card.suit.toLowerCase() : null;
+    }
+
+    // 2. Guardian takes its turn
+    if (melee.guardianHand.length > 0) {
+      const gCard = Engine.GuardianAI.choose(
+        melee.guardianHand,
+        melee.ledSuit,
+        melee.trumpSuit,
+        melee.currentTrick,
+        melee.arcanaLadder
+      );
+      if (gCard) {
+        melee.guardianHand = melee.guardianHand.filter(c => c.card_id !== gCard.card_id);
+        melee.currentTrick.push({ player: "guardian", card: gCard });
+        if (!melee.ledSuit && !gCard.is_major) {
+          melee.ledSuit = gCard.suit ? gCard.suit.toLowerCase() : null;
+        }
+      }
+    }
+
+    // 3. Resolve the trick
+    const trickResult = Engine.evaluateTrick(
+      melee.currentTrick,
+      melee.trumpSuit,
+      melee.arcanaLadder,
+      melee.trickNumber
+    );
+
+    if (trickResult.winner === "player") {
+      melee.playerScore += trickResult.counters;
+      melee.playerTricksWon++;
+      melee.playerHarvestPile.push(...trickResult.capturedCards);
+      melee.leader = "player";
+      melee.log.push(`Trick ${melee.trickNumber}: You won (+${trickResult.counters} pts) with ${trickResult.winningCard.title}.`);
     } else {
-      // Fallback calculation if module is loading
-      const baseAtk = ritual.manifold.cards.reduce((acc, c) => acc + (c.attack || c.rank || 5), 0);
-      reaction = {
-        pillar: { id: 1, name: "Solution", color: "#5f93d8", sigil: "🜔" },
-        esms: { Spirit: 5, Essence: 5, Matter: 5, Substance: 5 },
-        thermodynamics: { heat: 40, entropy: 15, reactivity: 2.1, freeEnergy: 25 },
-        zoneAlignment: { multiplier: 1.0, rating: "Neutral Alchemy", favoredSuit: ritual.targetSuit || "pentacles", zoneElement: "Earth", matchingCardsCount: 0 },
-        pentaclesYield: baseAtk * 2
-      };
+      melee.guardianScore += trickResult.counters;
+      melee.guardianTricksWon++;
+      melee.guardianHarvestPile.push(...trickResult.capturedCards);
+      melee.leader = "guardian";
+      melee.log.push(`Trick ${melee.trickNumber}: Guardian won (+${trickResult.counters} pts) with ${trickResult.winningCard.title}.`);
     }
 
-    ritual.manifold.activeReaction = reaction;
-    ritual.manifold.pentaclesYield = reaction.pentaclesYield;
+    if (trickResult.excusePlayer === "player") {
+      melee.playerScore += 10;
+      melee.log.push(`✦ The Fool banked +10 counters to your pile.`);
+    } else if (trickResult.excusePlayer === "guardian") {
+      melee.guardianScore += 10;
+      melee.log.push(`✦ Guardian's Fool banked +10 counters.`);
+    }
 
-    // Check if Pentacles yield satisfies the Zone Singularity Threshold
-    const targetThreshold = ritual.targetSum || 50;
-    const completed = ritual.manifold.pentaclesYield >= targetThreshold;
+    // Reset trick table for next trick
+    const finishedTrickCards = [...melee.currentTrick];
+    melee.currentTrick = [];
+    melee.ledSuit = null;
+
+    let completed = false;
     let completionReward = null;
 
-    if (completed) {
-      const playedCards = ritual.manifold.cards ? JSON.parse(JSON.stringify(ritual.manifold.cards)) : [];
+    // Check if round finished (12 tricks played or hands empty)
+    if (melee.trickNumber >= 12 || melee.playerHand.length === 0) {
+      melee.status = "completed";
+      const victory = melee.playerScore > melee.guardianScore;
+      melee.outcome = victory ? "player_win" : "guardian_win";
+      completed = true;
 
-      // 1. Consume the cards in the chain
-      const chainedIds = new Set(ritual.chain.map(c => c.card_id));
-      this.collection = this.collection.filter(c => !chainedIds.has(c.card_id));
-      this.deck = this.deck.filter(d => !chainedIds.has(d.card_id));
-
-      // 2. Adjust zone control
-      let targetZoneId = targetId;
-      if (targetType === 'planet') {
-        const p = this.planets[targetId] || this.chiron;
-        if (p) {
-          targetZoneId = p.zone;
+      if (victory) {
+        let targetZoneId = targetId;
+        if (targetType === 'planet') {
+          const p = this.planets[targetId] || this.chiron;
+          if (p) targetZoneId = p.zone;
         }
+
+        const zone = this.map[targetZoneId];
+        if (zone) {
+          zone.control = Math.min(1000, zone.control + 500);
+          if (zone.control >= 600) {
+            zone.owner = this.player.faction;
+          }
+        }
+
+        const baseTokens = 500;
+        this.player.tokens = (this.player.tokens || 0) + baseTokens;
+
+        // Compute Alchemical Yield on captured pile
+        const capturedPile = melee.playerHarvestPile.length > 0 ? melee.playerHarvestPile : finishedTrickCards.map(t => t.card);
+        let pentaclesYield = melee.playerScore * 2;
+        if (typeof window !== 'undefined' && window.AlchemicalEngine) {
+          const reaction = window.AlchemicalEngine.resolveReaction(capturedPile, { targetType, targetId, zone_id: targetZoneId, targetSuit: melee.trumpSuit });
+          if (reaction && reaction.pentaclesYield) pentaclesYield = reaction.pentaclesYield;
+        }
+
+        const rewardCards = this.synthesizeRewardCardsFromPlayed(capturedPile, targetZoneId, pentaclesYield);
+        const addedCards = [];
+        const COLLECTION_CAP = 100;
+
+        rewardCards.forEach(rewardCard => {
+          if (this.collection.length < COLLECTION_CAP) {
+            this.collection.push(rewardCard);
+            this.deck.push({ card_id: rewardCard.card_id, loadout: "active" });
+            addedCards.push(rewardCard);
+          }
+        });
+
+        completionReward = {
+          tokens: baseTokens,
+          pentaclesYield: pentaclesYield,
+          cards: addedCards,
+          card: addedCards[0] || null,
+          playerScore: melee.playerScore,
+          guardianScore: melee.guardianScore,
+          zoneName: zone ? (zone.kind === "crown" ? "Crown Zenith" : `${zone.kind === "house" ? "House" : "Spire"} ${zone.zone_id}`) : "Unknown"
+        };
       }
-      
-      const zone = this.map[targetZoneId];
-      if (zone) {
-        zone.control = Math.min(1000, zone.control + 500);
-        if (zone.control >= 600) {
-          zone.owner = this.player.faction;
-        }
-      }
-
-      // 3. Tokens reward
-      const baseTokens = 500;
-      this.player.tokens = (this.player.tokens || 0) + baseTokens;
-
-      // 4. Spoils: Synthesize card(s) derived directly from played cards
-      const rewardCards = this.synthesizeRewardCardsFromPlayed(playedCards, targetZoneId, ritual.manifold.pentaclesYield);
-      const addedCards = [];
-      const COLLECTION_CAP = 100;
-
-      rewardCards.forEach(rewardCard => {
-        if (this.collection.length < COLLECTION_CAP) {
-          this.collection.push(rewardCard);
-          this.deck.push({ card_id: rewardCard.card_id, loadout: "active" });
-          addedCards.push(rewardCard);
-        }
-      });
-
-      completionReward = {
-        tokens: baseTokens,
-        pentaclesYield: ritual.manifold.pentaclesYield,
-        cards: addedCards,
-        card: addedCards[0] || null,
-        zoneName: zone ? (zone.kind === "crown" ? "Crown Zenith" : `${zone.kind === "house" ? "House" : "Spire"} ${zone.zone_id}`) : "Unknown"
-      };
-
-      // Reset the chain and generate a new ritual
-      this.rituals[key] = this.generateProceduralRitual(targetType, targetId);
+    } else {
+      melee.trickNumber++;
     }
 
     this.save();
-    return { success: true, completed, reward: completionReward };
+    return {
+      success: true,
+      completed,
+      reward: completionReward,
+      trickResult,
+      melee
+    };
+  }
+
+  playCardIntoRitual(cardId, targetType, targetId) {
+    return this.playCardIntoMelee(cardId, targetType, targetId);
   }
 
   resetRitualChain(targetType, targetId) {
     const key = `${targetType}_${targetId}`;
-    const ritual = this.rituals[key];
-    if (!ritual) return;
-    ritual.chain = [];
-    ritual.manifold = { cards: [], activeReaction: null, pentaclesYield: 0 };
+    this.rituals[key] = this.generateProceduralRitual(targetType, targetId);
     this.save();
   }
 }

@@ -12,13 +12,20 @@
 //   SPACETIMEDB_DB       (default: cookingwithcastrollc)
 //   FLUX_SWEEP_MS        (default: 60000) interval for checking and triggering zone flux
 
-import { startFeed, sqlOneShot } from "./stdb-feed";
+import { sqlOneShot } from "./stdb-feed";
 import { cliCall } from "./spacetime-cli";
 
 const DB = process.env.SPACETIMEDB_DB ?? "cookingwithcastrollc";
 const SPACETIMEDB_URI = (process.env.SPACETIMEDB_URI ?? "https://maincloud.spacetimedb.com").replace(/\/+$/, "");
 const SPACETIME_TOKEN = process.env.SPACETIME_TOKEN || "";
 const FLUX_SWEEP_MS = Number(process.env.FLUX_SWEEP_MS ?? "60000");
+
+// `sqlOneShot` takes (uri, db, token, query). This file used to call it with two
+// arguments, so `query` was undefined and the URI was the bare database name —
+// the fetch threw "cannot be parsed as a URL" on every sweep, straight into the
+// catch below, and the service silently did nothing. Same shape as the helper in
+// constellation-service.ts.
+const sql = (query: string) => sqlOneShot(SPACETIMEDB_URI, DB, SPACETIME_TOKEN || undefined, query);
 
 // Known historical constellation mapping per zone (0..10)
 const ZONE_CONSTELLATIONS: Record<number, number> = {
@@ -80,15 +87,9 @@ async function reportHealth(detail: string): Promise<void> {
 export async function evaluateHistoricalAgentFlux(): Promise<void> {
   try {
     // Query active zones and ephemeris transits
-    const zoneRows = await sqlOneShot<{ zone_id: number; in_flux?: boolean; control?: number }>(
-      DB,
-      "SELECT zone_id, in_flux, control FROM zone"
-    );
+    const zoneRows = await sql("SELECT zone_id, in_flux, control FROM zone");
 
-    const ephemerisRows = await sqlOneShot<{ body: string; transiting_zone: number }>(
-      DB,
-      "SELECT body, transiting_zone FROM ephemeris"
-    );
+    const ephemerisRows = await sql("SELECT body, transiting_zone FROM ephemeris");
 
     if (!zoneRows || zoneRows.length === 0) return;
 
@@ -128,13 +129,6 @@ export function startHistoricalAgentService(): void {
   setInterval(() => {
     evaluateHistoricalAgentFlux();
   }, FLUX_SWEEP_MS);
-
-  // Subscribe to live SpacetimeDB table feed
-  startFeed(["zone", "agent_chart", "ephemeris"], {
-    onMessage: (_table, _row) => {
-      // Re-evaluate on significant updates if needed
-    },
-  });
 }
 
 if (import.meta.main) {

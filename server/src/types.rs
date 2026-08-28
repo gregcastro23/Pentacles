@@ -1,6 +1,6 @@
 //! Value types shared across tables and reducers.
 
-use spacetimedb::SpacetimeType;
+use spacetimedb::{Identity, SpacetimeType};
 
 /// The ten planetary factions.
 #[derive(SpacetimeType, Clone, Copy, PartialEq, Eq, Debug)]
@@ -34,6 +34,33 @@ pub enum HouseSystem { Placidus, WholeSign }
 /// Lifecycle of a live 3-lane duel.
 #[derive(SpacetimeType, Clone, Copy, PartialEq, Eq, Debug)]
 pub enum DuelState { Active, Resolved }
+
+/// Lifecycle of a War Table melee at a zone.
+///
+/// `Mustering` → champions chosen, the human queue is open.
+/// `Seated`    → seats locked, hands dealt, the trick play is under way.
+/// `Resolved`  → scored, control applied; the row is history.
+#[derive(SpacetimeType, Clone, Copy, PartialEq, Eq, Debug)]
+pub enum MeleeState { Mustering, Seated, Resolved }
+
+/// One seat the feeder asks `open_melee_round` to create: which faction, who is
+/// playing it, and the Zone Claim that won it.
+#[derive(SpacetimeType, Clone, Debug)]
+pub struct SeatSpec {
+    pub faction: Planet,
+    pub occupant: Identity,
+    pub claim: u16,
+}
+
+/// One seat's outcome, submitted by the feeder once the twelve tricks are played.
+/// `score` is derived server-side from these, never trusted from the wire.
+#[derive(SpacetimeType, Clone, Debug)]
+pub struct SeatResult {
+    pub seat_id: u64,
+    pub counters: u16,
+    pub melds_value: u16,
+    pub took_final_trick: bool,
+}
 
 /// Lifecycle of a two-sided card trade.
 #[derive(SpacetimeType, Clone, Copy, PartialEq, Eq, Debug)]

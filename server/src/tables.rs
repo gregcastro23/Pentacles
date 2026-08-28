@@ -231,6 +231,78 @@ pub struct Zone {
     pub flux_expires_at: Option<Timestamp>,
 }
 
+// ── The War Table (multi-seat zone melee) ──────────────────────────────────
+//
+// One table per zone per round. The feeder daemon opens a round, plays it with
+// the shared JS trick engine, and submits the result; both writes are owner-gated
+// (the `report_service_health` trusted-bridge pattern). Humans only ever touch
+// the queue, which is player-callable and gated by `can_access_zone`.
+//
+// All four tables are ADDITIVE — SpacetimeDB 2.x cannot rename or drop a column,
+// but a new table is a compatible update. Nothing here touches an existing row.
+
+/// One melee at one zone for one round. `seat_count` is 2..6 — the factions that
+/// mustered a champion there, capped at the six highest claims.
+#[spacetimedb::table(accessor = melee_table, public)]
+#[derive(Clone)]
+pub struct MeleeTable {
+    #[primary_key]
+    #[auto_inc]
+    pub table_id: u64,
+    #[index(btree)]
+    pub zone_id: u8, // indexed: the UI and `agent_war` both ask "did this zone run?"
+    pub round_index: u64,
+    pub trump_suit: Suit, // the zone's element — SIGN_SUITS[zone_id % 12]
+    pub state: MeleeState,
+    pub seat_count: u8,
+    pub opened_at: Timestamp,
+    pub resolved_at: Option<Timestamp>,
+}
+
+/// One seat at a table: a faction, and whoever is playing it this round. An agent
+/// champion holds the seat until a queued human of that faction claims it.
+#[spacetimedb::table(accessor = melee_seat, public)]
+#[derive(Clone)]
+pub struct MeleeSeat {
+    #[primary_key]
+    #[auto_inc]
+    pub seat_id: u64,
+    #[index(btree)]
+    pub table_id: u64, // indexed: settlement reads only its own table's seats
+    #[index(btree)]
+    pub occupant: Identity, // indexed: "am I seated anywhere?" without a full scan
+    pub faction: Planet,
+    pub is_human: bool,
+    pub claim: u16,        // the Zone Claim that won this seat
+    pub counters: u16,     // trick counters harvested
+    pub melds_value: u16,  // melds declared before trick 1
+    pub score: u16,        // counters + melds + the final-trick 10
+}
+
+/// A human waiting for their faction's seat at a zone. One row per player: you
+/// queue for one zone at a time, and the row is consumed when you are seated.
+#[spacetimedb::table(accessor = melee_queue, public)]
+#[derive(Clone)]
+pub struct MeleeQueue {
+    #[primary_key]
+    pub identity: Identity,
+    #[index(btree)]
+    pub zone_id: u8,
+    pub faction: Planet,
+    pub queued_at: Timestamp,
+}
+
+/// An agent that held a seat last round. Rest makes the 71-agent roster visibly
+/// cycle instead of the same eleven playing forever — but it is ROSTER-RELATIVE
+/// and waived for thin factions, so Neptune's two agents never vanish from the war.
+#[spacetimedb::table(accessor = agent_rest, public)]
+#[derive(Clone)]
+pub struct AgentRest {
+    #[primary_key]
+    pub identity: Identity,
+    pub rested_at_round: u64,
+}
+
 /// Verified AR camera capture of a constellation by a human player.
 /// Grants a temporary 4x Meta Advantage multiplier in that constellation's zone,
 /// and awards high-precision astronomical telemetry data and ESMS tokens.

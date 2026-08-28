@@ -1217,7 +1217,6 @@ body {
 .alchemical-telemetry-hud:hover {
   border-color: var(--gold);
 }
-}
 
 .ritual-slot.filled.cups { border-color: var(--cups); }
 .ritual-slot.filled.swords { border-color: var(--swords); }
@@ -1267,6 +1266,246 @@ body {
   padding-top: 6px;
   letter-spacing: 0.05em;
   text-transform: uppercase;
+}
+
+/* ============================================================
+   ⭐ THE ARCANA TRICK ENGINE — CELESTIAL MANIFOLD ARENA STYLES
+   ============================================================ */
+.melee-hud-container {
+  width: 520px;
+  max-width: 95vw;
+  background: rgba(8, 11, 22, 0.92);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(216, 180, 106, 0.35);
+  border-radius: 12px;
+  padding: 14px 18px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.75), inset 0 0 20px rgba(216, 180, 106, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.melee-scoreboard {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(14, 18, 33, 0.8);
+  border: 1px solid rgba(216, 180, 106, 0.2);
+  border-radius: 8px;
+  padding: 8px 14px;
+}
+
+.melee-player-score, .melee-guardian-score {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.melee-score-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--dim);
+  font-weight: 600;
+}
+
+.melee-score-val {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 700;
+  color: #ffd700;
+  text-shadow: 0 0 10px rgba(255, 215, 0, 0.4);
+}
+
+.melee-trick-badge {
+  text-align: center;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  padding: 4px 10px;
+}
+
+.melee-trick-num {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--gold-bright);
+}
+
+.melee-trump-tag {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.melee-arena-ring {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  min-height: 140px;
+  background: radial-gradient(circle at center, rgba(30, 36, 60, 0.4) 0%, rgba(5, 7, 15, 0.8) 100%);
+  border: 1px solid rgba(216, 180, 106, 0.2);
+  border-radius: 12px;
+  padding: 12px;
+  overflow: hidden;
+}
+
+.melee-center-core {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 2px solid var(--gold);
+  box-shadow: 0 0 20px rgba(216, 180, 106, 0.35);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.melee-trick-card-slot {
+  position: relative;
+  z-index: 2;
+  width: 78px;
+  height: 110px;
+  border: 2px dashed rgba(216, 180, 106, 0.3);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 14, 28, 0.85);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  transition: all 0.3s ease;
+}
+
+.melee-trick-card-slot.played {
+  border-style: solid;
+  border-color: var(--gold-bright);
+  box-shadow: 0 0 16px rgba(241, 219, 161, 0.4);
+}
+
+.melee-turn-banner {
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  text-align: center;
+  background: rgba(216, 180, 106, 0.1);
+  border: 1px solid rgba(216, 180, 106, 0.25);
+  color: var(--gold-bright);
+  animation: bannerPulse 2.5s infinite ease-in-out;
+}
+
+@keyframes bannerPulse {
+  0%, 100% { border-color: rgba(216, 180, 106, 0.25); }
+  50% { border-color: rgba(241, 219, 161, 0.8); box-shadow: 0 0 12px rgba(241, 219, 161, 0.2); }
+}
+
+.melee-melds-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 10px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  font-size: 11px;
+}
+
+.melee-meld-pill {
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(216, 180, 106, 0.15);
+  border: 1px solid rgba(216, 180, 106, 0.4);
+  color: #ffd700;
+  font-weight: 600;
+}
+
+.melee-hand-row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 8px 4px;
+  scroll-behavior: smooth;
+}
+
+.melee-card-chip {
+  flex: 0 0 68px;
+  height: 98px;
+  border-radius: 6px;
+  border: 1.5px solid rgba(216, 180, 106, 0.25);
+  background: rgba(15, 20, 36, 0.9);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 4px;
+  font-size: 10px;
+  position: relative;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  user-select: none;
+}
+
+.melee-card-chip.legal {
+  border-color: #ffd700;
+  cursor: pointer;
+  box-shadow: 0 0 10px rgba(255, 215, 0, 0.35);
+  animation: legalPulse 1.8s infinite ease-in-out;
+}
+
+.melee-card-chip.legal:hover {
+  transform: translateY(-6px) scale(1.05);
+  box-shadow: 0 6px 20px rgba(255, 215, 0, 0.6);
+  border-color: #ffffff;
+  z-index: 10;
+}
+
+.melee-card-chip.illegal {
+  opacity: 0.38;
+  filter: grayscale(0.7);
+  cursor: not-allowed;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.melee-card-chip.illegal:hover::after {
+  content: attr(data-reason);
+  position: absolute;
+  bottom: 105%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(10, 12, 22, 0.95);
+  border: 1px solid #f26262;
+  color: #ffb4b4;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 9px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 30;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.7);
+}
+
+@keyframes legalPulse {
+  0%, 100% { box-shadow: 0 0 8px rgba(255, 215, 0, 0.25); }
+  50% { box-shadow: 0 0 16px rgba(255, 215, 0, 0.55); }
+}
+
+.melee-potency-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  font-size: 8.5px;
+  font-weight: 700;
+  padding: 1px 3px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.7);
+  color: #ffd700;
+  border: 0.5px solid rgba(255, 215, 0, 0.4);
 }
 
 /* ============================================================

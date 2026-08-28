@@ -338,6 +338,15 @@ function geocentricEclipticLon(p, jd) {
   return norm360(rad2deg(Math.atan2(b.y - earth.y, b.x - earth.x)));
 }
 
+// Determines if a planet is in apparent retrograde motion at julian day jd.
+function isRetrograde(p, jd) {
+  if (p === 0 || p === 1) return false; // Sun and Moon never retrograde
+  const before = geocentricEclipticLon(p, jd - 0.5);
+  const after = geocentricEclipticLon(p, jd + 0.5);
+  const diff = ((after - before + 540) % 360) - 180;
+  return diff < 0;
+}
+
 // All bodies for an observer: ecliptic λ → RA/Dec → alt/az → disk + zone.
 // Returns every body with an `up` flag; the renderer draws the risen ones.
 // `count` defaults to 10 (Sun..Pluto); pass 11 to include Chiron (idx 10).
@@ -359,6 +368,7 @@ function computePlanets(latDeg, lonDeg, date, count = 10) {
       x: proj.x, y: proj.y,
       zone: zoneForAltAz(aa.alt, aa.az),
       up: aa.alt > 0,
+      retrograde: isRetrograde(p, jd),
     });
   }
   return out;

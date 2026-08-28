@@ -2869,6 +2869,12 @@ fn agent_war(ctx: &ReducerContext) {
 
     for fac in ALL_PLANETS {
         let i = fac.idx();
+        // A zone that just settled a melee has already had its control moved, by a
+        // bounded zero-sum split. Pushing it again here would double-count and flip
+        // zones in seconds — the coarse per-faction push stands down.
+        if zone_ran_melee(ctx, zones[i]) {
+            continue;
+        }
         // Planetary baseline always applies; joined agents/humans amplify on top.
         let push_power = (WAR_PLANET_BASE
             + WAR_PER_PLAYER * count[i] as i32
@@ -2933,6 +2939,283 @@ fn agent_war(ctx: &ReducerContext) {
             apply_control(ctx, zones[i], fac, push_power);
         }
     }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  The War Table — multi-seat zone melee
+//
+//  The feeder daemon (feeder/historical-agent-service.ts) is the referee: it
+//  computes Zone Claims, seats champions, plays the twelve tricks with the shared
+//  JS engine (public/arcanaTrickEngine.js) and submits the result. Both of its
+//  writes are owner-gated, the same trusted-bridge pattern `answer_oracle` and
+//  `report_service_health` use.
+//
+//  What the module owns — and therefore what a bad feeder cannot forge:
+//    · scoring        (`seat_score`, derived here from counters + melds + climax)
+//    · control        (`melee_control_deltas`, zero-sum and bounded)
+//    · zone access    (`can_access_zone`, enforced on every human queue join)
+//  What it does NOT own: whether a played card was legal. That is validated off
+//  chain. See docs/ZONE_MELEE_ARCANA_TRICK_PLAN.md §9 for the trust boundary.
+// ════════════════════════════════════════════════════════════════════════════
+
+/// Total control a single melee may move at a zone, before flux/AR multipliers.
+const ZONE_SWING: i32 = 120;
+/// Flat bonus on top of the winner's share.
+const ZONE_SWING_WINNER_BONUS: i32 = 30; // ZONE_SWING * 0.25
+/// Winning the final trick is worth ten counters, as in the melee rules.
+const FINAL_TRICK_BONUS: u16 = 10;
+/// A zone that ran a table this recently is left alone by `agent_war`'s blind push.
+const MELEE_PUSH_SUPPRESSION_MICROS: i64 = 90_000_000; // 90s > the 60s round
+
+/// A seat's score: trick counters + melds declared + the final-trick climax.
+/// Derived here so the feeder cannot simply assert a score.
+fn seat_score(counters: u16, melds_value: u16, took_final_trick: bool) -> u16 {
+    counters
+        .saturating_add(melds_value)
+        .saturating_add(if took_final_trick { FINAL_TRICK_BONUS } else { 0 })
+}
+
+/// Control deltas for one table, as zero-sum shares around the mean.
+///
+/// A seat that scores exactly the table average moves the zone by nothing; the
+/// swing is bounded by `ZONE_SWING` no matter how many seats are filled, so a
+/// six-seat table cannot shove a zone three times harder than a two-seat one.
+/// The winner takes a flat bonus on top — the only non-zero-sum term.
+fn melee_control_deltas(scores: &[u16], zone_swing: i32) -> Vec<i32> {
+    let n = scores.len();
+    if n == 0 {
+        return Vec::new();
+    }
+    let total: u32 = scores.iter().map(|s| *s as u32).sum();
+    let mut out = vec![0i32; n];
+    if total > 0 {
+        let mean = 1.0f32 / n as f32;
+        for (i, s) in scores.iter().enumerate() {
+            let share = *s as f32 / total as f32;
+            out[i] = ((share - mean) * zone_swing as f32).round() as i32;
+        }
+    }
+    // Winner. On a tie the earliest seat takes it — the same "first played wins"
+    // tie-break the trick engine uses, so the two can never disagree.
+    let mut best = 0usize;
+    for i in 1..n {
+        if scores[i] > scores[best] {
+            best = i;
+        }
+    }
+    // Rounding each share independently leaves a residual of a point or two. Park
+    // it on the winner so the non-bonus half of the split is EXACTLY zero-sum —
+    // otherwise every round leaks a little control into the world and zones drift
+    // upward on their own over a few hours of play.
+    let residual: i32 = -out.iter().sum::<i32>();
+    out[best] += residual + ZONE_SWING_WINNER_BONUS;
+    out
+}
+
+/// Did this zone already resolve a melee in the current window? `agent_war`'s
+/// coarse per-faction push must stand down when it did, or control is applied
+/// twice and zones flip in seconds.
+fn zone_ran_melee(ctx: &ReducerContext, zone_id: u8) -> bool {
+    let now = ctx.timestamp.to_micros_since_unix_epoch();
+    ctx.db.melee_table().zone_id().filter(&zone_id).any(|t| match t.state {
+        MeleeState::Resolved => t
+            .resolved_at
+            .map(|r| now - r.to_micros_since_unix_epoch() < MELEE_PUSH_SUPPRESSION_MICROS)
+            .unwrap_or(false),
+        // A table still mustering or mid-play owns the zone this round.
+        _ => true,
+    })
+}
+
+/// Open a round at one zone and seat its champions. Owner-gated: the feeder.
+///
+/// A human already queued for this zone takes their faction's seat, displacing the
+/// agent champion — who is benched, not beaten, and is charged no rest.
+#[reducer]
+pub fn open_melee_round(
+    ctx: &ReducerContext,
+    zone_id: u8,
+    round_index: u64,
+    seats: Vec<SeatSpec>,
+) -> Result<(), String> {
+    let cfg = ctx.db.game_config().id().find(&0).ok_or("game not initialised")?;
+    if ctx.sender() != cfg.owner {
+        return Err("open_melee_round: admin only".into());
+    }
+    if zone_id > 10 {
+        return Err("open_melee_round: zone_id must be 0..=10".into());
+    }
+    // 2..6 seats. Below two the caller should have seated the Zone Guardian; above
+    // six it should have dropped the lowest claims before calling.
+    if seats.len() < 2 || seats.len() > 6 {
+        return Err(format!("open_melee_round: seat_count {} outside 2..=6", seats.len()));
+    }
+    // One seat per faction — the invariant the whole champion system rests on.
+    for (i, a) in seats.iter().enumerate() {
+        if seats.iter().skip(i + 1).any(|b| b.faction == a.faction) {
+            return Err(format!("open_melee_round: {:?} seated twice", a.faction));
+        }
+    }
+
+    let table = ctx.db.melee_table().insert(MeleeTable {
+        table_id: 0,
+        zone_id,
+        round_index,
+        trump_suit: chart::sign_element(zone_id % 12),
+        state: MeleeState::Seated,
+        seat_count: seats.len() as u8,
+        opened_at: ctx.timestamp,
+        resolved_at: None,
+    });
+
+    for spec in seats {
+        // A queued human of this faction claims the seat at the deal.
+        let claimant = ctx
+            .db
+            .melee_queue()
+            .zone_id()
+            .filter(&zone_id)
+            .find(|q| q.faction == spec.faction);
+        let (occupant, is_human) = match claimant {
+            Some(q) => {
+                ctx.db.melee_queue().identity().delete(&q.identity);
+                (q.identity, true)
+            }
+            None => (spec.occupant, false),
+        };
+        ctx.db.melee_seat().insert(MeleeSeat {
+            seat_id: 0,
+            table_id: table.table_id,
+            occupant,
+            faction: spec.faction,
+            is_human,
+            claim: spec.claim,
+            counters: 0,
+            melds_value: 0,
+            score: 0,
+        });
+        // Only the agent that actually plays is charged rest. A benched champion
+        // keeps its claim for the next muster.
+        if !is_human && ctx.db.agent_chart().identity().find(&occupant).is_some() {
+            let rest = AgentRest { identity: occupant, rested_at_round: round_index };
+            if ctx.db.agent_rest().identity().find(&occupant).is_some() {
+                ctx.db.agent_rest().identity().update(rest);
+            } else {
+                ctx.db.agent_rest().insert(rest);
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Settle a played table: score each seat, move zone control, close the row.
+/// Owner-gated: the feeder.
+#[reducer]
+pub fn submit_melee_result(
+    ctx: &ReducerContext,
+    table_id: u64,
+    results: Vec<SeatResult>,
+) -> Result<(), String> {
+    let cfg = ctx.db.game_config().id().find(&0).ok_or("game not initialised")?;
+    if ctx.sender() != cfg.owner {
+        return Err("submit_melee_result: admin only".into());
+    }
+    let mut table = ctx
+        .db
+        .melee_table()
+        .table_id()
+        .find(&table_id)
+        .ok_or("submit_melee_result: no such table")?;
+    if table.state == MeleeState::Resolved {
+        return Err("submit_melee_result: table already resolved".into());
+    }
+    // Exactly one seat takes the final trick.
+    if results.iter().filter(|r| r.took_final_trick).count() > 1 {
+        return Err("submit_melee_result: more than one seat took the final trick".into());
+    }
+
+    let mut seats: Vec<MeleeSeat> = ctx.db.melee_seat().table_id().filter(&table_id).collect();
+    seats.sort_by_key(|s| s.seat_id);
+
+    // Score every seat HERE, from counters + melds + climax. The feeder reports the
+    // components; the module owns the arithmetic.
+    let mut scores: Vec<u16> = Vec::with_capacity(seats.len());
+    for seat in seats.iter_mut() {
+        let r = results.iter().find(|r| r.seat_id == seat.seat_id);
+        let (counters, melds, final_trick) =
+            r.map(|r| (r.counters, r.melds_value, r.took_final_trick)).unwrap_or((0, 0, false));
+        seat.counters = counters;
+        seat.melds_value = melds;
+        seat.score = seat_score(counters, melds, final_trick);
+        scores.push(seat.score);
+        ctx.db.melee_seat().seat_id().update(seat.clone());
+    }
+
+    // Bounded, zero-sum control. `apply_control` then layers flux ×2.5 and AR on top.
+    for (seat, delta) in seats.iter().zip(melee_control_deltas(&scores, ZONE_SWING)) {
+        if delta != 0 {
+            apply_control(ctx, table.zone_id, seat.faction, delta);
+        }
+    }
+
+    table.state = MeleeState::Resolved;
+    table.resolved_at = Some(ctx.timestamp);
+    ctx.db.melee_table().table_id().update(table);
+    Ok(())
+}
+
+/// Queue for your faction's seat at a zone. Player-callable.
+///
+/// This is where `can_access_zone` meets a human: a faction that holds no adjacent
+/// House cannot reach a Spire, and the refusal says so rather than failing silently.
+#[reducer]
+pub fn join_melee_queue(ctx: &ReducerContext, zone_id: u8) -> Result<(), String> {
+    if zone_id > 10 {
+        return Err("join_melee_queue: zone_id must be 0..=10".into());
+    }
+    let player = ctx
+        .db
+        .player()
+        .identity()
+        .find(&ctx.sender())
+        .ok_or("join_melee_queue: register a Seeker first")?;
+
+    if !can_access_zone(ctx, player.faction, zone_id) {
+        return Err(if zone_id == 10 {
+            "The Crown is sealed to your faction — hold two Spires first.".into()
+        } else {
+            format!(
+                "Spire {} is out of reach — {:?} must hold an adjacent House first.",
+                zone_id - 5,
+                player.faction
+            )
+        });
+    }
+    // Already seated somewhere this round? Then there is nothing to queue for.
+    if ctx.db.melee_seat().occupant().filter(&ctx.sender()).next().is_some() {
+        return Err("join_melee_queue: you are already seated at a table".into());
+    }
+
+    let row = MeleeQueue {
+        identity: ctx.sender(),
+        zone_id,
+        faction: player.faction,
+        queued_at: ctx.timestamp,
+    };
+    // One queue slot per player: re-queueing moves you rather than stacking.
+    if ctx.db.melee_queue().identity().find(&ctx.sender()).is_some() {
+        ctx.db.melee_queue().identity().update(row);
+    } else {
+        ctx.db.melee_queue().insert(row);
+    }
+    Ok(())
+}
+
+/// Leave the queue. Player-callable, idempotent.
+#[reducer]
+pub fn leave_melee_queue(ctx: &ReducerContext) -> Result<(), String> {
+    ctx.db.melee_queue().identity().delete(&ctx.sender());
+    Ok(())
 }
 
 fn compute_ecliptic(ra_deg: f64, dec_deg: f64) -> (&'static str, u8, u8, u8) {
@@ -6104,9 +6387,82 @@ pub fn lock_anomaly(
 
 mod tests {
     use super::{
-        auto_battle_win, catchup_rounds, compute_ecliptic, expand_constellation, has_duplicates, pick_weakest, question_hash,
-        round_interval_secs, should_replace, COLLECTION_CAP, MAX_CATCHUP_ROUNDS, ROUND_BASE_SECS,
+        auto_battle_win, catchup_rounds, compute_ecliptic, expand_constellation, has_duplicates,
+        melee_control_deltas, pick_weakest, question_hash, round_interval_secs, seat_score,
+        should_replace, COLLECTION_CAP, MAX_CATCHUP_ROUNDS, ROUND_BASE_SECS, ZONE_SWING,
+        ZONE_SWING_WINNER_BONUS,
     };
+
+    // ── The War Table ───────────────────────────────────────────────────────
+
+    /// A seat's score is owned by the module, not the feeder: counters + melds,
+    /// plus ten for the final trick and nothing for anyone else.
+    #[test]
+    fn seat_score_adds_melds_and_the_final_trick_climax() {
+        assert_eq!(seat_score(40, 20, false), 60);
+        assert_eq!(seat_score(40, 20, true), 70, "the final trick is worth ten");
+        assert_eq!(seat_score(0, 0, false), 0);
+        // Saturating: a bad feeder cannot wrap a seat into a tiny score.
+        assert_eq!(seat_score(u16::MAX, 500, true), u16::MAX);
+    }
+
+    /// The swing is bounded and zero-sum around the mean at EVERY seat count.
+    /// Without this a six-seat table would shove a zone three times harder than a
+    /// two-seat one purely because more counters were dealt into it.
+    #[test]
+    fn control_deltas_are_zero_sum_around_the_mean_at_every_seat_count() {
+        for n in 2..=6usize {
+            let equal = vec![50u16; n];
+            let d = melee_control_deltas(&equal, ZONE_SWING);
+            let sum: i32 = d.iter().sum();
+            assert_eq!(
+                sum, ZONE_SWING_WINNER_BONUS,
+                "n={n}: an all-square table must move only by the winner bonus"
+            );
+            for (i, v) in d.iter().enumerate() {
+                let expect = if i == 0 { ZONE_SWING_WINNER_BONUS } else { 0 };
+                assert_eq!(*v, expect, "n={n}: seat {i} scored the mean and must not move");
+            }
+        }
+    }
+
+    /// A dominant seat pushes, a weak seat is pushed back, and the total stays
+    /// bounded however large the pot got.
+    #[test]
+    fn control_deltas_stay_bounded_however_large_the_pot() {
+        for scores in [
+            vec![100u16, 20],
+            vec![900, 30, 30, 30],
+            vec![250, 250, 10, 10, 10, 10],
+        ] {
+            let d = melee_control_deltas(&scores, ZONE_SWING);
+            let sum: i32 = d.iter().sum();
+            assert_eq!(sum, ZONE_SWING_WINNER_BONUS, "zero-sum but for the bonus: {scores:?}");
+            for v in &d {
+                assert!(
+                    v.abs() <= ZONE_SWING + ZONE_SWING_WINNER_BONUS,
+                    "a single seat moved {v}, past the bounded swing: {scores:?}"
+                );
+            }
+            assert!(d[0] > 0, "the top seat must push: {scores:?}");
+            assert!(d[d.len() - 1] < 0, "the bottom seat must be pushed back: {scores:?}");
+        }
+    }
+
+    /// A scoreless table is a real outcome — it must not panic or divide by zero.
+    #[test]
+    fn control_deltas_survive_a_scoreless_table() {
+        assert_eq!(melee_control_deltas(&[0, 0, 0], ZONE_SWING), vec![ZONE_SWING_WINNER_BONUS, 0, 0]);
+        assert!(melee_control_deltas(&[], ZONE_SWING).is_empty());
+    }
+
+    /// Ties go to the earliest seat — the same "first played wins" rule the trick
+    /// engine uses, so the two can never disagree about who won.
+    #[test]
+    fn control_delta_ties_break_to_the_earliest_seat() {
+        let d = melee_control_deltas(&[70, 70, 10], ZONE_SWING);
+        assert!(d[0] > d[1], "seat 0 was dealt first and takes the tie");
+    }
 
     // ── The Ascendant clock ──────────────────────────────────────────────────
 
