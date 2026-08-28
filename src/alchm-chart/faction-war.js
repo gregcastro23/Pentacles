@@ -1,20 +1,23 @@
 /* ============================================================
-   Faction War — embeddable view (Sky Board · Standings · Faction Detail · Ticker)
+   Faction War — embeddable view (Sky Board · Standings · Faction Detail · Ticker · War Tables)
    ============================================================
    Framework-agnostic, like AlchmChart. Renders the live faction war from the
-   on-chain zone / player / agent_chart tables. Pass a `spacetime` client and it
-   subscribes itself; or drive it headlessly with `setData({zones,players,agents})`
-   (used by the test harness). All numbers come from war-model.js.
+   on-chain zone / player / agent_chart / melee_table / melee_seat / melee_queue tables.
+   Pass a `spacetime` client and it subscribes itself; or drive it headlessly with
+   `setData({zones,players,agents,tables,seats,queue})` (used by the test harness).
+   All numbers come from war-model.js and zone-access.js.
 
-     const war = FactionWar.create({ el, spacetime, hooks:{ onJoin } })
+     const war = FactionWar.create({ el, spacetime, hooks:{ onJoin, onJoinQueue, onLeaveQueue } })
      war.mount(); … war.destroy()
    ============================================================ */
 import { h, clear } from "./dom.js";
 import {
   buildZones, computeStandings, factionRoster, deriveEvents, standingsTrend,
-  agentIdentitySet, agentByIdentity, PLANET_NAMES,
+  agentIdentitySet, agentByIdentity, buildTables, roundClock, canAccessZone,
+  accessRefusalReason, PLANET_NAMES,
 } from "./war-model.js";
 import { agentDeck, MAJOR_NUMERALS, SUIT_GLYPHS, SUIT_COLORS, rankName } from "./deck.js";
+import MeleeTable from "./melee-table.js";
 
 const suitCap = (s) => (s ? s[0].toUpperCase() + s.slice(1).toLowerCase() : "Wands");
 
@@ -23,7 +26,7 @@ const PLANET_COLORS = ["#e8b84b", "#cbd0db", "#9aa7c4", "#d98fb0", "#cf4d4d", "#
 const SIGN_GLYPHS = ["♈", "♉", "♊", "♋", "♌", "♍", "♎", "♏", "♐", "♑", "♒", "♓"];
 const SIGN_NAMES = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"];
 const planetIdxOf = (v) => (typeof v === "number" ? v : Math.max(0, PLANET_NAMES.findIndex((n) => n.toLowerCase() === String(v).toLowerCase())));
-// One-line faction doctrine (mirrors the server combat passives / element bias).
+
 const PASSIVE = [
   "Radiance — vitality and command", "Tides — intuition and reach", "Quicksilver — cunning and signal",
   "Concord — harmony and allure", "Onslaught — +attack, breaks armour", "Expansion — fortune and momentum",
@@ -39,7 +42,7 @@ function nowLabel() {
   return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
 }
 
-class FactionWarInstance {
+export class FactionWarInstance {
   constructor(opts) {
     this.opts = opts || {};
     this.el = this.opts.el || null;
@@ -50,14 +53,20 @@ class FactionWarInstance {
     this.PC = g.planetColor || PLANET_COLORS;
     this.hooks = this.opts.hooks || {};
     this.myFaction = this.opts.myFaction != null ? this.opts.myFaction : null; // viewer's faction idx
+    this.myIdentity = this.opts.myIdentity ? String(this.opts.myIdentity) : null;
     this.myCards = Array.isArray(this.opts.myCards) ? this.opts.myCards : []; // viewer's Active hand (deployable)
     this._dragging = null;
-    this.data = { zones: [], players: [], agents: [] };
+    this.data = { zones: [], players: [], agents: [], tables: [], seats: [], queue: [], plays: [] };
     this.events = this.opts.events ? this.opts.events.slice() : [];
-    this.selected = this.opts.selected != null ? this.opts.selected : null;
+    this.selected = this.opts.selected != null ? this.opts.selected : null; // selected faction idx
+    this.selectedZone = this.opts.selectedZone != null ? this.opts.selectedZone : null; // selected zone id (0..10)
     this._prev = null;
     this._unsub = [];
     this.dom = {};
+  }
+
+  static create(opts) {
+    return new FactionWarInstance(opts);
   }
 
   mount(el) {
@@ -87,6 +96,13 @@ class FactionWarInstance {
     return this;
   }
 
+  destroy() {
+    if (this._popEsc) document.removeEventListener("keydown", this._popEsc);
+    for (const u of this._unsub) { try { if (typeof u === "function") u(); } catch {} }
+    this._unsub = [];
+    if (this.el) clear(this.el);
+  }
+
   _subscribeLive() {
     const st = this.spacetime;
     if (!st || typeof st.subscribe !== "function") return;
@@ -96,9 +112,13 @@ class FactionWarInstance {
     sub("zone", "zones");
     sub("player", "players");
     sub("agent_chart", "agents");
+    sub("melee_table", "tables");
+    sub("melee_seat", "seats");
+    sub("melee_queue", "queue");
+    sub("melee_play", "plays");
   }
 
-  /** Merge new rows and repaint. Partial = any of {zones, players, agents}. */
+  /** Merge new rows and repaint. Partial = any of {zones, players, agents, tables, seats, queue, plays}. */
   setData(partial) {
     Object.assign(this.data, partial || {});
     this.paint();
@@ -110,14 +130,15 @@ class FactionWarInstance {
     const agentIds = agentIdentitySet(this.data.agents);
     const agentMap = agentByIdentity(this.data.agents);
     const standings = computeStandings(zones, this.data.players, agentIds, this.PN);
-    return { zones, standings, agentIds, agentMap };
+    const tables = buildTables(this.data.tables, this.data.seats, this.data.players, agentMap, this.PN, this.data.plays);
+    const zoneOwners = new Array(11).fill(null);
+    for (const z of zones) zoneOwners[z.id] = z.ownerIdx;
+    return { zones, standings, agentIds, agentMap, tables, zoneOwners };
   }
 
   paint() {
     const m = this._model();
     const hasData = (this.data.zones && this.data.zones.length) || (this.data.players && this.data.players.length);
-    // derive ticker events vs the previous snapshot — but only once a baseline
-    // exists, so the first real load doesn't emit "seized everything" at once.
     if (this._prev && this._baselined) {
       const fresh = deriveEvents(this._prev.zones, m.zones, this._prev.standings, m.standings, this.PN, this.PG, nowLabel());
       if (fresh.length) this.events = fresh.concat(this.events).slice(0, EVENT_CAP);
@@ -125,13 +146,13 @@ class FactionWarInstance {
     this._trend = this._baselined ? standingsTrend(m.standings, this._prev && this._prev.standings) : {};
     this._prev = { zones: m.zones, standings: m.standings };
     if (hasData) this._baselined = true;
-    // detail pane follows the current champion until the user picks a faction
+
     const champ = m.standings.find((r) => r.weight > 0);
-    if (!this._manual && champ) this.selected = champ.idx;
+    if (!this._manual && champ && this.selected == null) this.selected = champ.idx;
     else if (this.selected == null && champ) this.selected = champ.idx;
 
     this._renderHeader(m);
-    this._renderBoard(m.zones);
+    this._renderBoard(m);
     this._renderStandings(m.standings);
     this._renderDetail(m);
     this._renderTicker();
@@ -154,25 +175,39 @@ class FactionWarInstance {
   }
 
   // ── Sky Board: 11 zones, Crown first, then Spires, then Houses ──
-  _renderBoard(zones) {
+  _renderBoard(m) {
     const host = this.dom.board;
     clear(host);
     host.appendChild(h("div", { class: "aw-section-label", text: "Sky Board — zones of the heavens" }));
     const grid = h("div", { class: "aw-zone-grid" });
-    const ordered = zones.slice().sort((a, b) => (KIND_ORDER[a.kind] - KIND_ORDER[b.kind]) || a.id - b.id);
-    for (const z of ordered) grid.appendChild(this._zoneCard(z));
+    const ordered = m.zones.slice().sort((a, b) => (KIND_ORDER[a.kind] - KIND_ORDER[b.kind]) || a.id - b.id);
+    for (const z of ordered) {
+      const activeTable = m.tables && m.tables.byZone && m.tables.byZone[z.id];
+      grid.appendChild(this._zoneCard(z, activeTable));
+    }
     host.appendChild(grid);
   }
 
-  _zoneCard(z) {
+  _zoneCard(z, table) {
     const owned = z.ownerIdx != null;
     const col = owned ? this.PC[z.ownerIdx] : "var(--ac-dim)";
-    const cls = "aw-zone aw-zone--" + z.kind + (z.contested ? " is-contested" : "") + (owned ? "" : " is-neutral");
+    const isSelected = this.selectedZone === z.id;
+    const cls = "aw-zone aw-zone--" + z.kind + (z.contested ? " is-contested" : "") + (owned ? "" : " is-neutral") + (isSelected ? " is-selected" : "");
+
+    let tableBadge = null;
+    if (table) {
+      const c = roundClock(table, Date.now());
+      tableBadge = h("div", { class: "aw-zone-table-badge" }, [
+        h("span", { class: "aw-table-dot" }),
+        h("span", { text: `⚔ Round ${table.roundIndex} · ${table.seats.length} Seats · ${c.phase.toUpperCase()}` }),
+      ]);
+    }
+
     return h("div", {
       class: cls, tabindex: "0", role: "button",
       "aria-label": `${z.name}, ${owned ? this.PN[z.ownerIdx] + " control " + z.control : "neutral"}`,
-      onClick: () => owned && this.selectFaction(z.ownerIdx),
-      onKeydown: (e) => { if ((e.key === "Enter" || e.key === " ") && owned) { e.preventDefault(); this.selectFaction(z.ownerIdx); } },
+      onClick: () => this.selectZone(z.id),
+      onKeydown: (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); this.selectZone(z.id); } },
       onDragover: (e) => { if (this._dragging != null) { e.preventDefault(); e.currentTarget.classList.add("is-drop-active"); } },
       onDragleave: (e) => { e.currentTarget.classList.remove("is-drop-active"); },
       onDrop: (e) => {
@@ -193,6 +228,7 @@ class FactionWarInstance {
           h("div", { class: "aw-zone-owner aw-dim", text: owned ? this.PN[z.ownerIdx] : "neutral" }),
         ]),
       ]),
+      tableBadge,
       h("div", { class: "aw-zone-meter" }, [
         h("span", { class: "aw-zone-fill", style: { width: Math.round(z.pct * 100) + "%", background: col } }),
       ]),
@@ -211,7 +247,7 @@ class FactionWarInstance {
       const tr = (this._trend && this._trend[r.idx]) || 0;
       const isChamp = i === 0 && r.weight > 0;
       list.appendChild(h("div", {
-        class: "aw-rank" + (isChamp ? " is-champ" : "") + (r.idx === this.selected ? " is-selected" : ""),
+        class: "aw-rank" + (isChamp ? " is-champ" : "") + (r.idx === this.selected && this.selectedZone == null ? " is-selected" : ""),
         tabindex: "0", role: "button", onClick: () => this.selectFaction(r.idx),
         onKeydown: (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); this.selectFaction(r.idx); } },
       }, [
@@ -230,12 +266,20 @@ class FactionWarInstance {
     host.appendChild(list);
   }
 
-  // ── Faction detail + Join ──
+  // ── Faction / Zone Detail + War Table Queue ──
   _renderDetail(m) {
     const host = this.dom.detail;
     clear(host);
+
+    // If a zone is selected, render Zone Detail + Melee Table manifest + Queue
+    if (this.selectedZone != null) {
+      this._renderZoneDetail(host, m, this.selectedZone);
+      return;
+    }
+
+    // Otherwise render Faction detail
     const idx = this.selected;
-    if (idx == null) { host.appendChild(h("div", { class: "aw-dim aw-detail-empty", text: "Select a faction" })); return; }
+    if (idx == null) { host.appendChild(h("div", { class: "aw-dim aw-detail-empty", text: "Select a faction or zone" })); return; }
     const col = this.PC[idx];
     const st = m.standings.find((r) => r.idx === idx) || { zones: 0, control: 0, agents: 0, humans: 0 };
     const roster = factionRoster(idx, this.data.players, m.agentMap, this.PN);
@@ -256,7 +300,7 @@ class FactionWarInstance {
     const list = h("div", { class: "aw-roster" });
     if (!roster.length) list.appendChild(h("div", { class: "aw-dim", text: "No agents yet — held by the planetary agent alone." }));
     for (const a of roster) {
-      const openable = a.isAgent && m.agentMap[a.identity]; // agents carry a public chart
+      const openable = a.isAgent && m.agentMap[a.identity];
       list.appendChild(h("div", {
         class: "aw-roster-row" + (openable ? " is-open" : ""),
         tabindex: openable ? "0" : null, role: openable ? "button" : null,
@@ -278,11 +322,120 @@ class FactionWarInstance {
       onClick: () => !mine && this.hooks.onJoin && this.hooks.onJoin(idx, this.PN[idx]),
     }, [mine ? `✦ Your faction — ${this.PN[idx]}` : `Join ${this.PN[idx]} — tip the scales`]));
   }
+
+  _renderZoneDetail(host, m, zoneId) {
+    const z = m.zones.find((zn) => zn.id === zoneId) || { id: zoneId, name: zoneName(zoneId), control: 0 };
+    const owned = z.ownerIdx != null;
+    const col = owned ? this.PC[z.ownerIdx] : "var(--ac-dim)";
+    const table = m.tables && m.tables.byZone && m.tables.byZone[zoneId];
+    const clock = table ? roundClock(table, Date.now()) : null;
+
+    // Header with back button
+    host.appendChild(h("div", { class: "aw-zone-detail-head" }, [
+      h("button", { class: "aw-back-btn", text: "← Back to Factions", onClick: () => { this.selectedZone = null; this.paint(); } }),
+      h("div", { class: "aw-zone-detail-title" }, [
+        h("span", { class: "aw-zone-glyph", style: { color: col, borderColor: col }, text: owned ? this.PG[z.ownerIdx] : "·" }),
+        h("div", {}, [
+          h("div", { class: "aw-detail-name", text: z.name }),
+          h("div", { class: "aw-dim", text: `${owned ? this.PN[z.ownerIdx] : "Neutral"} · Control ${z.control}/1000` }),
+        ]),
+      ]),
+    ]));
+
+    // War Table Manifest
+    if (table) {
+      host.appendChild(h("div", { class: "aw-section-label", text: `War Table #${table.tableId} · Round ${table.roundIndex}` }));
+      host.appendChild(h("div", { class: "aw-table-status-bar" }, [
+        h("span", { class: `mt-clock-pill mt-clock--${clock.phase}`, text: `${clock.phase.toUpperCase()} · ${clock.secondsRemaining}s` }),
+        h("span", { class: "aw-dim", text: `Trump: ${(table.trumpSuit || "wands").toUpperCase()}` }),
+      ]));
+
+      const seatList = h("div", { class: "aw-seat-list" });
+      for (const s of table.seats) {
+        const scol = this.PC[s.faction] || "var(--ac-gold)";
+        seatList.appendChild(h("div", { class: "aw-seat-row" }, [
+          h("span", { class: "aw-seat-glyph", style: { color: scol, borderColor: scol }, text: this.PG[s.faction] || "✦" }),
+          h("div", { class: "aw-seat-id" }, [
+            h("div", { class: "aw-seat-name", text: s.handle }),
+            h("div", { class: "aw-seat-tag aw-dim", text: `${this.PN[s.faction]} · Claim ${s.claim}` }),
+          ]),
+          h("div", { class: "aw-seat-score", text: `${s.score} pts (★${s.counters})` }),
+        ]));
+      }
+      host.appendChild(seatList);
+
+      // Watch Table button
+      host.appendChild(h("button", {
+        class: "aw-watch-btn",
+        onClick: () => this.showMeleeTable(table),
+      }, ["👁 Watch Live Melee Table"]));
+    } else {
+      host.appendChild(h("div", { class: "aw-dim aw-detail-empty", text: "No active War Table mustering at this zone." }));
+    }
+
+    // Join Queue button & Access Refusal Logic
+    const myF = this.myFaction;
+    const queueRows = this.data.queue || [];
+    const isQueuedHere = this.myIdentity && queueRows.some((q) => Number(q.zone_id) === zoneId && String(q.identity) === this.myIdentity);
+    const isSeatedHere = table && table.seats.some((s) => s.isHuman && this.myIdentity && s.occupant === this.myIdentity);
+
+    if (myF == null) {
+      host.appendChild(h("div", { class: "aw-dim aw-queue-note", text: "Join a faction to queue for Zone Melees." }));
+    } else if (isSeatedHere) {
+      host.appendChild(h("div", { class: "aw-queue-badge is-seated", text: `★ You are seated for ${this.PN[myF]} this round!` }));
+    } else if (isQueuedHere) {
+      host.appendChild(h("button", {
+        class: "aw-queue-btn is-queued",
+        onClick: () => this._leaveQueue(),
+      }, ["✓ Queued for Next Deal · Click to Leave Queue"]));
+    } else {
+      const canAccess = canAccessZone(zoneId, myF, m.zoneOwners);
+      const refusalReason = accessRefusalReason(zoneId, myF, m.zoneOwners, this.PN);
+
+      host.appendChild(h("button", {
+        class: "aw-queue-btn" + (canAccess ? "" : " is-locked"),
+        disabled: !canAccess,
+        title: canAccess ? "Queue for next deal" : refusalReason,
+        onClick: () => canAccess && this._joinQueue(zoneId),
+      }, [canAccess ? `⚔ Join Queue — Take ${this.PN[myF]} Seat at Next Deal` : `🔒 Locked — ${refusalReason}`]));
+    }
+  }
+
   _stat(v, label) {
     return h("div", { class: "aw-stat" }, [
       h("span", { class: "aw-stat-v", text: String(v) }),
       h("span", { class: "aw-stat-k aw-dim", text: label }),
     ]);
+  }
+
+  _joinQueue(zoneId) {
+    const onJoinQueue = this.hooks.onJoinQueue;
+    if (onJoinQueue) {
+      Promise.resolve(onJoinQueue(zoneId)).then(() => this.paint());
+      return;
+    }
+    const net = typeof window !== "undefined" && window.Pentacles && window.Pentacles.net;
+    if (net && typeof net.callReducer === "function") {
+      net.callReducer("join_melee_queue", [zoneId]).then(() => {
+        if (typeof window !== "undefined" && window.toast) window.toast(`Queued for Zone ${zoneId} Melee table.`, { type: "success" });
+      }).catch((err) => {
+        if (typeof window !== "undefined" && window.toast) window.toast((err && err.message) || "Queue failed", { type: "error" });
+      });
+    }
+  }
+
+  _leaveQueue() {
+    const onLeaveQueue = this.hooks.onLeaveQueue;
+    if (onLeaveQueue) {
+      Promise.resolve(onLeaveQueue()).then(() => this.paint());
+      return;
+    }
+    const net = typeof window !== "undefined" && window.Pentacles && window.Pentacles.net;
+    if (net && typeof net.callReducer === "function") {
+      net.callReducer("leave_melee_queue", []).then(() => {
+        if (typeof window !== "undefined" && window.toast) window.toast("Left Melee queue.", { type: "info" });
+      });
+    }
   }
 
   // ── Live war ticker ──
@@ -304,7 +457,7 @@ class FactionWarInstance {
     host.appendChild(feed);
   }
 
-  // ── Deploy card-tray: drag an Active card onto a zone (deploy_card) ──
+  // ── Deploy card-tray ──
   setMyCards(cards) { this.myCards = Array.isArray(cards) ? cards : []; this._renderCardTray(); return this; }
 
   _renderCardTray() {
@@ -384,21 +537,55 @@ class FactionWarInstance {
 
   selectFaction(idx) {
     this.selected = idx;
+    this.selectedZone = null;
     this._manual = true;
     const m = this._model();
+    this._renderBoard(m);
     this._renderStandings(m.standings);
     this._renderDetail(m);
     if (this.hooks.onSelect) this.hooks.onSelect(idx);
   }
 
-  // ── Agent Codex: birth chart + on-the-fly 20-card Tarot deck ──
+  selectZone(zoneId) {
+    this.selectedZone = zoneId;
+    const m = this._model();
+    this._renderBoard(m);
+    this._renderDetail(m);
+    if (this.hooks.onSelectZone) this.hooks.onSelectZone(zoneId);
+  }
+
+  // ── Show Melee Table Modal ──
+  showMeleeTable(table) {
+    const pop = this.dom.pop;
+    if (!pop) return;
+    clear(pop);
+    pop.appendChild(h("button", { class: "aw-pop-close", text: "✕", "aria-label": "Close", onClick: () => this.closeAgentProfile() }));
+    const wrap = h("div", { class: "aw-pop-table-wrap" });
+    pop.appendChild(wrap);
+    pop.hidden = false;
+
+    const mt = MeleeTable.create({
+      el: wrap,
+      table,
+      seats: table.seats,
+      plays: table.plays,
+      myFaction: this.myFaction,
+      myIdentity: this.myIdentity,
+      myHand: this.myCards,
+      hooks: {
+        onClose: () => this.closeAgentProfile(),
+      },
+    });
+    mt.mount();
+  }
+
+  // ── Agent Codex ──
   showAgentProfile(a, agentMap) {
     const chart = agentMap[a.identity];
     const pop = this.dom.pop;
     if (!chart || !pop) return;
-    const factionIdx = this.selected;
+    const factionIdx = this.selected != null ? this.selected : 0;
     const col = this.PC[factionIdx] || "var(--ac-gold)";
-    // normalize placements (body string→idx, arc_minutes→arcMin) for the deck math
     const placements = (chart.placements || []).map((p) => ({
       body: planetIdxOf(p.body), sign: Number(p.sign) || 0, arcMin: Number(p.arc_minutes) || 0,
       retrograde: !!p.retrograde, dignity: Number(p.dignity) || 0,
@@ -411,7 +598,6 @@ class FactionWarInstance {
     pop.appendChild(h("button", { class: "aw-pop-close", text: "✕", "aria-label": "Close", onClick: () => this.closeAgentProfile() }));
     const card = h("div", { class: "aw-pop-card" });
 
-    // header
     const birth = this._birthLine(chart);
     card.appendChild(h("div", { class: "aw-pop-head" }, [
       h("span", { class: "aw-pop-medallion", style: { color: col, borderColor: col }, text: this.PG[factionIdx] || "✦" }),
@@ -428,11 +614,9 @@ class FactionWarInstance {
       ] : [h("span", { class: "aw-pop-solar", text: "solar chart" })]),
     ]));
 
-    // placements → decan table
     card.appendChild(h("div", { class: "aw-section-label", text: "Placements · decans" }));
     card.appendChild(this._decanTable(deck));
 
-    // the 20-card deck grid
     card.appendChild(h("div", { class: "aw-section-label", text: `The Deck · ${deck.length} cards` }));
     const grid = h("div", { class: "aw-deck-grid" });
     for (const c of deck) grid.appendChild(this._tarotCard(c));
@@ -445,68 +629,51 @@ class FactionWarInstance {
   closeAgentProfile() { const p = this.dom.pop; if (p) { p.hidden = true; clear(p); } }
 
   _birthLine(chart) {
-    const lat = Number(chart.birth_lat), lon = Number(chart.birth_lon);
-    let date = "";
     const unix = Number(chart.birth_unix);
-    if (isFinite(unix) && unix !== 0) {
-      const d = new Date(unix * 1000);
-      date = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
-    }
-    const ll = isFinite(lat) && isFinite(lon) && (lat || lon)
-      ? `${Math.abs(lat).toFixed(2)}°${lat >= 0 ? "N" : "S"}, ${Math.abs(lon).toFixed(2)}°${lon >= 0 ? "E" : "W"}` : "place unknown";
-    return [date, ll].filter(Boolean).join("  ·  ");
+    if (!unix) return "Birth data unrecorded";
+    const d = new Date(unix * 1000);
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
   }
   _angle(label, min) {
-    const sign = Math.floor((min / 1800) % 12), deg = Math.floor((min % 1800) / 60);
+    const sign = Math.floor((min % 21600) / 1800);
+    const deg = Math.floor((min % 1800) / 60);
     return h("div", { class: "aw-pop-angle" }, [
       h("span", { class: "aw-pop-angle-k aw-dim", text: label }),
       h("span", { class: "aw-pop-angle-v", text: `${SIGN_GLYPHS[sign]} ${deg}°` }),
     ]);
   }
   _decanTable(deck) {
-    const rows = deck.filter((c) => c.kind === "minor");
-    const tbl = h("div", { class: "aw-decan-tbl" });
-    tbl.appendChild(h("div", { class: "aw-decan-h aw-dim" }, [
-      h("span", { text: "body" }), h("span", { text: "sign" }), h("span", { text: "decan" }),
-      h("span", { text: "ruler" }), h("span", { text: "Lord of…" }), h("span", { text: "card" }),
+    const wrap = h("div", { class: "aw-decan-tbl" });
+    wrap.appendChild(h("div", { class: "aw-decan-h aw-dim" }, [
+      h("span", { text: "Body" }), h("span", { text: "Sign" }), h("span", { text: "Decan" }),
+      h("span", { text: "Ruler" }), h("span", { text: "Card" }), h("span", { text: "Suit" }),
     ]));
-    for (const c of rows) {
-      tbl.appendChild(h("div", { class: "aw-decan-r" }, [
-        h("span", {}, [h("span", { style: { color: this.PC[c.body] }, text: this.PG[c.body] + " " }), this.PN[c.body]]),
-        h("span", { text: `${SIGN_GLYPHS[c.sign]} ${Math.floor(c.deg)}°${c.retro ? "℞" : ""}` }),
-        h("span", { text: `${c.decan[0]}–${c.decan[1]}°` }),
-        h("span", { style: { color: this.PC[c.decanRuler] }, text: this.PG[c.decanRuler] }),
-        h("span", { class: "aw-dim", text: c.lord }),
-        h("span", { style: { color: c.color }, text: c.name }),
+    for (const c of deck.filter((c) => !c.is_major).slice(0, 10)) {
+      const cap = suitCap(c.suit);
+      wrap.appendChild(h("div", { class: "aw-decan-r" }, [
+        h("span", { text: this.PN[c.source_body] || "—" }),
+        h("span", { text: SIGN_NAMES[c.sign] || "—" }),
+        h("span", { text: `${c.decan || 1}st` }),
+        h("span", { text: this.PN[c.decan_ruler] || "—" }),
+        h("span", { text: c.title || rankName(c.rank) }),
+        h("span", { style: { color: SUIT_COLORS[cap] }, text: `${SUIT_GLYPHS[cap] || ""} ${cap}` }),
       ]));
     }
-    return tbl;
+    return wrap;
   }
   _tarotCard(c) {
-    const sub = c.kind === "major"
-      ? `${this.PG[c.body]} ${this.PN[c.body]}`
-      : (c.role === "decan pip" ? c.lord : `${this.PG[c.body]} ${SIGN_GLYPHS[c.sign]} ${Math.floor(c.deg)}°`);
-    const foot = c.kind === "major" ? `major · ${MAJOR_NUMERALS[c.body]}` : c.role;
-    return h("div", { class: "aw-card aw-card--" + c.suit.toLowerCase() + (c.kind === "major" ? " aw-card--major" : "") + (c.retro ? " aw-card--inv" : "") }, [
-      h("div", { class: "aw-card-glyph", style: { color: c.color }, text: c.glyph }),
-      h("div", { class: "aw-card-title", text: c.name }),
-      h("div", { class: "aw-card-sub aw-dim", text: sub }),
+    const cap = suitCap(c.suit);
+    const rank = c.is_major ? (MAJOR_NUMERALS[c.source_body] || "major") : rankName(c.rank);
+    return h("div", {
+      class: "aw-card aw-card--" + (c.suit || "wands") + (c.is_major ? " aw-card--major" : "") + (c.inverted ? " aw-card--inv" : ""),
+    }, [
+      h("span", { class: "aw-card-glyph", style: { color: SUIT_COLORS[cap] }, text: SUIT_GLYPHS[cap] || "✦" }),
+      h("div", { class: "aw-card-title", text: c.title || rank }),
+      h("div", { class: "aw-card-sub aw-dim", text: c.is_major ? "Major Arcana" : `${rank} of ${cap}` }),
       h("div", { class: "aw-card-sep" }),
-      h("div", { class: "aw-card-foot aw-dim", text: foot + (c.retro ? " · rev" : "") }),
+      h("div", { class: "aw-card-foot aw-dim", text: `⚔ ${c.attack || 5} · ♥ ${c.health || 10}` }),
     ]);
-  }
-
-  setMyFaction(idx) { this.myFaction = idx; this.paint(); }
-  destroy() {
-    this._unsub.forEach((u) => { try { u(); } catch {} });
-    this._unsub = [];
-    if (this._popEsc) { document.removeEventListener("keydown", this._popEsc); this._popEsc = null; }
-    if (this.el) clear(this.el);
   }
 }
 
-export function create(opts) { return new FactionWarInstance(opts); }
-export const version = "0.1.0";
-const FactionWar = { create, version };
-export default FactionWar;
-if (typeof window !== "undefined") window.FactionWar = FactionWar;
+export default FactionWarInstance;

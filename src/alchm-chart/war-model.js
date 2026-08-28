@@ -3,13 +3,16 @@
    ============================================================
    Turns the raw on-chain rows (zone / player / agent_chart, normalized to
    snake_case by ws-normalize.js) into the view-model the Faction War UI binds
-   to: 11 zones, the 10-faction standings, per-faction rosters, and a derived
-   event feed (there is no event table — events are diffed from zone snapshots).
+   to: 11 zones, the 10-faction standings, per-faction rosters, derived
+   event feed, and War Table seat manifests + round clocks.
 
    Mirrors the server: zone weight House 1 / Spire 2 / Crown 3 (season standings
    in reducers.rs), control 0..1000 per owner.
    Run: `node src/alchm-chart/__tests__/war-model.test.js`
    ============================================================ */
+
+import { canAccessZone, accessRefusalReason } from "./zone-access.js";
+export { canAccessZone, accessRefusalReason };
 
 export const PLANET_NAMES = ["Sun", "Moon", "Mercury", "Venus", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune", "Pluto"];
 export const ZONE_KIND_WEIGHT = { house: 1, spire: 2, crown: 3 };
@@ -33,6 +36,23 @@ export function planetIdx(v, names = PLANET_NAMES) {
   const s = String(v).toLowerCase();
   const i = names.findIndex((n) => n.toLowerCase() === s);
   return i >= 0 ? i : null;
+}
+
+/** Parse SpacetimeDB timestamp (microseconds / millis / Date string) → milliseconds. */
+export function parseTimestampMs(ts) {
+  if (ts == null) return null;
+  if (typeof ts === "number") {
+    // If > 1e14 it's microseconds (SpacetimeDB format)
+    return ts > 1e14 ? Math.round(ts / 1000) : ts;
+  }
+  if (typeof ts === "string") {
+    const n = Number(ts);
+    if (!isNaN(n) && n > 0) return n > 1e14 ? Math.round(n / 1000) : n;
+    const parsed = Date.parse(ts);
+    return isNaN(parsed) ? null : parsed;
+  }
+  if (typeof ts === "object" && ts.toMillis) return ts.toMillis();
+  return null;
 }
 
 /** Raw zone rows → 11 normalized zone view-objects, ordered by id. */
@@ -153,7 +173,172 @@ export function deriveEvents(prevZones, zones, prevStandings, standings, names =
   return ev;
 }
 
+// ════════════════════════════════════════════════════════════════════════════
+//  WAR TABLE — multi-seat manifests & round clock
+// ════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Normalizes on-chain `melee_table`, `melee_seat`, and `melee_play` rows into
+ * structured view-models indexed by `table_id` and by `zone_id`.
+ */
+export function buildTables(meleeTableRows, meleeSeatRows, playerRows, agentMap, names = PLANET_NAMES, meleePlayRows = []) {
+  const playerMap = {};
+  for (const p of playerRows || []) {
+    if (p && p.identity != null) playerMap[String(p.identity)] = p;
+  }
+
+  const seatsByTable = {};
+  for (const s of meleeSeatRows || []) {
+    const tid = Number(s.table_id);
+    if (!seatsByTable[tid]) seatsByTable[tid] = [];
+    const fIdx = planetIdx(s.faction, names);
+    const occupantId = String(s.occupant || "");
+    const agent = agentMap && agentMap[occupantId];
+    const player = playerMap[occupantId];
+    const handle = (agent && agent.handle) || (player && player.handle) || (occupantId ? occupantId.slice(0, 10) : "—");
+    seatsByTable[tid].push({
+      seatId: Number(s.seat_id),
+      tableId: tid,
+      occupant: occupantId,
+      faction: fIdx,
+      factionName: fIdx != null ? names[fIdx] : "Neutral",
+      isHuman: Boolean(s.is_human),
+      claim: Number(s.claim || 0),
+      counters: Number(s.counters || 0),
+      meldsValue: Number(s.melds_value || 0),
+      score: Number(s.score || 0),
+      handle,
+      isAgent: Boolean(agent),
+    });
+  }
+
+  const playsByTable = {};
+  for (const p of meleePlayRows || []) {
+    const tid = Number(p.table_id);
+    if (!playsByTable[tid]) playsByTable[tid] = [];
+    playsByTable[tid].push({
+      playId: Number(p.play_id),
+      tableId: tid,
+      trickNumber: Number(p.trick_number),
+      seatId: Number(p.seat_id),
+      cardId: Number(p.card_id),
+      isMajor: Boolean(p.is_major),
+      rank: Number(p.rank),
+      suit: p.suit ? String(p.suit).toLowerCase() : "wands",
+      playedAt: parseTimestampMs(p.played_at),
+    });
+  }
+
+  const tables = [];
+  const byId = {};
+  const byZone = {};
+
+  for (const t of meleeTableRows || []) {
+    const tableId = Number(t.table_id);
+    const zoneId = Number(t.zone_id);
+    const seats = (seatsByTable[tableId] || []).sort((a, b) => a.seatId - b.seatId);
+    const plays = playsByTable[tableId] || [];
+    let ladder = {};
+    if (t.ladder_raw) {
+      try { ladder = typeof t.ladder_raw === "string" ? JSON.parse(t.ladder_raw) : t.ladder_raw; } catch {}
+    }
+
+    const stateStr = typeof t.state === "string" ? t.state : Object.keys(t.state || {})[0] || "Mustering";
+    const hasHuman = seats.some((s) => s.isHuman);
+    const openedAt = parseTimestampMs(t.opened_at);
+    const resolvedAt = parseTimestampMs(t.resolved_at);
+
+    const model = {
+      tableId,
+      zoneId,
+      roundIndex: Number(t.round_index || 0),
+      trumpSuit: t.trump_suit ? String(t.trump_suit).toLowerCase() : "wands",
+      state: stateStr,
+      seatCount: Number(t.seat_count || seats.length),
+      openedAt,
+      resolvedAt,
+      ladderRaw: t.ladder_raw || "",
+      ladder,
+      seats,
+      hasHuman,
+      plays,
+    };
+
+    tables.push(model);
+    byId[tableId] = model;
+
+    // Latest table per zone
+    if (!byZone[zoneId] || byZone[zoneId].roundIndex < model.roundIndex || byZone[zoneId].tableId < model.tableId) {
+      byZone[zoneId] = model;
+    }
+  }
+
+  return { tables, byId, byZone };
+}
+
+/**
+ * Calculates current round phase and seconds remaining from table timestamps.
+ * 
+ * Cadence:
+ *   - Agent-only (60s round):
+ *       0–10s: Muster
+ *      10–15s: Seating
+ *      15–55s: Play
+ *      55–60s: Resolve
+ *   - Human-seated (120s round):
+ *       0–10s: Muster
+ *      10–15s: Seating
+ *      15–115s: Play
+ *     115–120s: Resolve
+ */
+export function roundClock(table, nowMs = Date.now(), roundDurationMs = 60000, humanRoundDurationMs = 120000) {
+  if (!table || !table.openedAt) {
+    return { phase: "idle", secondsRemaining: 0, elapsedSeconds: 0, totalDuration: 0, progressPct: 0 };
+  }
+
+  const isResolved = String(table.state).toLowerCase() === "resolved" || table.resolvedAt != null;
+  const totalMs = table.hasHuman ? humanRoundDurationMs : roundDurationMs;
+  const totalSec = Math.round(totalMs / 1000);
+
+  if (isResolved) {
+    const elapsed = Math.round(((table.resolvedAt || nowMs) - table.openedAt) / 1000);
+    return {
+      phase: "resolved",
+      secondsRemaining: 0,
+      elapsedSeconds: Math.max(0, elapsed),
+      totalDuration: totalSec,
+      progressPct: 100,
+    };
+  }
+
+  const elapsedMs = Math.max(0, nowMs - table.openedAt);
+  const elapsedSec = Math.floor(elapsedMs / 1000);
+  const remainingMs = Math.max(0, totalMs - elapsedMs);
+  const secondsRemaining = Math.ceil(remainingMs / 1000);
+  const progressPct = Math.min(100, Math.round((elapsedMs / totalMs) * 100));
+
+  let phase = "muster";
+  if (elapsedSec < 10) {
+    phase = "muster";
+  } else if (elapsedSec < 15) {
+    phase = "seating";
+  } else if (elapsedSec < (totalSec - 5)) {
+    phase = "play";
+  } else {
+    phase = "resolve";
+  }
+
+  return {
+    phase,
+    secondsRemaining,
+    elapsedSeconds: elapsedSec,
+    totalDuration: totalSec,
+    progressPct,
+  };
+}
+
 export default {
-  PLANET_NAMES, ZONE_KIND_WEIGHT, zoneKindOf, zoneName, planetIdx, buildZones,
+  PLANET_NAMES, ZONE_KIND_WEIGHT, zoneKindOf, zoneName, planetIdx, parseTimestampMs, buildZones,
   agentIdentitySet, agentByIdentity, computeStandings, factionRoster, standingsTrend, deriveEvents,
+  canAccessZone, accessRefusalReason, buildTables, roundClock,
 };

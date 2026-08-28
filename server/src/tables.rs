@@ -238,7 +238,7 @@ pub struct Zone {
 // (the `report_service_health` trusted-bridge pattern). Humans only ever touch
 // the queue, which is player-callable and gated by `can_access_zone`.
 //
-// All four tables are ADDITIVE — SpacetimeDB 2.x cannot rename or drop a column,
+// All five tables are ADDITIVE — SpacetimeDB 2.x cannot rename or drop a column,
 // but a new table is a compatible update. Nothing here touches an existing row.
 
 /// One melee at one zone for one round. `seat_count` is 2..6 — the factions that
@@ -255,8 +255,27 @@ pub struct MeleeTable {
     pub trump_suit: Suit, // the zone's element — SIGN_SUITS[zone_id % 12]
     pub state: MeleeState,
     pub seat_count: u8,
+    pub ladder_raw: String, // JSON-encoded frozen Arcana Ladder {"0": 50, ...}
     pub opened_at: Timestamp,
     pub resolved_at: Option<Timestamp>,
+}
+
+/// One play of a card into a trick at a War Table.
+#[spacetimedb::table(accessor = melee_play, public)]
+#[derive(Clone)]
+pub struct MeleePlay {
+    #[primary_key]
+    #[auto_inc]
+    pub play_id: u64,
+    #[index(btree)]
+    pub table_id: u64,
+    pub trick_number: u8,
+    pub seat_id: u64,
+    pub card_id: u64,
+    pub is_major: bool,
+    pub rank: u8,
+    pub suit: Suit,
+    pub played_at: Timestamp,
 }
 
 /// One seat at a table: a faction, and whoever is playing it this round. An agent

@@ -962,3 +962,173 @@ body.alchm-open #pentacles-net { display: none; }
 .admin-tel .at-action-status { font-size: 13px; min-height: 18px; }
 .admin-tel .at-action-ok { color: var(--ac-ok); }
 .admin-tel .at-action-err { color: var(--ac-error); }
+
+/* ============================================================
+   The War Table — Multi-Seat Melee UI (.alchm-melee-table)
+   ============================================================ */
+.alchm-melee-table {
+  display: flex; flex-direction: column; gap: 14px; width: 100%; height: 100%;
+  color: var(--ac-text); font-family: "Space Grotesk", system-ui, sans-serif;
+}
+.alchm-melee-table .mt-header {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  padding-bottom: 12px; border-bottom: 1px solid var(--ac-line);
+}
+.alchm-melee-table .mt-head-left { display: flex; align-items: center; gap: 12px; }
+.alchm-melee-table .mt-title-mark { font-size: 24px; color: var(--ac-gold-bright); text-shadow: 0 0 12px rgba(246,207,131,0.4); }
+.alchm-melee-table .mt-title { font-family: "Cormorant Garamond", Georgia, serif; font-size: 22px; color: var(--ac-gold-bright); line-height: 1; }
+.alchm-melee-table .mt-head-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.alchm-melee-table .mt-trump-badge {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700;
+  letter-spacing: 0.08em; padding: 5px 11px; border-radius: 6px; border: 1px solid var(--ac-line);
+  background: rgba(216,180,106,0.12); color: var(--ac-gold-bright);
+}
+.alchm-melee-table .mt-trump-glyph { font-size: 14px; }
+.alchm-melee-table .mt-btn {
+  background: rgba(24,27,39,0.7); border: 1px solid var(--ac-line); color: var(--ac-dim);
+  border-radius: 6px; padding: 6px 12px; font-size: 11px; font-weight: 600; cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s; font-family: inherit;
+}
+.alchm-melee-table .mt-btn:hover { color: var(--ac-gold-bright); border-color: var(--ac-gold); background: rgba(216,180,106,0.1); }
+.alchm-melee-table .mt-btn.is-active { color: #1a1406; background: var(--ac-gold); font-weight: 700; }
+.alchm-melee-table .mt-btn-close {
+  width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--ac-line);
+  background: rgba(0,0,0,0.3); color: var(--ac-dim); cursor: pointer; display: flex;
+  align-items: center; justify-content: center; font-size: 13px;
+}
+.alchm-melee-table .mt-btn-close:hover { color: var(--ac-gold-bright); border-color: var(--ac-gold-bright); }
+
+/* Round Clock Pills */
+.mt-clock-pill {
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px;
+  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums; border: 1px solid;
+}
+.mt-clock--muster { color: var(--ac-essence); border-color: rgba(74,163,216,0.4); background: rgba(74,163,216,0.12); }
+.mt-clock--seating { color: var(--ac-gold-bright); border-color: rgba(241,219,161,0.4); background: rgba(241,219,161,0.12); }
+.mt-clock--play { color: var(--ac-ok); border-color: rgba(95,179,122,0.4); background: rgba(95,179,122,0.14); }
+.mt-clock--resolve { color: var(--ac-warn); border-color: rgba(224,162,58,0.4); background: rgba(224,162,58,0.14); }
+.mt-clock--resolved { color: var(--ac-dim); border-color: var(--ac-line); background: rgba(0,0,0,0.3); }
+
+/* Arena & Radial Orbital Seats */
+.alchm-melee-table .mt-arena {
+  position: relative; flex: 1; min-height: 380px; display: flex; align-items: center; justify-content: center;
+  overflow: hidden; background: radial-gradient(circle at center, rgba(16,19,31,0.9), rgba(6,8,15,0.96));
+  border-radius: 14px; border: 1px solid var(--ac-line);
+}
+.alchm-melee-table .mt-ring {
+  position: relative; width: min(440px, 85vw); height: min(440px, 85vw);
+}
+.alchm-melee-table .mt-core {
+  position: absolute; inset: 50% auto auto 50%; transform: translate(-50%, -50%);
+  width: 150px; height: 150px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+}
+.alchm-melee-table .mt-singularity-canvas {
+  width: 100%; height: 100%; border-radius: 50%; display: block;
+}
+.alchm-melee-table .mt-core-badge {
+  position: absolute; text-align: center; pointer-events: none; text-shadow: 0 0 10px rgba(0,0,0,0.9);
+}
+.alchm-melee-table .mt-core-trick { font-size: 13px; font-weight: 700; color: var(--ac-gold-bright); letter-spacing: 0.08em; }
+.alchm-melee-table .mt-core-sub { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.1em; }
+
+/* Seat stations */
+.alchm-melee-table .mt-seat-station {
+  position: absolute; transform: translate(-50%, -50%); min-width: 110px; max-width: 130px;
+  background: rgba(14,17,28,0.88); border: 1px solid var(--ac-line); border-radius: 10px;
+  padding: 7px 9px; display: flex; flex-direction: column; gap: 4px; backdrop-filter: blur(8px);
+  box-shadow: 0 4px 18px rgba(0,0,0,0.5); transition: border-color 0.2s, transform 0.2s;
+}
+.alchm-melee-table .mt-seat-station:hover { border-color: rgba(241,219,161,0.5); transform: translate(-50%, -50%) scale(1.04); }
+.alchm-melee-table .mt-seat-station.is-me { border-color: var(--ac-gold-bright); box-shadow: 0 0 14px rgba(241,219,161,0.3); }
+.alchm-melee-table .mt-seat-head { display: flex; align-items: center; gap: 6px; }
+.alchm-melee-table .mt-seat-glyph {
+  width: 22px; height: 22px; border-radius: 50%; border: 1px solid; display: flex;
+  align-items: center; justify-content: center; font-size: 12px; background: rgba(0,0,0,0.4); flex: none;
+}
+.alchm-melee-table .mt-seat-meta { min-width: 0; flex: 1; }
+.alchm-melee-table .mt-seat-name { font-size: 11px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ac-text); }
+.alchm-melee-table .mt-seat-tag { font-size: 8.5px; text-transform: uppercase; letter-spacing: 0.06em; }
+.alchm-melee-table .mt-seat-scores { display: flex; gap: 6px; font-size: 9.5px; font-variant-numeric: tabular-nums; }
+.alchm-melee-table .mt-score-pts { font-weight: 700; color: var(--ac-gold-bright); }
+.alchm-melee-table .mt-score-counters { color: #ffd700; font-weight: 600; }
+.alchm-melee-table .mt-trick-slot { min-height: 24px; display: flex; align-items: center; justify-content: center; }
+.alchm-melee-table .mt-played-card {
+  display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; border-radius: 4px;
+  background: rgba(0,0,0,0.5); border: 1px solid var(--ac-line); font-size: 10px; font-weight: 700;
+}
+.alchm-melee-table .mt-card-glyph { font-size: 11px; }
+
+/* Arcana Ladder Drawer */
+.alchm-melee-table .mt-ladder {
+  background: rgba(12,15,26,0.92); border: 1px solid var(--ac-line); border-radius: 10px;
+  padding: 12px 14px; display: flex; flex-direction: column; gap: 8px;
+}
+.alchm-melee-table .mt-ladder[hidden] { display: none; }
+.alchm-melee-table .mt-ladder-head { display: flex; justify-content: space-between; align-items: baseline; }
+.alchm-melee-table .mt-ladder-title { font-size: 12px; font-weight: 700; color: var(--ac-gold-bright); }
+.alchm-melee-table .mt-ladder-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 6px; }
+.alchm-melee-table .mt-ladder-row {
+  display: flex; justify-content: space-between; align-items: center; padding: 3px 6px;
+  background: rgba(0,0,0,0.3); border: 1px solid rgba(216,180,106,0.15); border-radius: 4px; font-size: 10.5px;
+}
+.alchm-melee-table .mt-ladder-numeral { font-weight: 600; color: var(--ac-dim); }
+.alchm-melee-table .mt-ladder-val { font-weight: 700; color: var(--ac-gold-bright); font-variant-numeric: tabular-nums; }
+
+/* Player Action Area */
+.alchm-melee-table .mt-player-area { display: flex; flex-direction: column; gap: 8px; }
+.alchm-melee-table .mt-spectator-bar { text-align: center; padding: 8px; font-size: 11.5px; font-style: italic; }
+.alchm-melee-table .mt-hand-strip { display: flex; gap: 8px; overflow-x: auto; padding: 6px 2px; }
+.alchm-melee-table .mt-hand-card {
+  flex: 0 0 auto; width: 100px; padding: 7px 8px; border-radius: 6px; background: rgba(14,17,28,0.9);
+  border: 1px solid var(--ac-line); display: flex; flex-direction: column; gap: 4px; cursor: pointer;
+  transition: transform 0.15s, border-color 0.15s;
+}
+.alchm-melee-table .mt-hand-card:hover { transform: translateY(-4px); border-color: var(--ac-gold-bright); }
+.alchm-melee-table .mt-hand-top { display: flex; justify-content: space-between; font-size: 10px; }
+.alchm-melee-table .mt-hand-title { font-size: 11px; font-weight: 600; line-height: 1.1; color: var(--ac-text); }
+
+/* Faction War Sky Board Table Badges & Zone Detail additions */
+.alchm-war .aw-zone-table-badge {
+  display: flex; align-items: center; gap: 5px; font-size: 9.5px; font-weight: 600;
+  color: var(--ac-gold-bright); background: rgba(216,180,106,0.12); padding: 2px 6px;
+  border-radius: 4px; border: 1px solid rgba(216,180,106,0.25); margin-top: 2px;
+}
+.alchm-war .aw-table-dot {
+  width: 6px; height: 6px; border-radius: 50%; background: #5fb37a; box-shadow: 0 0 6px #5fb37a;
+}
+.alchm-war .aw-zone-detail-head {
+  display: flex; flex-direction: column; gap: 8px; border-bottom: 1px solid var(--ac-line); padding-bottom: 12px;
+}
+.alchm-war .aw-back-btn {
+  align-self: flex-start; background: none; border: none; color: var(--ac-gold); font-size: 11px;
+  font-weight: 600; cursor: pointer; padding: 0; font-family: inherit;
+}
+.alchm-war .aw-back-btn:hover { text-decoration: underline; color: var(--ac-gold-bright); }
+.alchm-war .aw-zone-detail-title { display: flex; align-items: center; gap: 12px; }
+.alchm-war .aw-table-status-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.alchm-war .aw-seat-list { display: flex; flex-direction: column; gap: 6px; max-height: 190px; overflow-y: auto; }
+.alchm-war .aw-seat-row { display: flex; align-items: center; gap: 10px; padding: 5px 6px; background: rgba(0,0,0,0.25); border-radius: 6px; }
+.alchm-war .aw-seat-glyph { width: 24px; height: 24px; border-radius: 50%; border: 1px solid; display: flex; align-items: center; justify-content: center; font-size: 13px; }
+.alchm-war .aw-seat-id { flex: 1; min-width: 0; }
+.alchm-war .aw-seat-name { font-size: 12px; font-weight: 600; }
+.alchm-war .aw-seat-tag { font-size: 10px; }
+.alchm-war .aw-seat-score { font-size: 11px; font-weight: 700; color: var(--ac-gold-bright); }
+.alchm-war .aw-watch-btn {
+  margin-top: 8px; padding: 9px; border-radius: 8px; border: 1px solid var(--ac-line);
+  background: rgba(24,27,39,0.8); color: var(--ac-gold-bright); font: inherit; font-size: 11.5px;
+  font-weight: 600; cursor: pointer; text-align: center; transition: background 0.15s;
+}
+.alchm-war .aw-watch-btn:hover { background: rgba(216,180,106,0.18); border-color: var(--ac-gold); }
+.alchm-war .aw-queue-btn {
+  margin-top: 8px; padding: 11px; border-radius: 9px; border: 1px solid var(--ac-gold);
+  background: linear-gradient(135deg, rgba(246,207,131,0.14), rgba(224,162,58,0.20));
+  color: var(--ac-gold-bright); font: inherit; font-size: 12px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.08em; cursor: pointer; transition: box-shadow 0.2s, filter 0.2s;
+}
+.alchm-war .aw-queue-btn:hover:not(:disabled) { box-shadow: 0 0 16px rgba(224,162,58,0.35); filter: brightness(1.08); }
+.alchm-war .aw-queue-btn.is-locked { opacity: 0.55; cursor: not-allowed; border-color: var(--ac-line); background: rgba(0,0,0,0.3); color: var(--ac-dim); font-size: 10.5px; text-transform: none; }
+.alchm-war .aw-queue-btn.is-queued { background: rgba(95,179,122,0.18); border-color: var(--ac-ok); color: var(--ac-ok); }
+.alchm-war .aw-queue-badge.is-seated { padding: 9px; border-radius: 8px; background: rgba(241,219,161,0.15); border: 1px solid var(--ac-gold); color: var(--ac-gold-bright); font-size: 12px; text-align: center; font-weight: 700; }
+.alchm-war .aw-pop-table-wrap { width: min(860px, 96vw); height: min(680px, 88vh); background: rgba(13,16,28,0.96); border: 1px solid var(--ac-line); border-radius: 16px; padding: 18px; box-shadow: 0 24px 80px rgba(0,0,0,0.7); }
+
