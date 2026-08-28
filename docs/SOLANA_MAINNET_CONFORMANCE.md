@@ -200,7 +200,9 @@ Three fake-settlement paths in `src/web3/pools-ui.js` were removed:
 
 ## 5. Open items
 
-Ordered by what blocks what.
+Ordered by what blocks what. These are the Solana-specific ones;
+[`PENDING.md`](PENDING.md) tracks all outstanding Pentacles work, including the
+EVM, module and hygiene items this pass did not touch.
 
 1. **ASOL claim/redeem integration.** `mintSolanaDestination` fails closed with
    an explicit error. Completing it needs ASOL's `claim_mint_esms` account layout
