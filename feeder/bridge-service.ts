@@ -4,7 +4,6 @@
 // burn, performs an idempotent destination mint, then marks the transfer
 // Completed through the owner-gated reducer.
 
-import { createHash } from "node:crypto";
 import {
   createPublicClient,
   createWalletClient,
@@ -19,24 +18,13 @@ import {
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { baseSepolia } from "viem/chains";
-import {
-  Connection,
-  Keypair,
-  PublicKey,
-  SystemProgram,
-  Transaction,
-  TransactionInstruction,
-  sendAndConfirmTransaction,
-} from "@solana/web3.js";
-import {
-  TOKEN_2022_PROGRAM_ID,
-  createAssociatedTokenAccountIdempotentInstruction,
-  getAssociatedTokenAddressSync,
-} from "@solana/spl-token";
-import bs58 from "bs58";
+import { Connection, PublicKey } from "@solana/web3.js";
 import { ESMS_ABI, ESMS_ORDER_PREFIX } from "../src/web3/abis.js";
 import { startFeed } from "./stdb-feed";
 import { cliCall } from "./spacetime-cli";
+import { assertGenesis, resolveCluster } from "./solana-cluster";
+import { getSolanaServiceSigner } from "./solana-signer";
+import { asolEsmsMints } from "../src/web3/chains.js";
 
 const DB = process.env.SPACETIMEDB_DB ?? "cookingwithcastrollc";
 const SPACETIMEDB_URI = (process.env.SPACETIMEDB_URI ?? "https://maincloud.spacetimedb.com").replace(/\/+$/, "");
@@ -45,7 +33,12 @@ const ESMS_ADDRESS = getAddress(
   process.env.ESMS_TOKEN || "0x124ECa1bb1E106D3614A22A256f9A412FfeEAd8F",
 );
 const BASE_RPC = process.env.BASE_SEPOLIA_RPC || "https://sepolia.base.org";
-const SOLANA_RPC = process.env.SOLANA_RPC_URL || "https://api.devnet.solana.com";
+/**
+ * Cluster is declared, not sniffed from an RPC URL. `assertGenesis` proves the
+ * endpoint really serves it before the first signature of any run.
+ */
+const SOLANA_CLUSTER = resolveCluster();
+const SOLANA_RPC = SOLANA_CLUSTER.endpoints[0];
 const configuredConfirmations = Number(process.env.BRIDGE_EVM_CONFIRMATIONS || "12");
 if (!Number.isSafeInteger(configuredConfirmations) || configuredConfirmations < 1) {
   throw new Error("BRIDGE_EVM_CONFIRMATIONS must be a positive integer");
@@ -54,21 +47,33 @@ const EVM_CONFIRMATIONS = configuredConfirmations;
 const SOLANA_PROGRAM_ID = new PublicKey(
   process.env.SOLANA_PROGRAM_ID || "7MPHZUmxFcLQiqmhnfvgVtTsMRu7jHdmGzjZbKbECE5R",
 );
-const SOLANA_MINTS = [
-  process.env.SOLANA_MINT_SPIRIT || process.env.VITE_SOLANA_MINT_SPIRIT,
-  process.env.SOLANA_MINT_ESSENCE || process.env.VITE_SOLANA_MINT_ESSENCE,
-  process.env.SOLANA_MINT_MATTER || process.env.VITE_SOLANA_MINT_MATTER,
-  process.env.SOLANA_MINT_SUBSTANCE || process.env.VITE_SOLANA_MINT_SUBSTANCE,
-];
+// ASOL's ESMS mints are PDAs of its program id, identical on every cluster, so
+// they are derived rather than read from four env vars that could disagree.
+const SOLANA_MINTS = asolEsmsMints().map((mint) => mint.toBase58());
 const EVM_HASH = /^0x[0-9a-f]{64}$/i;
 const SOLANA_SIGNATURE = /^[1-9A-HJ-NP-Za-km-z]{64,88}$/;
 const baseClient = createPublicClient({ chain: baseSepolia, transport: http(BASE_RPC) });
 const solanaConnection = new Connection(SOLANA_RPC, "finalized");
 
+export type BridgeChainName =
+  | "EvmBaseSepolia"
+  | "SolanaToken2022"
+  | "EvmBaseMainnet"
+  | "SolanaMainnetToken2022";
+
+const SOLANA_CHAINS: ReadonlySet<string> = new Set(["SolanaToken2022", "SolanaMainnetToken2022"]);
+const MAINNET_CHAINS: ReadonlySet<string> = new Set(["EvmBaseMainnet", "SolanaMainnetToken2022"]);
+const KNOWN_CHAINS: ReadonlySet<string> = new Set([
+  "EvmBaseSepolia",
+  "SolanaToken2022",
+  "EvmBaseMainnet",
+  "SolanaMainnetToken2022",
+]);
+
 export interface PendingBridgeTransfer {
   burnTxHash: string;
-  sourceChain: "EvmBaseSepolia" | "SolanaToken2022";
-  targetChain: "EvmBaseSepolia" | "SolanaToken2022";
+  sourceChain: BridgeChainName;
+  targetChain: BridgeChainName;
   sourceAddress: string;
   targetAddress: string;
   elementId: number;
@@ -90,12 +95,17 @@ export function parsePendingBridge(row: Record<string, any>): PendingBridgeTrans
   const elementId = Number(row.element_id);
   const amount = BigInt(row.amount);
   if (status !== "PendingMint") throw new Error("bridge transfer is not pending");
-  if (
-    !["EvmBaseSepolia", "SolanaToken2022"].includes(sourceChain) ||
-    !["EvmBaseSepolia", "SolanaToken2022"].includes(targetChain) ||
-    sourceChain === targetChain
-  ) {
+  if (!KNOWN_CHAINS.has(sourceChain) || !KNOWN_CHAINS.has(targetChain)) {
     throw new Error("invalid bridge chain pair");
+  }
+  // A transfer must cross between an EVM and a Solana ledger, and both sides
+  // must be equally real. Without the second check a Sepolia burn could mint on
+  // Base mainnet — the enum alone does not prevent it.
+  if (SOLANA_CHAINS.has(sourceChain) === SOLANA_CHAINS.has(targetChain)) {
+    throw new Error("invalid bridge chain pair");
+  }
+  if (MAINNET_CHAINS.has(sourceChain) !== MAINNET_CHAINS.has(targetChain)) {
+    throw new Error("bridge transfers may not cross between testnet and mainnet");
   }
   if (!Number.isInteger(elementId) || elementId < 0 || elementId > 3 || amount <= 0n) {
     throw new Error("invalid bridge element or amount");
@@ -174,6 +184,20 @@ export async function verifyEvmBurn(transfer: PendingBridgeTransfer): Promise<vo
   throw new Error("transaction does not contain the claimed ESMS burn");
 }
 
+/**
+ * Verify a Solana-source ESMS burn by its effect on the mint's supply.
+ *
+ * This no longer looks for `pentacles_solana::bridge_burn_esms`. That
+ * instruction has been retired along with the rest of Pentacles' ESMS
+ * issuance: ASOL is the sole issuer, and its mints are NonTransferable with
+ * PermissionedBurn, so a burn is an `asol_program` redemption co-signed by
+ * ASOL's mint authority — not a Pentacles instruction at all.
+ *
+ * Checking the balance delta rather than the instruction shape keeps the
+ * verification structural without depending on ASOL's IDL: it confirms that the
+ * claimed holder's ESMS balance for this element fell by exactly the claimed
+ * amount, which is the property the bridge actually needs.
+ */
 export async function verifySolanaBurn(transfer: PendingBridgeTransfer): Promise<void> {
   if (!SOLANA_SIGNATURE.test(transfer.burnTxHash)) throw new Error("invalid Solana burn signature");
   const tx = await solanaConnection.getTransaction(transfer.burnTxHash, {
@@ -181,18 +205,20 @@ export async function verifySolanaBurn(transfer: PendingBridgeTransfer): Promise
     maxSupportedTransactionVersion: 0,
   });
   if (!tx || tx.meta?.err) throw new Error("Solana burn transaction is missing or failed");
+
   const mintValue = SOLANA_MINTS[transfer.elementId];
   if (!mintValue) throw new Error(`Solana ESMS mint ${transfer.elementId} is not configured`);
-  const data = Buffer.alloc(1 + 8);
-  data.writeUInt8(transfer.elementId, 0);
-  data.writeBigUInt64LE(transfer.amount, 1);
-  const exactInstruction = compiledInstructionMatches(tx, "bridge_burn_esms", data, {
-    0: new PublicKey(transfer.sourceAddress),
-    1: new PublicKey(mintValue),
+
+  const before = new Map(
+    (tx.meta?.preTokenBalances ?? []).map((entry) => [entry.accountIndex, entry]),
+  );
+  const burned = (tx.meta?.postTokenBalances ?? []).some((post) => {
+    if (post.mint !== mintValue || post.owner !== transfer.sourceAddress) return false;
+    const prior = BigInt(before.get(post.accountIndex)?.uiTokenAmount.amount ?? "0");
+    return prior - BigInt(post.uiTokenAmount.amount) === transfer.amount;
   });
-  const expected = `Bridge burned ${transfer.amount} units of ESMS element ${transfer.elementId} by ${transfer.sourceAddress}.`;
-  if (!exactInstruction || !tx.meta?.logMessages?.some((line) => line.includes(expected))) {
-    throw new Error("transaction does not contain the claimed Token-2022 burn");
+  if (!burned) {
+    throw new Error("transaction does not contain the claimed ESMS burn for this holder");
   }
 }
 
@@ -290,148 +316,47 @@ export async function mintEvmDestination(transfer: PendingBridgeTransfer): Promi
   return hash;
 }
 
-function solanaMinter(): Keypair {
-  const raw = process.env.SOLANA_MINTER_SECRET_KEY;
-  if (!raw) throw new Error("SOLANA_MINTER_SECRET_KEY is not configured");
-  const bytes = JSON.parse(raw);
-  if (!Array.isArray(bytes) || bytes.length !== 64) {
-    throw new Error("SOLANA_MINTER_SECRET_KEY must be a JSON array of 64 bytes");
-  }
-  return Keypair.fromSecretKey(Uint8Array.from(bytes));
+/**
+ * Resolve the Solana service signer.
+ *
+ * Cloud KMS where configured, an in-memory keypair only on a testnet cluster.
+ * The previous implementation read a raw 64-byte secret out of the environment
+ * unconditionally, which put the key in the Railway variable store, in
+ * `railway variables` output, and in every forked worker's heap.
+ */
+async function solanaSigner() {
+  return getSolanaServiceSigner({ caip2: SOLANA_CLUSTER.caip2 });
 }
 
-function anchorDiscriminator(name: string): Buffer {
-  return createHash("sha256").update(`global:${name}`).digest().subarray(0, 8);
-}
 
-function compiledInstructionMatches(
-  tx: any,
-  instructionName: string,
-  expectedData: Buffer,
-  expectedAccounts: Record<number, PublicKey>,
-): boolean {
-  const message = tx.transaction.message;
-  const accountKeys = typeof message.getAccountKeys === "function"
-    ? message.getAccountKeys({ accountKeysFromLookups: tx.meta?.loadedAddresses })
-    : null;
-  const staticKeys = message.staticAccountKeys ?? message.accountKeys ?? [];
-  const keyAt = (index: number): PublicKey | undefined =>
-    accountKeys?.get?.(index) ?? staticKeys[index];
-  const instructions = message.compiledInstructions ?? message.instructions ?? [];
-  const discriminator = anchorDiscriminator(instructionName);
-  return instructions.some((instruction: any) => {
-    const program = keyAt(instruction.programIdIndex);
-    if (!program?.equals(SOLANA_PROGRAM_ID)) return false;
-    const data = typeof instruction.data === "string"
-      ? Buffer.from(bs58.decode(instruction.data))
-      : Buffer.from(instruction.data);
-    if (
-      data.length !== discriminator.length + expectedData.length
-      || !data.subarray(0, discriminator.length).equals(discriminator)
-      || !data.subarray(discriminator.length).equals(expectedData)
-    ) {
-      return false;
-    }
-    const indexes: number[] = instruction.accountKeyIndexes ?? instruction.accounts ?? [];
-    return Object.entries(expectedAccounts).every(([position, expected]) =>
-      keyAt(indexes[Number(position)])?.equals(expected),
-    );
-  });
-}
-
-async function isExactSolanaMint(signature: string, transfer: PendingBridgeTransfer, claimId: Hex): Promise<boolean> {
-  const tx = await solanaConnection.getTransaction(signature, {
-    commitment: "finalized",
-    maxSupportedTransactionVersion: 0,
-  });
-  if (!tx || tx.meta?.err) return false;
-  const mintValue = SOLANA_MINTS[transfer.elementId];
-  if (!mintValue) return false;
-  const claimBytes = Buffer.from(claimId.slice(2), "hex");
-  const [receiptPda] = PublicKey.findProgramAddressSync(
-    [Buffer.from("bridge_mint"), claimBytes],
-    SOLANA_PROGRAM_ID,
-  );
-  const data = Buffer.alloc(1 + 8 + 32);
-  data.writeUInt8(transfer.elementId, 0);
-  data.writeBigUInt64LE(transfer.amount, 1);
-  claimBytes.copy(data, 9);
-  const exactInstruction = compiledInstructionMatches(tx, "bridge_mint_esms", data, {
-    2: receiptPda,
-    3: new PublicKey(mintValue),
-    5: new PublicKey(transfer.targetAddress),
-  });
-  const expected =
-    `Bridge minted ${transfer.amount} units of ESMS element ${transfer.elementId} `
-    + `for ${transfer.targetAddress} claim ${claimId.slice(2)}.`;
-  return exactInstruction && !!tx.meta?.logMessages?.some((line) => line.includes(expected));
-}
-
+/**
+ * Mint the Solana destination side of a bridge transfer.
+ *
+ * NOT YET WIRED, and deliberately failing closed rather than approximating.
+ *
+ * This previously built `pentacles_solana::bridge_mint_esms`. That instruction
+ * is retired: ASOL is the sole ESMS issuer, so the destination mint is an
+ * `asol_program` claim signed by ASOL's service authority — an authority
+ * Pentacles' feeder does not hold and should not hold.
+ *
+ * Completing this needs two things that do not exist here yet:
+ *
+ *   1. ASOL's `claim_mint_esms` account layout and claim-receipt PDA seeds, so
+ *      the instruction can be built and its idempotency reconciled.
+ *   2. A decision on who signs it — most likely an ASOL-side relayer endpoint
+ *      that Pentacles calls, keeping ASOL's mint authority inside ASOL.
+ *
+ * Guessing either would produce a bridge that fails on chain with an opaque
+ * error after the source burn has already settled, which is strictly worse than
+ * refusing to start. EVM-destination transfers are unaffected.
+ */
 export async function mintSolanaDestination(transfer: PendingBridgeTransfer): Promise<string> {
-  const authority = solanaMinter();
-  const recipient = new PublicKey(transfer.targetAddress);
-  const mintValue = SOLANA_MINTS[transfer.elementId];
-  if (!mintValue) throw new Error(`Solana ESMS mint ${transfer.elementId} is not configured`);
-  const mint = new PublicKey(mintValue);
   const claimId = bridgeClaimId(transfer);
-  const claimBytes = Buffer.from(claimId.slice(2), "hex");
-  const [gameAuthority] = PublicKey.findProgramAddressSync(
-    [Buffer.from("game_authority")],
-    SOLANA_PROGRAM_ID,
+  throw new Error(
+    `Solana destination minting is not wired to asol_program yet (claim ${claimId.slice(0, 10)}…, ` +
+      `element ${transfer.elementId}, amount ${transfer.amount}). ` +
+      "Pentacles no longer issues ESMS; see docs/SOLANA_MAINNET_CONFORMANCE.md.",
   );
-  const [receiptPda] = PublicKey.findProgramAddressSync(
-    [Buffer.from("bridge_mint"), claimBytes],
-    SOLANA_PROGRAM_ID,
-  );
-  if (await solanaConnection.getAccountInfo(receiptPda, "finalized")) {
-    const signatures = await solanaConnection.getSignaturesForAddress(receiptPda, { limit: 10 });
-    for (const existing of signatures) {
-      if (await isExactSolanaMint(existing.signature, transfer, claimId)) return existing.signature;
-    }
-    throw new Error("existing Solana bridge mint could not be reconciled");
-  }
-  const ata = getAssociatedTokenAddressSync(
-    mint,
-    recipient,
-    false,
-    TOKEN_2022_PROGRAM_ID,
-  );
-  const data = Buffer.alloc(8 + 1 + 8 + 32);
-  anchorDiscriminator("bridge_mint_esms").copy(data, 0);
-  data.writeUInt8(transfer.elementId, 8);
-  data.writeBigUInt64LE(transfer.amount, 9);
-  claimBytes.copy(data, 17);
-  const mintInstruction = new TransactionInstruction({
-    programId: SOLANA_PROGRAM_ID,
-    keys: [
-      { pubkey: authority.publicKey, isSigner: true, isWritable: true },
-      { pubkey: gameAuthority, isSigner: false, isWritable: true },
-      { pubkey: receiptPda, isSigner: false, isWritable: true },
-      { pubkey: mint, isSigner: false, isWritable: true },
-      { pubkey: ata, isSigner: false, isWritable: true },
-      { pubkey: recipient, isSigner: false, isWritable: false },
-      { pubkey: TOKEN_2022_PROGRAM_ID, isSigner: false, isWritable: false },
-      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-    ],
-    data,
-  });
-  const transaction = new Transaction().add(
-    createAssociatedTokenAccountIdempotentInstruction(
-      authority.publicKey,
-      ata,
-      recipient,
-      mint,
-      TOKEN_2022_PROGRAM_ID,
-    ),
-    mintInstruction,
-  );
-  const signature = await sendAndConfirmTransaction(solanaConnection, transaction, [authority], {
-    commitment: "finalized",
-  });
-  if (!(await isExactSolanaMint(signature, transfer, claimId))) {
-    throw new Error("Solana receipt did not contain the exact bridge mint");
-  }
-  return signature;
 }
 
 async function completeBridge(burnTxHash: string, destinationTxHash: string): Promise<void> {
@@ -468,11 +393,13 @@ export function createBridgeProcessor(overrides: {
   };
   return async function processBridge(row: Record<string, any>): Promise<void> {
     const transfer = parsePendingBridge(row);
-    if (transfer.sourceChain === "EvmBaseSepolia") await deps.verifyEvmBurn(transfer);
-    else await deps.verifySolanaBurn(transfer);
-    const destinationTxHash = transfer.targetChain === "EvmBaseSepolia"
-      ? await deps.mintEvmDestination(transfer)
-      : await deps.mintSolanaDestination(transfer);
+    // Dispatch on which family the chain belongs to, not on one hardcoded
+    // variant name — otherwise a mainnet row silently takes the Solana branch.
+    if (SOLANA_CHAINS.has(transfer.sourceChain)) await deps.verifySolanaBurn(transfer);
+    else await deps.verifyEvmBurn(transfer);
+    const destinationTxHash = SOLANA_CHAINS.has(transfer.targetChain)
+      ? await deps.mintSolanaDestination(transfer)
+      : await deps.mintEvmDestination(transfer);
     await deps.completeBridge(transfer.burnTxHash, destinationTxHash);
     console.log(
       `[bridge] ${transfer.burnTxHash.slice(0, 12)}… settled on ${transfer.targetChain}: ${destinationTxHash}`,
@@ -482,8 +409,17 @@ export function createBridgeProcessor(overrides: {
 
 export const processBridgeTransfer = createBridgeProcessor();
 
-function main(): void {
-  console.log("Pentacles omnichain bridge settler starting.");
+async function main(): Promise<void> {
+  console.log(`Pentacles omnichain bridge settler starting on ${SOLANA_CLUSTER.caip2}.`);
+
+  // Prove the RPC serves the cluster we declared, and that a signer exists,
+  // before consuming the first pending row. Both failures are configuration
+  // errors, and both are far cheaper to hit at startup than midway through a
+  // settlement whose source burn has already finalized.
+  await assertGenesis(new Connection(SOLANA_RPC, "finalized"), SOLANA_CLUSTER);
+  const signer = await solanaSigner();
+  console.log(`[bridge] Solana signer ${signer.publicKey.toBase58()} via ${signer.provider}.`);
+
   startFeed({
     uri: SPACETIMEDB_URI,
     db: DB,
@@ -497,4 +433,9 @@ function main(): void {
   });
 }
 
-if (import.meta.main) main();
+if (import.meta.main) {
+  main().catch((err) => {
+    console.error("[bridge] fatal:", (err as Error)?.message ?? err);
+    process.exit(1);
+  });
+}

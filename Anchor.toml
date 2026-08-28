@@ -10,6 +10,13 @@ pentacles_solana = "7MPHZUmxFcLQiqmhnfvgVtTsMRu7jHdmGzjZbKbECE5R"
 [programs.localnet]
 pentacles_solana = "7MPHZUmxFcLQiqmhnfvgVtTsMRu7jHdmGzjZbKbECE5R"
 
+# Mainnet target. The program id is the same because it is derived from the
+# deploy keypair, not the cluster — but deploying here is a separate, deliberate
+# act. See docs/SOLANA_MAINNET_CONFORMANCE.md for the ordering, and note that
+# the upgrade authority must be a Squads v4 vault before any mainnet deploy.
+[programs.mainnet]
+pentacles_solana = "7MPHZUmxFcLQiqmhnfvgVtTsMRu7jHdmGzjZbKbECE5R"
+
 [registry]
 url = "https://api.apr.dev"
 

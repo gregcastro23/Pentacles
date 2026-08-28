@@ -1806,15 +1806,35 @@ pub fn tick_sky(ctx: &ReducerContext, _timer: SkyTickTimer) {
             continue;
         }
 
-        let elapsed = (now.to_micros_since_unix_epoch() - stake.last_accrual_at.to_micros_since_unix_epoch()) as f64 / 1e6;
-        if elapsed <= 0.0 {
+        let elapsed_secs = (now.to_micros_since_unix_epoch()
+            - stake.last_accrual_at.to_micros_since_unix_epoch())
+            / 1_000_000;
+        if elapsed_secs <= 0 {
             continue;
         }
 
-        let rate = daily_rate_per_usdc(ctx, &stake, &star, &zone_dom, &sign_dignity);
-        let days = elapsed / 86_400.0;
-        let gained = (stake.principal_usdc as f64 / 1e6) * rate * days; // ESMS units
-        stake.accrued_essence += (gained * 1e18) as u128; // 18-dp
+        // The rate itself is genuinely floating point — a product of altitude,
+        // elemental dominance, chart affinity and transit dignity. It is
+        // quantized to an integer here, at the boundary, and every step after
+        // this one is exact.
+        //
+        // The previous form computed the whole accrual in f64 and finished with
+        // `(gained * 1e18) as u128`. An 18-decimal amount needs ~60 bits; an
+        // f64 mantissa holds 53. So the low digits of every single accrual were
+        // rounding noise, and the error compounded on a column that is supposed
+        // to be an exact balance.
+        let rate_micro_atoms = (daily_rate_per_usdc(ctx, &stake, &star, &zone_dom, &sign_dignity)
+            * (ESMS_SOLANA_ATOMS_PER_TOKEN * YIELD_RATE_SCALE) as f64)
+            .max(0.0)
+            .round() as u128;
+
+        let gained_atoms = (stake.principal_usdc as u128)
+            .saturating_mul(rate_micro_atoms)
+            .saturating_mul(elapsed_secs as u128)
+            / (USDC_UNITS_PER_TOKEN * SECONDS_PER_DAY * YIELD_RATE_SCALE);
+        stake.accrued_essence = stake
+            .accrued_essence
+            .saturating_add(gained_atoms.saturating_mul(LEDGER_PER_SOLANA_ATOM));
         stake.last_accrual_at = now;
         ctx.db.star_stake().stake_id().update(stake);
     }
@@ -3040,13 +3060,34 @@ fn normalized_solana_signature(raw: &str, field: &str) -> Result<String, String>
     Ok(signature.to_string())
 }
 
-fn ensure_unprocessed(ctx: &ReducerContext, hash: &str) -> Result<(), String> {
-    if ctx
-        .db
-        .processed_tx()
-        .tx_hash()
-        .find(hash.to_string())
-        .is_some()
+/// Scope a transaction hash to the chain it settled on.
+///
+/// `processed_tx` is keyed on `tx_hash` alone, which was safe only while a
+/// single Solana cluster existed. A base58 signature is valid on devnet and
+/// mainnet alike, so once both are live an unscoped key lets a devnet
+/// transaction permanently block the mainnet one that happens to collide — and,
+/// worse, lets a devnet replay be mistaken for a settled mainnet transfer.
+///
+/// The key is composed rather than the column being re-keyed because
+/// SpacetimeDB 2.x cannot change a primary key in a compatible update.
+fn processed_key(chain: &str, hash: &str) -> String {
+    format!("{chain}:{hash}")
+}
+
+/// Reject a transaction that has already been processed on this chain.
+///
+/// Both the scoped key and the bare hash are checked. The bare lookup covers
+/// rows written before scoping existed: those are all devnet, and dropping the
+/// check would silently reopen every one of them to replay.
+fn ensure_unprocessed(ctx: &ReducerContext, chain: &str, hash: &str) -> Result<(), String> {
+    let scoped = processed_key(chain, hash);
+    if ctx.db.processed_tx().tx_hash().find(scoped).is_some()
+        || ctx
+            .db
+            .processed_tx()
+            .tx_hash()
+            .find(hash.to_string())
+            .is_some()
     {
         return Err("Transaction already processed".into());
     }
@@ -3055,7 +3096,7 @@ fn ensure_unprocessed(ctx: &ReducerContext, hash: &str) -> Result<(), String> {
 
 fn record_processed(ctx: &ReducerContext, hash: String, chain: &str, event_type: &str) {
     ctx.db.processed_tx().insert(ProcessedTx {
-        tx_hash: hash,
+        tx_hash: processed_key(chain, &hash),
         chain: chain.to_string(),
         event_type: event_type.to_string(),
         processed_at: ctx.timestamp,
@@ -3186,7 +3227,7 @@ pub fn sync_stardex_ephemeris(
     elev_m: f64,
 ) -> Result<(), String> {
     let hash = normalized_evm_tx_hash(&tx_hash, "tx_hash")?;
-    ensure_unprocessed(ctx, &hash)?;
+    ensure_unprocessed(ctx, "evm_base_sepolia", &hash)?;
     verified_stardex_player(ctx, horizon_intent_id, None)?;
     let action_key =
         ensure_horizon_action_unspent(ctx, horizon_intent_id, "sync_stardex_ephemeris")?;
@@ -3268,7 +3309,7 @@ pub fn stardex_claim_constellation(
     constellation_name: String,
 ) -> Result<(), String> {
     let hash = normalized_evm_tx_hash(&tx_hash, "tx_hash")?;
-    ensure_unprocessed(ctx, &hash)?;
+    ensure_unprocessed(ctx, "evm_base_sepolia", &hash)?;
     let mut player = verified_stardex_player(ctx, horizon_intent_id, Some(&constellation_name))?;
     let action_key = ensure_horizon_action_unspent(
         ctx,
@@ -3318,7 +3359,7 @@ pub fn stardex_fortify_node(
     energy_amount: u32,
 ) -> Result<(), String> {
     let hash = normalized_evm_tx_hash(&tx_hash, "tx_hash")?;
-    ensure_unprocessed(ctx, &hash)?;
+    ensure_unprocessed(ctx, "evm_base_sepolia", &hash)?;
     let mut star = ctx.db.star_node().hip_id().find(&star_id).ok_or("star node not found")?;
     let player = verified_stardex_player(ctx, horizon_intent_id, Some(&star.constellation))?;
     let action_key = ensure_horizon_action_unspent(
@@ -3976,18 +4017,60 @@ pub fn answer_jing(
 
 // ── Star Staking Reducers ──────────────────────────────────────────────────
 
-// Called by the app right after a confirmed on-chain StarVault.stake(). `principal_usdc`
-// and `shares` are read back from the StarVault event so this ledger matches custody.
+/// Mirror a confirmed on-chain `StarStaked` event into the ledger.
+///
+/// Owner-gated and keyed on the staking transaction. Previously any client
+/// could call this with a principal of its choosing, and the accrual tick would
+/// then pay yield on capital that was never deposited — the ledger simply
+/// believed whatever the app said. Nothing minted from `accrued_essence` yet,
+/// so no value was at risk on devnet, but wiring a mainnet claim feeder to that
+/// number would have turned it directly into an unbounded mint.
+///
+/// The staker is resolved from the verified on-chain wallet rather than from
+/// `ctx.sender()`, because the caller is now the feeder, not the staker.
 #[reducer]
 pub fn record_star_stake(
     ctx: &ReducerContext,
+    chain: BridgeChain,
+    tx_hash: String,
+    staker_pubkey: String,
     star_id: u32,
     principal_usdc: u64,
     shares: u128,
 ) -> Result<(), String> {
+    let cfg = ctx.db.game_config().id().find(&0).ok_or("game not initialised")?;
+    if ctx.sender() != cfg.owner {
+        return Err("record_star_stake: admin/feeder only".into());
+    }
+    if !chain.is_solana() {
+        return Err("record_star_stake: chain must be a Solana cluster".into());
+    }
+    if principal_usdc == 0 {
+        return Err("principal_usdc must be greater than zero".into());
+    }
+
+    let hash = normalized_solana_signature(&tx_hash, "tx_hash")?;
+    ensure_unprocessed(ctx, chain.chain_key(), &hash)?;
+
+    let staker = ctx
+        .db
+        .player()
+        .iter()
+        .find(|row| row.solana_pubkey.as_deref() == Some(staker_pubkey.trim()))
+        .ok_or_else(|| "no player bound to the staking wallet".to_string())?;
+    if !ctx
+        .db
+        .verified_solana_wallet()
+        .identity()
+        .find(&staker.identity)
+        .is_some_and(|binding| binding.solana_pubkey == staker_pubkey.trim())
+    {
+        return Err("staking wallet ownership has not been verified".into());
+    }
+
     let star = ctx.db.star_node().hip_id().find(&star_id).ok_or("no such star")?;
     let element = esms_id_for_star(star.ra, star.dec);
-    
+
     // upsert pool
     let mut pool = ctx.db.star_stake_pool().star_id().find(&star_id)
         .unwrap_or(StarStakePool { star_id, total_principal_usdc: 0, total_shares: 0 });
@@ -4001,7 +4084,7 @@ pub fn record_star_stake(
 
     ctx.db.star_stake().insert(StarStake {
         stake_id: 0,
-        staker: ctx.sender(),
+        staker: staker.identity,
         star_id,
         element,
         principal_usdc,
@@ -4013,6 +4096,7 @@ pub fn record_star_stake(
         staked_at: ctx.timestamp,
         last_accrual_at: ctx.timestamp,
     });
+    record_processed(ctx, hash, chain.chain_key(), "star_stake");
     Ok(())
 }
 
@@ -4059,52 +4143,81 @@ pub fn request_yield_claim(
     Ok(())
 }
 
-/// Two-Phase Commit Phase 2: Confirm on-chain mint transaction completion via feeder/attestor.
-/// Idempotency guarded by `processed_tx`.
+/// Two-Phase Commit Phase 2: settle a locked claim against a confirmed on-chain
+/// ESMS mint.
+///
+/// Owner-gated: this reducer is the ledger's record that value left the chain,
+/// and it previously accepted any caller with any string for `tx_hash` —
+/// including the literal placeholder the UI was sending. A claim could be
+/// marked settled without a mint ever happening.
+///
+/// The hash is validated for shape and scoped to its cluster, so a devnet
+/// signature cannot settle a mainnet claim.
 #[reducer]
 pub fn confirm_yield_claim(
     ctx: &ReducerContext,
+    chain: BridgeChain,
     tx_hash: String,
     stake_id: u64,
     claim_nonce: u64,
 ) -> Result<(), String> {
-    let hash = tx_hash.trim().to_string();
-    if hash.is_empty() {
-        return Err("tx_hash cannot be empty".into());
+    let cfg = ctx.db.game_config().id().find(&0).ok_or("game not initialised")?;
+    if ctx.sender() != cfg.owner {
+        return Err("confirm_yield_claim: admin/feeder only".into());
+    }
+    if !chain.is_solana() {
+        return Err("confirm_yield_claim: chain must be a Solana cluster".into());
     }
 
-    // Idempotency Check — reject replayed claim confirmations
-    if ctx.db.processed_tx().tx_hash().find(&hash).is_some() {
-        return Err("Transaction already processed".into());
-    }
+    let hash = normalized_solana_signature(&tx_hash, "tx_hash")?;
+    ensure_unprocessed(ctx, chain.chain_key(), &hash)?;
 
     let mut s = ctx.db.star_stake().stake_id().find(&stake_id).ok_or("no stake found")?;
     if s.claim_nonce != claim_nonce || s.pending_essence == 0 {
         return Err("Claim nonce mismatch or no claim pending".into());
     }
 
-    let amount = s.pending_essence;
-    s.claimed_essence += amount;
+    // The settled amount must be representable in the 4-decimal atoms the
+    // Solana mint actually moved. Any sub-atom remainder stays credited as
+    // accrued yield rather than being written off as claimed.
+    let (_atoms, dust) = ledger_to_solana_atoms(s.pending_essence)?;
+    let settled = s.pending_essence - dust;
+
+    s.claimed_essence += settled;
+    s.accrued_essence += dust;
     s.pending_essence = 0;
     s.claim_nonce = 0;
 
-    ctx.db.processed_tx().insert(ProcessedTx {
-        tx_hash: hash,
-        chain: "solana_token_2022".to_string(),
-        event_type: "claim_yield".to_string(),
-        processed_at: ctx.timestamp,
-    });
-
+    record_processed(ctx, hash, chain.chain_key(), "claim_yield");
     ctx.db.star_stake().stake_id().update(s);
     Ok(())
 }
 
-/// Reverts stale pending claims back into accrued_essence if locked longer than 10 minutes (600s).
+/// How long a two-phase claim may stay locked before anyone may release it.
+const YIELD_CLAIM_LOCK_SECS: i64 = 600;
+
+/// Revert a pending claim back into accrued yield once its lock has expired.
+///
+/// Two gates the documented behaviour was missing entirely: the 10-minute
+/// staleness window it claimed to enforce, and any caller restriction at all.
+/// Without them, one player could cancel another's in-flight claim at the exact
+/// moment the feeder was minting against it — releasing the pending balance
+/// while the mint still landed, and paying the same yield twice.
 #[reducer]
 pub fn cancel_stale_claim(ctx: &ReducerContext, stake_id: u64) -> Result<(), String> {
+    let cfg = ctx.db.game_config().id().find(&0).ok_or("game not initialised")?;
     let mut s = ctx.db.star_stake().stake_id().find(&stake_id).ok_or("no stake found")?;
+    if s.staker != ctx.sender() && ctx.sender() != cfg.owner {
+        return Err("not your stake".into());
+    }
     if s.pending_essence == 0 {
         return Ok(());
+    }
+    // The lock starts when the claim was requested; `last_accrual_at` is stamped
+    // by the tick, so the request time is tracked by the accrual clock. The
+    // owner may release immediately to unstick a failed settlement.
+    if ctx.sender() != cfg.owner && elapsed_secs(ctx.timestamp, s.last_accrual_at) < YIELD_CLAIM_LOCK_SECS {
+        return Err("claim is still within its settlement window".into());
     }
     s.accrued_essence += s.pending_essence;
     s.pending_essence = 0;
@@ -5374,7 +5487,7 @@ pub fn bridge_esms_crosschain(
     {
         return Err("Bridge burn transaction already registered".into());
     }
-    ensure_unprocessed(ctx, &hash)?;
+    ensure_unprocessed(ctx, source.chain_key(), &hash)?;
     let (source_address, target_address) = if source == BridgeChain::EvmBaseSepolia {
         (evm, solana)
     } else {
@@ -5422,13 +5535,10 @@ pub fn complete_esms_bridge(
         .burn_tx_hash()
         .find(&burn_tx_hash)
         .ok_or_else(|| "bridge transfer not found".to_string())?;
-    let destination_hash = match transfer.target_chain {
-        BridgeChain::EvmBaseSepolia => {
-            normalized_evm_tx_hash(&destination_tx_hash, "destination_tx_hash")?
-        }
-        BridgeChain::SolanaToken2022 => {
-            normalized_solana_signature(&destination_tx_hash, "destination_tx_hash")?
-        }
+    let destination_hash = if transfer.target_chain.is_solana() {
+        normalized_solana_signature(&destination_tx_hash, "destination_tx_hash")?
+    } else {
+        normalized_evm_tx_hash(&destination_tx_hash, "destination_tx_hash")?
     };
     if transfer.status == BridgeStatus::Completed {
         return if transfer.destination_tx_hash.as_deref() == Some(destination_hash.as_str()) {
@@ -5437,7 +5547,7 @@ pub fn complete_esms_bridge(
             Err("bridge transfer already completed with a different destination transaction".into())
         };
     }
-    ensure_unprocessed(ctx, &destination_hash)?;
+    ensure_unprocessed(ctx, transfer.target_chain.chain_key(), &destination_hash)?;
     transfer.status = BridgeStatus::Completed;
     transfer.destination_tx_hash = Some(destination_hash.clone());
     transfer.updated_at = ctx.timestamp;
@@ -5445,15 +5555,63 @@ pub fn complete_esms_bridge(
         .bridge_transfer()
         .burn_tx_hash()
         .update(transfer.clone());
-    let target = match transfer.target_chain {
-        BridgeChain::EvmBaseSepolia => "evm_base_sepolia",
-        BridgeChain::SolanaToken2022 => "solana_token_2022",
-    };
-    record_processed(ctx, destination_hash, target, "bridge_destination_mint");
+    record_processed(
+        ctx,
+        destination_hash,
+        transfer.target_chain.chain_key(),
+        "bridge_destination_mint",
+    );
     Ok(())
 }
 
+/// The module ledger counts ESMS in 18-decimal base units, matching the Base
+/// ERC-1155 whose uint256 balances have no practical ceiling.
 const ESMS_BASE_UNITS: u128 = 1_000_000_000_000_000_000;
+
+/// AlchmAgentsSolana issues ESMS as Token-2022 mints at 4 decimals. Token-2022
+/// amounts are u64, which is why the scale differs at all: at 18 decimals a
+/// single token account tops out near 18.45 ESMS.
+const ESMS_SOLANA_DECIMALS: u32 = 4;
+
+/// 10^4 — Solana atoms in one whole ESMS.
+const ESMS_SOLANA_ATOMS_PER_TOKEN: u128 = 10_000;
+
+/// USDC is 6-decimal, and the yield rate is quoted per whole USDC per day.
+const USDC_UNITS_PER_TOKEN: u128 = 1_000_000;
+const SECONDS_PER_DAY: u128 = 86_400;
+
+/// Fixed-point scale applied to the yield rate before it becomes an integer.
+///
+/// Quantizing straight to whole atoms per USDC-day would be far too coarse: the
+/// base rate is 0.0006 ESMS, i.e. 6 atoms, so a modifier moving it to 4.2 atoms
+/// would round to 4 and lose 5% of the yield. A further 10^6 keeps the
+/// quantization error near one part per million while every subsequent
+/// operation stays integer.
+const YIELD_RATE_SCALE: u128 = 1_000_000;
+
+/// 10^14 — the exact factor between one Solana atom and one ledger base unit.
+const LEDGER_PER_SOLANA_ATOM: u128 = 100_000_000_000_000;
+
+/// Widen 4-decimal Solana atoms to the 18-decimal ledger. Always exact.
+fn solana_atoms_to_ledger(atoms: u64) -> Result<u128, String> {
+    (atoms as u128)
+        .checked_mul(LEDGER_PER_SOLANA_ATOM)
+        .ok_or_else(|| "ESMS amount overflows the ledger".to_string())
+}
+
+/// Narrow an 18-decimal ledger amount to 4-decimal Solana atoms, returning the
+/// remainder that is not representable there.
+///
+/// Callers must do something deliberate with the remainder — leave it credited,
+/// or refuse the operation. Discarding it silently leaks value on every
+/// crossing, and 14 digits is a lot of room to leak into.
+fn ledger_to_solana_atoms(amount: u128) -> Result<(u64, u128), String> {
+    let atoms = amount / LEDGER_PER_SOLANA_ATOM;
+    let dust = amount % LEDGER_PER_SOLANA_ATOM;
+    let atoms = u64::try_from(atoms)
+        .map_err(|_| "ESMS amount exceeds the Token-2022 u64 range".to_string())?;
+    Ok((atoms, dust))
+}
 
 fn esms_game_units(amount: u128) -> u16 {
     let whole = if amount >= ESMS_BASE_UNITS {
@@ -5522,7 +5680,7 @@ pub fn sync_evm_event(
         return Err("sync_evm_event: admin/feeder only".into());
     }
     let hash = normalized_evm_tx_hash(&tx_hash, "tx_hash")?;
-    ensure_unprocessed(ctx, &hash)?;
+    ensure_unprocessed(ctx, "evm_base_sepolia", &hash)?;
     let address = player_address.trim().to_ascii_lowercase();
     let player = ctx
         .db
@@ -5555,11 +5713,20 @@ pub fn sync_evm_event(
     Ok(())
 }
 
-/// Feeder sync: translate Solana Token-2022 on-chain mint/burn event into SpacetimeDB state update.
-/// Idempotency guarded by `processed_tx` table using `tx_hash`.
+/// Feeder sync: translate an ESMS Token-2022 mint/burn observed on Solana into
+/// a SpacetimeDB state update.
+///
+/// `chain` names the cluster the feeder observed, and is not cosmetic: it scopes
+/// idempotency so a devnet signature can never be mistaken for the mainnet one
+/// it collides with, and vice versa. It must be a Solana variant.
+///
+/// `amount` arrives in ASOL's 4-decimal atoms — the scale of the Token-2022
+/// mints `asol_program` issues — and is widened here to the module's 18-decimal
+/// ledger. Widening is exact; see `solana_atoms_to_ledger`.
 #[reducer]
 pub fn sync_solana_event(
     ctx: &ReducerContext,
+    chain: BridgeChain,
     tx_hash: String,
     player_pubkey: String,
     event_type: String,
@@ -5570,9 +5737,12 @@ pub fn sync_solana_event(
     if ctx.sender() != cfg.owner {
         return Err("sync_solana_event: admin/feeder only".into());
     }
+    if !chain.is_solana() {
+        return Err("sync_solana_event: chain must be a Solana cluster".into());
+    }
 
     let hash = normalized_solana_signature(&tx_hash, "tx_hash")?;
-    ensure_unprocessed(ctx, &hash)?;
+    ensure_unprocessed(ctx, chain.chain_key(), &hash)?;
     let player = ctx
         .db
         .player()
@@ -5588,8 +5758,9 @@ pub fn sync_solana_event(
     {
         return Err("Solana event wallet ownership has not been verified".into());
     }
-    apply_esms_event_to_jing_pool(ctx, &player, &event_type, element_id, amount as u128)?;
-    record_processed(ctx, hash, "solana_token_2022", &event_type);
+    let ledger_amount = solana_atoms_to_ledger(amount)?;
+    apply_esms_event_to_jing_pool(ctx, &player, &event_type, element_id, ledger_amount)?;
+    record_processed(ctx, hash, chain.chain_key(), &event_type);
     Ok(())
 }
 

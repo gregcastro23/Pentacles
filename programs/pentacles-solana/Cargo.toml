@@ -17,7 +17,12 @@ default = []
 idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
 
 [dependencies]
-anchor-lang = { version = "0.30.1", features = ["interface-instructions"] }
+# `init-if-needed` lets the first stake create its own StakePosition instead of
+# forcing a separate open-position transaction. Safe here because the position
+# PDA seeds bind it to (star_id, staker) so no other account can be targeted,
+# and `stake_star_usdc` only writes initial fields when the position is unset —
+# an existing position is checkpointed, never reset.
+anchor-lang = { version = "0.30.1", features = ["interface-instructions", "init-if-needed"] }
 anchor-spl = { version = "0.30.1", features = ["token_2022"] }
 spl-transfer-hook-interface = "0.6.3"
 spl-tlv-account-resolution = "0.6.3"

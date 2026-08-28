@@ -40,8 +40,67 @@ pub enum DuelState { Active, Resolved }
 pub enum TradeState { Open, Committed, Cancelled }
 
 /// Supported ESMS bridge ledgers.
+///
+/// The first two variants predate any mainnet deployment and are kept exactly
+/// where they are: SpacetimeDB 2.x cannot rename or drop, and every settled row
+/// in `bridge_transfer` already carries one of them. `SolanaToken2022`
+/// therefore keeps meaning *devnet* — relabelling it would retroactively move
+/// settled history onto a chain it never touched. New variants are appended, so
+/// existing tags keep their ordinals.
+///
+/// Each variant maps to a CAIP-2 id via `chain_caip2` below; that id, not the
+/// variant name, is what reconciles against the AlchmAgentsSolana ledger.
 #[derive(SpacetimeType, Clone, Copy, PartialEq, Eq, Debug)]
-pub enum BridgeChain { EvmBaseSepolia, SolanaToken2022 }
+pub enum BridgeChain {
+    EvmBaseSepolia,
+    SolanaToken2022,
+    EvmBaseMainnet,
+    SolanaMainnetToken2022,
+}
+
+impl BridgeChain {
+    /// CAIP-2 chain id — the cross-project identity for this ledger.
+    pub fn caip2(self) -> &'static str {
+        match self {
+            BridgeChain::EvmBaseSepolia => "eip155:84532",
+            BridgeChain::SolanaToken2022 => "solana:devnet",
+            BridgeChain::EvmBaseMainnet => "eip155:8453",
+            BridgeChain::SolanaMainnetToken2022 => "solana:mainnet-beta",
+        }
+    }
+
+    /// Stable key fragment used to scope `processed_tx` idempotency per chain.
+    pub fn chain_key(self) -> &'static str {
+        match self {
+            BridgeChain::EvmBaseSepolia => "evm_base_sepolia",
+            BridgeChain::SolanaToken2022 => "solana_devnet",
+            BridgeChain::EvmBaseMainnet => "evm_base_mainnet",
+            BridgeChain::SolanaMainnetToken2022 => "solana_mainnet_beta",
+        }
+    }
+
+    /// True when this ledger settles real value. Guards every mainnet path.
+    pub fn is_mainnet(self) -> bool {
+        matches!(
+            self,
+            BridgeChain::EvmBaseMainnet | BridgeChain::SolanaMainnetToken2022
+        )
+    }
+
+    /// True for the two Solana clusters, whatever their token program version.
+    pub fn is_solana(self) -> bool {
+        matches!(
+            self,
+            BridgeChain::SolanaToken2022 | BridgeChain::SolanaMainnetToken2022
+        )
+    }
+
+    /// Bridging is only meaningful between an EVM and a Solana ledger of the
+    /// same realness. A testnet burn must never mint on a mainnet ledger.
+    pub fn is_valid_pair(source: Self, target: Self) -> bool {
+        source.is_solana() != target.is_solana() && source.is_mainnet() == target.is_mainnet()
+    }
+}
 
 /// Settlement lifecycle for a verified burn-and-mint transfer.
 #[derive(SpacetimeType, Clone, Copy, PartialEq, Eq, Debug)]
