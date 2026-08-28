@@ -166,12 +166,57 @@ class BorshReader {
   }
 }
 
-/** Decode the Anchor events carried by a transaction's log lines. */
-export function decodeAnchorEvents(logs: string[]): Array<{ name: string; data: BorshReader }> {
-  const events: Array<{ name: string; data: BorshReader }> = [];
-  for (const line of logs) {
-    const match = /^Program data: (.+)$/.exec(line.trim());
+/**
+ * Decode Anchor events emitted by `expectedProgramId` from a transaction's log lines.
+ *
+ * Scopes by program ID: parses the Solana `Program <id> invoke` / `Program <id> success`
+ * frame stack so that same-named events with identical Anchor discriminators emitted by
+ * other programs (such as ASOL) on the same cluster are never decoded into Pentacles state.
+ */
+export function decodeAnchorEvents(
+  logs: string[],
+  expectedProgramId: PublicKey | string = PROGRAM_ID,
+): Array<{ name: string; data: BorshReader; programId?: string }> {
+  const targetId = typeof expectedProgramId === "string" ? expectedProgramId : expectedProgramId.toBase58();
+  const events: Array<{ name: string; data: BorshReader; programId?: string }> = [];
+  const programStack: string[] = [];
+
+  for (const rawLine of logs) {
+    const line = rawLine.trim();
+
+    const invokeMatch = /^Program ([1-9A-HJ-NP-Za-km-z]+) invoke \[\d+\]$/.exec(line);
+    if (invokeMatch) {
+      programStack.push(invokeMatch[1]);
+      continue;
+    }
+
+    const returnMatch = /^Program ([1-9A-HJ-NP-Za-km-z]+) (success|failed:)/.exec(line);
+    if (returnMatch) {
+      if (programStack.length > 0) {
+        const top = programStack[programStack.length - 1];
+        if (top === returnMatch[1]) {
+          programStack.pop();
+        } else {
+          const idx = programStack.lastIndexOf(returnMatch[1]);
+          if (idx !== -1) {
+            programStack.splice(idx);
+          } else {
+            programStack.pop();
+          }
+        }
+      }
+      continue;
+    }
+
+    const match = /^Program data: (.+)$/.exec(line);
     if (!match) continue;
+
+    // Attribute line to the active invoking program if stack is present.
+    const currentProgram = programStack.length > 0 ? programStack[programStack.length - 1] : targetId;
+    if (currentProgram !== targetId) {
+      continue;
+    }
+
     let payload: Buffer;
     try {
       payload = Buffer.from(match[1], "base64");
@@ -182,7 +227,7 @@ export function decodeAnchorEvents(logs: string[]): Array<{ name: string; data: 
     const discriminator = Array.from(payload.subarray(0, 8));
     for (const [name, expected] of Object.entries(EVENT_DISCRIMINATORS)) {
       if (expected.every((byte, index) => byte === discriminator[index])) {
-        events.push({ name, data: new BorshReader(payload.subarray(8)) });
+        events.push({ name, data: new BorshReader(payload.subarray(8)), programId: currentProgram });
         break;
       }
     }
