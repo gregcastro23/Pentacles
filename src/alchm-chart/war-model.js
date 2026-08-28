@@ -21,6 +21,23 @@ const CONTESTED_BELOW = 200; // owned but a weak hold → flaggable as contested
 const CONTROL_MAX = 1000;
 const EVENT_DELTA = 60; // control swing per snapshot worth a ticker line
 
+export const FACTION_ARCHETYPES = [
+  { idx: 0, name: "Sun", archetype: "Radiance", tactic: "Sweeps high counters and leads dignified trumps." },
+  { idx: 1, name: "Moon", archetype: "Tides", tactic: "Intuitive flow — commits power when pot points are high." },
+  { idx: 2, name: "Mercury", archetype: "Quicksilver", tactic: "Cunning probe leads; wins with minimum sufficient power." },
+  { idx: 3, name: "Venus", archetype: "Concord", tactic: "Harmonious synergy; leads off-suit court pairs without breaking melds." },
+  { idx: 4, name: "Mars", archetype: "Onslaught", tactic: "Aggressive attack leads and immediate over-trumping." },
+  { idx: 5, name: "Jupiter", archetype: "Expansion", tactic: "Bold early Major Arcana deployment to build table momentum." },
+  { idx: 6, name: "Saturn", archetype: "Endurance", tactic: "Defensive hoarding; stores high Majors for the final-trick climax." },
+  { idx: 7, name: "Uranus", archetype: "Upheaval", tactic: "Unpredictable plays, tactical Excuse / cross-suit disruption." },
+  { idx: 8, name: "Neptune", archetype: "Dissolution", tactic: "Evasive sloughing; lets rivals exhaust trumps against each other." },
+  { idx: 9, name: "Pluto", archetype: "Transformation", tactic: "Endgame transformation sweeps once trumps are depleted." },
+];
+
+export function factionArchetype(idx) {
+  return FACTION_ARCHETYPES[idx] || { idx, name: PLANET_NAMES[idx] || "Neutral", archetype: "Balanced", tactic: "Standard Guardian AI play." };
+}
+
 /** Zone 0–4 = Houses, 5–9 = Spires, 10 = Crown. */
 export function zoneKindOf(id) { return id <= 4 ? "house" : id <= 9 ? "spire" : "crown"; }
 export function zoneName(id) {
@@ -196,12 +213,15 @@ export function buildTables(meleeTableRows, meleeSeatRows, playerRows, agentMap,
     const agent = agentMap && agentMap[occupantId];
     const player = playerMap[occupantId];
     const handle = (agent && agent.handle) || (player && player.handle) || (occupantId ? occupantId.slice(0, 10) : "—");
+    const arch = fIdx != null ? factionArchetype(fIdx) : { archetype: "Balanced", tactic: "Standard play" };
     seatsByTable[tid].push({
       seatId: Number(s.seat_id),
       tableId: tid,
       occupant: occupantId,
       faction: fIdx,
       factionName: fIdx != null ? names[fIdx] : "Neutral",
+      archetype: arch.archetype,
+      tactic: arch.tactic,
       isHuman: Boolean(s.is_human),
       claim: Number(s.claim || 0),
       counters: Number(s.counters || 0),

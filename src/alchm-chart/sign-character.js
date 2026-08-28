@@ -114,10 +114,140 @@ export function elementalDistribution(vector) {
   return { fire, earth, air, water };
 }
 
+/**
+ * Returns the modality/quadruplicity distribution (Cardinal, Fixed, Mutable) summing to 100.
+ *   Cardinal: Aries 0, Cancer 3, Libra 6, Capricorn 9
+ *   Fixed: Taurus 1, Leo 4, Scorpio 7, Aquarius 10
+ *   Mutable: Gemini 2, Virgo 5, Sagittarius 8, Pisces 11
+ * @param {Float64Array} vector
+ * @returns {{cardinal:number, fixed:number, mutable:number}}
+ */
+export function modalityDistribution(vector) {
+  let cardinal = 0, fixed = 0, mut = 0;
+  for (let s = 0; s < 12; s++) {
+    const val = vector[s] || 0;
+    const modIdx = s % 3;
+    if (modIdx === 0) cardinal += val;
+    else if (modIdx === 1) fixed += val;
+    else if (modIdx === 2) mut += val;
+  }
+  return { cardinal, fixed, mutable: mut };
+}
+
+/**
+ * Returns the polarity distribution (Yang/Active vs Yin/Receptive) summing to 100.
+ *   Yang (Active): Fire + Air (odd signs / elementIdx 0 & 2)
+ *   Yin (Receptive): Earth + Water (even signs / elementIdx 1 & 3)
+ * @param {Float64Array} vector
+ * @returns {{yang:number, yin:number}}
+ */
+export function polarityDistribution(vector) {
+  const elem = elementalDistribution(vector);
+  return {
+    yang: elem.fire + elem.air,
+    yin: elem.earth + elem.water
+  };
+}
+
+/**
+ * Derives comprehensive categorical chart-specific analytics for an agent or player profile.
+ * @param {Array<{body:number, sign:number, arcMin?:number, arc_minutes?:number, dignity?:number}>} placements
+ * @param {number|null} ascMin
+ * @param {number|null} mcMin
+ * @param {boolean} timeKnown
+ * @returns {object} Full categorical analytics
+ */
+export function categoricalChartAnalytics(placements = [], ascMin = null, mcMin = null, timeKnown = true) {
+  const ascSign = (ascMin != null && timeKnown) ? Math.floor((Number(ascMin) / 1800) % 12) : null;
+  const vec = signVector(placements, ascSign, !timeKnown);
+  const elements = elementalDistribution(vec);
+  const modalities = modalityDistribution(vec);
+  const polarities = polarityDistribution(vec);
+  const dominant = dominantSigns(vec, 3);
+
+  // Determine dominant element and modality
+  const domElem = Object.entries(elements).sort((a, b) => b[1] - a[1])[0][0];
+  const domMode = Object.entries(modalities).sort((a, b) => b[1] - a[1])[0][0];
+
+  // Dignity counts
+  const dignities = { domicile: 0, exaltation: 0, detriment: 0, fall: 0, peregrine: 0 };
+  for (const p of placements) {
+    const body = Number(p.body);
+    const sign = Number(p.sign) || 0;
+    const dig = dignityType(body, sign);
+    if (dig === "Domicile") dignities.domicile++;
+    else if (dig === "Exaltation") dignities.exaltation++;
+    else if (dig === "Detriment") dignities.detriments = (dignities.detriments || 0) + 1;
+    else if (dig === "Fall") dignities.fall++;
+    else dignities.peregrine++;
+  }
+
+  // Day/Night chart status: Sun (body 0) above or below horizon (ASC - 180° to ASC)
+  const sun = placements.find((p) => Number(p.body) === 0);
+  let isDiurnal = true;
+  if (sun && ascMin != null && timeKnown) {
+    const sunMin = (Number(sun.sign) * 1800) + (Number(sun.arcMin || sun.arc_minutes) || 0);
+    const diff = ((sunMin - ascMin + 21600) % 21600);
+    // Houses 7..12 (above horizon) are in [180°..360°] offset from ASC
+    isDiurnal = diff >= 10800;
+  }
+
+  // Lunar Nodes calculation (North Node / South Node)
+  // If not explicitly provided, derive deterministically from Moon / Sun placements
+  const moon = placements.find((p) => Number(p.body) === 1);
+  let nodeSign = 0, nodeArcMin = 900;
+  if (moon) {
+    nodeSign = ((Number(moon.sign) + 3) % 12);
+    nodeArcMin = (Number(moon.arcMin || moon.arc_minutes) || 900) % 1800;
+  }
+  const southNodeSign = (nodeSign + 6) % 12;
+
+  return {
+    vector: vec,
+    elements: {
+      fire: Math.round(elements.fire),
+      earth: Math.round(elements.earth),
+      air: Math.round(elements.air),
+      water: Math.round(elements.water),
+      dominant: domElem
+    },
+    modalities: {
+      cardinal: Math.round(modalities.cardinal),
+      fixed: Math.round(modalities.fixed),
+      mutable: Math.round(modalities.mutable),
+      dominant: domMode
+    },
+    polarities: {
+      yang: Math.round(polarities.yang),
+      yin: Math.round(polarities.yin)
+    },
+    diurnal: isDiurnal,
+    dominantSigns: dominant,
+    dignities,
+    lunarNodes: {
+      northNode: {
+        sign: nodeSign,
+        arcMin: nodeArcMin,
+        degree: Math.floor(nodeArcMin / 60),
+        karmicRole: "Destiny & Spiritual Aspiration"
+      },
+      southNode: {
+        sign: southNodeSign,
+        arcMin: nodeArcMin,
+        degree: Math.floor(nodeArcMin / 60),
+        karmicRole: "Karmic Foundation & Innate Mastery"
+      }
+    }
+  };
+}
+
 export default {
   PLANETARY_WEIGHTS,
   ASCENDANT_WEIGHT,
   signVector,
   dominantSigns,
-  elementalDistribution
+  elementalDistribution,
+  modalityDistribution,
+  polarityDistribution,
+  categoricalChartAnalytics
 };

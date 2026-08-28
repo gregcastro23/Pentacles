@@ -86,10 +86,13 @@ async function reportHealth(detail: string): Promise<void> {
 
 export async function evaluateHistoricalAgentFlux(): Promise<void> {
   try {
-    // Query active zones and ephemeris transits
-    const zoneRows = await sql("SELECT zone_id, in_flux, control FROM zone");
-
-    const ephemerisRows = await sql("SELECT body, transiting_zone FROM ephemeris");
+    // Query active zones, ephemeris transits, and agent war presence
+    const [zoneRows, ephemerisRows, agentRows, tableRows] = await Promise.all([
+      sql("SELECT zone_id, in_flux, control FROM zone"),
+      sql("SELECT body, transiting_zone FROM ephemeris"),
+      sql("SELECT identity FROM agent_chart").catch(() => [] as any[]),
+      sql("SELECT table_id, state FROM melee_table").catch(() => [] as any[]),
+    ]);
 
     if (!zoneRows || zoneRows.length === 0) return;
 
@@ -113,7 +116,9 @@ export async function evaluateHistoricalAgentFlux(): Promise<void> {
       }
     }
 
-    await reportHealth(`active (${zoneRows.length} zones monitored)`);
+    const agentCount = agentRows ? agentRows.length : 0;
+    const activeTables = tableRows ? tableRows.filter((t: any) => String(t.state).toLowerCase() !== "resolved").length : 0;
+    await reportHealth(`active (${agentCount} agents, ${activeTables} active tables, ${zoneRows.length} zones)`);
   } catch (err) {
     console.error("[historical-agents] Error during historical agent flux sweep:", err);
   }

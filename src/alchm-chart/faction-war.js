@@ -16,7 +16,8 @@ import {
   agentIdentitySet, agentByIdentity, buildTables, roundClock, canAccessZone,
   accessRefusalReason, PLANET_NAMES,
 } from "./war-model.js";
-import { agentDeck, MAJOR_NUMERALS, SUIT_GLYPHS, SUIT_COLORS, rankName } from "./deck.js";
+import { agentDeck, MAJOR_NUMERALS, MAJOR_NAMES, ARCANA_NUMERALS, ARCANA_NAMES, SUIT_GLYPHS, SUIT_COLORS, rankName } from "./deck.js";
+import { categoricalChartAnalytics } from "./sign-character.js";
 import MeleeTable from "./melee-table.js";
 
 const suitCap = (s) => (s ? s[0].toUpperCase() + s.slice(1).toLowerCase() : "Wands");
@@ -486,8 +487,11 @@ export class FactionWarInstance {
     const cap = suitCap(c.suit);
     const scol = SUIT_COLORS[cap] || "var(--ac-gold)";
     const pcol = this.PC[c.source_body] || scol;
-    const rank = c.is_major ? (MAJOR_NUMERALS[c.source_body] || "major") : rankName(c.rank);
-    const cls = "aw-tray-card aw-card--" + (c.suit || "wands") + (c.is_major ? " aw-card--major" : "") + (c.inverted ? " aw-card--inv" : "");
+    const isMajor = !!c.is_major;
+    const numeral = (c.rank !== undefined && ARCANA_NUMERALS[c.rank]) || (c.source_body !== undefined && MAJOR_NUMERALS[c.source_body]) || "major";
+    const rank = isMajor ? numeral : rankName(c.rank);
+    const name = c.title || (isMajor ? (ARCANA_NAMES[c.rank] || MAJOR_NAMES[c.source_body] || "Major Arcana") : `${rank} of ${cap}`);
+    const cls = "aw-tray-card aw-card--" + (c.suit || "wands").toLowerCase() + (isMajor ? " aw-card--major" : "") + (c.inverted ? " aw-card--inv" : "");
     return h("div", {
       class: cls, draggable: "true", title: "Drag onto a zone to deploy",
       dataset: { cardId: String(c.card_id) },
@@ -498,11 +502,11 @@ export class FactionWarInstance {
         h("span", { class: "aw-tray-glyph", style: { color: pcol }, text: SUIT_GLYPHS[cap] || "✦" }),
         h("span", { class: "aw-tray-rank aw-dim", text: rank }),
       ]),
-      h("div", { class: "aw-tray-title", text: c.title || `${rank} of ${cap}` }),
+      h("div", { class: "aw-tray-title", text: name }),
       h("div", { class: "aw-tray-stats" }, [
-        h("span", { text: `⚔ ${c.attack}` }),
-        h("span", { text: `♥ ${c.health}` }),
-        h("span", { text: `🛡 ${c.armour}` }),
+        h("span", { text: `⚔ ${c.attack || 0}` }),
+        h("span", { text: `♥ ${c.health || 0}` }),
+        h("span", { text: `🛡 ${c.armour || 0}` }),
       ]),
       h("div", { class: "aw-tray-foot aw-dim" }, [
         h("span", { style: { color: pcol }, text: `${this.PG[c.source_body] || ""} Lv ${c.level || 1}` }),
@@ -574,6 +578,21 @@ export class FactionWarInstance {
       myHand: this.myCards,
       hooks: {
         onClose: () => this.closeAgentProfile(),
+        onPlayCard: (tableId, cardId) => {
+          if (this.hooks.onPlayCard) {
+            this.hooks.onPlayCard(tableId, cardId);
+            return;
+          }
+          const net = typeof window !== "undefined" && window.Pentacles && window.Pentacles.net;
+          if (net && typeof net.callReducer === "function") {
+            const currentTrickNum = Math.min(12, Math.max(1, (table.plays && table.plays.length ? Math.floor(table.plays.length / Math.max(1, table.seats.length)) + 1 : 1)));
+            net.callReducer("play_melee_card", [tableId, cardId, currentTrickNum]).then(() => {
+              if (typeof window !== "undefined" && window.toast) window.toast("Card played into trick.", { type: "success" });
+            }).catch((err) => {
+              if (typeof window !== "undefined" && window.toast) window.toast((err && err.message) || "Play failed", { type: "error" });
+            });
+          }
+        },
       },
     });
     mt.mount();
@@ -593,31 +612,52 @@ export class FactionWarInstance {
     const ascMin = Number(chart.ascendant) || 0, mcMin = Number(chart.midheaven) || 0;
     const timeKnown = chart.time_known !== false;
     const deck = agentDeck(placements, ascMin, mcMin);
+    const analytics = categoricalChartAnalytics(placements, ascMin, mcMin, timeKnown);
 
     clear(pop);
     pop.appendChild(h("button", { class: "aw-pop-close", text: "✕", "aria-label": "Close", onClick: () => this.closeAgentProfile() }));
     const card = h("div", { class: "aw-pop-card" });
 
     const birth = this._birthLine(chart);
+    const kitchenUrl = `https://agents.alchm.kitchen/profile?agent=${encodeURIComponent(a.handle || "agent")}&faction=${factionIdx}`;
+
     card.appendChild(h("div", { class: "aw-pop-head" }, [
       h("span", { class: "aw-pop-medallion", style: { color: col, borderColor: col }, text: this.PG[factionIdx] || "✦" }),
       h("div", { class: "aw-pop-id" }, [
         h("div", { class: "aw-pop-name", text: a.handle }),
         h("div", { class: "aw-pop-faction aw-dim" }, [
           h("span", { style: { color: col }, text: `${this.PG[factionIdx]} ${this.PN[factionIdx]}` }),
-          h("span", { text: " · agent" }),
+          h("span", { text: " · planetary agent" }),
         ]),
         h("div", { class: "aw-pop-birth aw-dim", text: birth }),
+      ]),
+      h("div", { class: "aw-pop-actions" }, [
+        h("a", {
+          class: "aw-kitchen-btn",
+          href: kitchenUrl,
+          target: "_blank",
+          rel: "noopener noreferrer",
+          text: "agents.alchm.kitchen/profile ↗",
+          title: "View full live agent dossier on Planetary Kitchen"
+        }),
       ]),
       h("div", { class: "aw-pop-angles" }, timeKnown ? [
         this._angle("ASC", ascMin), this._angle("MC", mcMin),
       ] : [h("span", { class: "aw-pop-solar", text: "solar chart" })]),
     ]));
 
-    card.appendChild(h("div", { class: "aw-section-label", text: "Placements · decans" }));
+    // Categorical Chart Specific Analytics
+    card.appendChild(h("div", { class: "aw-section-label", text: "Categorical Chart Analytics" }));
+    card.appendChild(this._analyticsSection(analytics));
+
+    // Lunar Nodes (Caput & Cauda Draconis)
+    card.appendChild(h("div", { class: "aw-section-label", text: "Lunar Nodes · Karmic Axis" }));
+    card.appendChild(this._lunarNodesSection(analytics.lunarNodes));
+
+    card.appendChild(h("div", { class: "aw-section-label", text: "Placements · Decans" }));
     card.appendChild(this._decanTable(deck));
 
-    card.appendChild(h("div", { class: "aw-section-label", text: `The Deck · ${deck.length} cards` }));
+    card.appendChild(h("div", { class: "aw-section-label", text: `The Deck · ${deck.length} Cards (Full Astrological Archetype)` }));
     const grid = h("div", { class: "aw-deck-grid" });
     for (const c of deck) grid.appendChild(this._tarotCard(c));
     card.appendChild(grid);
@@ -627,6 +667,80 @@ export class FactionWarInstance {
     pop.scrollTop = 0;
   }
   closeAgentProfile() { const p = this.dom.pop; if (p) { p.hidden = true; clear(p); } }
+
+  _analyticsSection(analytics) {
+    const wrap = h("div", { class: "aw-analytics-grid" });
+
+    // 1. Elements
+    const elemCol = h("div", { class: "aw-analytics-col" }, [
+      h("div", { class: "aw-analytics-title", text: "Elemental Triplicities" }),
+      h("div", { class: "aw-bar-wrap" }, [
+        this._metricBar("Fire", analytics.elements.fire, "#cf4d4d", "🔥"),
+        this._metricBar("Earth", analytics.elements.earth, "#74ab6c", "🌍"),
+        this._metricBar("Air", analytics.elements.air, "#aebbd6", "💨"),
+        this._metricBar("Water", analytics.elements.water, "#5f93d8", "🌊"),
+      ]),
+      h("div", { class: "aw-dim aw-analytics-sub", text: `Dominant: ${analytics.elements.dominant.toUpperCase()}` }),
+    ]);
+    wrap.appendChild(elemCol);
+
+    // 2. Modalities & Polarities
+    const modCol = h("div", { class: "aw-analytics-col" }, [
+      h("div", { class: "aw-analytics-title", text: "Modalities & Polarities" }),
+      h("div", { class: "aw-bar-wrap" }, [
+        this._metricBar("Cardinal", analytics.modalities.cardinal, "#e8b84b", "⚡"),
+        this._metricBar("Fixed", analytics.modalities.fixed, "#d98fb0", "🏛"),
+        this._metricBar("Mutable", analytics.modalities.mutable, "#5fb6c4", "🌀"),
+      ]),
+      h("div", { class: "aw-polarity-row aw-dim" }, [
+        h("span", { text: `Yang ${analytics.polarities.yang}% · Yin ${analytics.polarities.yin}%` }),
+        h("span", { text: ` · ${analytics.diurnal ? "Diurnal (Day ☉)" : "Nocturnal (Night ☽)"}` }),
+      ]),
+    ]);
+    wrap.appendChild(modCol);
+
+    return wrap;
+  }
+
+  _metricBar(label, pct, color, icon) {
+    return h("div", { class: "aw-metric-row" }, [
+      h("span", { class: "aw-metric-label", text: `${icon} ${label}` }),
+      h("div", { class: "aw-metric-track" }, [
+        h("div", { class: "aw-metric-fill", style: { width: `${Math.min(100, Math.max(0, pct))}%`, background: color } })
+      ]),
+      h("span", { class: "aw-metric-val aw-dim", text: `${pct}%` }),
+    ]);
+  }
+
+  _lunarNodesSection(nodes) {
+    const wrap = h("div", { class: "aw-nodes-grid" });
+
+    // North Node
+    const nn = nodes.northNode;
+    const nnCard = h("div", { class: "aw-node-card north" }, [
+      h("div", { class: "aw-node-head" }, [
+        h("span", { class: "aw-node-glyph", text: "☊" }),
+        h("span", { class: "aw-node-name", text: "North Node (Caput Draconis / Rahu)" }),
+      ]),
+      h("div", { class: "aw-node-pos", text: `${SIGN_GLYPHS[nn.sign]} ${SIGN_NAMES[nn.sign]} ${nn.degree}°` }),
+      h("div", { class: "aw-node-desc aw-dim", text: "Destiny Vector: Spiritual aspiration, soul evolution, future growth." }),
+    ]);
+    wrap.appendChild(nnCard);
+
+    // South Node
+    const sn = nodes.southNode;
+    const snCard = h("div", { class: "aw-node-card south" }, [
+      h("div", { class: "aw-node-head" }, [
+        h("span", { class: "aw-node-glyph", text: "☋" }),
+        h("span", { class: "aw-node-name", text: "South Node (Cauda Draconis / Ketu)" }),
+      ]),
+      h("div", { class: "aw-node-pos", text: `${SIGN_GLYPHS[sn.sign]} ${SIGN_NAMES[sn.sign]} ${sn.degree}°` }),
+      h("div", { class: "aw-node-desc aw-dim", text: "Karmic Origin: Innate mastery, past wisdom, anchor of power." }),
+    ]);
+    wrap.appendChild(snCard);
+
+    return wrap;
+  }
 
   _birthLine(chart) {
     const unix = Number(chart.birth_unix);
@@ -648,14 +762,15 @@ export class FactionWarInstance {
       h("span", { text: "Body" }), h("span", { text: "Sign" }), h("span", { text: "Decan" }),
       h("span", { text: "Ruler" }), h("span", { text: "Card" }), h("span", { text: "Suit" }),
     ]));
-    for (const c of deck.filter((c) => !c.is_major).slice(0, 10)) {
+    for (const c of deck.filter((c) => !c.is_major).slice(0, 12)) {
       const cap = suitCap(c.suit);
+      const isNode = c.role && c.role.includes("node");
       wrap.appendChild(h("div", { class: "aw-decan-r" }, [
-        h("span", { text: this.PN[c.source_body] || "—" }),
+        h("span", { text: isNode ? (c.role === "north node" ? "☊ North Node" : "☋ South Node") : (this.PN[c.source_body] || "—") }),
         h("span", { text: SIGN_NAMES[c.sign] || "—" }),
         h("span", { text: `${c.decan || 1}st` }),
-        h("span", { text: this.PN[c.decan_ruler] || "—" }),
-        h("span", { text: c.title || rankName(c.rank) }),
+        h("span", { text: this.PN[c.decanRuler] || "—" }),
+        h("span", { text: c.name || c.title || rankName(c.rank) }),
         h("span", { style: { color: SUIT_COLORS[cap] }, text: `${SUIT_GLYPHS[cap] || ""} ${cap}` }),
       ]));
     }
@@ -663,15 +778,18 @@ export class FactionWarInstance {
   }
   _tarotCard(c) {
     const cap = suitCap(c.suit);
-    const rank = c.is_major ? (MAJOR_NUMERALS[c.source_body] || "major") : rankName(c.rank);
+    const isMajor = !!c.is_major || !!c.major;
+    const rank = isMajor ? (c.rank || "major") : rankName(c.rank);
+    const glyph = c.glyph || SUIT_GLYPHS[cap] || "✦";
+    const name = c.name || c.title || (isMajor ? "Major Arcana" : `${rank} of ${cap}`);
     return h("div", {
-      class: "aw-card aw-card--" + (c.suit || "wands") + (c.is_major ? " aw-card--major" : "") + (c.inverted ? " aw-card--inv" : ""),
+      class: "aw-card aw-card--" + (c.suit || "wands").toLowerCase() + (isMajor ? " aw-card--major" : "") + (c.inverted ? " aw-card--inv" : ""),
     }, [
-      h("span", { class: "aw-card-glyph", style: { color: SUIT_COLORS[cap] }, text: SUIT_GLYPHS[cap] || "✦" }),
-      h("div", { class: "aw-card-title", text: c.title || rank }),
-      h("div", { class: "aw-card-sub aw-dim", text: c.is_major ? "Major Arcana" : `${rank} of ${cap}` }),
+      h("span", { class: "aw-card-glyph", style: { color: c.color || SUIT_COLORS[cap] }, text: glyph }),
+      h("div", { class: "aw-card-title", text: name }),
+      h("div", { class: "aw-card-sub aw-dim", text: isMajor ? (c.role ? c.role.toUpperCase() : "MAJOR ARCANA") : `${rank} of ${cap}` }),
       h("div", { class: "aw-card-sep" }),
-      h("div", { class: "aw-card-foot aw-dim", text: `⚔ ${c.attack || 5} · ♥ ${c.health || 10}` }),
+      h("div", { class: "aw-card-foot aw-dim", text: `⚔ ${c.attack || 12} · ♥ ${c.health || 24}` }),
     ]);
   }
 }

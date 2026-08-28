@@ -616,30 +616,40 @@
 
     // Render Web Card Component HTML
     function buildCardHTML(c, loadout, isSelectionMode = false) {
-      const isSelected = state.selectedCards.has(c.card_id);
+      const isSelected = state.selectedCards.has(c.card_id) || state.selectedCards.has(Number(c.card_id));
       const selClass = isSelected ? "selected" : "";
-      const isMajor = c.is_major;
-      const detailText = isMajor ? `Major ${MAJOR_NUMERALS[c.source_body]}` : `${SIGN_GLYPHS[c.sign_idx]} ${SIGN_NAMES[c.sign_idx]}`;
+      const isMajor = !!c.is_major;
+      const bodyIdx = typeof c.source_body === "number" ? c.source_body : (typeof c.source_body === "string" ? PLANET_NAMES.indexOf(c.source_body) : 0);
+      const planetColor = PLANET_COLORS[bodyIdx] || "#e8b84b";
+      const planetGlyph = PLANET_GLYPHS[bodyIdx] || "✦";
+      const suitKey = (c.suit || "wands").toLowerCase();
+      const suitGlyph = SUIT_GLYPHS[suitKey] || "✦";
+      const numeral = (c.rank !== undefined && ARCANA_NUMERALS[c.rank]) || (bodyIdx >= 0 && MAJOR_NUMERALS[bodyIdx]) || "✦";
+      const signIdx = (c.sign_idx !== undefined && c.sign_idx !== null) ? Number(c.sign_idx) : 0;
+      const detailText = isMajor ? `Major ${numeral}` : `${SIGN_GLYPHS[signIdx] || "✦"} ${SIGN_NAMES[signIdx] || ""}`;
       const actionFn = isSelectionMode ? `autoPlaceCardInSiege(${c.card_id})` : `handleCollectionCardClick(${c.card_id})`;
-      const badge = loadout === "active" ? `<span class="web-card-chip">Active</span>` : (loadout === "defense" ? `<span class="web-card-chip defense">Defense</span>` : "");
+      const normLoadout = (loadout || "").toLowerCase();
+      const badge = normLoadout === "active" ? `<span class="web-card-chip">Active</span>` : (normLoadout === "defense" ? `<span class="web-card-chip defense">Defense</span>` : "");
 
       const dragAttr = isSelectionMode
         ? `draggable="true" ondragstart="handleCardDragStart(event, ${c.card_id})" ondragend="handleCardDragEnd(event, ${c.card_id})"`
         : "";
 
+      const title = c.title || (isMajor ? (ARCANA_NAMES[c.rank] || MAJOR_NAMES[bodyIdx] || "Major Arcana") : `${rankName(c.rank)} of ${SUIT_NAMES[suitKey] || suitKey}`);
+
       return `
-        <div class="web-card ${c.suit} ${selClass} ${isMajor ? 'major' : ''} ${c.inverted ? 'inverted' : ''}" data-card-id="${c.card_id}" ${dragAttr} onclick="${actionFn}">
+        <div class="web-card ${suitKey} ${selClass} ${isMajor ? 'major' : ''} ${c.inverted ? 'inverted' : ''}" data-card-id="${c.card_id}" ${dragAttr} onclick="${actionFn}">
           ${badge}
-          <div class="web-card-glyph" style="color: ${PLANET_COLORS[c.source_body]};">${SUIT_GLYPHS[c.suit]}</div>
-          <div class="web-card-title">${c.title}</div>
+          <div class="web-card-glyph" style="color: ${planetColor};">${suitGlyph}</div>
+          <div class="web-card-title">${title}</div>
           <div class="web-card-subtitle">${detailText} ${c.inverted ? '(rev)' : ''}</div>
           <div class="web-card-sep"></div>
           <div class="web-card-stats">
-            ⚔ ${c.attack} &nbsp; ♥ ${c.health}<br>
-            🛡 ${c.armour} &nbsp; ⏳ ${c.cooldown_ms}
+            ⚔ ${c.attack || 0} &nbsp; ♥ ${c.health || 0}<br>
+            🛡 ${c.armour || 0} &nbsp; ⏳ ${c.cooldown_ms || 1000}
           </div>
-          <div class="web-card-footnote" style="color: ${PLANET_COLORS[c.source_body]};">
-            ${PLANET_GLYPHS[c.source_body]} Lv ${c.level}
+          <div class="web-card-footnote" style="color: ${planetColor};">
+            ${planetGlyph} Lv ${c.level || 1}
           </div>
         </div>
       `;
@@ -651,6 +661,10 @@
       const container = document.getElementById("active-deck-strip");
       if (!container) return;
       container.innerHTML = "";
+
+      if (state.player && typeof state.ensureStarterDeck === "function") {
+        state.ensureStarterDeck();
+      }
 
       let cards = (state.deck || [])
         .filter(d => d.loadout === "active")
@@ -666,15 +680,15 @@
       // Apply Sort
       cards.sort((a, b) => {
         if (handSortMode === "rank") {
-          return (a.rank || 0) - (b.rank || 0) || b.attack - a.attack;
+          return (a.rank || 0) - (b.rank || 0) || (b.attack || 0) - (a.attack || 0);
         } else if (handSortMode === "suit") {
-          return (a.suit || "").localeCompare(b.suit || "") || b.attack - a.attack;
+          return (a.suit || "").localeCompare(b.suit || "") || (b.attack || 0) - (a.attack || 0);
         } else if (handSortMode === "affinity") {
-          return (a.source_body || 0) - (b.source_body || 0) || b.attack - a.attack;
+          return (a.source_body || 0) - (b.source_body || 0) || (b.attack || 0) - (a.attack || 0);
         } else if (handSortMode === "power") {
-          return b.attack - a.attack;
+          return (b.attack || 0) - (a.attack || 0);
         } else if (handSortMode === "sign") {
-          return (a.sign_idx !== undefined ? a.sign_idx : 0) - (b.sign_idx !== undefined ? b.sign_idx : 0) || b.attack - a.attack;
+          return (a.sign_idx !== undefined ? a.sign_idx : 0) - (b.sign_idx !== undefined ? b.sign_idx : 0) || (b.attack || 0) - (a.attack || 0);
         }
         return 0;
       });
@@ -1968,11 +1982,16 @@
     // Render Fusions and Deck Collection Tab
     function renderCollection() {
       const container = document.getElementById("collection-grid");
+      if (!container) return;
       container.innerHTML = "";
 
-      state.collection.forEach(c => {
-        const slot = state.deck.find(d => d.card_id === c.card_id);
-        const loadout = slot ? slot.loadout : "bench";
+      if (state.player && typeof state.ensureStarterDeck === "function") {
+        state.ensureStarterDeck();
+      }
+
+      (state.collection || []).forEach(c => {
+        const slot = (state.deck || []).find(d => Number(d.card_id) === Number(c.card_id));
+        const loadout = slot ? (slot.loadout || "bench") : "bench";
         container.innerHTML += buildCardHTML(c, loadout, false);
       });
     }

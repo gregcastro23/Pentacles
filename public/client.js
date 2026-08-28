@@ -400,7 +400,24 @@ function deriveLocalNatalChart(seedStr) {
   const ascendant = Math.floor(random() * 360 * 60);
   const midheaven = Math.floor(random() * 360 * 60);
 
-  return { placements, ascendant, midheaven };
+  // Lunar Nodes (North Node ☊ & South Node ☋ = ☊ + 180°)
+  const nnSign = Math.floor(random() * 12);
+  const nnDegree = Math.floor(random() * 30);
+  const nnMinute = Math.floor(random() * 60);
+  const north_node = {
+    sign: nnSign,
+    arc_minutes: nnDegree * 60 + nnMinute,
+    degree: nnDegree,
+    minute: nnMinute,
+  };
+  const south_node = {
+    sign: (nnSign + 6) % 12,
+    arc_minutes: nnDegree * 60 + nnMinute,
+    degree: nnDegree,
+    minute: nnMinute,
+  };
+
+  return { placements, ascendant, midheaven, north_node, south_node };
 }
 
 function scoreFactions(chart) {
@@ -632,6 +649,7 @@ class GameState {
           (this.map || []).forEach(z => { delete z.stars; });
           this.rituals = data.rituals || {};
           this.initRituals();
+          this.ensureStarterDeck();
           this.recomputeSky();
           return true;
         } catch (e) {
@@ -757,31 +775,33 @@ class GameState {
     this.recomputeSky();
   }
 
-  registerPlayer(handle, faction, chart) {
-    this.player = {
-      handle,
-      faction,
-      chart,
-      deck_seed: Math.floor(Math.random() * 1000000),
-      tokens: 0,     // Word Duel reward currency (the Lettered Arcana)
-      word_wins: 0
-    };
+  mintStarterDeck(chart) {
+    if (!chart || !Array.isArray(chart.placements) || chart.placements.length === 0) {
+      const fallbackHandle = (this.player && this.player.handle) || "Seeker";
+      chart = typeof deriveLocalNatalChart === "function"
+        ? deriveLocalNatalChart(fallbackHandle)
+        : { placements: [], ascendant: 0, midheaven: 0 };
+    }
 
-    // Mint starting deck
     this.collection = [];
     this.deck = [];
 
-    const chartRuler = SIGN_RULERS[Math.floor(chart.ascendant / 1800) % 12];
-    const receptionBoosts = calculateReceptionBoosts(chart);
+    const ascendant = chart.ascendant != null ? chart.ascendant : 0;
+    const ascSign = Math.floor(ascendant / 1800) % 12;
+    const chartRuler = SIGN_RULERS[ascSign];
+    const receptionBoosts = typeof calculateReceptionBoosts === "function"
+      ? calculateReceptionBoosts(chart)
+      : new Array(10).fill(0);
 
-    chart.placements.forEach(p => {
-      const degree = Math.floor(p.arc_minutes / 60);
-      const minute = p.arc_minutes % 60;
-      const receptionBoost = receptionBoosts[p.body];
-      const effectiveDignity = p.dignity + Math.round(receptionBoost * 2);
+    // 1. Mint 10 Minors and 10 Planetary Majors for placements
+    (chart.placements || []).forEach(p => {
+      const degree = Math.floor((p.arc_minutes || 0) / 60);
+      const minute = (p.arc_minutes || 0) % 60;
+      const receptionBoost = receptionBoosts[p.body] || 0;
+      const effectiveDignity = (p.dignity || 0) + Math.round(receptionBoost * 2);
       const minorRank = p.body === chartRuler
         ? 1
-        : ((isAngularPlacement(p, chart) || SIGN_RULERS[p.sign] === p.body)
+        : ((typeof isAngularPlacement === "function" && isAngularPlacement(p, chart)) || SIGN_RULERS[p.sign] === p.body
           ? courtRank(effectiveDignity)
           : pipRank(p.sign, degree));
 
@@ -790,8 +810,8 @@ class GameState {
         false,
         degree,
         minute,
-        p.dignity,
-        p.retrograde,
+        p.dignity || 0,
+        !!p.retrograde,
         minorRank,
         p.sign,
         receptionBoost
@@ -804,8 +824,8 @@ class GameState {
         true,
         degree,
         minute,
-        p.dignity,
-        p.retrograde,
+        p.dignity || 0,
+        !!p.retrograde,
         MAJOR_INDEX[p.body],
         p.sign,
         receptionBoost
@@ -814,8 +834,53 @@ class GameState {
       this.mintSlot(major.card_id);
     });
 
-    // Mint Sign Majors for distinct signs occupied by chart placements
-    const occupiedSigns = [...new Set(chart.placements.map(p => p.sign))];
+    // 2. Mint Lunar Node Cards (North Node ☊ and South Node ☋)
+    const moonPlacement = (chart.placements || []).find(p => p.body === 1);
+    const nn = chart.north_node || {
+      sign: moonPlacement ? ((moonPlacement.sign + 3) % 12) : 0,
+      arc_minutes: moonPlacement ? (moonPlacement.arc_minutes || 900) : 900,
+    };
+    const sn = chart.south_node || {
+      sign: (nn.sign + 6) % 12,
+      arc_minutes: nn.arc_minutes,
+    };
+
+    // North Node Minor (Destiny Decan)
+    const nnDegree = Math.floor((nn.arc_minutes || 0) / 60);
+    const nnMinute = (nn.arc_minutes || 0) % 60;
+    const nnRank = pipRank(nn.sign, nnDegree);
+    const nnMinor = this.createCard(1, false, nnDegree, nnMinute, 2, false, nnRank, nn.sign, 0);
+    nnMinor.title = `☊ North Node · ${rankName(nnRank)} of ${SUIT_NAMES[nnMinor.suit] || nnMinor.suit}`;
+    this.collection.push(nnMinor);
+    this.mintSlot(nnMinor.card_id);
+
+    // North Node Major (The Star XVII · Destiny Arcana)
+    const nnMajor = this.createCard(1, true, nnDegree, nnMinute, 4, false, 17, nn.sign, 0);
+    nnMajor.title = "The Star · Caput Draconis (☊)";
+    this.collection.push(nnMajor);
+    this.mintSlot(nnMajor.card_id);
+
+    // South Node Minor (Karmic Origin Decan)
+    const snDegree = Math.floor((sn.arc_minutes || 0) / 60);
+    const snMinute = (sn.arc_minutes || 0) % 60;
+    const snRank = pipRank(sn.sign, snDegree);
+    const snMinor = this.createCard(1, false, snDegree, snMinute, 2, false, snRank, sn.sign, 0);
+    snMinor.title = `☋ South Node · ${rankName(snRank)} of ${SUIT_NAMES[snMinor.suit] || snMinor.suit}`;
+    this.collection.push(snMinor);
+    this.mintSlot(snMinor.card_id);
+
+    // South Node Major (The Moon XVIII · Karma Arcana)
+    const snMajor = this.createCard(1, true, snDegree, snMinute, 3, false, 18, sn.sign, 0);
+    snMajor.title = "The Moon · Cauda Draconis (☋)";
+    this.collection.push(snMajor);
+    this.mintSlot(snMajor.card_id);
+
+    // 3. Mint Sign Majors for distinct signs occupied by chart placements (and angles)
+    const occupiedSigns = [...new Set((chart.placements || []).map(p => p.sign % 12))];
+    if (!occupiedSigns.includes(ascSign)) occupiedSigns.push(ascSign);
+    if (occupiedSigns.length === 0) {
+      for (let s = 0; s < 12; s++) occupiedSigns.push(s);
+    }
     occupiedSigns.forEach(s => {
       const signIdx = ((s % 12) + 12) % 12;
       const arcanaIdx = SIGN_MAJOR_ARCANA[signIdx];
@@ -835,6 +900,46 @@ class GameState {
       this.mintSlot(signMajor.card_id);
     });
 
+    return this.collection;
+  }
+
+  ensureStarterDeck() {
+    if (!this.player) return false;
+    const hasValidCollection = Array.isArray(this.collection) && this.collection.length >= 25 && this.collection.some(c => c.title && c.title.includes("North Node"));
+    const hasValidDeck = Array.isArray(this.deck) && this.deck.length >= 25;
+
+    if (!hasValidCollection || !hasValidDeck) {
+      console.info("[Pentacles] Upgrading / assigning complete 25-card starter deck for seeker:", this.player.handle);
+      const chart = this.player.chart || (typeof deriveLocalNatalChart === "function" ? deriveLocalNatalChart(this.player.handle) : null);
+      if (!this.player.chart && chart) this.player.chart = chart;
+      this.mintStarterDeck(chart);
+      this.save();
+      return true;
+    }
+    return false;
+  }
+
+  registerPlayer(handle, faction, chart) {
+    const pHandle = handle || "CelestialSeeker";
+    const pFaction = (faction !== null && faction !== undefined) ? faction : 0;
+    let pChart = chart;
+    if (!pChart || !Array.isArray(pChart.placements) || pChart.placements.length === 0) {
+      pChart = typeof deriveLocalNatalChart === "function"
+        ? deriveLocalNatalChart(pHandle)
+        : { placements: [], ascendant: 0, midheaven: 0 };
+    }
+
+    this.player = {
+      handle: pHandle,
+      faction: pFaction,
+      chart: pChart,
+      deck_seed: Math.floor(Math.random() * 1000000),
+      tokens: 0,     // Word Duel reward currency (the Lettered Arcana)
+      word_wins: 0
+    };
+
+    // Mint starting deck of Tarot cards
+    this.mintStarterDeck(pChart);
     this.save();
   }
 
@@ -885,10 +990,10 @@ class GameState {
   }
 
   cycleLoadout(cardId) {
-    const slot = this.deck.find(d => d.card_id === cardId);
+    const slot = this.deck.find(d => Number(d.card_id) === Number(cardId));
     if (!slot) return;
 
-    const current = slot.loadout;
+    const current = (slot.loadout || "bench").toLowerCase();
     let next = "bench";
     
     if (current === "active") {
@@ -901,27 +1006,27 @@ class GameState {
 
     // Enforce max 8 slots rule
     if (next === "active") {
-      const activeCount = this.deck.filter(d => d.loadout === "active").length;
+      const activeCount = this.deck.filter(d => (d.loadout || "").toLowerCase() === "active").length;
       if (activeCount >= 8) {
-        toast("Active slots are full (max 8)! Bench a card first.", { type: "warn" });
+        if (typeof toast === "function") toast("Active slots are full (max 8)! Bench a card first.", { type: "warn" });
         return;
       }
     } else if (next === "defense") {
-      const defenseCount = this.deck.filter(d => d.loadout === "defense").length;
+      const defenseCount = this.deck.filter(d => (d.loadout || "").toLowerCase() === "defense").length;
       if (defenseCount >= 8) {
-        toast("Defense slots are full (max 8)! Bench a card first.", { type: "warn" });
+        if (typeof toast === "function") toast("Defense slots are full (max 8)! Bench a card first.", { type: "warn" });
         return;
       }
     }
 
     slot.loadout = next;
     this.save();
-    synth.playSelect();
+    if (synth && synth.playSelect) synth.playSelect();
   }
 
   fuseCards(keepId, consumeId) {
-    const keepCard = this.collection.find(c => c.card_id === keepId);
-    const consumeCard = this.collection.find(c => c.card_id === consumeId);
+    const keepCard = this.collection.find(c => Number(c.card_id) === Number(keepId));
+    const consumeCard = this.collection.find(c => Number(c.card_id) === Number(consumeId));
     
     if (!keepCard || !consumeCard) return;
 
@@ -934,11 +1039,11 @@ class GameState {
     keepCard.armour = Math.round(keepCard.armour * ratio);
 
     // Delete consume card
-    this.collection = this.collection.filter(c => c.card_id !== consumeId);
-    this.deck = this.deck.filter(d => d.card_id !== consumeId);
+    this.collection = this.collection.filter(c => Number(c.card_id) !== Number(consumeId));
+    this.deck = this.deck.filter(d => Number(d.card_id) !== Number(consumeId));
 
     this.save();
-    synth.playFuse();
+    if (synth && synth.playFuse) synth.playFuse();
   }
 
   // ---- Word Duels of the Spheres ----
