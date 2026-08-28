@@ -11,7 +11,7 @@ import fs from "node:fs";
 import {
   canAccessZone, computeClaim, opportunity, trumpDepth, chooseChampions,
   seatOrder, seededRandom, dealHand, playMelee, restIsWaived, buildAgents,
-  zoneTrump, MAX_SEATS, MIN_SEATS, HAND_SIZE, MAX_MAJORS_IN_HAND,
+  zoneTrump, archetypeMovePicker, MAX_SEATS, MIN_SEATS, HAND_SIZE, MAX_MAJORS_IN_HAND,
 } from "../feeder/war-table.ts";
 
 const Engine = globalThis.ArcanaTrickEngine;
@@ -201,6 +201,37 @@ console.log("▶ 7 · Seat order");
   assert.deepEqual(seatOrder([4, 6, 2], lon), [6, 2, 4], "seats run in ascending ecliptic longitude");
   assert.deepEqual(seatOrder([4, 6, 2], new Array(10).fill(0)), [2, 4, 6], "ties fall back to faction index");
   console.log("  ✓ ascending ecliptic longitude, deterministic on ties");
+}
+
+// ── 8. Astrological Combat Archetypes ───────────────────────────────────────
+console.log("▶ 8 · Astrological combat archetypes");
+{
+  const ladder = {}; for (let i = 0; i <= 21; i++) ladder[i] = 50;
+  // Mars (4): leads highest power card
+  const marsHand = [
+    { card_id: 1, suit: "wands", rank: 1, is_major: false },
+    { card_id: 2, suit: "wands", rank: 5, is_major: false },
+  ];
+  const marsLead = archetypeMovePicker(4, marsHand, null, [], ladder, 1);
+  assert.equal(marsLead.rank, 1, "Mars leads highest power card");
+
+  // Saturn (6): hoards court cards and leads low probe early
+  const saturnHand = [
+    { card_id: 10, suit: "wands", rank: 14, is_major: false },
+    { card_id: 11, suit: "wands", rank: 2, is_major: false },
+  ];
+  const saturnLeadEarly = archetypeMovePicker(6, saturnHand, null, [], ladder, 2);
+  assert.equal(saturnLeadEarly.rank, 2, "Saturn hoards court card and leads low probe early");
+
+  // Mercury (2): leads probe minor
+  const mercHand = [
+    { card_id: 20, suit: "wands", rank: 14, is_major: false },
+    { card_id: 21, suit: "wands", rank: 3, is_major: false },
+  ];
+  const mercLead = archetypeMovePicker(2, mercHand, null, [], ladder, 1);
+  assert.equal(mercLead.rank, 3, "Mercury leads low probe minor");
+
+  console.log("  ✓ Mars aggression · Saturn hoarding · Mercury probes");
 }
 
 console.log("ALL War Table tests passed — against the real implementation.");

@@ -205,8 +205,203 @@ export type MovePicker = (
   hand: Agent["active"],
   ledSuit: string | null,
   trick: Array<{ player: number; card: any }>,
-  ladder: Record<number, number>
+  ladder: Record<number, number>,
+  trickNumber?: number,
 ) => any | null;
+
+/**
+ * 10 Astrological Combat Archetypes for automated historical agents.
+ * 
+ * - Sun (0): Sweeps high counters and leads dignified trumps.
+ * - Moon (1): Tides — scales aggressiveness with current trick pot value.
+ * - Mercury (2): Quicksilver — cunning probe leads, saves top cards with minimum winning plays.
+ * - Venus (3): Concord — harmonious play, leads off-suit kings/queens without breaking marriages.
+ * - Mars (4): Onslaught — aggressive top-card attacks and immediate over-trumps.
+ * - Jupiter (5): Expansion — bold early Major Arcana deployment to seize table momentum.
+ * - Saturn (6): Endurance — hoards high Majors/trumps for late tricks (10-12) to clinch final-trick bonus.
+ * - Uranus (7): Upheaval — unpredictable plays, tactical Excuse / cross-trump plays.
+ * - Neptune (8): Dissolution — evasive sloughing, lets rivals burn trumps against each other.
+ * - Pluto (9): Transformation — late-game sweeps once trumps have been depleted.
+ */
+export function archetypeMovePicker(
+  faction: number,
+  hand: Agent["active"],
+  ledSuit: string | null,
+  trick: Array<{ player: number; card: any }>,
+  ladder: Record<number, number>,
+  trickNumber: number = 1,
+): any | null {
+  const trumpSuit = (trick.length > 0 && trick[0].card && trick[0].card.suit) || "wands";
+  const legalOptions = Engine.getLegalMoves(hand, ledSuit, trumpSuit, trick, ladder)
+    .filter((m: any) => m.legal)
+    .map((m: any) => m.card);
+
+  if (!legalOptions.length) return hand[0] ?? null;
+  if (legalOptions.length === 1) return legalOptions[0];
+
+  const isLead = trick.length === 0;
+
+  // Calculate current pot counters & highest power
+  let potPoints = 0;
+  let highestPower = -1;
+  for (const p of trick) {
+    if (!p.card.is_major || Number(p.card.rank) !== Engine.EXCUSE_ARCANA) {
+      const pwr = Engine.power(p.card, trumpSuit, ladder);
+      if (pwr > highestPower) highestPower = pwr;
+    }
+    potPoints += Engine.counterValue(p.card);
+  }
+
+  const winningMoves = legalOptions.filter((c: any) => {
+    if (c.is_major && Number(c.rank) === Engine.EXCUSE_ARCANA) return false;
+    return Engine.power(c, trumpSuit, ladder) > highestPower;
+  });
+
+  switch (faction) {
+    // 0: Sun (Radiance) — sweep counters, dignified trump leads
+    case 0: {
+      if (isLead) {
+        const trumps = legalOptions.filter(
+          (c: any) => (c.suit || "").toLowerCase() === trumpSuit.toLowerCase() || c.is_major,
+        );
+        if (trumps.length > 0) {
+          trumps.sort((a: any, b: any) => Engine.power(b, trumpSuit, ladder) - Engine.power(a, trumpSuit, ladder));
+          return trumps[0];
+        }
+      } else if (potPoints >= 10 && winningMoves.length > 0) {
+        winningMoves.sort((a: any, b: any) => Engine.power(b, trumpSuit, ladder) - Engine.power(a, trumpSuit, ladder));
+        return winningMoves[0];
+      }
+      break;
+    }
+
+    // 1: Moon (Tides) — adapts to trick value / tide
+    case 1: {
+      if (!isLead) {
+        if (potPoints >= 10 && winningMoves.length > 0) {
+          winningMoves.sort((a: any, b: any) => Engine.power(a, trumpSuit, ladder) - Engine.power(b, trumpSuit, ladder));
+          return winningMoves[0];
+        }
+      }
+      break;
+    }
+
+    // 2: Mercury (Quicksilver) — probe leads, minimum sufficient winning play
+    case 2: {
+      if (isLead) {
+        const probes = legalOptions.filter((c: any) => !c.is_major && Number(c.rank) <= 9 && Number(c.rank) >= 2);
+        if (probes.length > 0) {
+          probes.sort(
+            (a: any, b: any) => (Engine.MINOR_TRICK_POWER[a.rank] || 0) - (Engine.MINOR_TRICK_POWER[b.rank] || 0),
+          );
+          return probes[0];
+        }
+      } else if (winningMoves.length > 0) {
+        winningMoves.sort((a: any, b: any) => Engine.power(a, trumpSuit, ladder) - Engine.power(b, trumpSuit, ladder));
+        return winningMoves[0];
+      }
+      break;
+    }
+
+    // 3: Venus (Concord) — harmonious play, lead off-suit court honors
+    case 3: {
+      if (isLead) {
+        const sideMinors = legalOptions.filter(
+          (c: any) => !c.is_major && (c.suit || "").toLowerCase() !== trumpSuit.toLowerCase(),
+        );
+        if (sideMinors.length > 0) {
+          sideMinors.sort(
+            (a: any, b: any) => (Engine.MINOR_TRICK_POWER[b.rank] || 0) - (Engine.MINOR_TRICK_POWER[a.rank] || 0),
+          );
+          return sideMinors[0];
+        }
+      }
+      break;
+    }
+
+    // 4: Mars (Onslaught) — aggressive attack leads and trump play
+    case 4: {
+      if (isLead) {
+        legalOptions.sort((a: any, b: any) => Engine.power(b, trumpSuit, ladder) - Engine.power(a, trumpSuit, ladder));
+        return legalOptions[0];
+      } else if (winningMoves.length > 0) {
+        winningMoves.sort((a: any, b: any) => Engine.power(b, trumpSuit, ladder) - Engine.power(a, trumpSuit, ladder));
+        return winningMoves[0];
+      }
+      break;
+    }
+
+    // 5: Jupiter (Expansion) — bold major dominance early
+    case 5: {
+      if (isLead) {
+        const majors = legalOptions.filter((c: any) => c.is_major && Number(c.rank) !== Engine.EXCUSE_ARCANA);
+        if (majors.length > 0) {
+          majors.sort((a: any, b: any) => Engine.power(b, trumpSuit, ladder) - Engine.power(a, trumpSuit, ladder));
+          return majors[0];
+        }
+      }
+      break;
+    }
+
+    // 6: Saturn (Endurance) — defensive hoarding and late climax timing (trick 10-12)
+    case 6: {
+      if (trickNumber < 10) {
+        if (isLead) {
+          const lowCards = legalOptions.filter((c: any) => !c.is_major);
+          if (lowCards.length > 0) {
+            lowCards.sort((a: any, b: any) => Engine.power(a, trumpSuit, ladder) - Engine.power(b, trumpSuit, ladder));
+            return lowCards[0];
+          }
+        } else {
+          if (potPoints < 10 || winningMoves.length === 0) {
+            const junk = legalOptions.filter((c: any) => Engine.counterValue(c) === 0);
+            if (junk.length > 0) {
+              junk.sort((a: any, b: any) => Engine.power(a, trumpSuit, ladder) - Engine.power(b, trumpSuit, ladder));
+              return junk[0];
+            }
+          }
+        }
+      } else if (winningMoves.length > 0) {
+        winningMoves.sort((a: any, b: any) => Engine.power(b, trumpSuit, ladder) - Engine.power(a, trumpSuit, ladder));
+        return winningMoves[0];
+      }
+      break;
+    }
+
+    // 7: Uranus (Upheaval) — unexpected moves, tactical Excuse
+    case 7: {
+      const excuse = legalOptions.find((c: any) => c.is_major && Number(c.rank) === Engine.EXCUSE_ARCANA);
+      if (excuse && potPoints === 0 && !isLead) {
+        return excuse;
+      }
+      break;
+    }
+
+    // 8: Neptune (Dissolution) — evasive sloughing
+    case 8: {
+      if (!isLead && winningMoves.length > 0 && potPoints < 10) {
+        const sloughs = legalOptions.filter((c: any) => Engine.counterValue(c) === 0);
+        if (sloughs.length > 0) {
+          sloughs.sort((a: any, b: any) => Engine.power(a, trumpSuit, ladder) - Engine.power(b, trumpSuit, ladder));
+          return sloughs[0];
+        }
+      }
+      break;
+    }
+
+    // 9: Pluto (Transformation) — endgame conversion
+    case 9: {
+      if (trickNumber >= 8 && winningMoves.length > 0) {
+        winningMoves.sort((a: any, b: any) => Engine.power(b, trumpSuit, ladder) - Engine.power(a, trumpSuit, ladder));
+        return winningMoves[0];
+      }
+      break;
+    }
+  }
+
+  // Fallback to Guardian AI default choose
+  return Engine.GuardianAI.choose(hand, ledSuit, trumpSuit, trick, ladder);
+}
 
 /**
  * Play one table to completion with the shared engine. Every play is filtered
@@ -235,6 +430,8 @@ export function playMelee(
   let leader = 0;
   let finalTrickWinner = order[0];
 
+  const picker = movePicker ?? archetypeMovePicker;
+
   for (let t = 1; t <= tricks; t++) {
     const trick: Array<{ player: number; card: any }> = [];
     let ledSuit: string | null = null;
@@ -242,7 +439,7 @@ export function playMelee(
       const f = order[(leader + k) % order.length];
       const hand = live.get(f) ?? [];
       if (!hand.length) continue;
-      const proposed = movePicker ? movePicker(f, hand, ledSuit, trick, ladder) : null;
+      const proposed = picker(f, hand, ledSuit, trick, ladder, t);
       const card = proposed || Engine.GuardianAI.choose(hand, ledSuit, trumpSuit, trick, ladder);
       const legal = Engine.getLegalMoves(hand, ledSuit, trumpSuit, trick, ladder);
       // The filter is authoritative: fall back to its first legal card if the AI
@@ -357,6 +554,58 @@ export async function loadWorld() {
   return { zones, zoneOwners, agentRows, activeByOwner, factionOf, ephemRows };
 }
 
+/**
+ * Ensures an agent has a rich, legal active hand of cards (≤ 3 Majors, rest Minors)
+ * even if their database rows are sparse or in offline/testing mode.
+ */
+export function ensureActiveHand(
+  active: Agent["active"],
+  faction: number,
+): Agent["active"] {
+  if (active && active.length >= HAND_SIZE) return active;
+  const cards = [...(active || [])];
+  const existingIds = new Set(cards.map((c) => c.card_id));
+
+  const favSuit = SIGN_SUITS[faction % 12] || "wands";
+  const suits = ["wands", "cups", "swords", "pentacles"];
+
+  let majorCount = cards.filter((c) => c.is_major).length;
+  let nextCardId = 900_000 + faction * 1000;
+
+  while (majorCount < MAX_MAJORS_IN_HAND) {
+    const majorRank = (faction * 2 + majorCount * 7) % 22;
+    cards.push({
+      card_id: nextCardId++,
+      rank: majorRank,
+      is_major: true,
+      inverted: false,
+      title: Engine.ARCANA_NAMES[majorRank] || `Major ${majorRank}`,
+    });
+    majorCount++;
+  }
+
+  const rankSeq = [1, 14, 13, 10, 12, 11, 9, 8, 7, 6, 5, 4, 3, 2];
+  let sIdx = 0;
+  while (cards.length < 20) {
+    const suit = sIdx % 2 === 0 ? favSuit : suits[sIdx % 4];
+    const rank = rankSeq[cards.length % rankSeq.length];
+    const cid = nextCardId++;
+    if (!existingIds.has(cid)) {
+      cards.push({
+        card_id: cid,
+        suit,
+        rank,
+        is_major: false,
+        inverted: false,
+      });
+      existingIds.add(cid);
+    }
+    sIdx++;
+  }
+
+  return cards;
+}
+
 /** Build the Agent list a round reasons over, with rest applied roster-relatively. */
 export function buildAgents(
   agentRows: any[],
@@ -383,7 +632,7 @@ export function buildAgents(
         body: planetIdx(p.body) ?? 0, sign: Number(p.sign) || 0,
         dignity: Number(p.dignity) || 0,
       })), ascSign)),
-      active: activeByOwner.get(id) ?? [],
+      active: ensureActiveHand(activeByOwner.get(id) ?? [], faction),
       rested: restedIds.has(id),
     });
   }

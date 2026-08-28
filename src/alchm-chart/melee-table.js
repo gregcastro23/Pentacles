@@ -161,13 +161,14 @@ export class MeleeTableInstance {
     core.appendChild(coreBadge);
     arenaRing.appendChild(core);
 
-    // Orbital Seats
+    // Orbital Seats (2..6 Players)
     const seatList = this.seats && this.seats.length ? this.seats : [
-      { seatId: 1, faction: 4, handle: "Mars Champion", isAgent: true, counters: 10, meldsValue: 20, score: 30 },
-      { seatId: 2, faction: 1, handle: "Moon Ally", isHuman: true, counters: 20, meldsValue: 0, score: 20 },
+      { seatId: 1, faction: 4, handle: "Mars Champion", isAgent: true, archetype: "Onslaught", counters: 10, meldsValue: 20, score: 30 },
+      { seatId: 2, faction: 1, handle: "Moon Ally", isHuman: true, archetype: "Tides", counters: 20, meldsValue: 0, score: 20 },
     ];
     const N = seatList.length;
-    const radiusPct = 42; // percent from center
+    // Adapt radius: 38% for 5-6 seats, 42% for 2-4 seats
+    const radiusPct = N >= 5 ? 39 : 42;
 
     seatList.forEach((s, idx) => {
       const angle = (2 * Math.PI * idx) / N - Math.PI / 2;
@@ -179,6 +180,8 @@ export class MeleeTableInstance {
       const glyph = PLANET_GLYPHS[fIdx] || "✦";
       const fName = PLANET_NAMES[fIdx] || "Faction";
       const isMe = this.myIdentity && s.occupant === this.myIdentity;
+      const archName = s.archetype || (s.isHuman ? "Human Ally" : "Champion");
+      const archTactic = s.tactic || (s.isHuman ? "Live Seeker player" : "Astrological combat archetype");
 
       // Find latest play for this seat in current trick
       const latestPlay = (this.plays || []).filter((p) => p.seatId === s.seatId).pop();
@@ -186,12 +189,13 @@ export class MeleeTableInstance {
       const station = h("div", {
         class: "mt-seat-station" + (isMe ? " is-me" : "") + (s.isHuman ? " is-human" : " is-agent"),
         style: { left: `${x.toFixed(1)}%`, top: `${y.toFixed(1)}%` },
+        title: `${s.handle} (${fName}) — ${archTactic}`,
       }, [
         h("div", { class: "mt-seat-head" }, [
           h("span", { class: "mt-seat-glyph", style: { color: col, borderColor: col }, text: glyph }),
           h("div", { class: "mt-seat-meta" }, [
             h("div", { class: "mt-seat-name", text: s.handle || fName }),
-            h("div", { class: "mt-seat-tag aw-dim", text: isMe ? "You (Ally)" : s.isHuman ? "Human Ally" : "AI Champion" }),
+            h("div", { class: "mt-seat-tag aw-dim", text: isMe ? "You (Ally)" : s.isHuman ? "Human Ally" : `AI · ${archName}` }),
           ]),
         ]),
         h("div", { class: "mt-seat-scores" }, [

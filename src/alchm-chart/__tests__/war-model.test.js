@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import {
   buildZones, computeStandings, factionRoster, deriveEvents, standingsTrend,
   agentIdentitySet, agentByIdentity, planetIdx, zoneName, zoneKindOf, PLANET_NAMES,
-  canAccessZone, accessRefusalReason, buildTables, roundClock,
+  canAccessZone, accessRefusalReason, buildTables, roundClock, factionArchetype, FACTION_ARCHETYPES,
 } from "../war-model.js";
 
 let passed = 0;
@@ -188,6 +188,23 @@ t("roundClock determines phase and progress for 60s and 120s tables", () => {
   const c6 = roundClock(humanTable, baseTime + 70000);
   assert.equal(c6.phase, "play");
   assert.equal(c6.totalDuration, 120);
+});
+
+t("factionArchetype returns all 10 combat doctrines and tags seats", () => {
+  assert.equal(FACTION_ARCHETYPES.length, 10);
+  assert.equal(factionArchetype(4).archetype, "Onslaught");
+  assert.equal(factionArchetype(6).archetype, "Endurance");
+  assert.equal(factionArchetype(2).archetype, "Quicksilver");
+  assert.equal(factionArchetype(0).archetype, "Radiance");
+
+  const tables = [{ table_id: 1, zone_id: 0, round_index: 1, trump_suit: "wands", state: "Seated", seat_count: 2, opened_at: 1000000000 }];
+  const seats = [
+    { seat_id: 1, table_id: 1, occupant: "0x1", faction: "Mars", is_human: false, claim: 90, counters: 0, melds_value: 0, score: 0 },
+    { seat_id: 2, table_id: 1, occupant: "0x2", faction: "Saturn", is_human: false, claim: 80, counters: 0, melds_value: 0, score: 0 },
+  ];
+  const m = buildTables(tables, seats, [], {}, PLANET_NAMES, []);
+  assert.equal(m.byId[1].seats[0].archetype, "Onslaught");
+  assert.equal(m.byId[1].seats[1].archetype, "Endurance");
 });
 
 console.log(`\n${passed} passed`);

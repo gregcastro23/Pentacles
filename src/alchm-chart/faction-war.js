@@ -578,6 +578,21 @@ export class FactionWarInstance {
       myHand: this.myCards,
       hooks: {
         onClose: () => this.closeAgentProfile(),
+        onPlayCard: (tableId, cardId) => {
+          if (this.hooks.onPlayCard) {
+            this.hooks.onPlayCard(tableId, cardId);
+            return;
+          }
+          const net = typeof window !== "undefined" && window.Pentacles && window.Pentacles.net;
+          if (net && typeof net.callReducer === "function") {
+            const currentTrickNum = Math.min(12, Math.max(1, (table.plays && table.plays.length ? Math.floor(table.plays.length / Math.max(1, table.seats.length)) + 1 : 1)));
+            net.callReducer("play_melee_card", [tableId, cardId, currentTrickNum]).then(() => {
+              if (typeof window !== "undefined" && window.toast) window.toast("Card played into trick.", { type: "success" });
+            }).catch((err) => {
+              if (typeof window !== "undefined" && window.toast) window.toast((err && err.message) || "Play failed", { type: "error" });
+            });
+          }
+        },
       },
     });
     mt.mount();

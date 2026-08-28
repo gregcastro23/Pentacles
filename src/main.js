@@ -235,14 +235,28 @@ function openFactionWar() {
   }
   try {
     if (warInst) warInst.destroy()
+    const myIdent = (window.state && window.state.identity) || (spacetime && spacetime.identity) || null
     warInst = FactionWar.create({
       el: document.getElementById('aw-host'),
       spacetime,
       myFaction: warMyFaction(),
+      myIdentity: myIdent,
       myCards: warActiveCards(),
       hooks: {
         // Drag a card onto a zone → deploy_card (control push + Defense garrison).
         onDeploy: (cardId, zoneId) => warDeploy(cardId, zoneId),
+        onJoinQueue: async (zoneId) => {
+          if (spacetime && typeof spacetime.callReducer === 'function') {
+            await spacetime.callReducer('join_melee_queue', [zoneId])
+            if (window.toast) window.toast(`Queued for Zone ${zoneId} Melee table.`, { type: 'success', title: 'Faction War' })
+          }
+        },
+        onLeaveQueue: async () => {
+          if (spacetime && typeof spacetime.callReducer === 'function') {
+            await spacetime.callReducer('leave_melee_queue', [])
+            if (window.toast) window.toast('Left Melee table queue.', { type: 'info', title: 'Faction War' })
+          }
+        },
         // Faction is bound at registration (create_player); there is no live
         // switch reducer, so "join" routes a non-player to onboarding.
         onJoin: (idx, name) => {
@@ -261,8 +275,8 @@ function openFactionWar() {
     warInst.mount()
     // Belt-and-suspenders initial paint if a one-shot read is available.
     if (spacetime && spacetime.isLive && spacetime.fetchTable) {
-      Promise.all(['zone', 'player', 'agent_chart'].map((t) => spacetime.fetchTable(t).catch(() => [])))
-        .then(([zones, players, agents]) => warInst && warInst.setData({ zones, players, agents }))
+      Promise.all(['zone', 'player', 'agent_chart', 'melee_table', 'melee_seat', 'melee_queue', 'melee_play'].map((t) => spacetime.fetchTable(t).catch(() => [])))
+        .then(([zones, players, agents, tables, seats, queue, plays]) => warInst && warInst.setData({ zones, players, agents, tables, seats, queue, plays }))
         .catch(() => {})
     }
   } catch (e) {
