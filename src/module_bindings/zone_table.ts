@@ -25,4 +25,9 @@ export default __t.row({
   },
   control: __t.i32(),
   updatedAt: __t.timestamp().name("updated_at"),
+  inFlux: __t.bool().name("in_flux"),
+  fluxLevel: __t.u8().name("flux_level"),
+  fluxConstellation: __t.option(__t.u16()).name("flux_constellation"),
+  fluxTriggeredBy: __t.option(__t.identity()).name("flux_triggered_by"),
+  fluxExpiresAt: __t.option(__t.timestamp()).name("flux_expires_at"),
 });

@@ -195,10 +195,30 @@ export function deriveEvents(prevZones, zones, prevStandings, standings, names =
 // ════════════════════════════════════════════════════════════════════════════
 
 /**
- * Normalizes on-chain `melee_table`, `melee_seat`, and `melee_play` rows into
- * structured view-models indexed by `table_id` and by `zone_id`.
+ * Normalizes the War Table's on-chain rows into view-models indexed by
+ * `table_id` and by `zone_id`.
+ *
+ * `melee_hand` and `melee_trick` are what the module writes now that it referees
+ * its own tables, and they are what let the UI stop guessing. Before them the
+ * client had to infer the current trick from `melee_play.length / seatCount`,
+ * which silently broke whenever a seat was dealt short; and it had to show the
+ * player their Active loadout and hope it matched what the server had dealt.
+ * Both are now read straight off the table.
+ *
+ * The turn derivation here mirrors `melee_turn` in server/src/reducers.rs — a
+ * seat that has run out of cards drops out of the rotation rather than stalling
+ * it — so the "your turn" the player sees is the turn the module will accept.
  */
-export function buildTables(meleeTableRows, meleeSeatRows, playerRows, agentMap, names = PLANET_NAMES, meleePlayRows = []) {
+export function buildTables(
+  meleeTableRows,
+  meleeSeatRows,
+  playerRows,
+  agentMap,
+  names = PLANET_NAMES,
+  meleePlayRows = [],
+  meleeHandRows = [],
+  meleeTrickRows = [],
+) {
   const playerMap = {};
   for (const p of playerRows || []) {
     if (p && p.identity != null) playerMap[String(p.identity)] = p;
@@ -249,6 +269,42 @@ export function buildTables(meleeTableRows, meleeSeatRows, playerRows, agentMap,
     });
   }
 
+  const handsBySeat = {};
+  for (const hRow of meleeHandRows || []) {
+    const sid = Number(hRow.seat_id);
+    if (!handsBySeat[sid]) handsBySeat[sid] = [];
+    handsBySeat[sid].push({
+      handId: Number(hRow.hand_id),
+      tableId: Number(hRow.table_id),
+      seatId: sid,
+      // The engine expects snake_case card shapes; keep them wire-identical so a
+      // dealt card can be handed straight to getLegalMoves.
+      card_id: Number(hRow.card_id),
+      suit: hRow.suit ? String(hRow.suit).toLowerCase() : "wands",
+      rank: Number(hRow.rank),
+      is_major: Boolean(hRow.is_major),
+      inverted: Boolean(hRow.inverted),
+      played: Boolean(hRow.played),
+    });
+  }
+
+  const tricksByTable = {};
+  for (const tr of meleeTrickRows || []) {
+    const tid = Number(tr.table_id);
+    if (!tricksByTable[tid]) tricksByTable[tid] = [];
+    tricksByTable[tid].push({
+      trickId: Number(tr.trick_id),
+      tableId: tid,
+      trickNumber: Number(tr.trick_number),
+      leaderSeat: Number(tr.leader_seat),
+      ledSuit: tr.led_suit ? String(tr.led_suit).toLowerCase() : null,
+      winnerSeat: Number(tr.winner_seat),
+      counters: Number(tr.counters || 0),
+      excuseSeat: tr.excuse_seat == null ? null : Number(tr.excuse_seat),
+      resolvedAt: parseTimestampMs(tr.resolved_at),
+    });
+  }
+
   const tables = [];
   const byId = {};
   const byZone = {};
@@ -262,6 +318,29 @@ export function buildTables(meleeTableRows, meleeSeatRows, playerRows, agentMap,
     if (t.ladder_raw) {
       try { ladder = typeof t.ladder_raw === "string" ? JSON.parse(t.ladder_raw) : t.ladder_raw; } catch {}
     }
+
+    const tricks = (tricksByTable[tableId] || []).sort((a, b) => a.trickNumber - b.trickNumber);
+
+    // The module derives the open trick from RESOLVED trick rows, never from a
+    // play count. Mirror that exactly or the client will disagree with the
+    // server about which trick a click belongs to.
+    const currentTrick = Math.min(tricks.length + 1, TOTAL_TRICKS);
+    const trickPlays = plays
+      .filter((p) => p.trickNumber === currentTrick)
+      .sort((a, b) => a.playId - b.playId);
+
+    for (const seat of seats) {
+      const dealt = handsBySeat[seat.seatId] || [];
+      seat.hand = dealt;
+      seat.handRemaining = dealt.filter((c) => !c.played).length;
+      // Nothing dealt is not the same as nothing left: a spectator sees no hand
+      // rows at all for a seat until they load, and must not read that as void.
+      seat.hasDeal = dealt.length > 0;
+    }
+
+    const lastTrick = tricks.length ? tricks[tricks.length - 1] : null;
+    const leaderSeat = lastTrick ? lastTrick.winnerSeat : seats.length ? seats[0].seatId : null;
+    const turnSeat = deriveTurnSeat(seats, leaderSeat, trickPlays);
 
     const stateStr = typeof t.state === "string" ? t.state : Object.keys(t.state || {})[0] || "Mustering";
     const hasHuman = seats.some((s) => s.isHuman);
@@ -282,6 +361,12 @@ export function buildTables(meleeTableRows, meleeSeatRows, playerRows, agentMap,
       seats,
       hasHuman,
       plays,
+      tricks,
+      currentTrick,
+      trickPlays,
+      leaderSeat,
+      turnSeat,
+      lastResolvedTrick: lastTrick,
     };
 
     tables.push(model);
@@ -294,6 +379,31 @@ export function buildTables(meleeTableRows, meleeSeatRows, playerRows, agentMap,
   }
 
   return { tables, byId, byZone };
+}
+
+/** Tricks in a melee. Mirrors `melee::TOTAL_TRICKS`. */
+export const TOTAL_TRICKS = 12;
+
+/**
+ * The seat on turn, or null when the trick is full.
+ *
+ * Mirrors `melee_turn` in server/src/reducers.rs: the rotation is the seats that
+ * held a card when the trick began — those that still hold one, plus those that
+ * have already played into it — walked from the leader. A seat dealt short drops
+ * out instead of freezing the table, and the client has to agree about that or
+ * it will point at the wrong player.
+ */
+export function deriveTurnSeat(seats, leaderSeat, trickPlays) {
+  const expected = (seats || [])
+    .filter((s) => trickPlays.some((p) => p.seatId === s.seatId) || s.handRemaining > 0 || !s.hasDeal)
+    .map((s) => s.seatId);
+  if (!expected.length || trickPlays.length >= expected.length) return null;
+  const start = Math.max(0, expected.indexOf(leaderSeat));
+  for (let k = 0; k < expected.length; k++) {
+    const id = expected[(start + k) % expected.length];
+    if (!trickPlays.some((p) => p.seatId === id)) return id;
+  }
+  return null;
 }
 
 /**
@@ -358,6 +468,8 @@ export function roundClock(table, nowMs = Date.now(), roundDurationMs = 60000, h
 }
 
 export default {
+  TOTAL_TRICKS,
+  deriveTurnSeat,
   PLANET_NAMES, ZONE_KIND_WEIGHT, zoneKindOf, zoneName, planetIdx, parseTimestampMs, buildZones,
   agentIdentitySet, agentByIdentity, computeStandings, factionRoster, standingsTrend, deriveEvents,
   canAccessZone, accessRefusalReason, buildTables, roundClock,

@@ -9,18 +9,16 @@ import {
   type AlgebraicTypeType as __AlgebraicTypeType,
   type Infer as __Infer,
 } from "spacetimedb";
-
 import {
-  BridgeChain,
+  Planet,
 } from "./types";
 
-export default {
-  get chain() {
-    return BridgeChain;
+
+export default __t.row({
+  identity: __t.identity().primaryKey(),
+  zoneId: __t.u8().name("zone_id"),
+  get faction() {
+    return Planet;
   },
-  txHash: __t.string(),
-  playerPubkey: __t.string(),
-  eventType: __t.string(),
-  elementId: __t.u8(),
-  amount: __t.u64(),
-};
+  queuedAt: __t.timestamp().name("queued_at"),
+});

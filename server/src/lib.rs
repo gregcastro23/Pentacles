@@ -14,6 +14,7 @@
 
 mod catalog;
 mod chart;
+mod melee;
 mod combat;
 mod constellations;
 mod reducers;

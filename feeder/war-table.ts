@@ -1,17 +1,25 @@
 // Pentacles — The War Table: autonomous multi-seat zone melee.
 //
-// Every 60s each of the eleven zones musters the factions that want it, seats
-// their champions (2..6), plays twelve tricks with the SAME rules file the browser
-// runs (public/arcanaTrickEngine.js), and submits the result. The module owns
-// scoring, control and zone access; this daemon is only the referee.
+// Every 60s each of the eleven zones musters the factions that want it and seats
+// their champions (2..6). That is now the WHOLE job: `open_melee_round` deals the
+// hands, freezes the Arcana ladder from the module's own ephemeris, plays every
+// agent seat through `melee::archetype_pick`, resolves each trick and settles the
+// table. This daemon picks who sits down; the module referees.
+//
+// It used to play the twelve tricks here in JavaScript and report the totals —
+// which meant a compromised feeder could misreport who harvested what. The rules
+// moved into server/src/melee.rs, `scripts/melee-parity.test.mjs` keeps the two
+// engines byte-identical, and the trust boundary shrank to "the feeder chooses
+// seats", bounded further by `can_access_zone` and the one-seat-per-faction rule
+// the module enforces on every call.
 //
 // The file is deliberately split in two:
 //   · PURE  — claims, champions, seat order, dealing. No I/O, exported, and
 //             covered by scripts/war-table.test.mjs against these real functions.
+//             Seat order and dealing are now mirrored in Rust and re-derived
+//             there; they stay exported because the client predicts with them.
 //   · LOOP  — SQL reads and reducer calls.
 //
-// Trust boundary: a compromised feeder can misreport counters, but not invent a
-// score (the module derives it) nor exceed the bounded zero-sum control swing.
 // See docs/ZONE_MELEE_ARCANA_TRICK_PLAN.md §9.
 
 import { sqlOneShot } from "./stdb-feed";
@@ -357,92 +365,29 @@ export async function runRound(roundIndex: number): Promise<number> {
   const agents = buildAgents(world.agentRows, world.factionOf, world.activeByOwner, restedIds, world.zoneOwners);
   const plans = chooseChampions(agents, world.zones, world.zoneOwners);
 
-  // Live planet longitudes drive seat order and the Arcana ladder.
+  // Live planet longitudes still drive the FALLBACK ladder. The module computes
+  // its own from `ephemeris` and ignores this whenever it has a sky — we send it
+  // so a cold database (no ephemeris rows yet) still opens a playable table.
   const planets = world.ephemRows.map((e: any, i: number) => ({
     body: planetIdx(e.body) ?? i, sign: (Number(e.transiting_zone) || 0) % 12,
     eclLon: ((Number(e.transiting_zone) || 0) % 12) * 30, up: true, retrograde: false,
   }));
-  const planetLon = new Array(10).fill(0);
-  for (const p of planets) planetLon[p.body] = p.eclLon;
 
   let opened = 0;
   for (const plan of plans) {
     const byId = new Map(agents.map((a) => [a.identity, a]));
-    const order = seatOrder(plan.seats.map((s) => s.faction), planetLon);
-    const rng = seededRandom(plan.zoneId * 1_000_003 + roundIndex);
-
-    // Ladder is frozen ONCE per table, before the deal — card power must not shift
-    // between trick 3 and trick 4 because a planet crossed a cusp.
     const lead = byId.get(plan.seats[0].occupant);
-    const ladder = Engine.buildArcanaLadder(planets, lead ? lead.signVector : null);
+    const fallbackLadder = Engine.buildArcanaLadder(planets, lead ? lead.signVector : null);
 
-    const ladderJson = JSON.stringify(ladder);
     await call("open_melee_round", [
       plan.zoneId,
       roundIndex,
-      ladderJson,
+      JSON.stringify(fallbackLadder),
       plan.seats.map((s) => ({ faction: planetEnum(s.faction), occupant: { __identity__: s.occupant }, claim: s.claim })),
     ]);
     opened++;
-
-    const hands = new Map<number, Agent["active"]>();
-    for (const s of plan.seats) hands.set(s.faction, dealHand(byId.get(s.occupant)?.active ?? [], rng));
-
-    const outcomes = playMelee(hands, order, plan.trumpSuit, ladder);
-
-    const seatRows = await sql(`SELECT seat_id, faction, is_human, table_id FROM melee_seat WHERE table_id = (SELECT MAX(table_id) FROM melee_table WHERE zone_id = ${plan.zoneId})`)
-      .catch(() => [] as any[]);
-    const seatIdOf = new Map<number, number>();
-    for (const r of seatRows) {
-      const f = planetIdx(r.faction);
-      if (f !== null) seatIdOf.set(f, Number(r.seat_id));
-    }
-
-    const tableId = seatRows.length ? Number(seatRows[0]?.table_id ?? 0) : await latestTableId(plan.zoneId);
-
-    // Record plays on-chain if tableId is known
-    for (const outcome of outcomes) {
-      const seatId = seatIdOf.get(outcome.faction);
-      if (seatId && outcome.plays) {
-        for (const play of outcome.plays) {
-          const c = play.card;
-          const suitName = String(c.suit || "wands").toLowerCase();
-          const suitEnum = { [suitName]: [] };
-          try {
-            await call("record_melee_play", [
-              tableId,
-              play.trickNumber,
-              seatId,
-              Number(c.card_id || 0),
-              Boolean(c.is_major),
-              Number(c.rank || 0),
-              suitEnum,
-            ]);
-          } catch {
-            // non-fatal if play recording encounters a transient bridge issue
-          }
-        }
-      }
-    }
-
-    const results = outcomes
-      .filter((o) => seatIdOf.has(o.faction))
-      .map((o) => ({
-        seat_id: seatIdOf.get(o.faction)!,
-        counters: o.counters,
-        melds_value: o.meldsValue,
-        took_final_trick: o.tookFinalTrick,
-      }));
-    if (results.length) {
-      await call("submit_melee_result", [tableId, results]);
-    }
   }
   return opened;
-}
-
-async function latestTableId(zoneId: number): Promise<number> {
-  const rows = await sql(`SELECT table_id FROM melee_table WHERE zone_id = ${zoneId}`).catch(() => [] as any[]);
-  return rows.reduce((m: number, r: any) => Math.max(m, Number(r.table_id) || 0), 0);
 }
 
 export function startWarTable(): void {

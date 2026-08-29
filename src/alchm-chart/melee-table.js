@@ -4,18 +4,40 @@
    Renders 2 to 6 seats in orbital layout around the central Singularity WebGL
    core for autonomous historical agent battles and queued human contenders.
 
-   Binds to normalized on-chain rows (melee_table, melee_seat, melee_play)
-   via war-model.js and arcanaTrickEngine.js.
+   Binds to normalized on-chain rows (melee_table, melee_seat, melee_play,
+   melee_hand, melee_trick) via war-model.js and arcanaTrickEngine.js.
+
+   The module referees: it deals the hands, resolves each trick and settles the
+   table. So this view never simulates anything — it renders what the server has
+   already decided, and animates the transitions between those states. A card
+   flies in when `melee_play` gains a row; the pot sweeps to the winner when
+   `melee_trick` gains one. Legality greying is the ONE thing computed locally,
+   from the same engine the server was ported from, so the prediction and the
+   `play_melee_card` refusal always agree.
    ============================================================ */
 
 import { h, clear } from "./dom.js";
 import { zoneName, planetIdx, roundClock, PLANET_NAMES } from "./war-model.js";
-import { rankName, SUIT_GLYPHS, SUIT_COLORS, MAJOR_NUMERALS } from "./deck.js";
+// ARCANA_* are indexed by arcana 0..21, which is what a Major's `rank` IS, and
+// what the Arcana Ladder is keyed by. MAJOR_* are indexed by PLANET body 0..9 —
+// a different table of the same shape. Reading a rank out of those renders The
+// Fool as The Sun and leaves every arcana above X blank.
+import { rankName, SUIT_GLYPHS, SUIT_COLORS, ARCANA_NAMES, ARCANA_NUMERALS } from "./deck.js";
 
 const PLANET_GLYPHS = ["☉", "☽", "☿", "♀", "♂", "♃", "♄", "♅", "♆", "♇"];
 const PLANET_COLORS = ["#e8b84b", "#cbd0db", "#9aa7c4", "#d98fb0", "#cf4d4d", "#cf9a52", "#9a937c", "#5fb6c4", "#6470c8", "#8a6aa0"];
 
 const suitCap = (s) => (s ? s[0].toUpperCase() + s.slice(1).toLowerCase() : "Wands");
+
+/** How long the pot lingers so the sweep to the winner is visible. Matches the
+ *  `mt-sweep` keyframe duration in alchm-chart.css; change both together. */
+const SWEEP_MS = 760;
+/** Where seat `idx` of `n` sits on the ring, in percent of the arena box. */
+function seatPoint(idx, n) {
+  const angle = (2 * Math.PI * idx) / n - Math.PI / 2;
+  const r = n >= 5 ? 39 : 42;
+  return { x: 50 + r * Math.cos(angle), y: 50 + r * Math.sin(angle) };
+}
 
 export class MeleeTableInstance {
   constructor(opts = {}) {
@@ -33,6 +55,12 @@ export class MeleeTableInstance {
     this._clockTimer = null;
     this._animFrame = null;
     this._glCleanup = null;
+    // Animation bookkeeping. `_seenPlays` is what stops a repaint (they arrive
+    // several a second) from re-throwing cards that are already on the table.
+    this._seenPlays = new Set();
+    this._resolvedTricks = 0;
+    this._sweep = null;
+    this._sweepTimer = null;
   }
 
   static create(opts) {
@@ -63,19 +91,90 @@ export class MeleeTableInstance {
 
   destroy() {
     if (this._clockTimer) clearInterval(this._clockTimer);
+    if (this._sweepTimer) clearTimeout(this._sweepTimer);
     if (this._glCleanup) this._glCleanup();
     if (this.el) clear(this.el);
   }
 
   setData(data = {}) {
+    const prevPot = this._pot();
     if (data.table) this.table = data.table;
     if (data.seats) this.seats = data.seats;
     if (data.plays) this.plays = data.plays;
     if (data.myHand) this.myHand = data.myHand;
     if (data.myFaction != null) this.myFaction = data.myFaction;
     if (data.myIdentity != null) this.myIdentity = String(data.myIdentity);
+
+    // A new `melee_trick` row means the pot just went to somebody. Hold the
+    // outgoing cards on screen long enough to sweep them there — otherwise the
+    // trick that decided the round vanishes between two frames and the player
+    // never sees who took it.
+    const resolved = (this.table && this.table.tricks ? this.table.tricks.length : 0);
+    if (resolved > this._resolvedTricks && prevPot.length) {
+      const last = this.table.tricks[resolved - 1];
+      this._sweep = { plays: prevPot, winnerSeat: last.winnerSeat, counters: last.counters };
+      clearTimeout(this._sweepTimer);
+      this._sweepTimer = setTimeout(() => {
+        this._sweep = null;
+        this.paint();
+      }, SWEEP_MS);
+    }
+    this._resolvedTricks = resolved;
+
     this.paint();
     return this;
+  }
+
+  /** The cards currently on the table, in play order. */
+  _pot() {
+    if (this.table && Array.isArray(this.table.trickPlays)) return this.table.trickPlays;
+    // Fallback for a caller that passed raw plays without the derived model.
+    const n = (this.table && this.table.currentTrick) || 1;
+    return (this.plays || []).filter((p) => p.trickNumber === n).sort((a, b) => a.playId - b.playId);
+  }
+
+  /** This seat's row, or null when spectating. */
+  _mySeat() {
+    if (!this.myIdentity) return null;
+    return (this.seats || []).find((s) => s.isHuman && s.occupant === this.myIdentity) || null;
+  }
+
+  /**
+   * My unspent dealt cards. `melee_hand` is authoritative — the module refuses
+   * anything else — so fall back to the caller's `myHand` only before the deal
+   * has loaded, and never let a stale loadout masquerade as a hand.
+   */
+  _myCards() {
+    const seat = this._mySeat();
+    if (seat && Array.isArray(seat.hand) && seat.hand.length) {
+      return seat.hand.filter((c) => !c.played);
+    }
+    return this.myHand || [];
+  }
+
+  /**
+   * Which of my cards the server will accept, computed with the engine the Rust
+   * referee was ported from. A card greyed out here is a card `play_melee_card`
+   * would reject; `scripts/melee-parity.test.mjs` is what keeps that true.
+   */
+  _legalIds() {
+    const Engine = (typeof globalThis !== "undefined" && globalThis.ArcanaTrickEngine) || null;
+    const cards = this._myCards();
+    if (!Engine || !cards.length) return null; // null = "cannot tell", so allow all
+    const pot = this._pot();
+    const trick = pot.map((p) => ({
+      player: p.seatId,
+      card: { card_id: p.cardId, suit: p.suit, rank: p.rank, is_major: p.isMajor },
+    }));
+    const led = trick.length && !trick[0].card.is_major ? trick[0].card.suit : null;
+    const trump = (this.table && this.table.trumpSuit) || "wands";
+    const ladder = (this.table && this.table.ladder) || {};
+    try {
+      const moves = Engine.getLegalMoves(cards, led, trump, trick, ladder);
+      return new Set(moves.filter((m) => m.legal).map((m) => m.card.card_id));
+    } catch {
+      return null;
+    }
   }
 
   _startClock() {
@@ -152,43 +251,45 @@ export class MeleeTableInstance {
     const canvas = h("canvas", { class: "mt-singularity-canvas" });
     core.appendChild(canvas);
 
-    // Center trick badge
-    const currentTrickNum = Math.min(12, Math.max(1, (this.plays && this.plays.length ? Math.floor(this.plays.length / Math.max(1, this.seats.length)) + 1 : 1)));
+    // The trick number is the module's, read off resolved `melee_trick` rows —
+    // never inferred from how many cards happen to be on the table.
+    const trickNo = (this.table && this.table.currentTrick) || 1;
     const coreBadge = h("div", { class: "mt-core-badge" }, [
-      h("div", { class: "mt-core-trick", text: `TRICK ${currentTrickNum} / 12` }),
+      h("div", { class: "mt-core-trick", text: `TRICK ${Math.min(12, trickNo)} / 12` }),
       h("div", { class: "mt-core-sub aw-dim", text: "Singularity Core" }),
     ]);
     core.appendChild(coreBadge);
     arenaRing.appendChild(core);
 
-    // Orbital Seats (2..6 Players)
     const seatList = this.seats && this.seats.length ? this.seats : [
       { seatId: 1, faction: 4, handle: "Mars Champion", isAgent: true, archetype: "Onslaught", counters: 10, meldsValue: 20, score: 30 },
       { seatId: 2, faction: 1, handle: "Moon Ally", isHuman: true, archetype: "Tides", counters: 20, meldsValue: 0, score: 20 },
     ];
     const N = seatList.length;
-    // Adapt radius: 38% for 5-6 seats, 42% for 2-4 seats
-    const radiusPct = N >= 5 ? 39 : 42;
+    const turnSeat = this.table ? this.table.turnSeat : null;
+    const pot = this._sweep ? this._sweep.plays : this._pot();
+    const seatAt = {};
 
     seatList.forEach((s, idx) => {
-      const angle = (2 * Math.PI * idx) / N - Math.PI / 2;
-      const x = 50 + radiusPct * Math.cos(angle);
-      const y = 50 + radiusPct * Math.sin(angle);
+      const { x, y } = seatPoint(idx, N);
+      seatAt[s.seatId] = { x, y };
 
       const fIdx = s.faction != null ? s.faction : idx;
       const col = PLANET_COLORS[fIdx] || "var(--ac-gold)";
       const glyph = PLANET_GLYPHS[fIdx] || "✦";
       const fName = PLANET_NAMES[fIdx] || "Faction";
       const isMe = this.myIdentity && s.occupant === this.myIdentity;
+      const isTurn = turnSeat != null && s.seatId === turnSeat;
       const archName = s.archetype || (s.isHuman ? "Human Ally" : "Champion");
       const archTactic = s.tactic || (s.isHuman ? "Live Seeker player" : "Astrological combat archetype");
-
-      // Find latest play for this seat in current trick
-      const latestPlay = (this.plays || []).filter((p) => p.seatId === s.seatId).pop();
+      const left = s.handRemaining;
 
       const station = h("div", {
-        class: "mt-seat-station" + (isMe ? " is-me" : "") + (s.isHuman ? " is-human" : " is-agent"),
-        style: { left: `${x.toFixed(1)}%`, top: `${y.toFixed(1)}%` },
+        class: "mt-seat-station"
+          + (isMe ? " is-me" : "")
+          + (s.isHuman ? " is-human" : " is-agent")
+          + (isTurn ? " is-turn" : ""),
+        style: { left: `${x.toFixed(1)}%`, top: `${y.toFixed(1)}%`, "--seat-color": col },
         title: `${s.handle} (${fName}) — ${archTactic}`,
       }, [
         h("div", { class: "mt-seat-head" }, [
@@ -202,14 +303,55 @@ export class MeleeTableInstance {
           h("span", { class: "mt-score-pts", text: `${s.score} pts` }),
           h("span", { class: "mt-score-counters", text: `★ ${s.counters}` }),
           s.meldsValue > 0 ? h("span", { class: "mt-score-melds aw-dim", text: `+${s.meldsValue}` }) : null,
+          Number.isFinite(left) ? h("span", { class: "mt-score-cards aw-dim", text: `🂠 ${left}` }) : null,
         ]),
-        h("div", { class: "mt-trick-slot" }, [
-          latestPlay ? this._renderPlayedCard(latestPlay) : h("span", { class: "mt-slot-empty aw-dim", text: "·" }),
-        ]),
+        isTurn ? h("div", { class: "mt-turn-flag", text: isMe ? "YOUR TURN" : "THINKING…" }) : null,
       ]);
 
       arenaRing.appendChild(station);
     });
+
+    // The pot: every card in the open trick, laid on the ring between its seat
+    // and the core. A card that has not been seen before flies in from its own
+    // seat; when the trick resolves the whole pot sweeps to the winner.
+    const potHost = h("div", { class: "mt-pot" + (this._sweep ? " is-sweeping" : "") });
+    pot.forEach((play, i) => {
+      const from = seatAt[play.seatId] || { x: 50, y: 50 };
+      const seatIdx = seatList.findIndex((s) => s.seatId === play.seatId);
+      const rest = seatPoint(seatIdx < 0 ? i : seatIdx, Math.max(N, 1));
+      // Rest position: a third of the way from the seat toward the core.
+      const rx = 50 + (rest.x - 50) * 0.42;
+      const ry = 50 + (rest.y - 50) * 0.42;
+      const fresh = !this._seenPlays.has(play.playId);
+      const style = {
+        left: `${rx.toFixed(1)}%`,
+        top: `${ry.toFixed(1)}%`,
+        "--from-x": `${(from.x - rx).toFixed(1)}%`,
+        "--from-y": `${(from.y - ry).toFixed(1)}%`,
+      };
+      if (this._sweep) {
+        const to = seatAt[this._sweep.winnerSeat] || { x: 50, y: 50 };
+        style["--to-x"] = `${(to.x - rx).toFixed(1)}%`;
+        style["--to-y"] = `${(to.y - ry).toFixed(1)}%`;
+      }
+      const card = h("div", {
+        class: "mt-pot-card"
+          + (fresh && !this._sweep ? " is-thrown" : "")
+          + (this._sweep && this._sweep.winnerSeat === play.seatId ? " is-taker" : ""),
+        style,
+      }, [this._renderPlayedCard(play)]);
+      potHost.appendChild(card);
+      this._seenPlays.add(play.playId);
+    });
+    if (this._sweep) {
+      const to = seatAt[this._sweep.winnerSeat] || { x: 50, y: 50 };
+      potHost.appendChild(h("div", {
+        class: "mt-sweep-tally",
+        style: { left: `${to.x.toFixed(1)}%`, top: `${to.y.toFixed(1)}%` },
+        text: `+${this._sweep.counters} ★`,
+      }));
+    }
+    arenaRing.appendChild(potHost);
 
     host.appendChild(arenaRing);
 
@@ -219,12 +361,19 @@ export class MeleeTableInstance {
 
   _renderPlayedCard(play) {
     const isMaj = play.isMajor;
-    const rank = isMaj ? (MAJOR_NUMERALS[play.rank] || "Major") : rankName(play.rank);
+    const rank = isMaj ? (ARCANA_NUMERALS[play.rank] || "?") : rankName(play.rank);
     const suit = play.suit || "wands";
     const glyph = SUIT_GLYPHS[suitCap(suit)] || "✦";
     const col = SUIT_COLORS[suitCap(suit)] || "var(--ac-gold)";
-    return h("div", { class: `mt-played-card aw-card--${suit}` + (isMaj ? " aw-card--major" : "") }, [
-      h("span", { class: "mt-card-glyph", style: { color: col }, text: glyph }),
+    const trump = (this.table && this.table.trumpSuit) || "";
+    const isTrump = !isMaj && suit === trump;
+    return h("div", {
+      class: `mt-played-card aw-card--${suit}`
+        + (isMaj ? " aw-card--major" : "")
+        + (isTrump ? " is-trump" : ""),
+      title: isMaj ? ARCANA_NAMES[play.rank] || "Major Arcana" : `${rankName(play.rank)} of ${suitCap(suit)}`,
+    }, [
+      h("span", { class: "mt-card-glyph", style: { color: col }, text: isMaj ? "✦" : glyph }),
       h("span", { class: "mt-card-rank", text: rank }),
     ]);
   }
@@ -246,7 +395,11 @@ export class MeleeTableInstance {
       for (const k of keys) {
         const potency = ladder[k];
         grid.appendChild(h("div", { class: "mt-ladder-row" }, [
-          h("span", { class: "mt-ladder-numeral", text: MAJOR_NUMERALS[k] || String(k) }),
+          h("span", {
+            class: "mt-ladder-numeral",
+            text: ARCANA_NUMERALS[k] || String(k),
+            title: ARCANA_NAMES[k] || `Arcana ${k}`,
+          }),
           h("span", { class: "mt-ladder-val", text: `⚡ ${potency}` }),
         ]));
       }
@@ -258,36 +411,92 @@ export class MeleeTableInstance {
     const host = this.dom.playerArea;
     clear(host);
 
-    const isSeated = this.seats.some((s) => s.isHuman && this.myIdentity && s.occupant === this.myIdentity);
-    if (!isSeated) {
+    const seat = this._mySeat();
+    const resolved = this.table && this.table.state === "Resolved";
+
+    if (!seat) {
       host.appendChild(h("div", { class: "mt-spectator-bar aw-dim" }, [
-        h("span", { text: "✦ Spectating War Table · Factions maneuver autonomously across the 12-trick melee." }),
+        h("span", {
+          text: resolved
+            ? "✦ Table resolved · Control has moved. Queue for your faction's seat to contest the next round."
+            : "✦ Spectating War Table · Factions maneuver autonomously across the 12-trick melee.",
+        }),
       ]));
       return;
     }
 
-    // Interactive hand for seated player
-    host.appendChild(h("div", { class: "aw-section-label", text: "Your Hand — Play into current trick" }));
-    const handStrip = h("div", { class: "mt-hand-strip" });
-    const cards = this.myHand || [];
+    const cards = this._myCards();
+    const isMyTurn = this.table && this.table.turnSeat === seat.seatId && !resolved;
+    const legal = isMyTurn ? this._legalIds() : null;
+
+    // Say plainly whose move it is. A hand you cannot play looks identical to a
+    // hand you can until something tells you which one you are looking at.
+    const label = resolved
+      ? "Melee resolved — your final hand"
+      : isMyTurn
+        ? `Your turn — trick ${Math.min(12, (this.table && this.table.currentTrick) || 1)} of 12`
+        : "Waiting on the table…";
+    host.appendChild(h("div", {
+      class: "aw-section-label" + (isMyTurn ? " is-live" : ""),
+      text: label,
+    }));
+
+    const handStrip = h("div", { class: "mt-hand-strip" + (isMyTurn ? " is-active" : "") });
     if (!cards.length) {
-      handStrip.appendChild(h("div", { class: "aw-dim mt-hand-empty", text: "Hand dealt for round." }));
+      handStrip.appendChild(h("div", {
+        class: "aw-dim mt-hand-empty",
+        text: seat.hasDeal ? "Hand spent — every card is on the table." : "Dealing…",
+      }));
     } else {
       for (const c of cards) {
+        // `legal === null` means the engine could not be consulted, so nothing is
+        // greyed out; the server refusal is still the backstop either way.
+        const playable = isMyTurn && (legal === null || legal.has(c.card_id));
         handStrip.appendChild(h("div", {
-          class: `mt-hand-card aw-card--${c.suit || "wands"}` + (c.is_major ? " aw-card--major" : ""),
+          class: `mt-hand-card aw-card--${c.suit || "wands"}`
+            + (c.is_major ? " aw-card--major" : "")
+            + (playable ? " is-playable" : " is-locked")
+            + (c.inverted ? " is-inverted" : ""),
           role: "button",
-          onClick: () => this.hooks.onPlayCard && this.hooks.onPlayCard(this.table?.tableId, c.card_id),
+          tabindex: playable ? "0" : "-1",
+          "aria-disabled": playable ? "false" : "true",
+          title: playable
+            ? "Play into the current trick"
+            : isMyTurn
+              ? "Illegal here — follow suit, trump, or beat the winner"
+              : "Not your turn",
+          onClick: () => {
+            if (!playable) return;
+            this.hooks.onPlayCard && this.hooks.onPlayCard(this.table && this.table.tableId, c.card_id);
+          },
+          onKeydown: (e) => {
+            if (!playable) return;
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              this.hooks.onPlayCard && this.hooks.onPlayCard(this.table && this.table.tableId, c.card_id);
+            }
+          },
         }, [
           h("div", { class: "mt-hand-top" }, [
-            h("span", { text: SUIT_GLYPHS[suitCap(c.suit)] || "✦" }),
-            h("span", { text: c.is_major ? "MAJOR" : rankName(c.rank) }),
+            h("span", { text: c.is_major ? "✦" : SUIT_GLYPHS[suitCap(c.suit)] || "✦" }),
+            h("span", { text: c.is_major ? (ARCANA_NUMERALS[c.rank] || "?") : rankName(c.rank) }),
           ]),
-          h("div", { class: "mt-hand-title", text: c.title || rankName(c.rank) }),
+          h("div", {
+            class: "mt-hand-title",
+            text: c.is_major
+              ? (ARCANA_NAMES[c.rank] || "Major Arcana")
+              : `${rankName(c.rank)} of ${suitCap(c.suit)}`,
+          }),
         ]));
       }
     }
     host.appendChild(handStrip);
+
+    if (seat.meldsValue > 0) {
+      host.appendChild(h("div", { class: "mt-meld-bar aw-dim" }, [
+        h("span", { text: `✦ Melds declared at the deal: +${seat.meldsValue} pts` }),
+      ]));
+    }
   }
 
   _initShader(canvas) {

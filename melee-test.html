@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>War Table — Refereed Melee Harness</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Space+Grotesk:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    html, body { margin: 0; min-height: 100%; background: #05060c; color: #e7e3d8; font-family: "Space Grotesk", system-ui, sans-serif; }
+    #bar { display: flex; gap: 10px; align-items: center; padding: 12px 16px; flex-wrap: wrap; }
+    #bar button { background: rgba(246,207,131,0.16); color: #f6cf83; border: 1px solid #f6cf83;
+      border-radius: 6px; padding: 6px 14px; font: inherit; font-size: 12px; cursor: pointer; }
+    #bar button:disabled { opacity: 0.4; cursor: not-allowed; }
+    #state { font-size: 12px; opacity: 0.75; font-variant-numeric: tabular-nums; }
+    #host { width: min(980px, 96vw); margin: 0 auto; padding: 8px 0 40px; }
+  </style>
+</head>
+<body>
+  <!-- Drives the REAL MeleeTable view with rows shaped exactly as melee_table /
+       melee_seat / melee_play / melee_hand / melee_trick arrive from the module,
+       and resolves tricks with the REAL arcanaTrickEngine — the engine that
+       server/src/melee.rs is a verified port of. No SpacetimeDB needed. -->
+  <div id="bar">
+    <button id="step">▶ Play next card</button>
+    <button id="auto">⏩ Auto-play</button>
+    <button id="reset">↺ Reset</button>
+    <span id="state"></span>
+  </div>
+  <div id="host"></div>
+
+  <script src="/arcanaTrickEngine.js"></script>
+  <script type="module">
+    import "/src/alchm-chart/alchm-chart.css";
+    import MeleeTable from "/src/alchm-chart/melee-table.js";
+    import { buildTables } from "/src/alchm-chart/war-model.js";
+
+    const Engine = window.ArcanaTrickEngine;
+    const TRUMP = "cups";           // zone 3 → Cancer → Cups
+    const ME = "0xhuman";
+    const SEAT_DEFS = [
+      { seat_id: 1, faction: "Moon",    occupant: ME,      is_human: true,  claim: 88 },
+      { seat_id: 2, faction: "Mars",    occupant: "0xmars", is_human: false, claim: 84 },
+      { seat_id: 3, faction: "Saturn",  occupant: "0xsat",  is_human: false, claim: 77 },
+      { seat_id: 4, faction: "Mercury", occupant: "0xmerc", is_human: false, claim: 71 },
+    ];
+    const AGENTS = { "0xmars": { handle: "Nikola Tesla" }, "0xsat": { handle: "Isaac Newton" }, "0xmerc": { handle: "Hypatia" } };
+    const PLAYERS = [{ identity: ME, handle: "Seeker" }];
+    const SUITS = ["wands", "cups", "swords", "pentacles"];
+    const LADDER = Engine.buildArcanaLadder(
+      Array.from({ length: 10 }, (_, b) => ({ body: b, sign: (b * 5) % 12, retrograde: b % 4 === 0, up: true })),
+      null,
+    );
+
+    let hands, plays, tricks, seats, playId, handId, trickId, auto;
+
+    function reset() {
+      playId = 0; handId = 0; trickId = 0;
+      clearInterval(auto); auto = null;
+      // Deal twelve to each seat: a spread with counters, courts and a few Majors
+      // so melds, trumps and the Excuse all appear.
+      hands = [];
+      // Majors are dealt from ONE shared deck of 22. A per-seat formula was
+      // handing two seats The Fool, which is impossible in a real deal and made
+      // the conservation check below fail for a reason the game does not have.
+      const majorDeck = [0, 1, 21, 13, 20, 16, 10, 2, 19, 5, 14, 7];
+      let nextMajor = 0;
+      SEAT_DEFS.forEach((s, si) => {
+        for (let i = 0; i < 12; i++) {
+          const isMajor = i >= 9;
+          hands.push({
+            hand_id: ++handId, table_id: 1, seat_id: s.seat_id,
+            card_id: s.seat_id * 1000 + i,
+            suit: isMajor ? "wands" : SUITS[(i + si) % 4],
+            rank: isMajor ? majorDeck[nextMajor++] : [1, 10, 14, 13, 12, 11, 9, 5, 3][i],
+            is_major: isMajor, inverted: si === 2 && i === 0, played: false,
+          });
+        }
+      });
+      plays = []; tricks = [];
+      seats = SEAT_DEFS.map((s) => ({ ...s, table_id: 1, counters: 0, melds_value: 0, score: 0 }));
+      // Melds are declared at the deal, exactly as open_melee_round does.
+      for (const s of seats) {
+        const h = hands.filter((c) => c.seat_id === s.seat_id);
+        s.melds_value = Engine.detectMelds(h, TRUMP, LADDER).reduce((n, m) => n + m.value, 0);
+        s.score = s.melds_value;
+      }
+      paint();
+    }
+
+    const tableRow = () => ({
+      table_id: 1, zone_id: 3, round_index: 12, trump_suit: TRUMP,
+      state: tricks.length >= 12 ? "Resolved" : "Seated", seat_count: seats.length,
+      opened_at: Date.now() - 20000, ladder_raw: JSON.stringify(LADDER),
+    });
+
+    const model = () =>
+      buildTables([tableRow()], seats, PLAYERS, AGENTS, undefined, plays, hands, tricks).byId[1];
+
+    /** One card from the seat on turn, chosen the way the module would. */
+    function step() {
+      const m = model();
+      if (!m.turnSeat || tricks.length >= 12) return false;
+      const seat = m.seats.find((s) => s.seatId === m.turnSeat);
+      const hand = seat.hand.filter((c) => !c.played);
+      if (!hand.length) return false;
+
+      const trick = m.trickPlays.map((p) => ({
+        player: p.seatId,
+        card: { card_id: p.cardId, suit: p.suit, rank: p.rank, is_major: p.isMajor },
+      }));
+      const led = trick.length && !trick[0].card.is_major ? trick[0].card.suit : null;
+      const pick = Engine.GuardianAI.choose(hand, led, TRUMP, trick, LADDER);
+      const row = hands.find((c) => c.seat_id === seat.seatId && c.card_id === pick.card_id);
+      row.played = true;
+      plays.push({
+        play_id: ++playId, table_id: 1, trick_number: m.currentTrick, seat_id: seat.seatId,
+        card_id: row.card_id, is_major: row.is_major, rank: row.rank, suit: row.suit,
+        played_at: Date.now(),
+      });
+
+      // Close the trick when it fills — the module's own ordering.
+      const after = model();
+      if (!after.turnSeat) {
+        const potCards = after.trickPlays.map((p) => {
+          const hc = hands.find((c) => c.seat_id === p.seatId && c.card_id === p.cardId);
+          return { player: p.seatId, card: hc };
+        });
+        const out = Engine.evaluateTrick(potCards, TRUMP, LADDER, after.currentTrick);
+        const bank = (seatId, n) => {
+          const s = seats.find((x) => x.seat_id === seatId);
+          if (!s || !n) return;
+          s.counters += n;
+          s.score = s.counters + s.melds_value;
+        };
+        bank(out.winner, out.counters);
+        // The Excuse never joins the pot — it keeps its own Honour for whoever
+        // played it. `melee_close_trick` in reducers.rs credits it separately;
+        // forget that here and the table quietly loses ten counters a round.
+        if (out.excusePlayer != null) {
+          const ex = potCards.find((p) => p.player === out.excusePlayer);
+          bank(out.excusePlayer, Engine.counterValue(ex.card));
+        }
+        tricks.push({
+          trick_id: ++trickId, table_id: 1, trick_number: after.currentTrick,
+          leader_seat: after.leaderSeat, led_suit: led, winner_seat: out.winner,
+          counters: out.counters, excuse_seat: out.excusePlayer ?? null, resolved_at: Date.now(),
+        });
+      }
+      paint();
+      return true;
+    }
+
+    let view = null;
+    function paint() {
+      const m = model();
+      if (!view) {
+        view = MeleeTable.create({
+          el: document.getElementById("host"), table: m, seats: m.seats, plays: m.plays,
+          myIdentity: ME, myFaction: 1,
+          hooks: { onClose: () => {}, onPlayCard: (_t, cardId) => playMine(cardId) },
+        });
+        view.mount();
+      } else {
+        view.setData({ table: m, seats: m.seats, plays: m.plays });
+      }
+      // Counters are conserved: everything dealt, plus the ten for the last
+      // trick, ends up banked. Shown live so the harness proves it rather than
+      // just displaying it — the same invariant melee.rs asserts in Rust.
+      const banked = seats.reduce((n, s) => n + s.counters, 0);
+      const dealt = hands.reduce((n, c) => n + Engine.counterValue(c), 0);
+      const expected = dealt + (tricks.length >= 12 ? 10 : 0);
+      const ok = tricks.length < 12 ? banked <= expected + 10 : banked === expected;
+      document.getElementById("state").innerHTML =
+        `trick ${Math.min(12, m.currentTrick)}/12 · turn seat ${m.turnSeat ?? "—"} · ` +
+        `counters ${banked}/${expected} · ${m.state} · ` +
+        `<span style="color:${ok ? "#7fd18b" : "#f26262"}">` +
+        `${ok ? "conserved ✓" : "LEAK ✗"}</span>`;
+      document.getElementById("step").disabled = tricks.length >= 12;
+      window.__melee = { model: m, step, seats, tricks, plays, hands };
+    }
+
+    function playMine(cardId) {
+      const m = model();
+      if (m.turnSeat !== 1) return;
+      const row = hands.find((c) => c.seat_id === 1 && c.card_id === cardId && !c.played);
+      if (!row) return;
+      row.played = true;
+      plays.push({
+        play_id: ++playId, table_id: 1, trick_number: m.currentTrick, seat_id: 1,
+        card_id: row.card_id, is_major: row.is_major, rank: row.rank, suit: row.suit,
+        played_at: Date.now(),
+      });
+      paint();
+      setTimeout(() => { const a = model(); if (a.turnSeat && a.turnSeat !== 1) step(); }, 420);
+    }
+
+    document.getElementById("step").onclick = () => step();
+    document.getElementById("reset").onclick = () => { view && view.destroy(); view = null; reset(); };
+    document.getElementById("auto").onclick = () => {
+      if (auto) { clearInterval(auto); auto = null; return; }
+      auto = setInterval(() => { if (!step()) { clearInterval(auto); auto = null; } }, 900);
+    };
+    reset();
+  </script>
+</body>
+</html>

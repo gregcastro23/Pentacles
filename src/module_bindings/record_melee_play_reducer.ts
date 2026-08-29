@@ -11,16 +11,17 @@ import {
 } from "spacetimedb";
 
 import {
-  BridgeChain,
+  Suit,
 } from "./types";
 
 export default {
-  get chain() {
-    return BridgeChain;
+  tableId: __t.u64(),
+  trickNumber: __t.u8(),
+  seatId: __t.u64(),
+  cardId: __t.u64(),
+  isMajor: __t.bool(),
+  rank: __t.u8(),
+  get suit() {
+    return Suit;
   },
-  txHash: __t.string(),
-  playerPubkey: __t.string(),
-  eventType: __t.string(),
-  elementId: __t.u8(),
-  amount: __t.u64(),
 };

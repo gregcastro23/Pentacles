@@ -9,18 +9,21 @@ import {
   type AlgebraicTypeType as __AlgebraicTypeType,
   type Infer as __Infer,
 } from "spacetimedb";
-
 import {
-  BridgeChain,
+  Planet,
 } from "./types";
 
-export default {
-  get chain() {
-    return BridgeChain;
+
+export default __t.row({
+  seatId: __t.u64().primaryKey().name("seat_id"),
+  tableId: __t.u64().name("table_id"),
+  occupant: __t.identity(),
+  get faction() {
+    return Planet;
   },
-  txHash: __t.string(),
-  playerPubkey: __t.string(),
-  eventType: __t.string(),
-  elementId: __t.u8(),
-  amount: __t.u64(),
-};
+  isHuman: __t.bool().name("is_human"),
+  claim: __t.u16(),
+  counters: __t.u16(),
+  meldsValue: __t.u16().name("melds_value"),
+  score: __t.u16(),
+});

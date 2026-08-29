@@ -9,18 +9,21 @@ import {
   type AlgebraicTypeType as __AlgebraicTypeType,
   type Infer as __Infer,
 } from "spacetimedb";
-
 import {
-  BridgeChain,
+  Suit,
 } from "./types";
 
-export default {
-  get chain() {
-    return BridgeChain;
+
+export default __t.row({
+  handId: __t.u64().primaryKey().name("hand_id"),
+  tableId: __t.u64().name("table_id"),
+  seatId: __t.u64().name("seat_id"),
+  cardId: __t.u64().name("card_id"),
+  get suit() {
+    return Suit;
   },
-  txHash: __t.string(),
-  playerPubkey: __t.string(),
-  eventType: __t.string(),
-  elementId: __t.u8(),
-  amount: __t.u64(),
-};
+  rank: __t.u8(),
+  isMajor: __t.bool().name("is_major"),
+  inverted: __t.bool(),
+  played: __t.bool(),
+});

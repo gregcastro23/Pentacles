@@ -3,7 +3,7 @@
 
 use crate::tables::*;
 use crate::types::*;
-use crate::{catalog, chart, combat, words};
+use crate::{catalog, chart, combat, melee, words};
 use spacetimedb::{reducer, Identity, ReducerContext, ScheduleAt, Table, Timestamp};
 use std::time::Duration;
 
@@ -1657,6 +1657,25 @@ fn has_loadout(ctx: &ReducerContext, owner: Identity, card_id: u64, loadout: Loa
 /// stalled duels, advances the Great Wheel, and lets unmanned factions raid.
 #[reducer]
 pub fn tick_sky(ctx: &ReducerContext, _timer: SkyTickTimer) {
+    // 0. Drive any War Table that is mid-play.
+    //
+    // An all-agent table settles inside `open_melee_round`, and a human's play
+    // advances the agents behind it — so what reaches here is the case neither
+    // covers: a seated human who stopped playing. `melee_advance` plays for them
+    // once `MELEE_TURN_GRACE_SECS` has passed and is a no-op before that, so this
+    // is safe to run every tick. Collected first: the loop writes to the tables
+    // it would otherwise be iterating.
+    let live: Vec<u64> = ctx
+        .db
+        .melee_table()
+        .iter()
+        .filter(|t| t.state != MeleeState::Resolved)
+        .map(|t| t.table_id)
+        .collect();
+    for table_id in live {
+        melee_advance(ctx, table_id);
+    }
+
     // 1. Decay held zones
     for mut z in ctx.db.zone().iter() {
         if z.control > 0 {
@@ -3027,6 +3046,446 @@ fn zone_ran_melee(ctx: &ReducerContext, zone_id: u8) -> bool {
     })
 }
 
+
+// ── The referee ─────────────────────────────────────────────────────────────
+//
+// Everything below turns the module from the War Table's *scorekeeper* into its
+// *referee*. It used to be that the feeder dealt, played and scored twelve tricks
+// in JavaScript and reported the totals; the module checked the arithmetic and
+// moved control. A feeder that lied about who harvested what was believed.
+//
+// Now the module deals the hands (`melee_hand`), freezes the ladder from its own
+// `ephemeris`, validates every play against `melee::legal_mask`, resolves each
+// trick as its last card lands (`melee_trick`), and settles the table itself at
+// trick twelve. The feeder's remaining job is to decide WHO sits down.
+//
+// `crate::melee` holds the rules, ported function-for-function from
+// public/arcanaTrickEngine.js and unit-tested against the same fixtures. This
+// section is only the plumbing between those rules and the tables.
+
+/// How long a human seat may sit on its turn before the module plays for it.
+/// Without this one absent player freezes a six-seat table forever.
+const MELEE_TURN_GRACE_SECS: i64 = 45;
+
+/// Hard ceiling on plays the referee will make in one call. Twelve tricks at six
+/// seats is 72; anything past that means the state machine is not converging and
+/// we would rather stop than spin inside a reducer.
+const MELEE_MAX_STEPS: usize = 96;
+
+/// The live sky as the ladder reads it. `up` is true for every body: the server
+/// has no single observer, which is exactly the default the JS engine uses when
+/// a feeder omits the field.
+fn melee_sky(ctx: &ReducerContext) -> Vec<melee::SkyBody> {
+    ctx.db
+        .ephemeris()
+        .iter()
+        .map(|e| melee::SkyBody {
+            body: e.body,
+            // 1800 arc-minutes to a sign — the SIGN_MINUTES of chart.rs.
+            sign: ((chart::equatorial_to_ecliptic_min(e.ra, e.dec) / 1800) % 12) as u8,
+            retrograde: e.retrograde,
+            up: true,
+        })
+        .collect()
+}
+
+/// Ecliptic longitude per faction, in arc-minutes — what `seat_order` sorts on.
+fn melee_longitudes(ctx: &ReducerContext) -> [u16; 10] {
+    let mut lon = [0u16; 10];
+    for e in ctx.db.ephemeris().iter() {
+        lon[e.body.idx()] = chart::equatorial_to_ecliptic_min(e.ra, e.dec);
+    }
+    lon
+}
+
+/// The pool a seat is dealt from: its Active loadout first, then Bench, then the
+/// whole collection. A player who never assigned a loadout still gets a hand —
+/// the on-chain twin of the client's four-tier fallback.
+fn melee_deal_pool(ctx: &ReducerContext, owner: Identity) -> Vec<melee::MeleeCard> {
+    let as_cards = |cards: Vec<Card>| -> Vec<melee::MeleeCard> {
+        cards
+            .into_iter()
+            .map(|c| melee::MeleeCard {
+                card_id: c.card_id,
+                suit: c.suit,
+                rank: c.rank,
+                is_major: c.is_major,
+                inverted: c.inverted,
+            })
+            .collect()
+    };
+    let owned: Vec<Card> = ctx.db.card().owner().filter(&owner).collect();
+    if owned.is_empty() {
+        return Vec::new();
+    }
+    let in_loadout = |l: Loadout| -> Vec<Card> {
+        let ids: Vec<u64> = ctx
+            .db
+            .deck_slot()
+            .owner()
+            .filter(&owner)
+            .filter(|d| d.loadout == l)
+            .map(|d| d.card_id)
+            .collect();
+        owned.iter().filter(|c| ids.contains(&c.card_id)).cloned().collect()
+    };
+
+    let active = in_loadout(Loadout::Active);
+    if active.len() >= melee::HAND_SIZE {
+        return as_cards(active);
+    }
+    let mut pool = active;
+    for c in in_loadout(Loadout::Bench) {
+        if !pool.iter().any(|p| p.card_id == c.card_id) {
+            pool.push(c);
+        }
+    }
+    if pool.len() >= melee::HAND_SIZE {
+        return as_cards(pool);
+    }
+    for c in owned {
+        if !pool.iter().any(|p| p.card_id == c.card_id) {
+            pool.push(c);
+        }
+    }
+    as_cards(pool)
+}
+
+/// Every seat at a table in play order. `seat_id` ascends in insertion order, and
+/// `open_melee_round` inserts in ecliptic order, so this IS the turn rotation.
+fn melee_seats(ctx: &ReducerContext, table_id: u64) -> Vec<MeleeSeat> {
+    let mut seats: Vec<MeleeSeat> = ctx.db.melee_seat().table_id().filter(&table_id).collect();
+    seats.sort_by_key(|s| s.seat_id);
+    seats
+}
+
+/// A seat's unplayed cards.
+fn melee_hand_of(ctx: &ReducerContext, seat_id: u64) -> Vec<melee::MeleeCard> {
+    ctx.db
+        .melee_hand()
+        .seat_id()
+        .filter(&seat_id)
+        .filter(|h| !h.played)
+        .map(|h| melee::MeleeCard {
+            card_id: h.card_id,
+            suit: h.suit,
+            rank: h.rank,
+            is_major: h.is_major,
+            inverted: h.inverted,
+        })
+        .collect()
+}
+
+/// The trick now in progress: its number, and the cards already in it in play
+/// order. Derived from resolved `melee_trick` rows rather than from a play count,
+/// so a short trick (a seat that ran out of cards) cannot skew the arithmetic.
+fn melee_open_trick(ctx: &ReducerContext, table_id: u64) -> (u8, Vec<MeleePlay>) {
+    let resolved = ctx.db.melee_trick().table_id().filter(&table_id).count() as u8;
+    let trick_no = resolved + 1;
+    let mut plays: Vec<MeleePlay> = ctx
+        .db
+        .melee_play()
+        .table_id()
+        .filter(&table_id)
+        .filter(|p| p.trick_number == trick_no)
+        .collect();
+    plays.sort_by_key(|p| p.play_id);
+    (trick_no, plays)
+}
+
+/// Who leads the current trick: seat one on trick 1, thereafter whoever took the
+/// trick before.
+fn melee_leader(ctx: &ReducerContext, table_id: u64, seats: &[MeleeSeat], trick_no: u8) -> u64 {
+    let first = seats.first().map(|s| s.seat_id).unwrap_or(0);
+    if trick_no <= 1 {
+        return first;
+    }
+    ctx.db
+        .melee_trick()
+        .table_id()
+        .filter(&table_id)
+        .find(|t| t.trick_number == trick_no - 1)
+        .map(|t| t.winner_seat)
+        .unwrap_or(first)
+}
+
+/// Seats that held a card when this trick began: those still holding one, plus
+/// those that have already played into it. A seat dealt short simply drops out of
+/// the rotation instead of stalling the table.
+fn melee_expected_seats(
+    ctx: &ReducerContext,
+    seats: &[MeleeSeat],
+    trick_plays: &[MeleePlay],
+) -> Vec<u64> {
+    seats
+        .iter()
+        .filter(|s| {
+            trick_plays.iter().any(|p| p.seat_id == s.seat_id)
+                || !melee_hand_of(ctx, s.seat_id).is_empty()
+        })
+        .map(|s| s.seat_id)
+        .collect()
+}
+
+/// The seat whose turn it is, or `None` when the trick is complete.
+fn melee_turn(
+    ctx: &ReducerContext,
+    seats: &[MeleeSeat],
+    leader_seat: u64,
+    trick_plays: &[MeleePlay],
+) -> Option<u64> {
+    let expected = melee_expected_seats(ctx, seats, trick_plays);
+    let played: Vec<u64> = trick_plays.iter().map(|p| p.seat_id).collect();
+    melee::turn_in_rotation(&expected, leader_seat, &played)
+}
+
+/// The cards on the table, in play order, as the rules see them. Inversion is
+/// irrelevant to trick POWER, which is all this feeds.
+fn melee_trick_cards(plays: &[MeleePlay]) -> Vec<melee::MeleeCard> {
+    plays
+        .iter()
+        .map(|p| melee::MeleeCard {
+            card_id: p.card_id,
+            suit: p.suit,
+            rank: p.rank,
+            is_major: p.is_major,
+            inverted: false,
+        })
+        .collect()
+}
+
+/// Commit one validated play: spend the card from the seat's hand and record it.
+fn melee_commit_play(
+    ctx: &ReducerContext,
+    table_id: u64,
+    seat_id: u64,
+    trick_number: u8,
+    card: &melee::MeleeCard,
+) {
+    if let Some(mut row) = ctx
+        .db
+        .melee_hand()
+        .seat_id()
+        .filter(&seat_id)
+        .find(|h| h.card_id == card.card_id && !h.played)
+    {
+        row.played = true;
+        ctx.db.melee_hand().hand_id().update(row);
+    }
+    ctx.db.melee_play().insert(MeleePlay {
+        play_id: 0,
+        table_id,
+        trick_number,
+        seat_id,
+        card_id: card.card_id,
+        is_major: card.is_major,
+        rank: card.rank,
+        suit: card.suit,
+        played_at: ctx.timestamp,
+    });
+}
+
+/// Close a completed trick: bank its counters on the winner, hand the Excuse its
+/// own Honour back, and write the row the client animates from.
+fn melee_close_trick(
+    ctx: &ReducerContext,
+    table: &MeleeTable,
+    trick_no: u8,
+    leader_seat: u64,
+    plays: &[MeleePlay],
+    ladder: &melee::Ladder,
+) {
+    // Counter values must come from the DEALT cards, since inversion halves them
+    // and `melee_play` does not carry the flag.
+    let cards: Vec<melee::MeleeCard> = plays
+        .iter()
+        .map(|p| {
+            ctx.db
+                .melee_hand()
+                .seat_id()
+                .filter(&p.seat_id)
+                .find(|h| h.card_id == p.card_id)
+                .map(|h| melee::MeleeCard {
+                    card_id: h.card_id,
+                    suit: h.suit,
+                    rank: h.rank,
+                    is_major: h.is_major,
+                    inverted: h.inverted,
+                })
+                .unwrap_or(melee::MeleeCard {
+                    card_id: p.card_id,
+                    suit: p.suit,
+                    rank: p.rank,
+                    is_major: p.is_major,
+                    inverted: false,
+                })
+        })
+        .collect();
+
+    let Some(out) = melee::evaluate_trick(&cards, table.trump_suit, ladder, trick_no) else {
+        return;
+    };
+    let winner_seat = plays[out.winner].seat_id;
+
+    let credit = |seat_id: u64, counters: u16| {
+        if counters == 0 {
+            return;
+        }
+        if let Some(mut seat) = ctx.db.melee_seat().seat_id().find(&seat_id) {
+            seat.counters = seat.counters.saturating_add(counters);
+            ctx.db.melee_seat().seat_id().update(seat);
+        }
+    };
+    credit(winner_seat, out.counters);
+    let excuse_seat = out.excuse.map(|i| plays[i].seat_id);
+    if let Some(e) = excuse_seat {
+        credit(e, out.excuse_counters);
+    }
+
+    ctx.db.melee_trick().insert(MeleeTrick {
+        trick_id: 0,
+        table_id: table.table_id,
+        trick_number: trick_no,
+        leader_seat,
+        led_suit: (!cards[0].is_major).then_some(cards[0].suit),
+        winner_seat,
+        counters: out.counters,
+        excuse_seat,
+        resolved_at: ctx.timestamp,
+    });
+}
+
+/// Settle a refereed table: score every seat from the counters it actually
+/// harvested, move zone control, and close the row. No feeder report involved.
+fn melee_settle(ctx: &ReducerContext, table_id: u64) {
+    let Some(mut table) = ctx.db.melee_table().table_id().find(&table_id) else {
+        return;
+    };
+    if table.state == MeleeState::Resolved {
+        return;
+    }
+    let mut seats = melee_seats(ctx, table_id);
+    let mut scores: Vec<u16> = Vec::with_capacity(seats.len());
+    for seat in seats.iter_mut() {
+        // The climax ten is already banked inside the last trick's counters, so
+        // `took_final_trick` is false here — passing it again would pay it twice.
+        seat.score = seat_score(seat.counters, seat.melds_value, false);
+        scores.push(seat.score);
+        ctx.db.melee_seat().seat_id().update(seat.clone());
+    }
+
+    for (seat, delta) in seats.iter().zip(melee_control_deltas(&scores, ZONE_SWING)) {
+        if delta != 0 {
+            apply_control(ctx, table.zone_id, seat.faction, delta);
+        }
+    }
+
+    table.state = MeleeState::Resolved;
+    table.resolved_at = Some(ctx.timestamp);
+    ctx.db.melee_table().table_id().update(table);
+}
+
+/// Drive a table forward: play every autonomous seat that is on turn, close each
+/// trick as it fills, and settle at twelve. Stops the moment a human is on turn —
+/// unless that human has sat past `MELEE_TURN_GRACE_SECS`, in which case the
+/// module plays their weakest legal card so the table cannot deadlock.
+///
+/// Returns how many cards it played. A pure state-machine advance: it takes no
+/// input, so calling it twice is harmless and calling it from anywhere is safe.
+fn melee_advance(ctx: &ReducerContext, table_id: u64) -> usize {
+    let mut played = 0usize;
+    for _ in 0..MELEE_MAX_STEPS {
+        let Some(table) = ctx.db.melee_table().table_id().find(&table_id) else {
+            break;
+        };
+        if table.state == MeleeState::Resolved {
+            break;
+        }
+        let ladder = melee::ladder_from_json(&table.ladder_raw);
+        let seats = melee_seats(ctx, table_id);
+        if seats.is_empty() {
+            break;
+        }
+        let (trick_no, trick_plays) = melee_open_trick(ctx, table_id);
+        if trick_no > melee::TOTAL_TRICKS {
+            melee_settle(ctx, table_id);
+            break;
+        }
+        let leader = melee_leader(ctx, table_id, &seats, trick_no);
+
+        match melee_turn(ctx, &seats, leader, &trick_plays) {
+            // The trick is full — close it and loop round for the next one.
+            None => {
+                if trick_plays.is_empty() {
+                    // No seat holds a card and none has played: there is nothing
+                    // left to referee. Settle rather than break, or the row sits
+                    // Seated forever and `zone_ran_melee` keeps skipping the zone.
+                    melee_settle(ctx, table_id);
+                    break;
+                }
+                melee_close_trick(ctx, &table, trick_no, leader, &trick_plays, &ladder);
+                if trick_no >= melee::TOTAL_TRICKS {
+                    melee_settle(ctx, table_id);
+                    break;
+                }
+            }
+            Some(seat_id) => {
+                let Some(seat) = seats.iter().find(|s| s.seat_id == seat_id) else { break };
+                // A human keeps their turn until the grace window closes.
+                if seat.is_human {
+                    let since = trick_plays
+                        .last()
+                        .map(|p| p.played_at)
+                        .unwrap_or(table.opened_at);
+                    let waited = ctx
+                        .timestamp
+                        .duration_since(since)
+                        .map(|d| d.as_secs() as i64)
+                        .unwrap_or(0);
+                    if waited < MELEE_TURN_GRACE_SECS {
+                        break;
+                    }
+                }
+                let hand = melee_hand_of(ctx, seat_id);
+                if hand.is_empty() {
+                    break;
+                }
+                let cards = melee_trick_cards(&trick_plays);
+                // A timed-out human sheds their cheapest legal card; an agent
+                // plays its faction's doctrine.
+                let pick = if seat.is_human {
+                    melee::guardian_pick(&hand, &cards, table.trump_suit, &ladder)
+                } else {
+                    melee::archetype_pick(
+                        seat.faction,
+                        &hand,
+                        &cards,
+                        table.trump_suit,
+                        &ladder,
+                        trick_no,
+                    )
+                };
+                let Some(i) = pick else { break };
+                melee_commit_play(ctx, table_id, seat_id, trick_no, &hand[i]);
+                played += 1;
+            }
+        }
+    }
+    played
+}
+
+/// Nudge a table forward. Callable by anyone: it accepts no game input and can
+/// only apply the module's own rules, so a spectator's client keeping the war
+/// moving is a feature, not a hole.
+#[reducer]
+pub fn advance_melee(ctx: &ReducerContext, table_id: u64) -> Result<(), String> {
+    if ctx.db.melee_table().table_id().find(&table_id).is_none() {
+        return Err("advance_melee: table not found".into());
+    }
+    melee_advance(ctx, table_id);
+    Ok(())
+}
+
 /// Open a round at one zone and seat its champions. Owner-gated: the feeder.
 ///
 /// A human already queued for this zone takes their faction's seat, displacing the
@@ -3058,19 +3517,39 @@ pub fn open_melee_round(
         }
     }
 
+    // The module freezes its OWN ladder from its OWN ephemeris. The caller's
+    // `ladder_raw` is a fallback for a cold database with no sky yet — a feeder
+    // must not be able to decide what the Majors are worth this round.
+    let sky = melee_sky(ctx);
+    let ladder = if sky.is_empty() {
+        melee::ladder_from_json(&ladder_raw)
+    } else {
+        melee::build_arcana_ladder(&sky, None)
+    };
+    let trump_suit = chart::sign_element(zone_id % 12);
+
+    // Seat in ascending ecliptic longitude, so `seat_id` order IS turn order and
+    // nothing downstream has to trust the caller's ordering.
+    let lon = melee_longitudes(ctx);
+    let order = melee::seat_order(&seats.iter().map(|s| s.faction).collect::<Vec<_>>(), &lon);
+    let mut seats: Vec<SeatSpec> = order
+        .iter()
+        .filter_map(|f| seats.iter().find(|s| s.faction == *f).cloned())
+        .collect();
+
     let table = ctx.db.melee_table().insert(MeleeTable {
         table_id: 0,
         zone_id,
         round_index,
-        trump_suit: chart::sign_element(zone_id % 12),
+        trump_suit,
         state: MeleeState::Seated,
         seat_count: seats.len() as u8,
-        ladder_raw,
+        ladder_raw: melee::ladder_to_json(&ladder),
         opened_at: ctx.timestamp,
         resolved_at: None,
     });
 
-    for spec in seats {
+    for spec in seats.drain(..) {
         // A queued human of this faction claims the seat at the deal.
         let claimant = ctx
             .db
@@ -3085,7 +3564,20 @@ pub fn open_melee_round(
             }
             None => (spec.occupant, false),
         };
-        ctx.db.melee_seat().insert(MeleeSeat {
+        // Deal the twelve on chain, from a seed that replays: same table, same
+        // seat, same round → same hand, in Rust or in the browser.
+        let pool = melee_deal_pool(ctx, occupant);
+        let mut rng = melee::Rng::new(
+            table
+                .table_id
+                .wrapping_mul(0x9E37_79B9)
+                .wrapping_add(round_index)
+                .wrapping_add(spec.faction.idx() as u64),
+        );
+        let hand = melee::deal_hand(&pool, &mut rng);
+        let melds = melee::detect_melds(&hand, trump_suit, &ladder);
+
+        let seat = ctx.db.melee_seat().insert(MeleeSeat {
             seat_id: 0,
             table_id: table.table_id,
             occupant,
@@ -3093,9 +3585,22 @@ pub fn open_melee_round(
             is_human,
             claim: spec.claim,
             counters: 0,
-            melds_value: 0,
+            melds_value: melds,
             score: 0,
         });
+        for c in &hand {
+            ctx.db.melee_hand().insert(MeleeHand {
+                hand_id: 0,
+                table_id: table.table_id,
+                seat_id: seat.seat_id,
+                card_id: c.card_id,
+                suit: c.suit,
+                rank: c.rank,
+                is_major: c.is_major,
+                inverted: c.inverted,
+                played: false,
+            });
+        }
         // Only the agent that actually plays is charged rest. A benched champion
         // keeps its claim for the next muster.
         if !is_human && ctx.db.agent_chart().identity().find(&occupant).is_some() {
@@ -3107,6 +3612,10 @@ pub fn open_melee_round(
             }
         }
     }
+
+    // Play it. An all-agent table runs to settlement inside this call; a table
+    // with a human stops the moment that human is on turn.
+    melee_advance(ctx, table.table_id);
     Ok(())
 }
 
@@ -3128,6 +3637,14 @@ pub fn submit_melee_result(
         .table_id()
         .find(&table_id)
         .ok_or("submit_melee_result: no such table")?;
+    // The module now referees its own tables (`melee_advance` → `melee_settle`),
+    // so a feeder report for a table that already played out on chain is stale,
+    // not hostile. Accept it as a no-op rather than erroring, and keep the hard
+    // refusal for a genuine double-submit of a table the module never played.
+    let refereed = ctx.db.melee_trick().table_id().filter(&table_id).count() > 0;
+    if refereed {
+        return Ok(());
+    }
     if table.state == MeleeState::Resolved {
         return Err("submit_melee_result: table already resolved".into());
     }
@@ -3166,7 +3683,17 @@ pub fn submit_melee_result(
     Ok(())
 }
 
-/// Play a card from hand into an active War Table trick. Player-callable.
+/// Play a card from your dealt hand into the live trick. Player-callable.
+///
+/// Every check that matters is against `melee_hand` — the twelve the module dealt
+/// this seat — not against the sender's collection. Before hands lived on chain
+/// this reducer could only ask "do you own this card?", so a player could spend
+/// anything they held, in any order, as often as the play count allowed. Now the
+/// card must be in the hand, unspent, on this seat's turn, and legal under the
+/// same `legal_mask` the agent seats obey.
+///
+/// A play that fills the trick closes it here, and a play that fills trick twelve
+/// settles the table here. The client never has to ask for either.
 #[reducer]
 pub fn play_melee_card(
     ctx: &ReducerContext,
@@ -3184,86 +3711,55 @@ pub fn play_melee_card(
         return Err("play_melee_card: table already resolved".into());
     }
 
-    let seat = ctx
-        .db
-        .melee_seat()
-        .table_id()
-        .filter(&table_id)
+    let seats = melee_seats(ctx, table_id);
+    let seat = seats
+        .iter()
         .find(|s| s.occupant == ctx.sender() && s.is_human)
         .ok_or("play_melee_card: sender is not a seated human player at this table")?;
 
-    let seats: Vec<_> = ctx.db.melee_seat().table_id().filter(&table_id).collect();
-    let seat_count = seats.len();
-    if seat_count == 0 {
-        return Err("play_melee_card: table has no seats".into());
+    let (expected_trick, trick_plays) = melee_open_trick(ctx, table_id);
+    if expected_trick > melee::TOTAL_TRICKS {
+        return Err("play_melee_card: all twelve tricks are played".into());
     }
-
-    let existing_plays: Vec<_> = ctx.db.melee_play().table_id().filter(&table_id).collect();
-    let expected_trick = (existing_plays.len() / seat_count) as u8 + 1;
     if trick_number != expected_trick {
         return Err(format!(
-            "play_melee_card: invalid trick_number {}, expected {}",
-            trick_number, expected_trick
+            "play_melee_card: invalid trick_number {trick_number}, expected {expected_trick}"
         ));
     }
-    if trick_number > 12 {
-        return Err("play_melee_card: trick_number exceeds 12".into());
+
+    let leader = melee_leader(ctx, table_id, &seats, expected_trick);
+    match melee_turn(ctx, &seats, leader, &trick_plays) {
+        Some(on_turn) if on_turn == seat.seat_id => {}
+        Some(_) => return Err("play_melee_card: not your turn".into()),
+        None => return Err("play_melee_card: the trick is already full".into()),
     }
 
-    let already_played_this_trick = existing_plays
+    // The hand is the authority: in it, and not yet spent.
+    let hand = melee_hand_of(ctx, seat.seat_id);
+    let card = hand
         .iter()
-        .any(|p| p.trick_number == trick_number && p.seat_id == seat.seat_id);
-    if already_played_this_trick {
-        return Err("play_melee_card: seat already played a card in this trick".into());
+        .find(|c| c.card_id == card_id)
+        .copied()
+        .ok_or("play_melee_card: that card is not in your dealt hand")?;
+
+    let ladder = melee::ladder_from_json(&table.ladder_raw);
+    let on_table = melee_trick_cards(&trick_plays);
+    if !melee::is_legal_play(&hand, card_id, &on_table, table.trump_suit, &ladder) {
+        return Err("play_melee_card: illegal play — follow suit, trump, or beat the winner".into());
     }
 
-    let card_already_played = existing_plays.iter().any(|p| p.card_id == card_id);
-    if card_already_played {
-        return Err("play_melee_card: card has already been played at this table".into());
-    }
+    melee_commit_play(ctx, table_id, seat.seat_id, expected_trick, &card);
 
-    let card = ctx
-        .db
-        .card()
-        .card_id()
-        .find(&card_id)
-        .ok_or("play_melee_card: card not found")?;
-    if card.owner != ctx.sender() {
-        return Err("play_melee_card: card not owned by sender".into());
-    }
-
-    // Suit following validation
-    let current_trick_plays: Vec<_> = existing_plays
-        .iter()
-        .filter(|p| p.trick_number == trick_number)
-        .collect();
-    if let Some(lead_play) = current_trick_plays.first() {
-        if !lead_play.is_major && !card.is_major && card.suit != lead_play.suit {
-            let led_suit = lead_play.suit;
-            let has_led_suit = ctx
-                .db
-                .card()
-                .owner()
-                .filter(&ctx.sender())
-                .any(|c| !c.is_major && c.suit == led_suit && !existing_plays.iter().any(|p| p.card_id == c.card_id));
-            if has_led_suit {
-                return Err(format!("play_melee_card: must follow led suit {:?}", led_suit));
-            }
+    // Close the trick if that filled it, then let the agent seats answer.
+    let (_, filled) = melee_open_trick(ctx, table_id);
+    if melee_turn(ctx, &seats, leader, &filled).is_none() {
+        melee_close_trick(ctx, &table, expected_trick, leader, &filled, &ladder);
+        if expected_trick >= melee::TOTAL_TRICKS {
+            melee_settle(ctx, table_id);
+            return Ok(());
         }
     }
-
-    ctx.db.melee_play().insert(MeleePlay {
-        play_id: 0,
-        table_id,
-        trick_number,
-        seat_id: seat.seat_id,
-        card_id,
-        is_major: card.is_major,
-        rank: card.rank,
-        suit: card.suit,
-        played_at: ctx.timestamp,
-    });
-
+    melee_advance(ctx, table_id);
     Ok(())
 }
 

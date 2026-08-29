@@ -10,17 +10,6 @@ import {
   type Infer as __Infer,
 } from "spacetimedb";
 
-import {
-  BridgeChain,
-} from "./types";
-
 export default {
-  get chain() {
-    return BridgeChain;
-  },
-  txHash: __t.string(),
-  playerPubkey: __t.string(),
-  eventType: __t.string(),
-  elementId: __t.u8(),
-  amount: __t.u64(),
+  tableId: __t.u64(),
 };

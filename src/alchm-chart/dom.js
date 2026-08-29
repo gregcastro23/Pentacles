@@ -10,11 +10,29 @@ function apply(node, attrs) {
     else if (k === "text") node.textContent = v;
     else if (k === "html") node.innerHTML = v;
     else if (k === "dataset") for (const d in v) node.dataset[d] = v[d];
-    else if (k === "style" && typeof v === "object") Object.assign(node.style, v);
+    else if (k === "style" && typeof v === "object") setStyle(node, v);
     else if (k.startsWith("on") && typeof v === "function") node.addEventListener(k.slice(2).toLowerCase(), v);
     else node.setAttribute(k, v);
   }
 }
+/**
+ * Apply a style object, routing CSS custom properties through `setProperty`.
+ *
+ * `Object.assign(node.style, {"--x": "1%"})` looks like it works and silently
+ * does nothing: a CSSStyleDeclaration only honours known camelCase properties,
+ * and a `--custom` key is neither. Animations driven by per-element custom
+ * properties fail invisibly — the element renders, the keyframe runs, the value
+ * is just always the fallback.
+ */
+function setStyle(node, styles) {
+  for (const k in styles) {
+    const v = styles[k];
+    if (v == null) continue;
+    if (k.startsWith("--")) node.style.setProperty(k, String(v));
+    else node.style[k] = v;
+  }
+}
+
 function append(node, children) {
   if (children == null) return;
   const list = Array.isArray(children) ? children : [children];

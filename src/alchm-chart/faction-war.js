@@ -117,9 +117,13 @@ export class FactionWarInstance {
     sub("melee_seat", "seats");
     sub("melee_queue", "queue");
     sub("melee_play", "plays");
+    // Dealt hands and resolved tricks: the module writes both now that it
+    // referees, and the arena animates straight off them.
+    sub("melee_hand", "hands");
+    sub("melee_trick", "tricks");
   }
 
-  /** Merge new rows and repaint. Partial = any of {zones, players, agents, tables, seats, queue, plays}. */
+  /** Merge new rows and repaint. Partial = any of {zones, players, agents, tables, seats, queue, plays, hands, tricks}. */
   setData(partial) {
     Object.assign(this.data, partial || {});
     this.paint();
@@ -131,7 +135,10 @@ export class FactionWarInstance {
     const agentIds = agentIdentitySet(this.data.agents);
     const agentMap = agentByIdentity(this.data.agents);
     const standings = computeStandings(zones, this.data.players, agentIds, this.PN);
-    const tables = buildTables(this.data.tables, this.data.seats, this.data.players, agentMap, this.PN, this.data.plays);
+    const tables = buildTables(
+      this.data.tables, this.data.seats, this.data.players, agentMap, this.PN,
+      this.data.plays, this.data.hands, this.data.tricks,
+    );
     const zoneOwners = new Array(11).fill(null);
     for (const z of zones) zoneOwners[z.id] = z.ownerIdx;
     return { zones, standings, agentIds, agentMap, tables, zoneOwners };
@@ -160,6 +167,7 @@ export class FactionWarInstance {
     this._renderDetail(m);
     this._renderTicker();
     this._renderCardTray();
+    this._refreshMeleeView(m);
   }
 
   _renderHeader(m) {
@@ -593,18 +601,45 @@ export class FactionWarInstance {
             return;
           }
           const net = typeof window !== "undefined" && window.Pentacles && window.Pentacles.net;
-          if (net && typeof net.callReducer === "function") {
-            const currentTrickNum = Math.min(12, Math.max(1, (table.plays && table.plays.length ? Math.floor(table.plays.length / Math.max(1, table.seats.length)) + 1 : 1)));
-            net.callReducer("play_melee_card", [tableId, cardId, currentTrickNum]).then(() => {
-              if (typeof window !== "undefined" && window.toast) window.toast("Card played into trick.", { type: "success" });
-            }).catch((err) => {
-              if (typeof window !== "undefined" && window.toast) window.toast((err && err.message) || "Play failed", { type: "error" });
-            });
-          }
+          if (!net || typeof net.callReducer !== "function") return;
+          // The trick number comes from resolved `melee_trick` rows, exactly as
+          // the module derives it. Dividing plays by seats — the old guess —
+          // drifted the moment a seat was dealt short, and the reducer rejects a
+          // mismatch outright.
+          const live = this._model().tables.byId[tableId] || table;
+          const trickNumber = Math.min(12, Math.max(1, live.currentTrick || 1));
+          net.callReducer("play_melee_card", [tableId, cardId, trickNumber]).then(() => {
+            if (typeof window !== "undefined" && window.toast) window.toast("Card played into trick.", { type: "success" });
+          }).catch((err) => {
+            if (typeof window !== "undefined" && window.toast) window.toast((err && err.message) || "Play failed", { type: "error" });
+          });
         },
       },
     });
     mt.mount();
+    // Hold the instance so `paint()` can push fresh rows into it: a table opened
+    // from one snapshot must keep animating as plays and tricks land.
+    this._meleeView = { instance: mt, tableId: table.tableId };
+  }
+
+  /** Push the latest rows for the open melee modal, if there is one. */
+  _refreshMeleeView(model) {
+    const view = this._meleeView;
+    if (!view || !view.instance) return;
+    if (this.dom.pop && this.dom.pop.hidden) {
+      view.instance.destroy();
+      this._meleeView = null;
+      return;
+    }
+    const live = model && model.tables && model.tables.byId[view.tableId];
+    if (!live) return;
+    view.instance.setData({
+      table: live,
+      seats: live.seats,
+      plays: live.plays,
+      myFaction: this.myFaction,
+      myIdentity: this.myIdentity,
+    });
   }
 
   // ── Agent Dossier & Planetary Pentacles ──

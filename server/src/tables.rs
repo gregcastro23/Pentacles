@@ -311,6 +311,62 @@ pub struct MeleeQueue {
     pub queued_at: Timestamp,
 }
 
+/// One card dealt to one seat, and whether it has been spent.
+///
+/// This is what makes the module the referee rather than the scorekeeper: until
+/// hands lived on chain, `play_melee_card` could only ask "does the sender own
+/// this card?", so a player could spend any card in their collection, twice, in
+/// any order. Now legality is checked against the twelve they were actually
+/// dealt, by the same rules the AI seats play under.
+///
+/// PUBLIC, and that is a deliberate, bounded trade-off: SpacetimeDB 2.6 ships
+/// `client_visibility_filter` as unstable and *unenforced*, so a private table
+/// would hide a human's hand from that human's own client as well. Five of six
+/// seats are agents whose Active loadout is already public via `deck_slot`, so
+/// the information this leaks is one human's twelve cards to five NPCs and any
+/// spectator. Narrow it to a per-seat filter the moment RLS is enforced.
+#[spacetimedb::table(accessor = melee_hand, public)]
+#[derive(Clone)]
+pub struct MeleeHand {
+    #[primary_key]
+    #[auto_inc]
+    pub hand_id: u64,
+    #[index(btree)]
+    pub table_id: u64, // indexed: the referee reads one table's hands per play
+    #[index(btree)]
+    pub seat_id: u64,  // indexed: legality reads exactly one seat's hand
+    pub card_id: u64,
+    pub suit: Suit,
+    pub rank: u8,
+    pub is_major: bool,
+    pub inverted: bool,
+    pub played: bool,
+}
+
+/// One resolved trick: who led, who took it, and what it was worth.
+///
+/// The module writes this as each trick closes, so the client can animate a
+/// finished trick from state rather than guessing at it from `melee_play`
+/// ordering, and so a settled table can be audited trick by trick.
+#[spacetimedb::table(accessor = melee_trick, public)]
+#[derive(Clone)]
+pub struct MeleeTrick {
+    #[primary_key]
+    #[auto_inc]
+    pub trick_id: u64,
+    #[index(btree)]
+    pub table_id: u64,
+    pub trick_number: u8,
+    pub leader_seat: u64,
+    /// None when a Major was led — no minor suit was in play.
+    pub led_suit: Option<Suit>,
+    pub winner_seat: u64,
+    pub counters: u16,
+    /// The seat that played the Excuse, which keeps its own Honour.
+    pub excuse_seat: Option<u64>,
+    pub resolved_at: Timestamp,
+}
+
 /// An agent that held a seat last round. Rest makes the 71-agent roster visibly
 /// cycle instead of the same eleven playing forever — but it is ROSTER-RELATIVE
 /// and waived for thin factions, so Neptune's two agents never vanish from the war.

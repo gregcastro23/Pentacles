@@ -1159,12 +1159,93 @@ body.alchm-open #pentacles-net { display: none; }
 .alchm-melee-table .mt-seat-scores { display: flex; gap: 6px; font-size: 9.5px; font-variant-numeric: tabular-nums; }
 .alchm-melee-table .mt-score-pts { font-weight: 700; color: var(--ac-gold-bright); }
 .alchm-melee-table .mt-score-counters { color: #ffd700; font-weight: 600; }
-.alchm-melee-table .mt-trick-slot { min-height: 24px; display: flex; align-items: center; justify-content: center; }
+.alchm-melee-table .mt-score-cards { color: var(--ac-dim); font-variant-numeric: tabular-nums; }
+/* A card in the pot is the thing the eye should land on — it is the play. Give
+   it a real face rather than the inline chip the old per-seat slot used. */
 .alchm-melee-table .mt-played-card {
-  display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; border-radius: 4px;
-  background: rgba(0,0,0,0.5); border: 1px solid var(--ac-line); font-size: 10px; font-weight: 700;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+  width: 40px; height: 54px; border-radius: 5px; padding: 2px;
+  background: linear-gradient(160deg, rgba(24,28,44,0.98), rgba(10,12,20,0.98));
+  border: 1px solid rgba(241,219,161,0.32); font-size: 10px; font-weight: 700;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
 }
-.alchm-melee-table .mt-card-glyph { font-size: 11px; }
+.alchm-melee-table .mt-played-card.is-trump {
+  border-color: rgba(241,219,161,0.75); box-shadow: 0 0 9px rgba(241,219,161,0.28), inset 0 1px 0 rgba(255,255,255,0.08);
+}
+.alchm-melee-table .mt-played-card.aw-card--major {
+  border-color: rgba(190,150,235,0.75); box-shadow: 0 0 11px rgba(170,130,225,0.35);
+  background: linear-gradient(160deg, rgba(36,26,54,0.98), rgba(14,10,24,0.98));
+}
+.alchm-melee-table .mt-card-glyph { font-size: 15px; line-height: 1; }
+.alchm-melee-table .mt-card-rank { font-size: 9.5px; letter-spacing: 0.02em; color: var(--ac-text); }
+
+/* ── The pot, and the two motions that make a trick legible ────────────────
+   Cards do not appear and disappear: one flies in from the seat that played it
+   (`is-thrown`), and when the trick closes the whole pot sweeps to whoever took
+   it (`is-sweeping`). Both run off CSS custom properties the renderer sets per
+   card — `--from-x/--from-y` is the offset back to its own seat, `--to-x/--to-y`
+   the offset forward to the winner's — so the geometry stays in melee-table.js
+   with the seat maths and the stylesheet only says how it moves.
+
+   `mt-sweep` MUST stay in step with SWEEP_MS in melee-table.js: the renderer
+   holds the outgoing pot on screen for exactly that long. */
+.alchm-melee-table .mt-pot { position: absolute; inset: 0; pointer-events: none; }
+.alchm-melee-table .mt-pot-card {
+  position: absolute; transform: translate(-50%, -50%);
+  filter: drop-shadow(0 3px 10px rgba(0,0,0,0.65));
+}
+.alchm-melee-table .mt-pot-card.is-thrown { animation: mt-throw 340ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
+.alchm-melee-table .mt-pot.is-sweeping .mt-pot-card { animation: mt-sweep 760ms cubic-bezier(0.5, 0, 0.75, 0) both; }
+/* The taking card leads the sweep and stays lit a beat longer. */
+.alchm-melee-table .mt-pot.is-sweeping .mt-pot-card.is-taker {
+  animation-duration: 700ms; animation-delay: 60ms; z-index: 2;
+  filter: drop-shadow(0 0 12px rgba(255,215,0,0.85));
+}
+.alchm-melee-table .mt-sweep-tally {
+  position: absolute; transform: translate(-50%, -50%);
+  font-size: 13px; font-weight: 700; color: #ffd700; text-shadow: 0 0 10px rgba(255,215,0,0.7);
+  pointer-events: none; animation: mt-tally 760ms ease-out both;
+}
+
+@keyframes mt-throw {
+  from { transform: translate(calc(-50% + var(--from-x, 0%)), calc(-50% + var(--from-y, 0%))) scale(0.55); opacity: 0; }
+  to   { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+@keyframes mt-sweep {
+  from { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  to   { transform: translate(calc(-50% + var(--to-x, 0%)), calc(-50% + var(--to-y, 0%))) scale(0.5); opacity: 0; }
+}
+@keyframes mt-tally {
+  0%   { transform: translate(-50%, -50%) scale(0.6); opacity: 0; }
+  35%  { transform: translate(-50%, -140%) scale(1.15); opacity: 1; }
+  100% { transform: translate(-50%, -240%) scale(1); opacity: 0; }
+}
+
+/* The seat on turn. A ring that breathes reads at a glance from across the
+   arena, where a colour change alone does not. */
+.alchm-melee-table .mt-seat-station.is-turn {
+  border-color: var(--seat-color, var(--ac-gold-bright));
+  animation: mt-turn-pulse 1.6s ease-in-out infinite;
+}
+.alchm-melee-table .mt-turn-flag {
+  font-size: 8.5px; font-weight: 700; letter-spacing: 0.09em; text-align: center;
+  color: var(--seat-color, var(--ac-gold-bright)); text-transform: uppercase;
+}
+@keyframes mt-turn-pulse {
+  0%, 100% { box-shadow: 0 4px 18px rgba(0,0,0,0.5), 0 0 0 0 rgba(241,219,161,0.42); }
+  50%      { box-shadow: 0 4px 18px rgba(0,0,0,0.5), 0 0 0 7px rgba(241,219,161,0); }
+}
+
+/* Motion here is decoration over state that is already legible in text — the
+   turn flag, the score, the hand count. Honour a reduced-motion preference by
+   dropping all of it rather than by slowing it down. */
+@media (prefers-reduced-motion: reduce) {
+  .alchm-melee-table .mt-pot-card.is-thrown,
+  .alchm-melee-table .mt-pot.is-sweeping .mt-pot-card,
+  .alchm-melee-table .mt-sweep-tally,
+  .alchm-melee-table .mt-seat-station.is-turn { animation: none; }
+  .alchm-melee-table .mt-sweep-tally { opacity: 1; }
+}
 
 /* Arcana Ladder Drawer */
 .alchm-melee-table .mt-ladder {
@@ -1191,7 +1272,18 @@ body.alchm-open #pentacles-net { display: none; }
   border: 1px solid var(--ac-line); display: flex; flex-direction: column; gap: 4px; cursor: pointer;
   transition: transform 0.15s, border-color 0.15s;
 }
-.alchm-melee-table .mt-hand-card:hover { transform: translateY(-4px); border-color: var(--ac-gold-bright); }
+.alchm-melee-table .mt-hand-card.is-playable:hover,
+.alchm-melee-table .mt-hand-card.is-playable:focus-visible { transform: translateY(-6px); border-color: var(--ac-gold-bright); }
+/* Legality is shown, not hidden: a card you may not play stays readable and
+   keeps its tooltip explaining why, so the rule teaches itself. */
+.alchm-melee-table .mt-hand-card.is-playable {
+  border-color: rgba(241,219,161,0.55); box-shadow: 0 0 10px rgba(241,219,161,0.16);
+}
+.alchm-melee-table .mt-hand-card.is-locked { opacity: 0.42; cursor: not-allowed; filter: saturate(0.5); }
+.alchm-melee-table .mt-hand-card.is-inverted .mt-hand-top { transform: rotate(180deg); }
+.alchm-melee-table .mt-hand-strip.is-active { padding-top: 10px; }
+.alchm-melee-table .aw-section-label.is-live { color: var(--ac-gold-bright); font-weight: 700; }
+.alchm-melee-table .mt-meld-bar { font-size: 10.5px; padding: 2px 2px 0; }
 .alchm-melee-table .mt-hand-top { display: flex; justify-content: space-between; font-size: 10px; }
 .alchm-melee-table .mt-hand-title { font-size: 11px; font-weight: 600; line-height: 1.1; color: var(--ac-text); }
 
