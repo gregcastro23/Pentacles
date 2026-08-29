@@ -221,7 +221,7 @@ async function warDeploy(cardId, zoneId) {
   } catch {}
   return { ok: true }
 }
-function openFactionWar() {
+function openFactionWar(targetZoneId = null) {
   let ov = document.getElementById('aw-overlay')
   if (!ov) {
     ov = document.createElement('div')
@@ -239,6 +239,7 @@ function openFactionWar() {
     warInst = FactionWar.create({
       el: document.getElementById('aw-host'),
       spacetime,
+      selectedZone: targetZoneId !== null ? Number(targetZoneId) : null,
       myFaction: warMyFaction(),
       myIdentity: myIdent,
       myCards: warActiveCards(),
@@ -273,10 +274,20 @@ function openFactionWar() {
       },
     })
     warInst.mount()
+    if (targetZoneId !== null) {
+      warInst.selectZone(Number(targetZoneId), { autoOpenTable: true });
+    }
     // Belt-and-suspenders initial paint if a one-shot read is available.
     if (spacetime && spacetime.isLive && spacetime.fetchTable) {
       Promise.all(['zone', 'player', 'agent_chart', 'melee_table', 'melee_seat', 'melee_queue', 'melee_play'].map((t) => spacetime.fetchTable(t).catch(() => [])))
-        .then(([zones, players, agents, tables, seats, queue, plays]) => warInst && warInst.setData({ zones, players, agents, tables, seats, queue, plays }))
+        .then(([zones, players, agents, tables, seats, queue, plays]) => {
+          if (warInst) {
+            warInst.setData({ zones, players, agents, tables, seats, queue, plays });
+            if (targetZoneId !== null) {
+              warInst.selectZone(Number(targetZoneId), { autoOpenTable: true });
+            }
+          }
+        })
         .catch(() => {})
     }
   } catch (e) {

@@ -44,25 +44,8 @@ export const HAND_SIZE = 12;
 export const MAX_MAJORS_IN_HAND = 3;
 
 // ════════════════════════════════════════════════════════════════════════════
-//  PURE — claims, champions, seating (using consolidated zone-access.js)
+//  PURE — claims, champions, seating (delegating to canonical arcanaTrickEngine)
 // ════════════════════════════════════════════════════════════════════════════
-
-/** How much of this zone is up for grabs: flux, a weak hold, a rival's flag. */
-export function opportunity(zone: { control: number; owner: number | null; inFlux: boolean }, faction: number): number {
-  let o = 0;
-  if (zone.inFlux) o += 0.4;
-  if (zone.control < 200) o += 0.3;
-  if (zone.owner !== null && zone.owner !== faction) o += 0.3;
-  return o;
-}
-
-/** Share of an agent's Active MINORS that are the zone's trump suit (0..1). */
-export function trumpDepth(activeCards: Array<{ suit?: string; is_major?: boolean }>, zoneId: number): number {
-  const minors = activeCards.filter((c) => !c.is_major);
-  if (!minors.length) return 0;
-  const trump = zoneTrump(zoneId);
-  return minors.filter((c) => (c.suit || "").toLowerCase() === trump).length / minors.length;
-}
 
 export interface Agent {
   identity: string;
@@ -73,93 +56,35 @@ export interface Agent {
   rested: boolean;          // held a seat last round
 }
 
-/**
- * How badly this agent wants this zone, 0..100. Access is a HARD gate: an
- * unreachable zone scores zero however attractive it looks.
- *
- *   35 × signAffinity   the agent's own chart
- *    4 × dignity        its faction planet in the zone's sign  (±5 → ±20)
- *   20 × trumpDepth     can it actually field trump here
- *   15 × opportunity    flux, a weak hold, a rival's flag
- *  − 8 × rest           seated last round
- */
-export function computeClaim(
+export interface SeatPlan { faction: number; occupant: string; handle: string; claim: number }
+export interface TablePlan { zoneId: number; trumpSuit: string; seats: SeatPlan[] }
+
+/** How much of this zone is up for grabs: flux, a weak hold, a rival's flag. */
+export const opportunity: (zone: { control: number; owner: number | null; inFlux: boolean }, faction: number) => number = Engine.opportunity;
+
+/** Share of an agent's Active MINORS that are the zone's trump suit (0..1). */
+export const trumpDepth: (activeCards: Array<{ suit?: string; is_major?: boolean }>, zoneId: number) => number = Engine.trumpDepth;
+
+/** How badly this agent wants this zone, 0..100. */
+export const computeClaim: (
   agent: Agent,
   zoneId: number,
   zone: { control: number; owner: number | null; inFlux: boolean },
   zoneOwners: Array<number | null>,
-): number {
-  if (!canAccessZone(zoneId, agent.faction, zoneOwners)) return 0;
-  const sign = zoneSign(zoneId);
-  const raw =
-    35 * ((agent.signVector[sign] ?? 0) / 100) +
-    4 * dignityScore(agent.faction, sign) +
-    20 * trumpDepth(agent.active, zoneId) +
-    15 * opportunity(zone, agent.faction) -
-    8 * (agent.rested ? 1 : 0);
-  return Math.max(0, Math.min(100, Math.round(raw)));
-}
+) => number = Engine.computeClaim;
 
-/**
- * Rest is a luxury only deep rosters can afford. A faction with fewer agents than
- * zones it can legally reach never rests — otherwise Neptune's two agents vanish
- * from the war every other round while Saturn's fifteen rotate comfortably.
- */
-export function restIsWaived(rosterSize: number, reachableZones: number): boolean {
-  return rosterSize <= reachableZones;
-}
+/** Rest is a luxury only deep rosters can afford. */
+export const restIsWaived: (rosterSize: number, reachableZones: number) => boolean = Engine.restIsWaived;
 
-export interface SeatPlan { faction: number; occupant: string; handle: string; claim: number }
-export interface TablePlan { zoneId: number; trumpSuit: string; seats: SeatPlan[] }
-
-/**
- * Greedy descending assignment: strongest claims are placed first, so the most
- * wanted zones fill before the leftovers. One seat per agent per round, one seat
- * per faction per zone, at most six seats, and a zone that cannot muster two
- * factions does not open a table at all (the caller seats the Zone Guardian).
- */
-export function chooseChampions(
+/** Greedy descending assignment: strongest claims are placed first. */
+export const chooseChampions: (
   agents: Agent[],
   zones: Array<{ zoneId: number; control: number; owner: number | null; inFlux: boolean }>,
   zoneOwners: Array<number | null>,
-): TablePlan[] {
-  const claims: Array<{ agent: Agent; zoneId: number; claim: number }> = [];
-  for (const agent of agents) {
-    for (const z of zones) {
-      const claim = computeClaim(agent, z.zoneId, z, zoneOwners);
-      if (claim > 0) claims.push({ agent, zoneId: z.zoneId, claim });
-    }
-  }
-  // Descending claim; ties broken on identity so a round is reproducible.
-  claims.sort((a, b) => b.claim - a.claim || a.agent.identity.localeCompare(b.agent.identity));
+) => TablePlan[] = Engine.chooseChampions;
 
-  const seated = new Set<string>();
-  const byZone = new Map<number, SeatPlan[]>();
-  for (const c of claims) {
-    if (seated.has(c.agent.identity)) continue;
-    const seats = byZone.get(c.zoneId) ?? [];
-    if (seats.length >= MAX_SEATS) continue;
-    if (seats.some((s) => s.faction === c.agent.faction)) continue;
-    seats.push({ faction: c.agent.faction, occupant: c.agent.identity, handle: c.agent.handle, claim: c.claim });
-    byZone.set(c.zoneId, seats);
-    seated.add(c.agent.identity);
-  }
-
-  const plans: TablePlan[] = [];
-  for (const [zoneId, seats] of [...byZone.entries()].sort((a, b) => a[0] - b[0])) {
-    if (seats.length < MIN_SEATS) continue; // caller seats the Guardian instead
-    plans.push({ zoneId, trumpSuit: zoneTrump(zoneId), seats });
-  }
-  return plans;
-}
-
-/**
- * Seat order is the ascending ecliptic longitude of each faction's planet at deal
- * time — deterministic, astrological, and it rotates as the sky turns.
- */
-export function seatOrder(factions: number[], planetLon: number[]): number[] {
-  return [...factions].sort((a, b) => (planetLon[a] ?? 0) - (planetLon[b] ?? 0) || a - b);
-}
+/** Seat order is the ascending ecliptic longitude of each faction's planet at deal time. */
+export const seatOrder: (factions: number[], planetLon: number[]) => number[] = Engine.seatOrder;
 
 /** Deterministic PRNG so a round replays identically from (zone, round). */
 export function seededRandom(seed: number): () => number {
@@ -223,263 +148,36 @@ export type MovePicker = (
  * - Neptune (8): Dissolution — evasive sloughing, lets rivals burn trumps against each other.
  * - Pluto (9): Transformation — late-game sweeps once trumps have been depleted.
  */
-export function archetypeMovePicker(
+export interface SeatOutcome {
+  faction: number;
+  occupant: string;
+  counters: number;
+  meldsValue: number;
+  tookFinalTrick: boolean;
+  plays: Array<{ trickNumber: number; card: any }>;
+}
+
+export type MovePicker = (
   faction: number,
   hand: Agent["active"],
   ledSuit: string | null,
   trick: Array<{ player: number; card: any }>,
   ladder: Record<number, number>,
-  trickNumber: number = 1,
-): any | null {
-  const trumpSuit = (trick.length > 0 && trick[0].card && trick[0].card.suit) || "wands";
-  const legalOptions = Engine.getLegalMoves(hand, ledSuit, trumpSuit, trick, ladder)
-    .filter((m: any) => m.legal)
-    .map((m: any) => m.card);
+  trickNumber?: number,
+) => any | null;
 
-  if (!legalOptions.length) return hand[0] ?? null;
-  if (legalOptions.length === 1) return legalOptions[0];
+/** 10 Astrological Combat Archetypes move picker — delegated to arcanaTrickEngine. */
+export const archetypeMovePicker: MovePicker = Engine.archetypeMovePicker;
 
-  const isLead = trick.length === 0;
-
-  // Calculate current pot counters & highest power
-  let potPoints = 0;
-  let highestPower = -1;
-  for (const p of trick) {
-    if (!p.card.is_major || Number(p.card.rank) !== Engine.EXCUSE_ARCANA) {
-      const pwr = Engine.power(p.card, trumpSuit, ladder);
-      if (pwr > highestPower) highestPower = pwr;
-    }
-    potPoints += Engine.counterValue(p.card);
-  }
-
-  const winningMoves = legalOptions.filter((c: any) => {
-    if (c.is_major && Number(c.rank) === Engine.EXCUSE_ARCANA) return false;
-    return Engine.power(c, trumpSuit, ladder) > highestPower;
-  });
-
-  switch (faction) {
-    // 0: Sun (Radiance) — sweep counters, dignified trump leads
-    case 0: {
-      if (isLead) {
-        const trumps = legalOptions.filter(
-          (c: any) => (c.suit || "").toLowerCase() === trumpSuit.toLowerCase() || c.is_major,
-        );
-        if (trumps.length > 0) {
-          trumps.sort((a: any, b: any) => Engine.power(b, trumpSuit, ladder) - Engine.power(a, trumpSuit, ladder));
-          return trumps[0];
-        }
-      } else if (potPoints >= 10 && winningMoves.length > 0) {
-        winningMoves.sort((a: any, b: any) => Engine.power(b, trumpSuit, ladder) - Engine.power(a, trumpSuit, ladder));
-        return winningMoves[0];
-      }
-      break;
-    }
-
-    // 1: Moon (Tides) — adapts to trick value / tide
-    case 1: {
-      if (!isLead) {
-        if (potPoints >= 10 && winningMoves.length > 0) {
-          winningMoves.sort((a: any, b: any) => Engine.power(a, trumpSuit, ladder) - Engine.power(b, trumpSuit, ladder));
-          return winningMoves[0];
-        }
-      }
-      break;
-    }
-
-    // 2: Mercury (Quicksilver) — probe leads, minimum sufficient winning play
-    case 2: {
-      if (isLead) {
-        const probes = legalOptions.filter((c: any) => !c.is_major && Number(c.rank) <= 9 && Number(c.rank) >= 2);
-        if (probes.length > 0) {
-          probes.sort(
-            (a: any, b: any) => (Engine.MINOR_TRICK_POWER[a.rank] || 0) - (Engine.MINOR_TRICK_POWER[b.rank] || 0),
-          );
-          return probes[0];
-        }
-      } else if (winningMoves.length > 0) {
-        winningMoves.sort((a: any, b: any) => Engine.power(a, trumpSuit, ladder) - Engine.power(b, trumpSuit, ladder));
-        return winningMoves[0];
-      }
-      break;
-    }
-
-    // 3: Venus (Concord) — harmonious play, lead off-suit court honors
-    case 3: {
-      if (isLead) {
-        const sideMinors = legalOptions.filter(
-          (c: any) => !c.is_major && (c.suit || "").toLowerCase() !== trumpSuit.toLowerCase(),
-        );
-        if (sideMinors.length > 0) {
-          sideMinors.sort(
-            (a: any, b: any) => (Engine.MINOR_TRICK_POWER[b.rank] || 0) - (Engine.MINOR_TRICK_POWER[a.rank] || 0),
-          );
-          return sideMinors[0];
-        }
-      }
-      break;
-    }
-
-    // 4: Mars (Onslaught) — aggressive attack leads and trump play
-    case 4: {
-      if (isLead) {
-        legalOptions.sort((a: any, b: any) => Engine.power(b, trumpSuit, ladder) - Engine.power(a, trumpSuit, ladder));
-        return legalOptions[0];
-      } else if (winningMoves.length > 0) {
-        winningMoves.sort((a: any, b: any) => Engine.power(b, trumpSuit, ladder) - Engine.power(a, trumpSuit, ladder));
-        return winningMoves[0];
-      }
-      break;
-    }
-
-    // 5: Jupiter (Expansion) — bold major dominance early
-    case 5: {
-      if (isLead) {
-        const majors = legalOptions.filter((c: any) => c.is_major && Number(c.rank) !== Engine.EXCUSE_ARCANA);
-        if (majors.length > 0) {
-          majors.sort((a: any, b: any) => Engine.power(b, trumpSuit, ladder) - Engine.power(a, trumpSuit, ladder));
-          return majors[0];
-        }
-      }
-      break;
-    }
-
-    // 6: Saturn (Endurance) — defensive hoarding and late climax timing (trick 10-12)
-    case 6: {
-      if (trickNumber < 10) {
-        if (isLead) {
-          const lowCards = legalOptions.filter((c: any) => !c.is_major);
-          if (lowCards.length > 0) {
-            lowCards.sort((a: any, b: any) => Engine.power(a, trumpSuit, ladder) - Engine.power(b, trumpSuit, ladder));
-            return lowCards[0];
-          }
-        } else {
-          if (potPoints < 10 || winningMoves.length === 0) {
-            const junk = legalOptions.filter((c: any) => Engine.counterValue(c) === 0);
-            if (junk.length > 0) {
-              junk.sort((a: any, b: any) => Engine.power(a, trumpSuit, ladder) - Engine.power(b, trumpSuit, ladder));
-              return junk[0];
-            }
-          }
-        }
-      } else if (winningMoves.length > 0) {
-        winningMoves.sort((a: any, b: any) => Engine.power(b, trumpSuit, ladder) - Engine.power(a, trumpSuit, ladder));
-        return winningMoves[0];
-      }
-      break;
-    }
-
-    // 7: Uranus (Upheaval) — unexpected moves, tactical Excuse
-    case 7: {
-      const excuse = legalOptions.find((c: any) => c.is_major && Number(c.rank) === Engine.EXCUSE_ARCANA);
-      if (excuse && potPoints === 0 && !isLead) {
-        return excuse;
-      }
-      break;
-    }
-
-    // 8: Neptune (Dissolution) — evasive sloughing
-    case 8: {
-      if (!isLead && winningMoves.length > 0 && potPoints < 10) {
-        const sloughs = legalOptions.filter((c: any) => Engine.counterValue(c) === 0);
-        if (sloughs.length > 0) {
-          sloughs.sort((a: any, b: any) => Engine.power(a, trumpSuit, ladder) - Engine.power(b, trumpSuit, ladder));
-          return sloughs[0];
-        }
-      }
-      break;
-    }
-
-    // 9: Pluto (Transformation) — endgame conversion
-    case 9: {
-      if (trickNumber >= 8 && winningMoves.length > 0) {
-        winningMoves.sort((a: any, b: any) => Engine.power(b, trumpSuit, ladder) - Engine.power(a, trumpSuit, ladder));
-        return winningMoves[0];
-      }
-      break;
-    }
-  }
-
-  // Fallback to Guardian AI default choose
-  return Engine.GuardianAI.choose(hand, ledSuit, trumpSuit, trick, ladder);
-}
-
-/**
- * Play one table to completion with the shared engine. Every play is filtered
- * through `getLegalMoves`, so a seat can never make an illegal move even if the
- * AI misbehaves — the filter, not the AI, is authoritative.
- */
-export function playMelee(
+/** Play one table to completion with the shared engine. */
+export const playMelee: (
   hands: Map<number, Agent["active"]>,
   order: number[],
   trumpSuit: string,
   ladder: Record<number, number>,
   movePicker?: MovePicker,
   onPlay?: (play: { trickNumber: number; faction: number; card: any }) => void,
-): SeatOutcome[] {
-  const live = new Map(order.map((f) => [f, [...(hands.get(f) ?? [])]]));
-  const counters = new Map(order.map((f) => [f, 0]));
-  const melds = new Map(order.map((f) => [f, 0]));
-  const seatPlays = new Map<number, Array<{ trickNumber: number; card: any }>>(order.map((f) => [f, []]));
-
-  for (const f of order) {
-    const detected = Engine.detectMelds(live.get(f) ?? [], trumpSuit, ladder) ?? [];
-    melds.set(f, detected.reduce((a: number, m: any) => a + (m.value || 0), 0));
-  }
-
-  const tricks = Math.max(...order.map((f) => (live.get(f) ?? []).length));
-  let leader = 0;
-  let finalTrickWinner = order[0];
-
-  const picker = movePicker ?? archetypeMovePicker;
-
-  for (let t = 1; t <= tricks; t++) {
-    const trick: Array<{ player: number; card: any }> = [];
-    let ledSuit: string | null = null;
-    for (let k = 0; k < order.length; k++) {
-      const f = order[(leader + k) % order.length];
-      const hand = live.get(f) ?? [];
-      if (!hand.length) continue;
-      const proposed = picker(f, hand, ledSuit, trick, ladder, t);
-      const card = proposed || Engine.GuardianAI.choose(hand, ledSuit, trumpSuit, trick, ladder);
-      const legal = Engine.getLegalMoves(hand, ledSuit, trumpSuit, trick, ladder);
-      // The filter is authoritative: fall back to its first legal card if the AI
-      // ever proposes something the rules reject.
-      const chosen = legal.find((m: any) => m.legal && m.card.card_id === card?.card_id)?.card
-        ?? legal.find((m: any) => m.legal)?.card;
-      if (!chosen) continue;
-      live.set(f, hand.filter((c) => c.card_id !== chosen.card_id));
-      if (trick.length === 0 && !chosen.is_major) ledSuit = (chosen.suit || "").toLowerCase();
-      trick.push({ player: f, card: chosen });
-      seatPlays.get(f)?.push({ trickNumber: t, card: chosen });
-      if (onPlay) onPlay({ trickNumber: t, faction: f, card: chosen });
-    }
-    if (!trick.length) break;
-
-    const res = Engine.evaluateTrick(trick, trumpSuit, ladder, t);
-    const winner = res.winner ?? trick[0].player;
-    // `evaluateTrick` folds the final-trick climax INTO `counters` and also reports
-    // it as `climaxBonus`. The module adds that ten itself, from `took_final_trick`
-    // in `seat_score` — so strip it here or the last trick is worth twenty.
-    const gained = (res.counters || 0) - (res.climaxBonus || 0);
-    counters.set(winner, (counters.get(winner) ?? 0) + gained);
-    // The Excuse banks its counters for whoever played it, not the trick winner.
-    if (res.excusePlayer !== null && res.excusePlayer !== undefined) {
-      const ex = res.excusePlayer as number;
-      counters.set(ex, (counters.get(ex) ?? 0) + Engine.counterValue({ is_major: true, rank: 0 }));
-    }
-    leader = order.indexOf(winner) >= 0 ? order.indexOf(winner) : leader;
-    finalTrickWinner = winner;
-  }
-
-  return order.map((f) => ({
-    faction: f,
-    occupant: "",
-    counters: counters.get(f) ?? 0,
-    meldsValue: melds.get(f) ?? 0,
-    tookFinalTrick: f === finalTrickWinner,
-    plays: seatPlays.get(f) ?? [],
-  }));
-}
+) => SeatOutcome[] = Engine.playMelee;
 
 // ════════════════════════════════════════════════════════════════════════════
 //  LOOP — SQL reads and reducer calls

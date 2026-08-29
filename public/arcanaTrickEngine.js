@@ -754,6 +754,304 @@
     };
   }
 
+  // ── Zone Access & Claim Functions ──────────────────────────────────────────
+  function canAccessZone(zoneId, faction, zoneOwners) {
+    if (zoneId < 0 || zoneId > 10) return false;
+    const owns = (z) => zoneOwners && zoneOwners[z] === faction;
+    if (zoneId < 5) return true;
+    if (zoneId < 10) {
+      const spireIdx = zoneId - 5;
+      return owns(spireIdx) || owns((spireIdx + 4) % 5);
+    }
+    let ownedSpires = 0;
+    for (let s = 5; s < 10; s++) {
+      if (owns(s)) ownedSpires++;
+    }
+    return ownedSpires >= 2;
+  }
+
+  const SIGN_SUITS_LIST = ["wands", "pentacles", "swords", "cups", "wands", "pentacles", "swords", "cups", "wands", "pentacles", "swords", "cups"];
+  const zoneSign = (zoneId) => ((zoneId % 12) + 12) % 12;
+  const zoneTrump = (zoneId) => SIGN_SUITS_LIST[zoneSign(zoneId)];
+
+  function opportunity(zone, faction) {
+    let o = 0;
+    if (!zone) return 0;
+    if (zone.inFlux) o += 0.4;
+    if (zone.control < 200) o += 0.3;
+    if (zone.owner !== null && zone.owner !== faction) o += 0.3;
+    return o;
+  }
+
+  function trumpDepth(activeCards = [], zoneId = 0) {
+    const minors = (activeCards || []).filter((c) => !c.is_major);
+    if (!minors.length) return 0;
+    const trump = zoneTrump(zoneId);
+    return minors.filter((c) => (c.suit || "").toLowerCase() === trump).length / minors.length;
+  }
+
+  function computeClaim(agent, zoneId, zone, zoneOwners) {
+    if (!agent || !canAccessZone(zoneId, agent.faction, zoneOwners)) return 0;
+    const sign = zoneSign(zoneId);
+    const signVec = agent.signVector || [];
+    const raw =
+      35 * ((signVec[sign] ?? 0) / 100) +
+      4 * getDignityScore(agent.faction, sign) +
+      20 * trumpDepth(agent.active, zoneId) +
+      15 * opportunity(zone, agent.faction) -
+      8 * (agent.rested ? 1 : 0);
+    return Math.max(0, Math.min(100, Math.round(raw)));
+  }
+
+  function restIsWaived(rosterSize, reachableZones) {
+    return rosterSize <= reachableZones;
+  }
+
+  function chooseChampions(agents = [], zones = [], zoneOwners = []) {
+    const claims = [];
+    for (const agent of agents) {
+      for (const z of zones) {
+        const claim = computeClaim(agent, z.zoneId, z, zoneOwners);
+        if (claim > 0) claims.push({ agent, zoneId: z.zoneId, claim });
+      }
+    }
+    claims.sort((a, b) => b.claim - a.claim || a.agent.identity.localeCompare(b.agent.identity));
+
+    const seated = new Set();
+    const byZone = new Map();
+    for (const c of claims) {
+      if (seated.has(c.agent.identity)) continue;
+      const seats = byZone.get(c.zoneId) ?? [];
+      if (seats.length >= 6) continue;
+      if (seats.some((s) => s.faction === c.agent.faction)) continue;
+      seats.push({ faction: c.agent.faction, occupant: c.agent.identity, handle: c.agent.handle, claim: c.claim });
+      byZone.set(c.zoneId, seats);
+      seated.add(c.agent.identity);
+    }
+
+    const plans = [];
+    for (const [zoneId, seats] of [...byZone.entries()].sort((a, b) => a[0] - b[0])) {
+      if (seats.length < 2) continue;
+      plans.push({ zoneId, trumpSuit: zoneTrump(zoneId), seats });
+    }
+    return plans;
+  }
+
+  function seatOrder(factions = [], planetLon = []) {
+    return [...factions].sort((a, b) => (planetLon[a] ?? 0) - (planetLon[b] ?? 0) || a - b);
+  }
+
+  // ── 10 Astrological Combat Archetypes ──────────────────────────────────────
+  function archetypeMovePicker(faction, hand, ledSuit, trick = [], ladder = {}, trickNumber = 1) {
+    const trumpSuit = (trick.length > 0 && trick[0].card && trick[0].card.suit) || "wands";
+    const legalOptions = getLegalMoves(hand, ledSuit, trumpSuit, trick, ladder)
+      .filter((m) => m.legal)
+      .map((m) => m.card);
+
+    if (!legalOptions.length) return (hand && hand[0]) ?? null;
+    if (legalOptions.length === 1) return legalOptions[0];
+
+    const isLead = trick.length === 0;
+
+    let potPoints = 0;
+    let highestPower = -1;
+    for (const p of trick) {
+      if (!p.card.is_major || Number(p.card.rank) !== EXCUSE_ARCANA) {
+        const pwr = power(p.card, trumpSuit, ladder);
+        if (pwr > highestPower) highestPower = pwr;
+      }
+      potPoints += counterValue(p.card);
+    }
+
+    const winningMoves = legalOptions.filter((c) => {
+      if (c.is_major && Number(c.rank) === EXCUSE_ARCANA) return false;
+      return power(c, trumpSuit, ladder) > highestPower;
+    });
+
+    switch (faction) {
+      case 0: { // 0: Sun (Radiance)
+        if (isLead) {
+          const trumps = legalOptions.filter(
+            (c) => (c.suit || "").toLowerCase() === trumpSuit.toLowerCase() || c.is_major
+          );
+          if (trumps.length > 0) {
+            trumps.sort((a, b) => power(b, trumpSuit, ladder) - power(a, trumpSuit, ladder));
+            return trumps[0];
+          }
+        } else if (potPoints >= 10 && winningMoves.length > 0) {
+          winningMoves.sort((a, b) => power(b, trumpSuit, ladder) - power(a, trumpSuit, ladder));
+          return winningMoves[0];
+        }
+        break;
+      }
+      case 1: { // 1: Moon (Tides)
+        if (!isLead) {
+          if (potPoints >= 10 && winningMoves.length > 0) {
+            winningMoves.sort((a, b) => power(a, trumpSuit, ladder) - power(b, trumpSuit, ladder));
+            return winningMoves[0];
+          }
+        }
+        break;
+      }
+      case 2: { // 2: Mercury (Quicksilver)
+        if (isLead) {
+          const probes = legalOptions.filter((c) => !c.is_major && Number(c.rank) <= 9 && Number(c.rank) >= 2);
+          if (probes.length > 0) {
+            probes.sort((a, b) => (MINOR_TRICK_POWER[a.rank] || 0) - (MINOR_TRICK_POWER[b.rank] || 0));
+            return probes[0];
+          }
+        } else if (winningMoves.length > 0) {
+          winningMoves.sort((a, b) => power(a, trumpSuit, ladder) - power(b, trumpSuit, ladder));
+          return winningMoves[0];
+        }
+        break;
+      }
+      case 3: { // 3: Venus (Concord)
+        if (isLead) {
+          const sideMinors = legalOptions.filter(
+            (c) => !c.is_major && (c.suit || "").toLowerCase() !== trumpSuit.toLowerCase()
+          );
+          if (sideMinors.length > 0) {
+            sideMinors.sort((a, b) => (MINOR_TRICK_POWER[b.rank] || 0) - (MINOR_TRICK_POWER[a.rank] || 0));
+            return sideMinors[0];
+          }
+        }
+        break;
+      }
+      case 4: { // 4: Mars (Onslaught)
+        if (isLead) {
+          legalOptions.sort((a, b) => power(b, trumpSuit, ladder) - power(a, trumpSuit, ladder));
+          return legalOptions[0];
+        } else if (winningMoves.length > 0) {
+          winningMoves.sort((a, b) => power(b, trumpSuit, ladder) - power(a, trumpSuit, ladder));
+          return winningMoves[0];
+        }
+        break;
+      }
+      case 5: { // 5: Jupiter (Expansion)
+        if (isLead) {
+          const majors = legalOptions.filter((c) => c.is_major && Number(c.rank) !== EXCUSE_ARCANA);
+          if (majors.length > 0) {
+            majors.sort((a, b) => power(b, trumpSuit, ladder) - power(a, trumpSuit, ladder));
+            return majors[0];
+          }
+        }
+        break;
+      }
+      case 6: { // 6: Saturn (Endurance)
+        if (trickNumber < 10) {
+          if (isLead) {
+            const lowCards = legalOptions.filter((c) => !c.is_major);
+            if (lowCards.length > 0) {
+              lowCards.sort((a, b) => power(a, trumpSuit, ladder) - power(b, trumpSuit, ladder));
+              return lowCards[0];
+            }
+          } else {
+            if (potPoints < 10 || winningMoves.length === 0) {
+              const junk = legalOptions.filter((c) => counterValue(c) === 0);
+              if (junk.length > 0) {
+                junk.sort((a, b) => power(a, trumpSuit, ladder) - power(b, trumpSuit, ladder));
+                return junk[0];
+              }
+            }
+          }
+        } else if (winningMoves.length > 0) {
+          winningMoves.sort((a, b) => power(b, trumpSuit, ladder) - power(a, trumpSuit, ladder));
+          return winningMoves[0];
+        }
+        break;
+      }
+      case 7: { // 7: Uranus (Upheaval)
+        const excuse = legalOptions.find((c) => c.is_major && Number(c.rank) === EXCUSE_ARCANA);
+        if (excuse && potPoints === 0 && !isLead) {
+          return excuse;
+        }
+        break;
+      }
+      case 8: { // 8: Neptune (Dissolution)
+        if (!isLead && winningMoves.length > 0 && potPoints < 10) {
+          const sloughs = legalOptions.filter((c) => counterValue(c) === 0);
+          if (sloughs.length > 0) {
+            sloughs.sort((a, b) => power(a, trumpSuit, ladder) - power(b, trumpSuit, ladder));
+            return sloughs[0];
+          }
+        }
+        break;
+      }
+      case 9: { // 9: Pluto (Transformation)
+        if (trickNumber >= 8 && winningMoves.length > 0) {
+          winningMoves.sort((a, b) => power(b, trumpSuit, ladder) - power(a, trumpSuit, ladder));
+          return winningMoves[0];
+        }
+        break;
+      }
+    }
+
+    return GuardianAI.choose(hand, ledSuit, trumpSuit, trick, ladder);
+  }
+
+  // ── Multi-Seat Melee Resolver ──────────────────────────────────────────────
+  function playMelee(hands, order, trumpSuit, ladder, movePicker, onPlay) {
+    const live = new Map(order.map((f) => [f, [...(hands.get ? hands.get(f) ?? [] : hands[f] ?? [])]]));
+    const counters = new Map(order.map((f) => [f, 0]));
+    const melds = new Map(order.map((f) => [f, 0]));
+    const seatPlays = new Map(order.map((f) => [f, []]));
+
+    for (const f of order) {
+      const detected = detectMelds(live.get(f) ?? [], trumpSuit, ladder) ?? [];
+      melds.set(f, detected.reduce((a, m) => a + (m.value || 0), 0));
+    }
+
+    const tricks = Math.max(...order.map((f) => (live.get(f) ?? []).length));
+    let leader = 0;
+    let finalTrickWinner = order[0];
+
+    const picker = movePicker || archetypeMovePicker;
+
+    for (let t = 1; t <= tricks; t++) {
+      const trick = [];
+      let ledSuit = null;
+      for (let k = 0; k < order.length; k++) {
+        const f = order[(leader + k) % order.length];
+        const hand = live.get(f) ?? [];
+        if (!hand.length) continue;
+        const proposed = picker(f, hand, ledSuit, trick, ladder, t);
+        const card = proposed || GuardianAI.choose(hand, ledSuit, trumpSuit, trick, ladder);
+        const legal = getLegalMoves(hand, ledSuit, trumpSuit, trick, ladder);
+        const chosen = legal.find((m) => m.legal && m.card.card_id === card?.card_id)?.card
+          ?? legal.find((m) => m.legal)?.card;
+        if (!chosen) continue;
+        live.set(f, hand.filter((c) => c.card_id !== chosen.card_id));
+        if (trick.length === 0 && !chosen.is_major) ledSuit = (chosen.suit || "").toLowerCase();
+        trick.push({ player: f, card: chosen });
+        seatPlays.get(f)?.push({ trickNumber: t, card: chosen });
+        if (onPlay) onPlay({ trickNumber: t, faction: f, card: chosen });
+      }
+      if (!trick.length) break;
+
+      const res = evaluateTrick(trick, trumpSuit, ladder, t);
+      const winner = res.winner ?? trick[0].player;
+      const gained = (res.counters || 0) - (res.climaxBonus || 0);
+      counters.set(winner, (counters.get(winner) ?? 0) + gained);
+      if (res.excusePlayer !== null && res.excusePlayer !== undefined) {
+        const ex = res.excusePlayer;
+        counters.set(ex, (counters.get(ex) ?? 0) + counterValue({ is_major: true, rank: 0 }));
+      }
+      leader = order.indexOf(winner) >= 0 ? order.indexOf(winner) : leader;
+      finalTrickWinner = winner;
+    }
+
+    return order.map((f) => ({
+      faction: f,
+      occupant: "",
+      counters: counters.get(f) ?? 0,
+      meldsValue: melds.get(f) ?? 0,
+      tookFinalTrick: f === finalTrickWinner,
+      plays: seatPlays.get(f) ?? [],
+      score: (counters.get(f) ?? 0) + (melds.get(f) ?? 0) + (f === finalTrickWinner ? 10 : 0)
+    }));
+  }
+
   // ── Export to Global / Window ──────────────────────────────────────────────
   const ArcanaTrickEngine = {
     ARCANA_NAMES,
@@ -776,7 +1074,18 @@
     evaluateTrick,
     detectMelds,
     GuardianAI,
-    createMelee
+    createMelee,
+    canAccessZone,
+    zoneSign,
+    zoneTrump,
+    opportunity,
+    trumpDepth,
+    computeClaim,
+    restIsWaived,
+    chooseChampions,
+    seatOrder,
+    archetypeMovePicker,
+    playMelee
   };
 
   if (typeof window !== "undefined") {

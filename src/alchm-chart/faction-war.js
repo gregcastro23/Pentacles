@@ -152,6 +152,8 @@ export class FactionWarInstance {
     if (!this._manual && champ && this.selected == null) this.selected = champ.idx;
     else if (this.selected == null && champ) this.selected = champ.idx;
 
+    if (!this.dom.header) return;
+
     this._renderHeader(m);
     this._renderBoard(m);
     this._renderStandings(m.standings);
@@ -544,18 +546,25 @@ export class FactionWarInstance {
     this.selectedZone = null;
     this._manual = true;
     const m = this._model();
-    this._renderBoard(m);
-    this._renderStandings(m.standings);
-    this._renderDetail(m);
+    if (this.dom.board) this._renderBoard(m);
+    if (this.dom.standings) this._renderStandings(m.standings);
+    if (this.dom.detail) this._renderDetail(m);
     if (this.hooks.onSelect) this.hooks.onSelect(idx);
   }
 
-  selectZone(zoneId) {
+  selectZone(zoneId, opts = {}) {
     this.selectedZone = zoneId;
     const m = this._model();
-    this._renderBoard(m);
-    this._renderDetail(m);
+    if (this.dom.board) this._renderBoard(m);
+    if (this.dom.detail) this._renderDetail(m);
     if (this.hooks.onSelectZone) this.hooks.onSelectZone(zoneId);
+
+    if (opts.autoOpenTable) {
+      const liveTable = m.tables?.byZone?.[zoneId] || (m.tables?.tables || []).find((t) => t.zoneId === zoneId && t.state !== "Resolved");
+      if (liveTable) {
+        this.showMeleeTable(liveTable);
+      }
+    }
   }
 
   // ── Show Melee Table Modal ──

@@ -3192,6 +3192,36 @@ pub fn play_melee_card(
         .find(|s| s.occupant == ctx.sender() && s.is_human)
         .ok_or("play_melee_card: sender is not a seated human player at this table")?;
 
+    let seats: Vec<_> = ctx.db.melee_seat().table_id().filter(&table_id).collect();
+    let seat_count = seats.len();
+    if seat_count == 0 {
+        return Err("play_melee_card: table has no seats".into());
+    }
+
+    let existing_plays: Vec<_> = ctx.db.melee_play().table_id().filter(&table_id).collect();
+    let expected_trick = (existing_plays.len() / seat_count) as u8 + 1;
+    if trick_number != expected_trick {
+        return Err(format!(
+            "play_melee_card: invalid trick_number {}, expected {}",
+            trick_number, expected_trick
+        ));
+    }
+    if trick_number > 12 {
+        return Err("play_melee_card: trick_number exceeds 12".into());
+    }
+
+    let already_played_this_trick = existing_plays
+        .iter()
+        .any(|p| p.trick_number == trick_number && p.seat_id == seat.seat_id);
+    if already_played_this_trick {
+        return Err("play_melee_card: seat already played a card in this trick".into());
+    }
+
+    let card_already_played = existing_plays.iter().any(|p| p.card_id == card_id);
+    if card_already_played {
+        return Err("play_melee_card: card has already been played at this table".into());
+    }
+
     let card = ctx
         .db
         .card()
@@ -3200,6 +3230,26 @@ pub fn play_melee_card(
         .ok_or("play_melee_card: card not found")?;
     if card.owner != ctx.sender() {
         return Err("play_melee_card: card not owned by sender".into());
+    }
+
+    // Suit following validation
+    let current_trick_plays: Vec<_> = existing_plays
+        .iter()
+        .filter(|p| p.trick_number == trick_number)
+        .collect();
+    if let Some(lead_play) = current_trick_plays.first() {
+        if !lead_play.is_major && !card.is_major && card.suit != lead_play.suit {
+            let led_suit = lead_play.suit;
+            let has_led_suit = ctx
+                .db
+                .card()
+                .owner()
+                .filter(&ctx.sender())
+                .any(|c| !c.is_major && c.suit == led_suit && !existing_plays.iter().any(|p| p.card_id == c.card_id));
+            if has_led_suit {
+                return Err(format!("play_melee_card: must follow led suit {:?}", led_suit));
+            }
+        }
     }
 
     ctx.db.melee_play().insert(MeleePlay {

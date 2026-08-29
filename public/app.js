@@ -1079,9 +1079,13 @@
       state.selectedZone = zoneId;
       state.selectedStarHip = null;
 
-      // Select the zone in our ritual overlay
-      if (state.player && state.rituals && zoneId !== null) {
-        showRitualOverlay("zone", zoneId);
+      // Route to live Faction War / War Table if available, else local practice overlay
+      if (zoneId !== null) {
+        if (typeof window.openFactionWar === "function") {
+          window.openFactionWar(zoneId);
+        } else if (state.player && state.rituals) {
+          showRitualOverlay("zone", zoneId);
+        }
       }
 
       // Update zone SVG paths selections
@@ -2526,6 +2530,10 @@
     };
 
     window.showRitualOverlay = function(targetType, targetId) {
+      if (targetType === "zone" && typeof window.openFactionWar === "function") {
+        window.openFactionWar(targetId);
+        return;
+      }
       window.activeRitualTarget = { type: targetType, id: targetId };
       const overlay = document.getElementById("ritual-hud-overlay");
       if (!overlay) return;
@@ -2644,8 +2652,10 @@ void main() {
       const uTime = gl.getUniformLocation(prog, 'u_time');
       const uRes = gl.getUniformLocation(prog, 'u_resolution');
 
-      function render(t) {
+      let start = performance.now();
+      function render(now) {
         if (!document.body.contains(canvas)) return;
+        const t = now - start;
         syncSize();
         gl.viewport(0, 0, canvas.width, canvas.height);
         if (uTime) gl.uniform1f(uTime, t * 0.001);
@@ -2676,7 +2686,7 @@ void main() {
 
       const Engine = window.ArcanaTrickEngine || globalThis.ArcanaTrickEngine;
       const sigil = targetType === "planet" ? PLANET_GLYPHS[targetId] : "✦";
-      const name = targetType === "planet" ? `${PLANET_NAMES[targetId]} Alignment Melee` : `Zone ${targetId} Gate Melee`;
+      const name = targetType === "planet" ? `${PLANET_NAMES[targetId]} Alignment Trial` : `Zone ${targetId} Astral Practice`;
       const titleColor = targetType === "planet" ? PLANET_COLORS[targetId] : "var(--gold-bright)";
       const trumpSuitCap = (melee.trumpSuit || "wands").toUpperCase();
       const trumpGlyph = SUIT_GLYPHS[melee.trumpSuit] || "✦";

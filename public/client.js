@@ -1259,10 +1259,28 @@ class GameState {
     const suitIdx = zoneId % 12;
     const targetSuit = SIGN_SUITS[suitIdx] || "wands";
 
-    const activeCards = (this.deck || [])
+    // 4-Tier Hand Resolution: Active -> Bench -> Collection -> Starter Deck
+    let handCards = (this.deck || [])
       .filter(d => d.loadout === "active")
-      .map(d => this.collection.find(c => c.card_id === d.card_id))
+      .map(d => (this.collection || []).find(c => c.card_id === d.card_id))
       .filter(Boolean);
+
+    if (handCards.length === 0 && Array.isArray(this.deck) && this.deck.length > 0) {
+      handCards = this.deck
+        .map(d => (this.collection || []).find(c => c.card_id === d.card_id))
+        .filter(Boolean);
+    }
+
+    if (handCards.length === 0 && Array.isArray(this.collection) && this.collection.length > 0) {
+      handCards = this.collection.slice();
+    }
+
+    if (handCards.length === 0 && typeof this.generateStarterDeck === "function") {
+      const starter = this.generateStarterDeck(this.player ? this.player.faction : 0);
+      handCards = (starter || []).slice();
+    }
+
+    const activeCards = handCards;
 
     const skyContext = {
       planets: (typeof computePlanets === "function" && this.player && this.player.chart)
@@ -1276,7 +1294,7 @@ class GameState {
       melee = window.ArcanaTrickEngine.createMelee(targetType, targetId, activeCards, { zone_id: zoneId }, skyContext);
     }
 
-    const description = `The Arcana Trick Engine: Engage in a 12-trick Melee against the Zone Guardian. Trump: ${targetSuit.toUpperCase()}.`;
+    const description = `Astral Threshold Trial: Engage in a 12-trick practice bout against the Gate Guardian. Trump: ${targetSuit.toUpperCase()}.`;
 
     return {
       targetType,
