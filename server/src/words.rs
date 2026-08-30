@@ -94,6 +94,7 @@ pub fn is_valid(word: &str) -> bool {
 /// The greedy longest playable word from a letter multiset — the scrabblebot
 /// `chooseWord` strategy, used by the planetary-agent opponent. Ties on length are
 /// broken by higher base tile value, so the agent plays its strongest long word.
+#[allow(dead_code)]
 pub fn best_word(have: &[u8; 26]) -> Option<&'static str> {
     dict()
         .iter()

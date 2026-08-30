@@ -6483,6 +6483,7 @@ const ESMS_BASE_UNITS: u128 = 1_000_000_000_000_000_000;
 /// AlchmAgentsSolana issues ESMS as Token-2022 mints at 4 decimals. Token-2022
 /// amounts are u64, which is why the scale differs at all: at 18 decimals a
 /// single token account tops out near 18.45 ESMS.
+#[allow(dead_code)]
 const ESMS_SOLANA_DECIMALS: u32 = 4;
 
 /// 10^4 — Solana atoms in one whole ESMS.
@@ -6708,7 +6709,7 @@ pub fn transfer_star_stake(
     let to_player = ctx.db.player().iter().find(|p| p.solana_pubkey.as_deref() == Some(to_pubkey));
 
     if let (Some(seller), Some(buyer)) = (from_player, to_player) {
-        let mut stake_opt = ctx.db.star_stake().iter().find(|s| s.staker == seller.identity);
+        let stake_opt = ctx.db.star_stake().iter().find(|s| s.staker == seller.identity);
         if let Some(mut seller_stake) = stake_opt {
             let transfer_usdc = token_amount.min(seller_stake.principal_usdc);
             seller_stake.principal_usdc = seller_stake.principal_usdc.saturating_sub(transfer_usdc);
