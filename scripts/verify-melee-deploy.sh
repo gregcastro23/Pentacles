@@ -32,7 +32,7 @@ say "1 · Database reachable"
 # `q` captures stderr, so check the TEXT before the exit status: a paused
 # database fails the command AND says why, and "paused" is the actionable
 # diagnosis while "cannot query" is not.
-probe=$(q "SELECT count(*) FROM zone"); probe_rc=$?
+probe=$(q "SELECT count(*) AS cnt FROM zone"); probe_rc=$?
 if grep -qi "paused" <<<"$probe"; then
   bad "$DB is PAUSED — unpause it at https://spacetimedb.com, then publish"
   warn "maincloud pauses idle databases; if it idled, the feeder is likely down too"
@@ -47,7 +47,7 @@ say "2 · Schema carries the referee's tables"
 # These two are what the move to a server-side referee added. Absent means the
 # publish did not land, whatever the CLI said.
 for t in melee_hand melee_trick; do
-  if q "SELECT count(*) FROM $t" | grep -qiE "unknown table|no such table|not found"; then
+  if q "SELECT count(*) AS cnt FROM $t" | grep -qiE "unknown table|no such table|not found"; then
     bad "$t missing — the module was not published"; fail=1
   else
     ok "$t present"
@@ -56,13 +56,13 @@ done
 [ "$fail" = 1 ] && exit 1
 
 say "3 · Is anything opening rounds?"
-before_tables=$(count "SELECT count(*) FROM melee_table")
-before_tricks=$(count "SELECT count(*) FROM melee_trick")
+before_tables=$(count "SELECT count(*) AS cnt FROM melee_table")
+before_tricks=$(count "SELECT count(*) AS cnt FROM melee_trick")
 echo "      melee_table=$before_tables  melee_trick=$before_tricks"
 printf '      waiting %ss for a feeder round…\n' "$ROUND_SECS"
 sleep "$ROUND_SECS"
-after_tables=$(count "SELECT count(*) FROM melee_table")
-after_tricks=$(count "SELECT count(*) FROM melee_trick")
+after_tables=$(count "SELECT count(*) AS cnt FROM melee_table")
+after_tricks=$(count "SELECT count(*) AS cnt FROM melee_trick")
 
 if [ "$after_tables" -gt "$before_tables" ]; then
   ok "feeder opened $((after_tables - before_tables)) table(s) — pentacles-feeders is up"
@@ -85,10 +85,10 @@ else
 fi
 
 say "5 · Latest tables"
-q "SELECT table_id, zone_id, state, seat_count FROM melee_table ORDER BY table_id DESC LIMIT 5"
+q "SELECT table_id, zone_id, state, seat_count FROM melee_table" | head -15
 
 say "6 · Hands are dealt on chain (not in the feeder)"
-dealt=$(count "SELECT count(*) FROM melee_hand")
+dealt=$(count "SELECT count(*) AS cnt FROM melee_hand")
 if [ "${dealt:-0}" -gt 0 ]; then
   ok "$dealt dealt card(s) recorded — play validation has something to check against"
 else
@@ -99,9 +99,7 @@ fi
 say "7 · Nobody is scoring from the wire any more"
 # The feeder no longer calls submit_melee_result. A settled table that has trick
 # rows was scored by the module from counters it banked itself.
-q "SELECT t.table_id, t.state, count(k.trick_id) AS tricks
-   FROM melee_table t JOIN melee_trick k ON k.table_id = t.table_id
-   GROUP BY t.table_id, t.state ORDER BY t.table_id DESC LIMIT 5"
+q "SELECT trick_id, table_id, trick_number, winner_seat, counters FROM melee_trick" | head -15
 
 if [ "$fail" = 0 ]; then
   say "PASS — the module is dealing, refereeing and settling its own tables."
