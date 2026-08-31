@@ -870,22 +870,40 @@ function generateTarotCardHTML(data) {
   const subtitle = data.isMajor ? `Major ${data.arcana}` : `${data.signGlyph} ${data.signName}`;
   const footnoteText = `${data.planetGlyph} ${data.planetName} Placement`;
 
+  const suitName = typeof SUIT_GLYPH_NAMES !== "undefined" ? (SUIT_GLYPH_NAMES[(data.suit || '').toLowerCase()] || "Element") : "Element";
+  const suitImg = (typeof SUIT_ART !== "undefined" && SUIT_ART[data.suit]) ? SUIT_ART[data.suit] : "";
+
   return `
-    <div class="tarot-card ${data.suit} ${majorClass} ${retroClass}">
-      <div class="card-frame">
-        <div class="card-glyph" style="color: ${data.isMajor ? 'var(--gold-bright)' : 'currentColor'}">${data.glyph}</div>
-        <div class="card-title">${data.title}</div>
-        <div class="card-subtitle" style="color: ${data.isMajor ? 'var(--gold)' : 'var(--dim)'}">${subtitle} ${data.retrograde ? '(rev)' : ''}</div>
-        <div class="card-sep"></div>
-        <div class="card-stats-grid">
-          <div class="card-stat-val"><span>ATK</span>⚔ ${data.atk}</div>
-          <div class="card-stat-val"><span>HP</span>♥ ${data.hp}</div>
-          <div class="card-stat-val"><span>ARM</span>🛡 ${data.arm}</div>
-          <div class="card-stat-val"><span>SPD</span>⏳ ${data.cd}ms</div>
-        </div>
-        <div class="card-footnote" style="color: ${data.planetColor}">
-          <span>${footnoteText}</span>
-        </div>
+    <div class="tarot-card ${data.suit} ${majorClass} ${retroClass}" role="group" aria-label="${data.title}">
+      ${data.isMajor ? '<div class="card-holo"></div>' : ''}
+      
+      <div class="card-pip top-left" aria-hidden="true">${data.glyph}</div>
+      <div class="card-pip top-right" aria-hidden="true">${data.glyph}</div>
+      <div class="card-pip bottom-left" aria-hidden="true">${data.glyph}</div>
+      <div class="card-pip bottom-right" aria-hidden="true">${data.glyph}</div>
+
+      <div class="card-art" aria-hidden="true">
+        ${data.isMajor ? `<div class="card-major-sigil">✧</div>` :
+          (suitImg ? `<img src="${suitImg}" class="card-suit-img" loading="lazy" alt="" />` : `<div class="card-glyph">${data.glyph}</div>`)}
+      </div>
+
+      <div class="card-title">${data.title}</div>
+      <div class="card-subtitle">
+        <span class="sr-only">${suitName}</span>
+        <span aria-hidden="true">${subtitle}</span>
+      </div>
+      
+      <div class="card-sep"></div>
+      
+      <div class="card-stats-grid">
+        <div class="card-stat-val"><span>ATK</span>⚔ ${data.atk}</div>
+        <div class="card-stat-val"><span>HP</span>♥ ${data.hp}</div>
+        <div class="card-stat-val"><span>ARM</span>🛡 ${data.arm}</div>
+        <div class="card-stat-val"><span>SPD</span>⏳ ${data.cd}ms</div>
+      </div>
+      
+      <div class="card-footnote" style="color: ${data.planetColor}">
+        <span>${footnoteText}</span>
       </div>
     </div>
   `;

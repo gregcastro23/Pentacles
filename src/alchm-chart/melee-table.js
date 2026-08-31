@@ -22,7 +22,7 @@ import { zoneName, planetIdx, roundClock, PLANET_NAMES } from "./war-model.js";
 // what the Arcana Ladder is keyed by. MAJOR_* are indexed by PLANET body 0..9 —
 // a different table of the same shape. Reading a rank out of those renders The
 // Fool as The Sun and leaves every arcana above X blank.
-import { rankName, SUIT_GLYPHS, SUIT_COLORS, ARCANA_NAMES, ARCANA_NUMERALS } from "./deck.js";
+import { rankName, SUIT_GLYPHS, SUIT_GLYPH_NAMES, SUIT_COLORS, SUIT_ART, ARCANA_NAMES, ARCANA_NUMERALS } from "./deck.js";
 
 const PLANET_GLYPHS = ["☉", "☽", "☿", "♀", "♂", "♃", "♄", "♅", "♆", "♇"];
 const PLANET_COLORS = ["#e8b84b", "#cbd0db", "#9aa7c4", "#d98fb0", "#cf4d4d", "#cf9a52", "#9a937c", "#5fb6c4", "#6470c8", "#8a6aa0"];
@@ -219,7 +219,9 @@ export class MeleeTableInstance {
     this.dom.clockPill = clockPill;
 
     const trumpBadge = h("div", { class: "mt-trump-badge" }, [
-      h("span", { class: "mt-trump-glyph", text: trumpGlyph }),
+      SUIT_ART[trumpCap]
+        ? h("img", { class: "mt-trump-art", src: SUIT_ART[trumpCap], alt: trumpCap })
+        : h("span", { class: "mt-trump-glyph", text: trumpGlyph }),
       h("span", { text: `TRUMP: ${trumpCap.toUpperCase()}` }),
     ]);
 
@@ -363,18 +365,29 @@ export class MeleeTableInstance {
     const isMaj = play.isMajor;
     const rank = isMaj ? (ARCANA_NUMERALS[play.rank] || "?") : rankName(play.rank);
     const suit = play.suit || "wands";
-    const glyph = SUIT_GLYPHS[suitCap(suit)] || "✦";
-    const col = SUIT_COLORS[suitCap(suit)] || "var(--ac-gold)";
+    const cap = suitCap(suit);
+    const glyph = SUIT_GLYPHS[cap] || "✦";
+    const glyphName = SUIT_GLYPH_NAMES[cap] || cap;
+    const col = SUIT_COLORS[cap] || "var(--ac-gold)";
     const trump = (this.table && this.table.trumpSuit) || "";
     const isTrump = !isMaj && suit === trump;
+    const titleText = isMaj ? (ARCANA_NAMES[play.rank] || "Major Arcana") : `${rankName(play.rank)} of ${cap}`;
+
     return h("div", {
       class: `mt-played-card aw-card--${suit}`
         + (isMaj ? " aw-card--major" : "")
         + (isTrump ? " is-trump" : ""),
-      title: isMaj ? ARCANA_NAMES[play.rank] || "Major Arcana" : `${rankName(play.rank)} of ${suitCap(suit)}`,
+      title: titleText,
+      role: "img",
+      "aria-label": titleText,
     }, [
-      h("span", { class: "mt-card-glyph", style: { color: col }, text: isMaj ? "✦" : glyph }),
-      h("span", { class: "mt-card-rank", text: rank }),
+      h("span", { class: "mt-card-pip top-left", "aria-hidden": "true", text: rank }),
+      h("span", { class: "mt-card-pip bottom-right", "aria-hidden": "true", text: rank }),
+      SUIT_ART[cap] && !isMaj
+        ? h("img", { class: "mt-card-suit-art", src: SUIT_ART[cap], alt: "", "aria-hidden": "true" })
+        : h("span", { class: "mt-card-glyph", style: { color: col }, "aria-hidden": "true", text: isMaj ? "✦" : glyph }),
+      h("span", { class: "mt-card-rank", "aria-hidden": "true", text: rank }),
+      h("span", { class: "ac-sr-only", text: isMaj ? titleText : `${titleText} (${glyphName})` }),
     ]);
   }
 
@@ -452,6 +465,14 @@ export class MeleeTableInstance {
         // `legal === null` means the engine could not be consulted, so nothing is
         // greyed out; the server refusal is still the backstop either way.
         const playable = isMyTurn && (legal === null || legal.has(c.card_id));
+        const cap = suitCap(c.suit);
+        const rank = c.is_major ? (ARCANA_NUMERALS[c.rank] || "?") : rankName(c.rank);
+        const glyph = c.is_major ? "✦" : (SUIT_GLYPHS[cap] || "✦");
+        const glyphName = SUIT_GLYPH_NAMES[cap] || cap;
+        const cardTitle = c.is_major
+          ? (ARCANA_NAMES[c.rank] || "Major Arcana")
+          : `${rankName(c.rank)} of ${cap}`;
+
         handStrip.appendChild(h("div", {
           class: `mt-hand-card aw-card--${c.suit || "wands"}`
             + (c.is_major ? " aw-card--major" : "")
@@ -460,6 +481,7 @@ export class MeleeTableInstance {
           role: "button",
           tabindex: playable ? "0" : "-1",
           "aria-disabled": playable ? "false" : "true",
+          "aria-label": `${cardTitle}${playable ? " (Playable)" : ""}`,
           title: playable
             ? "Play into the current trick"
             : isMyTurn
@@ -477,16 +499,18 @@ export class MeleeTableInstance {
             }
           },
         }, [
-          h("div", { class: "mt-hand-top" }, [
-            h("span", { text: c.is_major ? "✦" : SUIT_GLYPHS[suitCap(c.suit)] || "✦" }),
-            h("span", { text: c.is_major ? (ARCANA_NUMERALS[c.rank] || "?") : rankName(c.rank) }),
+          h("span", { class: "mt-card-pip top-left", "aria-hidden": "true", text: rank }),
+          h("span", { class: "mt-card-pip top-right", "aria-hidden": "true", text: glyph }),
+          h("div", { class: "mt-hand-art", "aria-hidden": "true" }, [
+            SUIT_ART[cap] && !c.is_major
+              ? h("img", { class: "mt-hand-suit-art", src: SUIT_ART[cap], alt: "" })
+              : h("span", { class: "mt-hand-glyph", text: glyph })
           ]),
           h("div", {
             class: "mt-hand-title",
-            text: c.is_major
-              ? (ARCANA_NAMES[c.rank] || "Major Arcana")
-              : `${rankName(c.rank)} of ${suitCap(c.suit)}`,
+            text: cardTitle,
           }),
+          h("span", { class: "ac-sr-only", text: `${cardTitle} ${glyphName}` }),
         ]));
       }
     }

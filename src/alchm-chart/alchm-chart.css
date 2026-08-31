@@ -19,6 +19,25 @@
   --ac-applying: #f1dba1;
   --ac-separating: #7d8aa0;
 
+  /* Card scaling (mirrored from :root for embeddable isolation) */
+  --ac-card-w: 110px;
+  --ac-card-h: 165px;
+  --ac-card-radius: 6px;
+  --ac-card-pip-size: 9px;
+
+  /* Suit RGB triplets for melee card glows */
+  --ac-cups-rgb: 95, 147, 216;
+  --ac-swords-rgb: 174, 187, 214;
+  --ac-pentacles-rgb: 116, 171, 108;
+  --ac-wands-rgb: 219, 122, 71;
+  --ac-major-rgb: 241, 219, 161;
+
+  /* Unicode-safe font stack for alchemical glyphs */
+  --ac-glyph-font: "Space Grotesk", "Segoe UI Symbol", "Apple Color Emoji", "Noto Sans Symbols 2", sans-serif;
+
+  /* Card back SVG tile — pentacle star pattern */
+  --ac-card-back-svg: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' fill='%23080a14'/%3E%3Cpath d='M24 4l4.9 15.1H44l-12.2 8.8 4.7 14.5L24 33.6l-12.5 8.8 4.7-14.5L4 19.1h15.1z' fill='none' stroke='%23d8b46a' stroke-width='0.5' opacity='0.25'/%3E%3Ccircle cx='24' cy='24' r='8' fill='none' stroke='%23f1dba1' stroke-width='0.3' opacity='0.15'/%3E%3Ccircle cx='24' cy='24' r='2' fill='%23d8b46a' opacity='0.12'/%3E%3C/svg%3E");
+
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -28,6 +47,19 @@
   min-height: 0;
   color: var(--ac-text);
   font-family: "Space Grotesk", system-ui, sans-serif;
+}
+
+/* Screen-reader-only — accessible fallback text for alchemical glyphs (scoped) */
+.alchm-chart .ac-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 /* ---- launcher overlay ---- */
@@ -1164,7 +1196,7 @@ body.alchm-open #pentacles-net { display: none; }
    it a real face rather than the inline chip the old per-seat slot used. */
 .alchm-melee-table .mt-played-card {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
-  width: 40px; height: 54px; border-radius: 5px; padding: 2px;
+  width: 40px; height: 54px; border-radius: 5px; padding: 2px; position: relative; overflow: hidden;
   background: linear-gradient(160deg, rgba(24,28,44,0.98), rgba(10,12,20,0.98));
   border: 1px solid rgba(241,219,161,0.32); font-size: 10px; font-weight: 700;
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
@@ -1176,8 +1208,24 @@ body.alchm-open #pentacles-net { display: none; }
   border-color: rgba(190,150,235,0.75); box-shadow: 0 0 11px rgba(170,130,225,0.35);
   background: linear-gradient(160deg, rgba(36,26,54,0.98), rgba(14,10,24,0.98));
 }
-.alchm-melee-table .mt-card-glyph { font-size: 15px; line-height: 1; }
-.alchm-melee-table .mt-card-rank { font-size: 9.5px; letter-spacing: 0.02em; color: var(--ac-text); }
+.alchm-melee-table .mt-card-pip {
+  position: absolute;
+  font-family: var(--ac-card-font-glyph);
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--ac-dim);
+  pointer-events: none;
+  z-index: 2;
+}
+.alchm-melee-table .mt-played-card .mt-card-pip.top-left { top: 2px; left: 3px; }
+.alchm-melee-table .mt-played-card .mt-card-pip.bottom-right { bottom: 2px; right: 3px; transform: rotate(180deg); }
+.alchm-melee-table .mt-played-card.aw-card--major .mt-card-pip { color: var(--ac-gold-bright); }
+.alchm-melee-table .mt-played-card.is-trump .mt-card-pip { color: var(--ac-gold); }
+
+.alchm-melee-table .mt-card-suit-art { width: 16px; height: 16px; object-fit: contain; }
+.alchm-melee-table .mt-card-glyph { font-size: 14px; line-height: 1; }
+.alchm-melee-table .mt-card-rank { font-size: 9px; letter-spacing: 0.02em; color: var(--ac-text); margin-top: 1px; }
 
 /* ── The pot, and the two motions that make a trick legible ────────────────
    Cards do not appear and disappear: one flies in from the seat that played it
@@ -1243,7 +1291,8 @@ body.alchm-open #pentacles-net { display: none; }
   .alchm-melee-table .mt-pot-card.is-thrown,
   .alchm-melee-table .mt-pot.is-sweeping .mt-pot-card,
   .alchm-melee-table .mt-sweep-tally,
-  .alchm-melee-table .mt-seat-station.is-turn { animation: none; }
+  .alchm-melee-table .mt-seat-station.is-turn,
+  .alchm-melee-table .mt-hand-card.is-playable { animation: none; }
   .alchm-melee-table .mt-sweep-tally { opacity: 1; }
 }
 
@@ -1268,24 +1317,78 @@ body.alchm-open #pentacles-net { display: none; }
 .alchm-melee-table .mt-spectator-bar { text-align: center; padding: 8px; font-size: 11.5px; font-style: italic; }
 .alchm-melee-table .mt-hand-strip { display: flex; gap: 8px; overflow-x: auto; padding: 6px 2px; }
 .alchm-melee-table .mt-hand-card {
-  flex: 0 0 auto; width: 100px; padding: 7px 8px; border-radius: 6px; background: rgba(14,17,28,0.9);
-  border: 1px solid var(--ac-line); display: flex; flex-direction: column; gap: 4px; cursor: pointer;
-  transition: transform 0.15s, border-color 0.15s;
+  flex: 0 0 auto; width: 100px; padding: 18px 6px 8px; border-radius: 8px; background: rgba(14,17,28,0.92);
+  border: 1px solid var(--ac-line); display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer;
+  position: relative; overflow: hidden;
+  transition: transform 0.2s cubic-bezier(0.25, 0.8, 0.25, 1), border-color 0.2s, box-shadow 0.2s;
 }
+.alchm-melee-table .mt-hand-card .mt-card-pip {
+  font-size: 9.5px;
+}
+.alchm-melee-table .mt-hand-card .mt-card-pip.top-left { top: 4px; left: 6px; }
+.alchm-melee-table .mt-hand-card .mt-card-pip.top-right { top: 4px; right: 6px; }
+
 .alchm-melee-table .mt-hand-card.is-playable:hover,
-.alchm-melee-table .mt-hand-card.is-playable:focus-visible { transform: translateY(-6px); border-color: var(--ac-gold-bright); }
+.alchm-melee-table .mt-hand-card.is-playable:focus-visible {
+  transform: translateY(-6px);
+  border-color: var(--ac-gold-bright);
+  box-shadow: 0 8px 18px rgba(0,0,0,0.5), 0 0 14px rgba(241,219,161,0.35);
+  z-index: 10;
+}
 /* Legality is shown, not hidden: a card you may not play stays readable and
    keeps its tooltip explaining why, so the rule teaches itself. */
 .alchm-melee-table .mt-hand-card.is-playable {
-  border-color: rgba(241,219,161,0.55); box-shadow: 0 0 10px rgba(241,219,161,0.16);
+  border-color: rgba(241,219,161,0.55);
+  box-shadow: 0 0 10px rgba(241,219,161,0.16);
+  animation: mt-playable-pulse 2s ease-in-out infinite;
 }
 .alchm-melee-table .mt-hand-card.is-locked { opacity: 0.42; cursor: not-allowed; filter: saturate(0.5); }
-.alchm-melee-table .mt-hand-card.is-inverted .mt-hand-top { transform: rotate(180deg); }
+.alchm-melee-table .mt-hand-card.is-inverted .mt-hand-art { transform: rotate(180deg); }
+.alchm-melee-table .mt-hand-card.face-down {
+  background: var(--ac-card-back-svg);
+  background-size: 48px 48px;
+  border-color: var(--ac-gold);
+}
+.alchm-melee-table .mt-hand-card.face-down > * {
+  visibility: hidden;
+}
 .alchm-melee-table .mt-hand-strip.is-active { padding-top: 10px; }
 .alchm-melee-table .aw-section-label.is-live { color: var(--ac-gold-bright); font-weight: 700; }
 .alchm-melee-table .mt-meld-bar { font-size: 10.5px; padding: 2px 2px 0; }
-.alchm-melee-table .mt-hand-top { display: flex; justify-content: space-between; font-size: 10px; }
-.alchm-melee-table .mt-hand-title { font-size: 11px; font-weight: 600; line-height: 1.1; color: var(--ac-text); }
+
+.alchm-melee-table .mt-hand-art {
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; height: 32px; margin: 2px 0;
+}
+.alchm-melee-table .mt-hand-suit-art {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+}
+.alchm-melee-table .mt-hand-glyph {
+  font-size: 20px; line-height: 1;
+  color: var(--ac-gold);
+}
+.alchm-melee-table .mt-hand-card.aw-card--major .mt-hand-glyph {
+  color: var(--ac-gold-bright);
+  text-shadow: 0 0 8px rgba(241,219,161,0.5);
+}
+.alchm-melee-table .mt-hand-title {
+  font-size: 10.5px; font-weight: 600; line-height: 1.15; color: var(--ac-text);
+  text-align: center; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+@keyframes mt-playable-pulse {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(241, 219, 161, 0.2);
+    border-color: rgba(241, 219, 161, 0.45);
+  }
+  50% {
+    box-shadow: 0 0 16px rgba(241, 219, 161, 0.45), 0 0 4px rgba(255, 255, 255, 0.2);
+    border-color: rgba(241, 219, 161, 0.85);
+  }
+}
 
 /* Faction War Sky Board Table Badges & Zone Detail additions */
 .alchm-war .aw-zone-table-badge {
@@ -1330,4 +1433,41 @@ body.alchm-open #pentacles-net { display: none; }
 .alchm-war .aw-queue-btn.is-queued { background: rgba(95,179,122,0.18); border-color: var(--ac-ok); color: var(--ac-ok); }
 .alchm-war .aw-queue-badge.is-seated { padding: 9px; border-radius: 8px; background: rgba(241,219,161,0.15); border: 1px solid var(--ac-gold); color: var(--ac-gold-bright); font-size: 12px; text-align: center; font-weight: 700; }
 .alchm-war .aw-pop-table-wrap { width: min(860px, 96vw); height: min(680px, 88vh); background: rgba(13,16,28,0.96); border: 1px solid var(--ac-line); border-radius: 16px; padding: 18px; box-shadow: 0 24px 80px rgba(0,0,0,0.7); }
+
+/* Bespoke Stitch Suit Imagery */
+.mc-card-suit-art, .aw-tray-suit-art {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 4px rgba(246, 207, 131, 0.4));
+  vertical-align: middle;
+}
+.mc-inspector-suit-art {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 8px rgba(246, 207, 131, 0.5));
+}
+.mc-decan-suit-art {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+}
+.mt-trump-art {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 6px rgba(246, 207, 131, 0.6));
+}
+.mt-card-suit-art, .aw-card-suit-art {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 4px rgba(0, 218, 243, 0.4));
+}
+.mt-hand-suit-art {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+}
 

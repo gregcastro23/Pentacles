@@ -16,7 +16,18 @@ const SIGN_SUITS = ["wands", "pentacles", "swords", "cups", "wands", "pentacles"
 const SIGN_RULERS = [4, 3, 2, 1, 0, 2, 3, 9, 5, 6, 7, 8];
 const PLANET_SUITS = ["wands", "cups", "swords", "cups", "wands", "wands", "pentacles", "swords", "cups", "swords"];
 
-const SUIT_GLYPHS = { cups: "♥", swords: "♠", pentacles: "♦", wands: "♣" };
+const SUIT_GLYPHS = { cups: "🜄", swords: "🜁", pentacles: "🜃", wands: "🜂", Cups: "🜄", Swords: "🜁", Pentacles: "🜃", Wands: "🜂" };
+const SUIT_GLYPH_NAMES = { cups: "Water", swords: "Air", pentacles: "Earth", wands: "Fire", Cups: "Water", Swords: "Air", Pentacles: "Earth", Wands: "Fire" };
+const SUIT_ART = {
+  swords: "https://lh3.googleusercontent.com/aida-public/AB6AXuA1b5lQy8bE3-yiq6sE4lHJX1iJSrJGUvcpqo-xxyK086QI9Cv4va_OFyTXWLqbN5DApdbisIyuLJRs8Qft3jDxPYAcGuKTjpWhOllboaEyYYFAjur3A4xsV5IhW6KKkY6fMUpEiJlsVBCYS21asDj0Ccmbbr9rlrYiU_Hc31VL2LnUYvknKkV6P5TehzV4wraVI5lpFMbWXcUbD-a7dUOeBlDWFujiYNmIGga5p9WGUSLZ3oOKuLHNLQ",
+  pentacles: "https://lh3.googleusercontent.com/aida-public/AB6AXuDw4AKIiBeQVHdbayL77PAGq8by-MnuR02fNQEnp4k7ZSSQfRJdiuBYYprlUH7eCK148cCjkzHrkF2yeSYfZ75XV8-e9SxUDFF7HxyRM6mb5RIIoqXYIi9kCQpL04fp45XdIVud3kVYCIBVVe4FFNm-EYXR19tN1iQjO5vYGY6zjF5j0BvWu8GLBoZxoOZKfzh9K6QtHcIp5mELrlKK9Hl-2dS6UUoRd5peWZKX7XjAmfZBt14_6Dw5VA",
+  cups: "https://lh3.googleusercontent.com/aida-public/AB6AXuCydcnlWudO0bR6rZDKDXn_UYtr1ADlckZuTeYqXW4xmGbUKpIfB0oYvkctq5GXSE8JOYH25OLgFW_RsOGawPIBA61svL-1eFo6JLEgd01S9TCE3ZGIDG7mYR-UnHpkH-v_OY5n3OiUQasA-5XVwc1UUQTCaLuFtYj_u4az4QfAW4nTNvhlDgl5dY6QLnV1dOoBat4nMVAI46n8ORfnGTAxKYyiR-KziF18A61r1E_C3z60no_vm1ipdA",
+  wands: "https://lh3.googleusercontent.com/aida-public/AB6AXuC9VJbJDND-dPuW6ENyIQrmCM62NSqGZDaMXWQJtKB71wKzLuUX0CsuisQegpqJWRyvvTLXNlxN3t9_pnbsowGmXCbMYDj4OImdrgTbGSf2ajS_yw6jnEM8lWCHRER8Mnev4TX-JIiRFhbL-SK0XCME6OKk0GLMGLrcTd6CkFXuH9KG41M1JcpzAEIkOxsv3QauYfRjjb1gkzqVI4QBA6si7kX0N8fa_UwQg7go44aeyQG4NKHJV0VptQ",
+  Swords: "https://lh3.googleusercontent.com/aida-public/AB6AXuA1b5lQy8bE3-yiq6sE4lHJX1iJSrJGUvcpqo-xxyK086QI9Cv4va_OFyTXWLqbN5DApdbisIyuLJRs8Qft3jDxPYAcGuKTjpWhOllboaEyYYFAjur3A4xsV5IhW6KKkY6fMUpEiJlsVBCYS21asDj0Ccmbbr9rlrYiU_Hc31VL2LnUYvknKkV6P5TehzV4wraVI5lpFMbWXcUbD-a7dUOeBlDWFujiYNmIGga5p9WGUSLZ3oOKuLHNLQ",
+  Pentacles: "https://lh3.googleusercontent.com/aida-public/AB6AXuDw4AKIiBeQVHdbayL77PAGq8by-MnuR02fNQEnp4k7ZSSQfRJdiuBYYprlUH7eCK148cCjkzHrkF2yeSYfZ75XV8-e9SxUDFF7HxyRM6mb5RIIoqXYIi9kCQpL04fp45XdIVud3kVYCIBVVe4FFNm-EYXR19tN1iQjO5vYGY6zjF5j0BvWu8GLBoZxoOZKfzh9K6QtHcIp5mELrlKK9Hl-2dS6UUoRd5peWZKX7XjAmfZBt14_6Dw5VA",
+  Cups: "https://lh3.googleusercontent.com/aida-public/AB6AXuCydcnlWudO0bR6rZDKDXn_UYtr1ADlckZuTeYqXW4xmGbUKpIfB0oYvkctq5GXSE8JOYH25OLgFW_RsOGawPIBA61svL-1eFo6JLEgd01S9TCE3ZGIDG7mYR-UnHpkH-v_OY5n3OiUQasA-5XVwc1UUQTCaLuFtYj_u4az4QfAW4nTNvhlDgl5dY6QLnV1dOoBat4nMVAI46n8ORfnGTAxKYyiR-KziF18A61r1E_C3z60no_vm1ipdA",
+  Wands: "https://lh3.googleusercontent.com/aida-public/AB6AXuC9VJbJDND-dPuW6ENyIQrmCM62NSqGZDaMXWQJtKB71wKzLuUX0CsuisQegpqJWRyvvTLXNlxN3t9_pnbsowGmXCbMYDj4OImdrgTbGSf2ajS_yw6jnEM8lWCHRER8Mnev4TX-JIiRFhbL-SK0XCME6OKk0GLMGLrcTd6CkFXuH9KG41M1JcpzAEIkOxsv3QauYfRjjb1gkzqVI4QBA6si7kX0N8fa_UwQg7go44aeyQG4NKHJV0VptQ"
+};
 const SUIT_NAMES = { cups: "Cups", swords: "Swords", pentacles: "Pentacles", wands: "Wands" };
 
 // ESMS — the four alchemical elements that back the Constellation liquidity pools.
@@ -1289,12 +1300,69 @@ class GameState {
       signVector: null
     };
 
-    let melee = null;
-    if (typeof window !== "undefined" && window.ArcanaTrickEngine) {
-      melee = window.ArcanaTrickEngine.createMelee(targetType, targetId, activeCards, { zone_id: zoneId }, skyContext);
-    }
+    const Engine = (typeof window !== "undefined" && window.ArcanaTrickEngine) || (typeof globalThis !== "undefined" && globalThis.ArcanaTrickEngine);
+    const arcanaLadder = Engine ? Engine.buildArcanaLadder(skyContext.planets, skyContext.signVector) : {};
 
-    const description = `Astral Threshold Trial: Engage in a 12-trick practice bout against the Gate Guardian. Trump: ${targetSuit.toUpperCase()}.`;
+    const CONTENDER_ROSTER = [
+      { seatId: 0, name: "You (Seeker)", faction: (this.player ? PLANET_NAMES[this.player.faction] : "Moon"), glyph: (this.player ? PLANET_GLYPHS[this.player.faction] : "✦"), isHuman: true, avatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuBG3IAfFZPaUazfdV6k6Qpy2XXyRE0FbSCQ5FEXOoUhIHdG2b_lNO1h5ujd3rJVNpfOTJ2nBXUS6NhW3XcuIPMnNCWCBcADuNZkPZeoAlD9OMyoSUyjRcZu40R1dKmhq5jRQ5NLE381NcDGvCMl0EhzPj8wNXdKIwE_RuyZuoS-CSsOb3gNiCGIgNB3E6jNf3CLAIbNtqylYNd5Q-pDVFBenFS-gXuvy_UtW6FtNYC0fc2H46GjfkEGNQ", color: "#f6cf83" },
+      { seatId: 1, name: "Hypatia", faction: "Mercury", glyph: "☿", isHuman: false, avatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuDod_RQk1s-pcUaa-qc40uOsRtn61ngd04V5qXM6Ex2F7kivkTgZhkN4JTSIjVi0BtpKEjR-DH5siPgH1lFZnmLsNR0EB9sZQCGmWwOr69MRbPfrZiO8vXigjazd_2PsKykpB7EScCcCtJNJb-XQ9Rwe24Gabmm4WuSZmwk5Lmvi3lJhnxNgEmfv_XmPqo7OPzMNB-SCp8VgipZYy1r0IrHb5uniB5Kl4Q8veL44utAQcMAwE2YxLGGtA", color: "#00daf3" },
+      { seatId: 2, name: "John Dee", faction: "Venus", glyph: "♀", isHuman: false, avatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuBSS0Qwt4OiYfm878WS18Er6DN6E7TPjvsx0a0ik5klB0VCaXrxnhCtbHflb0JLZdsbh4i5CZ6iyKXIOWcXxSJAL2FhW1LE0Ve6Q0JqUmr-Uj5DfnwPl6rPSKMAguScZAXg6PyKrYQjHiwA8hSKyEjRQXSUS9DmpXdZp4blV2Q36gEECcqRoT1ZiM4uzXfrpwnVDysOUuJbn4dKGE4L_hPkAUejJXotzApacy8_Qrz7ZpqlmMLi4IdY0Q", color: "#f6cf83" },
+      { seatId: 3, name: "Paracelsus", faction: "Earth", glyph: "🛡", isHuman: false, avatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuA8aZ6mtOWpAAw3nNO31GhPCaOuwUWWga9VWzqtzgWL6rhyf45mpUVv7asKDC4upHrgW-U9ulUkFqSUImyG1zRxk7c7giftZrW6XOwJ3z55_yKbKGsbmVFI9rLk47BVK5cZmsXCaqY2S0esR0oVG76pPs-JcPDTsCLl8S5KyO957dPXqs35R5OZb0XlQgge7W5Sla5rCwpml59iiVHJNTB6pkQED2Y-7am2mhpYmS2o5KIzoEAsKnQMZg", color: "#8bc34a" },
+      { seatId: 4, name: "Nicolas Flamel", faction: "Sun", glyph: "☉", isHuman: false, avatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuBzOCPGicqORqFCpmJ4s4uHGeow4_P-ONOVpraZX4G9DBh0eTF4_WhzRhCqqb8LXQzYWIXZG_AaiP5v8PzzvJe0X3KgR005RAH5kn658ksyaP9p-tuv0pjY-UdMv1G85pXJmsnITo6nGrIPXoZnZrng3IRqo81tvpB8ghSTOW8QX703Na8Bkd445cKG5sM1YelTEWHdvA66HwflxVF7O6lXeno2uH6mDvgSpg14CyY-bEcAcGt3le1QJQ", color: "#ff5722" },
+      { seatId: 5, name: "Isaac Newton", faction: "Saturn", glyph: "♄", isHuman: false, avatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuDod_RQk1s-pcUaa-qc40uOsRtn61ngd04V5qXM6Ex2F7kivkTgZhkN4JTSIjVi0BtpKEjR-DH5siPgH1lFZnmLsNR0EB9sZQCGmWwOr69MRbPfrZiO8vXigjazd_2PsKykpB7EScCcCtJNJb-XQ9Rwe24Gabmm4WuSZmwk5Lmvi3lJhnxNgEmfv_XmPqo7OPzMNB-SCp8VgipZYy1r0IrHb5uniB5Kl4Q8veL44utAQcMAwE2YxLGGtA", color: "#cd7f32" }
+    ];
+
+    const HANDICAPS = [0, 0, 0, 0, 0, 20, 20, 20, 20, 20, 40];
+    const guardianHandicap = targetType === "planet" ? (10 * targetId) : (HANDICAPS[zoneId] || 0);
+
+    const suits = ["wands", "pentacles", "swords", "cups"];
+    const majorDeck = [0, 1, 21, 13, 20, 16, 10, 2, 19, 5, 14, 7, 4, 8, 9, 11, 12, 15, 17, 18];
+
+    const seats = CONTENDER_ROSTER.map((c, idx) => {
+      let sHand = [];
+      if (c.isHuman) {
+        // Player hand (up to 9 minors + 3 majors, or 12 cards)
+        const pMinors = activeCards.filter(cd => !cd.is_major);
+        const pMajors = activeCards.filter(cd => cd.is_major);
+        sHand = [...pMinors.slice(0, 9), ...pMajors.slice(0, 3)];
+        if (sHand.length < 12 && pMinors.length > 9) {
+          sHand = [...sHand, ...pMinors.slice(9, 12 - sHand.length)];
+        }
+        if (sHand.length < 12 && activeCards.length > sHand.length) {
+          sHand = activeCards.slice(0, 12);
+        }
+      } else {
+        let majorIdx = idx * 3;
+        for (let i = 0; i < 12; i++) {
+          const isMajor = (i >= 9);
+          const rank = isMajor ? majorDeck[(majorIdx++) % majorDeck.length] : [1, 10, 14, 13, 12, 11, 9, 8, 7][i];
+          const suit = isMajor ? targetSuit : suits[(i + idx) % 4];
+          sHand.push({
+            card_id: (idx + 1) * 10000 + i,
+            rank: rank,
+            suit: suit,
+            is_major: isMajor,
+            title: isMajor ? (ARCANA_NAMES[rank] || `Major ${rank}`) : `${rankName(rank)} of ${suit[0].toUpperCase() + suit.slice(1)}`
+          });
+        }
+      }
+      const sMelds = Engine ? Engine.detectMelds(sHand, targetSuit, arcanaLadder) : [];
+      const meldVal = sMelds.reduce((sum, m) => sum + m.value, 0);
+      return {
+        ...c,
+        hand: sHand,
+        melds: sMelds,
+        meldScore: meldVal,
+        score: meldVal + (c.isHuman ? 0 : guardianHandicap),
+        tricksWon: 0,
+        harvestPile: []
+      };
+    });
+
+    const playerSeat = seats[0];
+    const guardianSeat = seats[1];
+
+    const description = `Astral Manifold Arena: Engage in a 6-seat 12-trick Melee against Historical Alchemists. Trump: ${targetSuit.toUpperCase()}.`;
 
     return {
       targetType,
@@ -1305,31 +1373,32 @@ class GameState {
       targetSuit,
       targetSum: 50,
       chain: [],
-      melee: melee || {
+      melee: {
         targetType,
         targetId,
         zoneId,
         trumpSuit: targetSuit,
-        arcanaLadder: {},
+        arcanaLadder: arcanaLadder || {},
         trickNumber: 1,
         totalTricks: 12,
         leader: "player",
         currentTurn: "player",
         ledSuit: null,
         currentTrick: [],
-        playerHand: activeCards.slice(0, 12),
-        guardianHand: [],
-        playerMelds: [],
-        guardianMelds: [],
-        playerScore: 0,
-        guardianScore: 0,
-        guardianHandicap: 0,
+        seats: seats,
+        playerHand: playerSeat.hand,
+        guardianHand: guardianSeat.hand,
+        playerMelds: playerSeat.melds,
+        guardianMelds: guardianSeat.melds,
+        playerScore: playerSeat.score,
+        guardianScore: guardianSeat.score,
+        guardianHandicap: guardianHandicap,
         playerTricksWon: 0,
         guardianTricksWon: 0,
         playerHarvestPile: [],
         guardianHarvestPile: [],
         excuseSpent: { player: false, guardian: false },
-        log: [],
+        log: [`6-Seat Melee commenced in Zone ${zoneId} (${targetSuit.toUpperCase()} Trump). Contenders: Hypatia, Dee, Paracelsus, Seeker, Flamel, Newton.`],
         status: "active",
         outcome: null
       }
@@ -1518,13 +1587,41 @@ class GameState {
 
     // 1. Play player's card
     melee.playerHand = melee.playerHand.filter(c => c.card_id !== cardId);
-    melee.currentTrick.push({ player: "player", card: card });
+    if (melee.seats && melee.seats[0]) {
+      melee.seats[0].hand = melee.playerHand;
+    }
+    melee.currentTrick = [{ player: "player", seatId: 0, contenderName: "You (Seeker)", card: card }];
     if (!melee.ledSuit && !card.is_major) {
       melee.ledSuit = card.suit ? card.suit.toLowerCase() : null;
     }
 
-    // 2. Guardian takes its turn
-    if (melee.guardianHand.length > 0) {
+    // 2. Other 5 Contenders take their turns in sequence
+    if (melee.seats && melee.seats.length > 1) {
+      for (let sIdx = 1; sIdx < melee.seats.length; sIdx++) {
+        const botSeat = melee.seats[sIdx];
+        if (botSeat.hand && botSeat.hand.length > 0) {
+          const bCard = Engine.GuardianAI.choose(
+            botSeat.hand,
+            melee.ledSuit,
+            melee.trumpSuit,
+            melee.currentTrick,
+            melee.arcanaLadder
+          );
+          if (bCard) {
+            botSeat.hand = botSeat.hand.filter(c => c.card_id !== bCard.card_id);
+            melee.currentTrick.push({
+              player: botSeat.name,
+              seatId: botSeat.seatId,
+              contenderName: botSeat.name,
+              card: bCard
+            });
+            if (!melee.ledSuit && !bCard.is_major) {
+              melee.ledSuit = bCard.suit ? bCard.suit.toLowerCase() : null;
+            }
+          }
+        }
+      }
+    } else if (melee.guardianHand && melee.guardianHand.length > 0) {
       const gCard = Engine.GuardianAI.choose(
         melee.guardianHand,
         melee.ledSuit,
@@ -1534,14 +1631,14 @@ class GameState {
       );
       if (gCard) {
         melee.guardianHand = melee.guardianHand.filter(c => c.card_id !== gCard.card_id);
-        melee.currentTrick.push({ player: "guardian", card: gCard });
+        melee.currentTrick.push({ player: "guardian", seatId: 1, contenderName: "Zone Guardian", card: gCard });
         if (!melee.ledSuit && !gCard.is_major) {
           melee.ledSuit = gCard.suit ? gCard.suit.toLowerCase() : null;
         }
       }
     }
 
-    // 3. Resolve the trick
+    // 3. Resolve the trick among all contenders
     const trickResult = Engine.evaluateTrick(
       melee.currentTrick,
       melee.trumpSuit,
@@ -1549,31 +1646,58 @@ class GameState {
       melee.trickNumber
     );
 
-    if (trickResult.winner === "player") {
+    if (trickResult.winner === "player" || trickResult.winner === 0) {
       melee.playerScore += trickResult.counters;
       melee.playerTricksWon++;
       melee.playerHarvestPile.push(...trickResult.capturedCards);
+      if (melee.seats && melee.seats[0]) {
+        melee.seats[0].score = melee.playerScore;
+        melee.seats[0].tricksWon = melee.playerTricksWon;
+      }
       melee.leader = "player";
       melee.log.push(`Trick ${melee.trickNumber}: You won (+${trickResult.counters} pts) with ${trickResult.winningCard.title}.`);
     } else {
-      melee.guardianScore += trickResult.counters;
-      melee.guardianTricksWon++;
-      melee.guardianHarvestPile.push(...trickResult.capturedCards);
-      melee.leader = "guardian";
-      melee.log.push(`Trick ${melee.trickNumber}: Guardian won (+${trickResult.counters} pts) with ${trickResult.winningCard.title}.`);
+      const winnerName = String(trickResult.winner);
+      let winningContender = null;
+      if (melee.seats) {
+        winningContender = melee.seats.find(s => s.name === winnerName || s.seatId === trickResult.winner);
+      }
+      if (winningContender) {
+        winningContender.score = (winningContender.score || 0) + trickResult.counters;
+        winningContender.tricksWon = (winningContender.tricksWon || 0) + 1;
+        winningContender.harvestPile = (winningContender.harvestPile || []);
+        winningContender.harvestPile.push(...trickResult.capturedCards);
+        melee.leader = winningContender.name;
+        melee.log.push(`Trick ${melee.trickNumber}: ${winningContender.name} won (+${trickResult.counters} pts) with ${trickResult.winningCard.title}.`);
+      } else {
+        melee.guardianScore += trickResult.counters;
+        melee.guardianTricksWon++;
+        melee.guardianHarvestPile.push(...trickResult.capturedCards);
+        melee.leader = "guardian";
+        melee.log.push(`Trick ${melee.trickNumber}: Guardian won (+${trickResult.counters} pts) with ${trickResult.winningCard.title}.`);
+      }
     }
 
-    if (trickResult.excusePlayer === "player") {
+    if (melee.seats) {
+      melee.guardianScore = Math.max(...melee.seats.filter(s => !s.isHuman).map(s => s.score || 0));
+    }
+
+    if (trickResult.excusePlayer === "player" || trickResult.excusePlayer === 0) {
       melee.playerScore += 10;
+      if (melee.seats && melee.seats[0]) melee.seats[0].score = melee.playerScore;
       melee.log.push(`✦ The Fool banked +10 counters to your pile.`);
-    } else if (trickResult.excusePlayer === "guardian") {
-      melee.guardianScore += 10;
-      melee.log.push(`✦ Guardian's Fool banked +10 counters.`);
+    } else if (trickResult.excusePlayer) {
+      const ep = melee.seats ? melee.seats.find(s => s.name === trickResult.excusePlayer || s.seatId === trickResult.excusePlayer) : null;
+      if (ep) {
+        ep.score = (ep.score || 0) + 10;
+        melee.log.push(`✦ ${ep.name}'s Fool banked +10 counters.`);
+      }
     }
 
-    // Reset trick table for next trick
+    // Keep completed trick cards visible for inspection, but clear ledSuit
     const finishedTrickCards = [...melee.currentTrick];
-    melee.currentTrick = [];
+    melee.lastTrickPlays = [...melee.currentTrick];
+    melee.lastTrickWinner = trickResult.winner;
     melee.ledSuit = null;
 
     let completed = false;
@@ -1582,8 +1706,8 @@ class GameState {
     // Check if round finished (12 tricks played or hands empty)
     if (melee.trickNumber >= 12 || melee.playerHand.length === 0) {
       melee.status = "completed";
-      const victory = melee.playerScore > melee.guardianScore;
-      melee.outcome = victory ? "player_win" : "guardian_win";
+      const victory = melee.playerScore >= melee.guardianScore;
+      melee.outcome = victory ? "player_win" : "contender_win";
       completed = true;
 
       if (victory) {

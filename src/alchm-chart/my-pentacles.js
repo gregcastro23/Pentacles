@@ -18,7 +18,7 @@
    ============================================================ */
 import { h, clear } from "./dom.js";
 import { decanCard } from "./decans.js";
-import { SUIT_GLYPHS, SUIT_COLORS, rankName, MAJOR_NUMERALS, MAJOR_NAMES, ARCANA_NUMERALS, ARCANA_NAMES } from "./deck.js";
+import { SUIT_GLYPHS, SUIT_COLORS, SUIT_ART, rankName, MAJOR_NUMERALS, MAJOR_NAMES, ARCANA_NUMERALS, ARCANA_NAMES } from "./deck.js";
 import { categoricalChartAnalytics } from "./sign-character.js";
 
 const PLANET_GLYPHS = ["☉", "☽", "☿", "♀", "♂", "♃", "♄", "♅", "♆", "♇"];
@@ -498,7 +498,9 @@ export class MyPentaclesInstance {
       }
     }, [
       h("div", { class: "mc-card-top" }, [
-        h("span", { class: "mc-card-glyph", style: { color: pcol }, text: SUIT_GLYPHS[cap] || "✦" }),
+        SUIT_ART[cap] && !isMajor
+          ? h("img", { class: "mc-card-suit-art", src: SUIT_ART[cap], alt: cap })
+          : h("span", { class: "mc-card-glyph", style: { color: pcol }, text: isMajor ? "✦" : (SUIT_GLYPHS[cap] || "✦") }),
         h("span", { class: "mc-card-loadout-tag " + l, text: l.toUpperCase() }),
         h("span", { class: "mc-card-rank mc-dim", text: rank }),
       ]),
@@ -532,7 +534,9 @@ export class MyPentaclesInstance {
         h("button", { class: "mc-inspector-close", text: "✕", onClick: () => { this.inspectedCard = null; this.paint(); } }),
         
         h("div", { class: "mc-inspector-head" }, [
-          h("span", { class: "mc-inspector-glyph", style: { color: pcol }, text: SUIT_GLYPHS[cap] || "✦" }),
+          SUIT_ART[cap] && !isMajor
+            ? h("img", { class: "mc-inspector-suit-art", src: SUIT_ART[cap], alt: cap })
+            : h("span", { class: "mc-inspector-glyph", style: { color: pcol }, text: isMajor ? "✦" : (SUIT_GLYPHS[cap] || "✦") }),
           h("div", {}, [
             h("div", { class: "mc-inspector-title", text: name }),
             h("div", { class: "mc-inspector-sub mc-dim", text: `${isMajor ? "Major Arcana" : `${cap} · Rank ${rank}`} · ${PLANET_NAMES[c.source_body] || "Celestial"} Ruled` }),
@@ -647,7 +651,9 @@ export class MyPentaclesInstance {
       const scol = SUIT_COLORS[dc.suit] || "var(--ac-gold)";
       grid.appendChild(h("div", { class: "mc-decan", style: { borderColor: scol } }, [
         h("div", { class: "mc-decan-top" }, [
-          h("span", { class: "mc-decan-glyph", style: { color: scol }, text: SUIT_GLYPHS[dc.suit] || "✦" }),
+          SUIT_ART[dc.suit]
+            ? h("img", { class: "mc-decan-suit-art", src: SUIT_ART[dc.suit], alt: dc.suit })
+            : h("span", { class: "mc-decan-glyph", style: { color: scol }, text: SUIT_GLYPHS[dc.suit] || "✦" }),
           h("span", { class: "mc-decan-card", style: { color: scol }, text: `${dc.rank} of ${dc.suit}` }),
         ]),
         h("div", { class: "mc-decan-lord", text: dc.title || "" }),

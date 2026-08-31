@@ -57,59 +57,163 @@
 
   <!-- ===================== ONBOARDING OVERLAY ===================== -->
   <div id="onboarding-overlay" class="overlay-fullscreen">
-    <div class="onboarding-window">
-      <h2 class="welcome-title">Pentacles</h2>
-      <p class="welcome-subtitle">Enter your birth details to calculate your chart, join a planetary faction, and mint your procedural cards.</p>
-      
-      <div id="onboarding-step-1" style="display: flex; flex-direction: column; gap: 16px;">
-        <div class="form-group">
-          <label for="ob-handle">Name / Cryptonym</label>
-          <input type="text" id="ob-handle" class="form-input" placeholder="e.g. ArcturusSeeker" value="CelestialSeeker">
+
+    <!-- Starfield Background Layer -->
+    <div class="ob-stars-layer" aria-hidden="true">
+      <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+        <defs><radialGradient id="obStarG"><stop offset="0%" stop-color="white"/><stop offset="100%" stop-color="transparent"/></radialGradient></defs>
+        <circle cx="10%" cy="20%" r="1" fill="url(#obStarG)" opacity="0.8"/>
+        <circle cx="30%" cy="60%" r="0.5" fill="white" opacity="0.3"/>
+        <circle cx="50%" cy="10%" r="1.2" fill="url(#obStarG)" opacity="0.6"/>
+        <circle cx="70%" cy="80%" r="0.8" fill="white" opacity="0.4"/>
+        <circle cx="90%" cy="30%" r="1" fill="url(#obStarG)" opacity="0.7"/>
+        <circle cx="15%" cy="85%" r="0.5" fill="white" opacity="0.2"/>
+        <circle cx="85%" cy="15%" r="0.7" fill="white" opacity="0.5"/>
+        <circle cx="45%" cy="45%" r="1" fill="url(#obStarG)" opacity="0.9"/>
+        <circle cx="65%" cy="55%" r="0.6" fill="white" opacity="0.35"/>
+        <circle cx="25%" cy="40%" r="0.8" fill="url(#obStarG)" opacity="0.55"/>
+      </svg>
+    </div>
+
+    <!-- Constellation faint traces -->
+    <div class="ob-constellation-traces" aria-hidden="true">
+      <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+        <path d="M 50 100 L 150 250 L 100 400" stroke="rgba(216,180,106,0.15)" stroke-width="0.5" fill="none"/>
+        <path d="M 850 150 L 950 300 L 900 500" stroke="rgba(216,180,106,0.15)" stroke-width="0.5" fill="none"/>
+        <path d="M 200 700 L 350 850 L 500 800" stroke="rgba(216,180,106,0.15)" stroke-width="0.5" fill="none"/>
+      </svg>
+    </div>
+
+    <!-- Corner Ornaments (desktop) -->
+    <div class="ob-corner ob-corner-tl"></div>
+    <div class="ob-corner ob-corner-tr"></div>
+    <div class="ob-corner ob-corner-bl"></div>
+    <div class="ob-corner ob-corner-br"></div>
+
+    <!-- Scroll Container -->
+    <div class="ob-scroll-container">
+
+      <!-- Hero Header -->
+      <header class="ob-hero">
+        <!-- Golden nebula glow behind emblem -->
+        <div class="ob-nebula-glow" aria-hidden="true"></div>
+
+        <!-- Pentacle Star Emblem (reuses the game's own pentagram geometry) -->
+        <svg viewBox="0 0 200 200" class="ob-pentacle-emblem" aria-label="Pentacle star emblem">
+          <defs>
+            <radialGradient id="obPentGlow" cx="50%" cy="50%" r="55%">
+              <stop offset="0%" stop-color="rgba(241,219,161,0.25)"/>
+              <stop offset="100%" stop-color="rgba(0,0,0,0)"/>
+            </radialGradient>
+            <linearGradient id="obGoldStroke" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#f1dba1"/>
+              <stop offset="100%" stop-color="#d8b46a"/>
+            </linearGradient>
+          </defs>
+          <circle cx="100" cy="100" r="90" fill="url(#obPentGlow)"/>
+          <circle cx="100" cy="100" r="80" fill="none" stroke="url(#obGoldStroke)" stroke-width="1.5" opacity="0.6"/>
+          <!-- Pentagram star, same proportions as the game map -->
+          <polygon points="100,18 118.5,72.8 179.3,72.8 130.3,109.8 149,164.5 100,131.8 51,164.5 69.7,109.8 20.7,72.8 81.5,72.8"
+                   fill="none" stroke="url(#obGoldStroke)" stroke-width="2" stroke-linejoin="round"/>
+          <!-- Inner crown pentagon -->
+          <polygon points="118.5,72.8 130.3,109.8 100,131.8 69.7,109.8 81.5,72.8"
+                   fill="rgba(216,180,106,0.08)" stroke="url(#obGoldStroke)" stroke-width="1" stroke-linejoin="round" opacity="0.6"/>
+        </svg>
+
+        <h1 class="ob-title">Pentacles</h1>
+
+        <!-- Ornamental Divider -->
+        <div class="ob-divider">
+          <span class="ob-divider-line"></span>
+          <span class="ob-divider-diamond"></span>
+          <span class="ob-divider-line"></span>
         </div>
-        <div class="form-group">
-          <label for="ob-date">Birth Date</label>
-          <input type="date" id="ob-date" class="form-input" value="1998-05-14">
+
+        <p class="ob-subtitle">Enter your birth chart to forge your celestial deck and join the astral war.</p>
+      </header>
+
+      <!-- Registration Card -->
+      <div class="onboarding-window">
+        <!-- Top gold accent line -->
+        <div class="ob-card-accent ob-card-accent-top"></div>
+
+        <div id="onboarding-step-1" style="display: flex; flex-direction: column; gap: 16px;">
+          <div class="form-group">
+            <label for="ob-handle" class="ob-label">Name / Cryptonym</label>
+            <input type="text" id="ob-handle" class="ob-input" placeholder="e.g. ArcturusSeeker" value="CelestialSeeker">
+          </div>
+
+          <div class="form-group">
+            <label for="ob-date" class="ob-label">Birth Date</label>
+            <div class="ob-input-icon-wrap">
+              <span class="ob-input-icon">📅</span>
+              <input type="date" id="ob-date" class="ob-input ob-input-with-icon" value="1998-05-14">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="ob-time" class="ob-label">Birth Time</label>
+              <div class="ob-input-icon-wrap">
+                <span class="ob-input-icon">🕐</span>
+                <input type="time" id="ob-time" class="ob-input ob-input-with-icon" value="14:30">
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="ob-loc" class="ob-label">Location (City)</label>
+              <input type="text" id="ob-loc" class="ob-input" placeholder="e.g. New York, US" value="New York, US">
+            </div>
+          </div>
+
+          <div class="form-row" style="align-items: flex-end;">
+            <div class="form-group">
+              <label for="ob-lat" class="ob-label">Observer Latitude</label>
+              <input type="number" id="ob-lat" class="ob-input" step="0.0001" min="-90" max="90" value="40.7128">
+            </div>
+            <div class="form-group">
+              <label for="ob-lon" class="ob-label">Longitude (east +)</label>
+              <input type="number" id="ob-lon" class="ob-input" step="0.0001" min="-180" max="180" value="-74.0060">
+            </div>
+            <button class="btn ob-locate-btn" onclick="useMyLocation()" title="Anchor the live star map to where you stand">📍 Locate</button>
+          </div>
+
+          <p class="ob-helper-text">The observer anchors the live sky: every naked-eye star above your horizon — from the ascendant to the edge of the sky — is mapped into the Pentacle.</p>
+
+          <!-- Celestial Suit Art Band -->
+          <div class="ob-celestial-band">
+            <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuC9VJbJDND-dPuW6ENyIQrmCM62NSqGZDaMXWQJtKB71wKzLuUX0CsuisQegpqJWRyvvTLXNlxN3t9_pnbsowGmXCbMYDj4OImdrgTbGSf2ajS_yw6jnEM8lWCHRER8Mnev4TX-JIiRFhbL-SK0XCME6OKk0GLMGLrcTd6CkFXuH9KG41M1JcpzAEIkOxsv3QauYfRjjb1gkzqVI4QBA6si7kX0N8fa_UwQg7go44aeyQG4NKHJV0VptQ" alt="Wands" class="ob-suit-icon"/>
+            <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuCydcnlWudO0bR6rZDKDXn_UYtr1ADlckZuTeYqXW4xmGbUKpIfB0oYvkctq5GXSE8JOYH25OLgFW_RsOGawPIBA61svL-1eFo6JLEgd01S9TCE3ZGIDG7mYR-UnHpkH-v_OY5n3OiUQasA-5XVwc1UUQTCaLuFtYj_u4az4QfAW4nTNvhlDgl5dY6QLnV1dOoBat4nMVAI46n8ORfnGTAxKYyiR-KziF18A61r1E_C3z60no_vm1ipdA" alt="Cups" class="ob-suit-icon"/>
+            <div class="ob-band-center-sigil">✦</div>
+            <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuA1b5lQy8bE3-yiq6sE4lHJX1iJSrJGUvcpqo-xxyK086QI9Cv4va_OFyTXWLqbN5DApdbisIyuLJRs8Qft3jDxPYAcGuKTjpWhOllboaEyYYFAjur3A4xsV5IhW6KKkY6fMUpEiJlsVBCYS21asDj0Ccmbbr9rlrYiU_Hc31VL2LnUYvknKkV6P5TehzV4wraVI5lpFMbWXcUbD-a7dUOeBlDWFujiYNmIGga5p9WGUSLZ3oOKuLHNLQ" alt="Swords" class="ob-suit-icon"/>
+            <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuDw4AKIiBeQVHdbayL77PAGq8by-MnuR02fNQEnp4k7ZSSQfRJdiuBYYprlUH7eCK148cCjkzHrkF2yeSYfZ75XV8-e9SxUDFF7HxyRM6mb5RIIoqXYIi9kCQpL04fp45XdIVud3kVYCIBVVe4FFNm-EYXR19tN1iQjO5vYGY6zjF5j0BvWu8GLBoZxoOZKfzh9K6QtHcIp5mELrlKK9Hl-2dS6UUoRd5peWZKX7XjAmfZBt14_6Dw5VA" alt="Pentacles" class="ob-suit-icon"/>
+            <div class="ob-band-overlay"></div>
+          </div>
+
+          <!-- CTA Button -->
+          <button type="button" class="btn btn-welcome-start" id="ob-start-btn" onclick="calculateNatalOnboarding()">
+            <span class="btn-start-label">Start</span>
+            <span class="btn-start-subtext">Claim your Deck</span>
+          </button>
         </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label for="ob-time">Birth Time</label>
-            <input type="time" id="ob-time" class="form-input" value="14:30">
+
+        <!-- Step 2: Faction Selection -->
+        <div id="onboarding-step-2" style="display: none; flex-direction: column; gap: 16px;">
+          <h3 class="title-orn">Planetary Alignments</h3>
+          <p style="font-size: 13px; color: var(--dim);">Your chart's dignity scores recommendation choices. Choose your planetary faction:</p>
+          
+          <div id="faction-picks-grid" class="faction-choices-grid">
+            <!-- Populated by JS -->
           </div>
-          <div class="form-group">
-            <label for="ob-loc">Location (City)</label>
-            <input type="text" id="ob-loc" class="form-input" placeholder="e.g. New York, US" value="New York, US">
-          </div>
+
+          <button type="button" id="faction-confirm-btn" class="btn btn-welcome-start" disabled onclick="confirmFactionOnboarding()">
+            <span class="btn-start-label" style="font-size: 15px;">Confirm Allegiance & Mint Deck ⚔</span>
+          </button>
         </div>
-        <div class="form-row" style="align-items: flex-end;">
-          <div class="form-group">
-            <label for="ob-lat">Observer Latitude</label>
-            <input type="number" id="ob-lat" class="form-input" step="0.0001" min="-90" max="90" value="40.7128">
-          </div>
-          <div class="form-group">
-            <label for="ob-lon">Longitude (east +)</label>
-            <input type="number" id="ob-lon" class="form-input" step="0.0001" min="-180" max="180" value="-74.0060">
-          </div>
-          <button class="btn" style="white-space:nowrap; height:38px;" onclick="useMyLocation()" title="Anchor the live star map to where you stand">📍 Locate</button>
-        </div>
-        <p style="font-size:11px; color:var(--dim); margin:-6px 0 0;">The observer anchors the live sky: every naked-eye star above your horizon — from the ascendant to the edge of the sky — is mapped into the Pentacle.</p>
-        <button type="button" class="btn btn-welcome-start" id="ob-start-btn" onclick="calculateNatalOnboarding()">
-          <span class="btn-start-label">Start</span>
-          <span class="btn-start-subtext">Claim your Deck</span>
-        </button>
+
+        <!-- Bottom gold accent line -->
+        <div class="ob-card-accent ob-card-accent-bottom"></div>
       </div>
 
-      <div id="onboarding-step-2" style="display: none; flex-direction: column; gap: 16px;">
-        <h3 class="title-orn">Planetary Alignments</h3>
-        <p style="font-size: 13px; color: var(--dim);">Your chart's dignity scores recommendation choices. Choose your planetary faction:</p>
-        
-        <div id="faction-picks-grid" class="faction-choices-grid">
-          <!-- Populated by JS -->
-        </div>
-
-        <button type="button" id="faction-confirm-btn" class="btn btn-welcome-start" disabled onclick="confirmFactionOnboarding()">
-          <span class="btn-start-label" style="font-size: 15px;">Confirm Allegiance & Mint Deck ⚔</span>
-        </button>
-      </div>
     </div>
   </div>
 
@@ -155,7 +259,7 @@
           <button class="btn" onclick="toggleSound()">🔊 Sound: ON</button>
           <button class="btn" onclick="toggleARMode()">📹 Toggle AR Mode</button>
           <button class="btn" id="alchm-chart-btn" onclick="openAlchmChart()">✦ Alchm Chart</button>
-          <button class="btn" id="manifold-btn" onclick="window.location.href='/manifold.html'" style="border-color: var(--gold-bright); background: rgba(246,207,131,0.18); color: var(--gold-bright); font-weight: bold;" title="Open Multiplayer Celestial Manifold Arena">🌀 Manifold</button>
+          <button class="btn" id="manifold-btn" onclick="openMeleeManifold()" style="border-color: var(--gold-bright); background: rgba(246,207,131,0.18); color: var(--gold-bright); font-weight: bold;" title="Open Multiplayer Celestial Manifold Arena">🌀 Manifold</button>
           <button class="btn" id="singularity-btn" onclick="window.location.href='/singularity.html'" style="border-color: var(--gold-bright); color: var(--gold-bright);" title="Open Pentacles Singularity Dashboard">✨ Singularity</button>
           <button class="btn" id="faction-war-btn" onclick="openFactionWar()">⚔ Faction War</button>
           <button class="btn" id="my-pentacles-btn" onclick="openMyPentacles()" title="Open your full celestial deck, loadout manager, and natal profile">✦ My Pentacles</button>

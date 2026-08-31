@@ -16,7 +16,7 @@ import {
   agentIdentitySet, agentByIdentity, buildTables, roundClock, canAccessZone,
   accessRefusalReason, PLANET_NAMES,
 } from "./war-model.js";
-import { agentDeck, MAJOR_NUMERALS, MAJOR_NAMES, ARCANA_NUMERALS, ARCANA_NAMES, SUIT_GLYPHS, SUIT_COLORS, rankName } from "./deck.js";
+import { agentDeck, MAJOR_NUMERALS, MAJOR_NAMES, ARCANA_NUMERALS, ARCANA_NAMES, SUIT_GLYPHS, SUIT_COLORS, SUIT_ART, rankName } from "./deck.js";
 import { categoricalChartAnalytics } from "./sign-character.js";
 import MeleeTable from "./melee-table.js";
 
@@ -509,7 +509,9 @@ export class FactionWarInstance {
       onDragend: () => this._onCardDragEnd(),
     }, [
       h("div", { class: "aw-tray-top" }, [
-        h("span", { class: "aw-tray-glyph", style: { color: pcol }, text: SUIT_GLYPHS[cap] || "✦" }),
+        SUIT_ART[cap] && !isMajor
+          ? h("img", { class: "aw-tray-suit-art", src: SUIT_ART[cap], alt: cap })
+          : h("span", { class: "aw-tray-glyph", style: { color: pcol }, text: isMajor ? "✦" : (SUIT_GLYPHS[cap] || "✦") }),
         h("span", { class: "aw-tray-rank aw-dim", text: rank }),
       ]),
       h("div", { class: "aw-tray-title", text: name }),
@@ -829,7 +831,9 @@ export class FactionWarInstance {
     return h("div", {
       class: "aw-card aw-card--" + (c.suit || "wands").toLowerCase() + (isMajor ? " aw-card--major" : "") + (c.inverted ? " aw-card--inv" : ""),
     }, [
-      h("span", { class: "aw-card-glyph", style: { color: c.color || SUIT_COLORS[cap] }, text: glyph }),
+      SUIT_ART[cap] && !isMajor
+        ? h("img", { class: "aw-card-suit-art", src: SUIT_ART[cap], alt: cap })
+        : h("span", { class: "aw-card-glyph", style: { color: c.color || SUIT_COLORS[cap] }, text: glyph }),
       h("div", { class: "aw-card-title", text: name }),
       h("div", { class: "aw-card-sub aw-dim", text: isMajor ? (c.role ? c.role.toUpperCase() : "MAJOR ARCANA") : `${rank} of ${cap}` }),
       h("div", { class: "aw-card-sep" }),
