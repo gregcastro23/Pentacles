@@ -624,6 +624,7 @@
       const planetGlyph = PLANET_GLYPHS[bodyIdx] || "✦";
       const suitKey = (c.suit || "wands").toLowerCase();
       const suitGlyph = SUIT_GLYPHS[suitKey] || "✦";
+      const suitName = typeof SUIT_GLYPH_NAMES !== "undefined" ? (SUIT_GLYPH_NAMES[suitKey] || "Element") : "Element";
       const numeral = (c.rank !== undefined && ARCANA_NUMERALS[c.rank]) || (bodyIdx >= 0 && MAJOR_NUMERALS[bodyIdx]) || "✦";
       const signIdx = (c.sign_idx !== undefined && c.sign_idx !== null) ? Number(c.sign_idx) : 0;
       const detailText = isMajor ? `Major ${numeral}` : `${SIGN_GLYPHS[signIdx] || "✦"} ${SIGN_NAMES[signIdx] || ""}`;
@@ -637,20 +638,41 @@
 
       const title = c.title || (isMajor ? (ARCANA_NAMES[c.rank] || MAJOR_NAMES[bodyIdx] || "Major Arcana") : `${rankName(c.rank)} of ${SUIT_NAMES[suitKey] || suitKey}`);
 
+      // Art Strategy: Hybrid (use lightweight SUIT_ART in gameplay views)
+      const suitImgSrc = typeof SUIT_ART !== "undefined" ? SUIT_ART[suitKey] : null;
+      const artHTML = isMajor 
+        ? `<div class="web-card-major-sigil">${planetGlyph}</div>`
+        : (suitImgSrc ? `<img class="web-card-suit-img" src="${suitImgSrc}" alt="${suitKey} art" loading="lazy">` : `<div class="web-card-glyph" style="color: ${planetColor};"><span class="sr-only">${suitName}</span><span aria-hidden="true">${suitGlyph}</span></div>`);
+
       return `
         <div class="web-card ${suitKey} ${selClass} ${isMajor ? 'major' : ''} ${c.inverted ? 'inverted' : ''}" data-card-id="${c.card_id}" ${dragAttr} onclick="${actionFn}">
+          ${isMajor ? '<div class="web-card-holo"></div>' : ''}
           ${badge}
-          <div class="web-card-glyph" style="color: ${planetColor};">${suitGlyph}</div>
+          
+          <div class="web-card-pip top-left"><span class="sr-only">${suitName}</span><span aria-hidden="true">${suitGlyph}</span></div>
+          <div class="web-card-pip top-right"><span class="sr-only">${suitName}</span><span aria-hidden="true">${suitGlyph}</span></div>
+          
           <div class="web-card-title">${title}</div>
           <div class="web-card-subtitle">${detailText} ${c.inverted ? '(rev)' : ''}</div>
+          
+          <div class="web-card-art">
+            ${artHTML}
+          </div>
+          
           <div class="web-card-sep"></div>
           <div class="web-card-stats">
-            ⚔ ${c.attack || 0} &nbsp; ♥ ${c.health || 0}<br>
-            🛡 ${c.armour || 0} &nbsp; ⏳ ${c.cooldown_ms || 1000}
+            <div class="web-card-stat">⚔ <b>${c.attack || 0}</b></div>
+            <div class="web-card-stat">♥ <b>${c.health || 0}</b></div>
+            <div class="web-card-stat">🛡 <b>${c.armour || 0}</b></div>
+            <div class="web-card-stat">⏳ <b>${c.cooldown_ms || 1000}</b></div>
           </div>
           <div class="web-card-footnote" style="color: ${planetColor};">
             ${planetGlyph} Lv ${c.level || 1}
           </div>
+          
+          <div class="web-card-pip bottom-left"><span class="sr-only">${suitName}</span><span aria-hidden="true">${suitGlyph}</span></div>
+          <div class="web-card-pip bottom-right"><span class="sr-only">${suitName}</span><span aria-hidden="true">${suitGlyph}</span></div>
+          <div class="web-card-back"></div>
         </div>
       `;
     }
@@ -835,10 +857,16 @@
         if (cardId) {
           const card = state.collection.find(c => c.card_id === cardId);
           if (card) {
+            const suitKey = (card.suit || "wands").toLowerCase();
+            const suitName = typeof SUIT_GLYPH_NAMES !== "undefined" ? (SUIT_GLYPH_NAMES[suitKey] || "Element") : "Element";
+            const suitGlyph = SUIT_GLYPHS[suitKey] || "✦";
             slotEl.innerHTML = `
               <div class="siege-placed-card card-placed-anim">
                 <button class="slot-remove-btn" title="Remove Card" onclick="event.stopPropagation(); removeCardFromSiegeSlot(${i})">✕</button>
-                <div class="placed-card-glyph" style="color:${PLANET_COLORS[card.source_body]}">${SUIT_GLYPHS[card.suit]}</div>
+                <div class="placed-card-glyph" style="color:${PLANET_COLORS[card.source_body] || "#e8b84b"}">
+                  <span class="sr-only">${suitName}</span>
+                  <span aria-hidden="true">${suitGlyph}</span>
+                </div>
                 <div class="placed-card-title">${card.title}</div>
                 <div class="placed-card-stats">⚔ ${card.attack}</div>
               </div>
@@ -2802,6 +2830,7 @@ void main() {
         if (play && play.card) {
           const c = play.card;
           const cSuit = c.suit || "wands";
+          const suitName = typeof SUIT_GLYPH_NAMES !== "undefined" ? (SUIT_GLYPH_NAMES[cSuit.toLowerCase()] || "Element") : "Element";
           const suitImg = (typeof SUIT_ART !== "undefined" && SUIT_ART[cSuit]) ? SUIT_ART[cSuit] : "";
           const glyph = SUIT_GLYPHS[cSuit] || "✦";
           const isTrump = c.suit && c.suit.toLowerCase() === (melee.trumpSuit || "").toLowerCase();
@@ -2812,7 +2841,7 @@ void main() {
                 ${s.avatar ? `<img src="${s.avatar}" style="width:12px; height:12px; border-radius:50%; object-fit:cover;" />` : ''}
                 <span style="font-size:7.5px; color:var(--dim); text-transform:uppercase; max-width:55px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${s.name.split(' ')[0]}</span>
               </div>
-              ${suitImg && !c.is_major ? `<img src="${suitImg}" style="width:16px; height:16px; object-fit:contain; margin:1px 0;" />` : `<span style="font-size:14px; margin:1px 0;">${glyph}</span>`}
+              ${suitImg && !c.is_major ? `<img src="${suitImg}" style="width:16px; height:16px; object-fit:contain; margin:1px 0;" />` : `<span style="font-size:14px; margin:1px 0;"><span class="sr-only">${suitName}</span><span aria-hidden="true">${glyph}</span></span>`}
               <span style="font-size:9.5px; font-weight:bold; color:${c.is_major ? '#ffd700' : (isTrump ? 'var(--gold-bright)' : '#fff')}; text-align:center; padding:0 2px; line-height:1.05; max-height:22px; overflow:hidden;">
                 ${c.is_major ? c.title : `${rankName(c.rank)}`}
               </span>
@@ -2871,6 +2900,7 @@ void main() {
         const legal = opt.legal;
         const reason = opt.reason || "Illegal move";
         const cSuit = c.suit || "wands";
+        const suitName = typeof SUIT_GLYPH_NAMES !== "undefined" ? (SUIT_GLYPH_NAMES[cSuit.toLowerCase()] || "Element") : "Element";
         const suitImg = (typeof SUIT_ART !== "undefined" && SUIT_ART[cSuit]) ? SUIT_ART[cSuit] : "";
         const glyph = SUIT_GLYPHS[cSuit] || "✦";
         const isTrump = c.suit && c.suit.toLowerCase() === (melee.trumpSuit || "").toLowerCase();
@@ -2883,7 +2913,7 @@ void main() {
                ${legal ? `onclick="window.playCardIntoRitual(${c.card_id}, '${targetType}', ${targetId})"` : ''}
                title="${legal ? 'Click to Play' : reason}">
             <div style="display:flex; justify-content:space-between; width:100%; align-items:center;">
-              ${suitImg && !c.is_major ? `<img src="${suitImg}" style="width:13px; height:13px; object-fit:contain;" />` : `<span style="font-size:11px;">${glyph}</span>`}
+              ${suitImg && !c.is_major ? `<img src="${suitImg}" style="width:13px; height:13px; object-fit:contain;" />` : `<span style="font-size:11px;"><span class="sr-only">${suitName}</span><span aria-hidden="true">${glyph}</span></span>`}
               ${counters > 0 ? `<span style="font-size:8.5px; font-weight:bold; color:#ffd700;">★${counters}</span>` : ''}
             </div>
             <div style="font-size:9.5px; font-weight:bold; text-align:center; line-height:1.1; color:${c.is_major ? '#ffd700' : (isTrump ? 'var(--gold-bright)' : '#fff')};">

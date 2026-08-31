@@ -16,7 +16,8 @@ const SIGN_SUITS = ["wands", "pentacles", "swords", "cups", "wands", "pentacles"
 const SIGN_RULERS = [4, 3, 2, 1, 0, 2, 3, 9, 5, 6, 7, 8];
 const PLANET_SUITS = ["wands", "cups", "swords", "cups", "wands", "wands", "pentacles", "swords", "cups", "swords"];
 
-const SUIT_GLYPHS = { cups: "♥", swords: "♠", pentacles: "♦", wands: "♣", Cups: "♥", Swords: "♠", Pentacles: "♦", Wands: "♣" };
+const SUIT_GLYPHS = { cups: "🜄", swords: "🜁", pentacles: "🜃", wands: "🜂", Cups: "🜄", Swords: "🜁", Pentacles: "🜃", Wands: "🜂" };
+const SUIT_GLYPH_NAMES = { cups: "Water", swords: "Air", pentacles: "Earth", wands: "Fire", Cups: "Water", Swords: "Air", Pentacles: "Earth", Wands: "Fire" };
 const SUIT_ART = {
   swords: "https://lh3.googleusercontent.com/aida-public/AB6AXuA1b5lQy8bE3-yiq6sE4lHJX1iJSrJGUvcpqo-xxyK086QI9Cv4va_OFyTXWLqbN5DApdbisIyuLJRs8Qft3jDxPYAcGuKTjpWhOllboaEyYYFAjur3A4xsV5IhW6KKkY6fMUpEiJlsVBCYS21asDj0Ccmbbr9rlrYiU_Hc31VL2LnUYvknKkV6P5TehzV4wraVI5lpFMbWXcUbD-a7dUOeBlDWFujiYNmIGga5p9WGUSLZ3oOKuLHNLQ",
   pentacles: "https://lh3.googleusercontent.com/aida-public/AB6AXuDw4AKIiBeQVHdbayL77PAGq8by-MnuR02fNQEnp4k7ZSSQfRJdiuBYYprlUH7eCK148cCjkzHrkF2yeSYfZ75XV8-e9SxUDFF7HxyRM6mb5RIIoqXYIi9kCQpL04fp45XdIVud3kVYCIBVVe4FFNm-EYXR19tN1iQjO5vYGY6zjF5j0BvWu8GLBoZxoOZKfzh9K6QtHcIp5mELrlKK9Hl-2dS6UUoRd5peWZKX7XjAmfZBt14_6Dw5VA",

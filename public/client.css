@@ -21,9 +21,30 @@
   --pentacles:   #74ab6c;
   --wands:       #db7a47;
 
+  /* Suit RGB triplets (for rgba() usage in glows/shadows) */
+  --cups-rgb:      95, 147, 216;
+  --swords-rgb:    174, 187, 214;
+  --pentacles-rgb: 116, 171, 108;
+  --wands-rgb:     219, 122, 71;
+  --major-rgb:     241, 219, 161;
+
+  /* Card scaling tokens — all card dimensions derive from these */
+  --card-w: 110px;
+  --card-h: 165px;
+  --card-radius: 6px;
+  --card-pip-size: 9px;
+  --card-art-h: 35%;
+  --card-border-w: 1.5px;
+
+  /* Card back SVG tile — pentacle star pattern, all # URL-encoded as %23 */
+  --card-back-svg: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' fill='%23080a14'/%3E%3Cpath d='M24 4l4.9 15.1H44l-12.2 8.8 4.7 14.5L24 33.6l-12.5 8.8 4.7-14.5L4 19.1h15.1z' fill='none' stroke='%23d8b46a' stroke-width='0.5' opacity='0.25'/%3E%3Ccircle cx='24' cy='24' r='8' fill='none' stroke='%23f1dba1' stroke-width='0.3' opacity='0.15'/%3E%3Ccircle cx='24' cy='24' r='2' fill='%23d8b46a' opacity='0.12'/%3E%3C/svg%3E");
+
   --display:     "Cormorant Garamond", Georgia, serif;
   --ui:          "Space Grotesk", system-ui, sans-serif;
   --mono:        "JetBrains Mono", monospace;
+
+  /* Unicode-safe font stack for alchemical glyphs */
+  --glyph-font:  "Space Grotesk", "Segoe UI Symbol", "Apple Color Emoji", "Noto Sans Symbols 2", sans-serif;
 }
 
 * {
@@ -40,6 +61,19 @@ body {
   height: 100vh;
   width: 100vw;
   -webkit-font-smoothing: antialiased;
+}
+
+/* Screen-reader-only — accessible fallback text for alchemical glyphs */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 /* ============================================================
@@ -441,65 +475,184 @@ body {
   scroll-behavior: smooth;
 }
 
-/* Web Tarot Card UI */
+/* Web Tarot Card UI — Premium Overhaul */
 .web-card {
-  width: 110px;
-  height: 165px;
-  border-radius: 4px;
+  width: var(--card-w);
+  height: var(--card-h);
+  border-radius: var(--card-radius);
   position: relative;
-  background: rgba(8, 10, 20, 0.9);
-  border: 1.5px solid rgba(216, 180, 106, 0.2);
+  background: rgba(8, 10, 20, 0.92);
+  border: var(--card-border-w) solid rgba(216, 180, 106, 0.2);
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 8px 6px;
+  padding: 18px 8px 8px;
   cursor: pointer;
   user-select: none;
-  transition: all 0.3s cubic-bezier(0.165, 0.84, 0.44, 1);
+  transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1),
+              box-shadow 0.3s cubic-bezier(0.25, 0.8, 0.25, 1),
+              border-color 0.3s ease;
   flex-shrink: 0;
+  transform-origin: center bottom;
+  transform-style: preserve-3d;
+  overflow: hidden;
 }
+
+/* Inner decorative frame */
+.web-card::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border: 1px solid rgba(216, 180, 106, 0.08);
+  border-radius: calc(var(--card-radius) - 2px);
+  pointer-events: none;
+}
+
 .web-card:hover {
-  transform: translateY(-6px);
+  transform: perspective(800px) rotateY(3deg) rotateX(-2deg) translateY(-8px);
   border-color: rgba(216, 180, 106, 0.6);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5), 0 0 16px rgba(var(--major-rgb), 0.1);
+  z-index: 10;
 }
 .web-card.selected {
   transform: translateY(-8px) scale(1.04);
   border-color: var(--gold-bright);
   box-shadow: 0 4px 14px rgba(241, 219, 161, 0.25);
+  z-index: 11;
 }
 .web-card.bench {
   opacity: 0.55;
 }
 
-/* Suit borders */
-.web-card.cups { border-color: rgba(95, 147, 216, 0.35); }
-.web-card.swords { border-color: rgba(174, 187, 214, 0.35); }
-.web-card.pentacles { border-color: rgba(116, 171, 108, 0.35); }
-.web-card.wands { border-color: rgba(219, 122, 71, 0.35); }
+/* ── Suit borders & hover glows ── */
+.web-card.cups    { border-color: rgba(var(--cups-rgb), 0.35); --suit-rgb: var(--cups-rgb); }
+.web-card.swords  { border-color: rgba(var(--swords-rgb), 0.35); --suit-rgb: var(--swords-rgb); }
+.web-card.pentacles { border-color: rgba(var(--pentacles-rgb), 0.35); --suit-rgb: var(--pentacles-rgb); }
+.web-card.wands   { border-color: rgba(var(--wands-rgb), 0.35); --suit-rgb: var(--wands-rgb); }
 
-.web-card.cups.selected { border-color: var(--cups); }
-.web-card.swords.selected { border-color: var(--swords); }
+.web-card.cups:hover    { border-color: rgba(var(--cups-rgb), 0.7); box-shadow: 0 12px 28px rgba(0,0,0,0.5), 0 0 20px rgba(var(--cups-rgb), 0.25); }
+.web-card.swords:hover  { border-color: rgba(var(--swords-rgb), 0.7); box-shadow: 0 12px 28px rgba(0,0,0,0.5), 0 0 20px rgba(var(--swords-rgb), 0.25); }
+.web-card.pentacles:hover { border-color: rgba(var(--pentacles-rgb), 0.7); box-shadow: 0 12px 28px rgba(0,0,0,0.5), 0 0 20px rgba(var(--pentacles-rgb), 0.25); }
+.web-card.wands:hover   { border-color: rgba(var(--wands-rgb), 0.7); box-shadow: 0 12px 28px rgba(0,0,0,0.5), 0 0 20px rgba(var(--wands-rgb), 0.25); }
+
+.web-card.cups.selected    { border-color: var(--cups); }
+.web-card.swords.selected  { border-color: var(--swords); }
 .web-card.pentacles.selected { border-color: var(--pentacles); }
-.web-card.wands.selected { border-color: var(--wands); }
+.web-card.wands.selected   { border-color: var(--wands); }
 
+/* ── Major Arcana gold treatment ── */
 .web-card.major {
   border-color: var(--gold-bright);
   background: linear-gradient(135deg, rgba(16, 13, 6, 0.95) 0%, rgba(6, 8, 15, 0.98) 100%);
+  --suit-rgb: var(--major-rgb);
 }
 .web-card.major::before {
   content: "";
   position: absolute;
   inset: -1px;
-  border-radius: 4px;
+  border-radius: var(--card-radius);
   padding: 1px;
   background: linear-gradient(135deg, var(--gold-bright), var(--gold-deep));
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
   pointer-events: none;
+  z-index: 1;
+}
+/* Holographic sheen overlay for Major Arcana */
+.web-card.major .web-card-holo {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--card-radius);
+  background: linear-gradient(
+    135deg,
+    transparent 20%,
+    rgba(255, 200, 100, 0.06) 35%,
+    rgba(180, 140, 255, 0.06) 50%,
+    rgba(100, 200, 255, 0.06) 65%,
+    transparent 80%
+  );
+  background-size: 300% 300%;
+  animation: holo-shift 4s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.web-card.major:hover .web-card-holo {
+  opacity: 1;
+}
+@keyframes holo-shift {
+  0%   { background-position: 0% 0%; }
+  50%  { background-position: 100% 100%; }
+  100% { background-position: 0% 0%; }
 }
 
+/* ── Corner pips ── */
+.web-card-pip {
+  position: absolute;
+  font-family: var(--glyph-font);
+  font-size: var(--card-pip-size);
+  font-weight: 700;
+  line-height: 1;
+  color: var(--dim);
+  z-index: 3;
+  pointer-events: none;
+}
+.web-card-pip.top-left     { top: 5px; left: 6px; }
+.web-card-pip.top-right    { top: 5px; right: 6px; }
+.web-card-pip.bottom-left  { bottom: 5px; left: 6px; transform: rotate(180deg); }
+.web-card-pip.bottom-right { bottom: 5px; right: 6px; transform: rotate(180deg); }
+.web-card.major .web-card-pip { color: var(--gold); }
+.web-card.cups .web-card-pip { color: rgba(var(--cups-rgb), 0.7); }
+.web-card.swords .web-card-pip { color: rgba(var(--swords-rgb), 0.7); }
+.web-card.pentacles .web-card-pip { color: rgba(var(--pentacles-rgb), 0.7); }
+.web-card.wands .web-card-pip { color: rgba(var(--wands-rgb), 0.7); }
+
+/* ── Card art zone ── */
+.web-card-art {
+  width: 100%;
+  height: var(--card-art-h);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  margin-bottom: 3px;
+  flex-shrink: 0;
+}
+.web-card-suit-img {
+  width: 38px;
+  height: 38px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.5));
+  transition: transform 0.3s, filter 0.3s;
+}
+.web-card:hover .web-card-suit-img {
+  transform: scale(1.08);
+  filter: drop-shadow(0 2px 10px rgba(var(--suit-rgb, var(--major-rgb)), 0.4));
+}
+.web-card.inverted .web-card-suit-img,
+.web-card.inverted .web-card-major-sigil {
+  transform: rotate(180deg);
+}
+
+/* Major Arcana radiant sigil (replaces suit art) */
+.web-card-major-sigil {
+  font-family: var(--display);
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--gold-bright);
+  text-shadow: 0 0 12px rgba(var(--major-rgb), 0.6), 0 0 24px rgba(var(--major-rgb), 0.3);
+  animation: sigil-glow 3s ease-in-out infinite;
+}
+@keyframes sigil-glow {
+  0%, 100% { text-shadow: 0 0 12px rgba(var(--major-rgb), 0.6), 0 0 24px rgba(var(--major-rgb), 0.3); }
+  50%      { text-shadow: 0 0 18px rgba(var(--major-rgb), 0.9), 0 0 36px rgba(var(--major-rgb), 0.5); }
+}
+
+/* ── Card glyph (fallback when no art image) ── */
 .web-card-glyph {
+  font-family: var(--glyph-font);
   font-size: 18px;
   line-height: 1;
   margin-bottom: 2px;
@@ -508,6 +661,7 @@ body {
   transform: rotate(180deg);
 }
 
+/* ── Title & subtitle ── */
 .web-card-title {
   font-family: var(--display);
   font-size: 9.5px;
@@ -519,6 +673,7 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   width: 100%;
+  z-index: 3;
 }
 .web-card.major .web-card-title { color: var(--gold-bright); }
 
@@ -527,31 +682,72 @@ body {
   color: var(--dim);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
+  z-index: 3;
 }
 
+/* ── Ornamental separator ── */
 .web-card-sep {
-  width: 100%;
+  width: 85%;
   height: 1px;
-  background: rgba(216, 180, 106, 0.12);
-  margin: 4px 0;
+  background: linear-gradient(90deg, transparent, rgba(216, 180, 106, 0.2), transparent);
+  margin: 3px 0;
+  z-index: 3;
+}
+.web-card.major .web-card-sep {
+  background: linear-gradient(90deg, transparent, rgba(var(--major-rgb), 0.35), transparent);
 }
 
+/* ── Stats grid ── */
 .web-card-stats {
-  font-size: 8.5px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px 6px;
+  font-size: 8px;
   color: var(--text);
   text-align: center;
-  line-height: 1.4;
+  line-height: 1.3;
+  z-index: 3;
+  width: 100%;
+  padding: 0 2px;
+}
+.web-card-stat {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  font-size: 8px;
+}
+.web-card-stat b {
+  font-weight: 700;
+  color: #fff;
 }
 
+/* ── Footnote ── */
 .web-card-footnote {
   margin-top: auto;
   font-size: 7.5px;
   font-weight: 600;
   letter-spacing: 0.05em;
   text-transform: uppercase;
+  z-index: 3;
 }
 
+/* ── Card back (face-down) ── */
+.web-card.face-down > *:not(.web-card-back) {
+  visibility: hidden;
+}
+.web-card-back {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--card-radius);
+  background: var(--card-back-svg);
+  background-size: 48px 48px;
+  border: var(--card-border-w) solid var(--gold);
+  z-index: 4;
+}
+
+/* ── Badge chip (Active / Defense) ── */
 .web-card-chip {
   position: absolute;
   top: -6px;
@@ -563,11 +759,26 @@ body {
   padding: 1px 4px;
   border-radius: 20px;
   border: 1px solid var(--gold-bright);
+  z-index: 5;
 }
 .web-card-chip.defense {
   background: #25446b;
   color: #fff;
   border-color: #5f93d8;
+}
+
+/* ── Playable pulse (for melee / selection contexts) ── */
+@keyframes playable-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(var(--major-rgb), 0.4); }
+  50%      { box-shadow: 0 0 0 6px rgba(var(--major-rgb), 0); }
+}
+
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion: reduce) {
+  .web-card { transition: none; }
+  .web-card:hover { transform: translateY(-4px); }
+  .web-card.major .web-card-holo { animation: none; opacity: 0; }
+  .web-card-major-sigil { animation: none; }
 }
 
 /* ============================================================
@@ -784,33 +995,374 @@ body {
 .fuse-controls span { font-size: 11px; color: var(--gold-bright); }
 .fuse-controls .btn { padding: 6px 10px; }
 
-/* Onboarding fullscreen overlay */
+/* ============================================================
+   ✦ PREMIUM ONBOARDING — CELESTIAL REGISTRATION SCREEN
+   ============================================================ */
 .overlay-fullscreen {
   position: fixed;
   inset: 0;
   z-index: 100;
-  background: var(--bg);
+  background: radial-gradient(circle at 50% 0%, rgba(216, 180, 106, 0.08) 0%, transparent 50%),
+              radial-gradient(circle at 50% 100%, rgba(14, 18, 34, 0.8) 0%, transparent 100%),
+              #090b14;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  padding: 24px;
-}
-.onboarding-window {
-  width: 500px;
-  max-width: 92vw;
-  background: radial-gradient(circle at 50% 0%, rgba(26, 32, 54, 0.95), rgba(9, 11, 20, 0.96));
-  backdrop-filter: blur(24px);
-  border: 1px solid rgba(241, 219, 161, 0.28);
-  border-radius: 12px;
-  padding: 38px 36px;
-  display: flex;
-  flex-direction: column;
-  gap: 22px;
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.85), 0 0 32px rgba(216, 180, 106, 0.14);
-  position: relative;
   overflow: hidden;
 }
 
+.ob-scroll-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow-y: auto;
+  max-height: 100vh;
+  width: 100%;
+  padding: 24px 16px 48px;
+}
+
+/* --- Background Layers --- */
+.ob-stars-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.4;
+}
+
+.ob-constellation-traces {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.15;
+}
+
+/* --- Corner Ornaments --- */
+.ob-corner {
+  position: fixed;
+  width: 48px;
+  height: 48px;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.45;
+}
+
+.ob-corner-tl { top: 24px; left: 24px; border-top: 1px solid rgba(216,180,106,0.25); border-left: 1px solid rgba(216,180,106,0.25); }
+.ob-corner-tr { top: 24px; right: 24px; border-top: 1px solid rgba(216,180,106,0.25); border-right: 1px solid rgba(216,180,106,0.25); }
+.ob-corner-bl { bottom: 24px; left: 24px; border-bottom: 1px solid rgba(216,180,106,0.25); border-left: 1px solid rgba(216,180,106,0.25); }
+.ob-corner-br { bottom: 24px; right: 24px; border-bottom: 1px solid rgba(216,180,106,0.25); border-right: 1px solid rgba(216,180,106,0.25); }
+
+@media (max-width: 768px) {
+  .ob-corner { display: none; }
+}
+
+/* --- Hero Header --- */
+.ob-hero {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  z-index: 2;
+  margin-bottom: 8px;
+}
+
+.ob-nebula-glow {
+  position: absolute;
+  top: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 280px;
+  height: 280px;
+  background: radial-gradient(circle, rgba(216, 180, 106, 0.12) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.ob-pentacle-emblem {
+  width: 160px;
+  height: 160px;
+  margin-bottom: 8px;
+  filter: drop-shadow(0 0 20px rgba(241, 219, 161, 0.3));
+  animation: obPentaclePulse 5s infinite ease-in-out;
+}
+
+@keyframes obPentaclePulse {
+  0%, 100% { filter: drop-shadow(0 0 20px rgba(241, 219, 161, 0.25)); }
+  50%      { filter: drop-shadow(0 0 32px rgba(241, 219, 161, 0.5)); }
+}
+
+.ob-title {
+  font-family: var(--display), 'EB Garamond', 'Cormorant Garamond', Georgia, serif;
+  font-size: 44px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  background: linear-gradient(180deg, #FFFFFF 0%, #F1DBA1 55%, #D8B46A 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 2px 12px rgba(241, 219, 161, 0.35));
+  margin: 0;
+  line-height: 1.1;
+}
+
+@media (max-width: 480px) {
+  .ob-title { font-size: 32px; letter-spacing: 0.12em; }
+  .ob-pentacle-emblem { width: 120px; height: 120px; }
+}
+
+.ob-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 320px;
+  margin: 10px 0;
+}
+
+.ob-divider-line {
+  flex: 1;
+  height: 1px;
+  background: rgba(216, 180, 106, 0.25);
+}
+
+.ob-divider-diamond {
+  width: 8px;
+  height: 8px;
+  border: 1px solid var(--gold);
+  transform: rotate(45deg);
+  flex-shrink: 0;
+}
+
+.ob-subtitle {
+  font-family: 'EB Garamond', 'Cormorant Garamond', Georgia, serif;
+  font-size: 18px;
+  line-height: 1.5;
+  color: #8a8f9e;
+  font-style: italic;
+  margin: 0;
+  max-width: 420px;
+}
+
+/* --- Registration Card (Glassmorphism) --- */
+.onboarding-window {
+  position: relative;
+  z-index: 2;
+  width: 500px;
+  max-width: 92vw;
+  background: rgba(14, 18, 34, 0.92);
+  backdrop-filter: blur(24px);
+  border: 1px solid rgba(216, 180, 106, 0.25);
+  border-radius: 12px;
+  padding: 32px 36px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.85), 0 0 32px rgba(216, 180, 106, 0.1);
+  overflow: hidden;
+}
+
+.ob-card-accent {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(to right, transparent, rgba(216, 180, 106, 0.5), transparent);
+  pointer-events: none;
+}
+
+.ob-card-accent-top { top: 0; }
+.ob-card-accent-bottom { bottom: 0; }
+
+/* --- Labels --- */
+.ob-label {
+  font-family: 'Space Grotesk', var(--sans), sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--dim, #8a8f9e);
+  margin-bottom: 4px;
+  display: block;
+}
+
+/* --- Inputs (Alchemical Underline Style) --- */
+.ob-input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(216, 180, 106, 0.25);
+  color: #f1dba1;
+  font-family: 'Space Grotesk', var(--sans), sans-serif;
+  font-size: 15px;
+  padding: 8px 0;
+  outline: none;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.ob-input:focus {
+  border-bottom-color: #e7c177;
+  box-shadow: 0 4px 10px -6px rgba(231, 193, 119, 0.5);
+}
+
+.ob-input::placeholder {
+  color: rgba(138, 143, 158, 0.5);
+}
+
+.ob-input-icon-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.ob-input-icon {
+  position: absolute;
+  left: 0;
+  font-size: 14px;
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.ob-input-with-icon {
+  padding-left: 28px;
+}
+
+/* --- Locate Button --- */
+.ob-locate-btn {
+  white-space: nowrap;
+  height: 36px;
+  padding: 0 12px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  border: 1px solid rgba(216, 180, 106, 0.3);
+  color: var(--gold-bright);
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ob-locate-btn:hover {
+  background: rgba(216, 180, 106, 0.08);
+  border-color: var(--gold-bright);
+}
+
+/* --- Helper Text --- */
+.ob-helper-text {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--dim, #8a8f9e);
+  margin: -4px 0 0;
+}
+
+/* --- Celestial Suit Art Band --- */
+.ob-celestial-band {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(216, 180, 106, 0.15);
+  background: linear-gradient(135deg, rgba(14, 18, 34, 0.8) 0%, rgba(5, 6, 12, 0.9) 100%);
+  overflow: hidden;
+}
+
+.ob-suit-icon {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  border-radius: 50%;
+  border: 1px solid rgba(216, 180, 106, 0.3);
+  padding: 3px;
+  background: rgba(0, 0, 0, 0.3);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.ob-suit-icon:hover {
+  transform: scale(1.15);
+  box-shadow: 0 0 12px rgba(216, 180, 106, 0.5);
+}
+
+.ob-band-center-sigil {
+  font-size: 22px;
+  color: var(--gold-bright);
+  text-shadow: 0 0 16px rgba(241, 219, 161, 0.6);
+  animation: obSigilPulse 3s infinite ease-in-out;
+}
+
+@keyframes obSigilPulse {
+  0%, 100% { text-shadow: 0 0 12px rgba(241, 219, 161, 0.4); }
+  50%      { text-shadow: 0 0 24px rgba(241, 219, 161, 0.8); }
+}
+
+.ob-band-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to right, rgba(5, 6, 12, 0.7), transparent 30%, transparent 70%, rgba(5, 6, 12, 0.7));
+  pointer-events: none;
+}
+
+/* --- CTA Button (Gold Gradient + Glow Halo) --- */
+.btn-welcome-start {
+  margin-top: 8px;
+  padding: 14px 24px;
+  background: linear-gradient(135deg, #b38a42 0%, #8c6523 100%);
+  border: none;
+  border-radius: 8px;
+  color: #050610;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 0 24px rgba(216, 180, 106, 0.25), 0 8px 24px rgba(0, 0, 0, 0.5);
+  position: relative;
+}
+
+.btn-welcome-start:hover:not([disabled]) {
+  background: linear-gradient(135deg, #c99d50 0%, #a37930 100%);
+  box-shadow: 0 0 36px rgba(216, 180, 106, 0.45), 0 8px 28px rgba(0, 0, 0, 0.4);
+  transform: translateY(-2px) scale(1.02);
+}
+
+.btn-welcome-start:active:not([disabled]) {
+  transform: translateY(1px);
+  box-shadow: 0 0 12px rgba(216, 180, 106, 0.2), 0 2px 10px rgba(0, 0, 0, 0.6);
+}
+
+.btn-welcome-start[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: grayscale(0.5);
+}
+
+.btn-start-label {
+  font-family: 'Space Grotesk', var(--sans), sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #050610;
+}
+
+.btn-start-subtext {
+  font-family: 'EB Garamond', 'Cormorant Garamond', Georgia, serif;
+  font-style: italic;
+  font-size: 14px;
+  color: rgba(5, 6, 16, 0.7);
+  letter-spacing: 0.05em;
+}
+
+/* --- Welcome Title (legacy compat) --- */
 .welcome-title {
   font-family: var(--display), 'Cormorant Garamond', Georgia, serif;
   font-size: 36px;
@@ -832,60 +1384,6 @@ body {
   text-align: center;
   margin-top: -12px;
   margin-bottom: 4px;
-}
-
-.btn-welcome-start {
-  margin-top: 14px;
-  padding: 14px 24px;
-  background: linear-gradient(135deg, rgba(216, 180, 106, 0.25) 0%, rgba(241, 219, 161, 0.12) 100%);
-  border: 1px solid var(--gold-bright);
-  border-radius: 8px;
-  color: var(--gold-bright);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
-  cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15);
-  position: relative;
-}
-
-.btn-welcome-start:hover:not([disabled]) {
-  background: linear-gradient(135deg, rgba(241, 219, 161, 0.38) 0%, rgba(216, 180, 106, 0.22) 100%);
-  border-color: #FFFFFF;
-  box-shadow: 0 8px 28px rgba(241, 219, 161, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.25);
-  transform: translateY(-2px);
-}
-
-.btn-welcome-start:active:not([disabled]) {
-  transform: translateY(1px);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
-}
-
-.btn-welcome-start[disabled] {
-  opacity: 0.45;
-  cursor: not-allowed;
-  filter: grayscale(0.5);
-}
-
-.btn-start-label {
-  font-family: var(--display), sans-serif;
-  font-size: 19px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: #FFFFFF;
-  text-shadow: 0 0 12px rgba(241, 219, 161, 0.6);
-}
-
-.btn-start-subtext {
-  font-family: 'Cormorant Garamond', Georgia, serif;
-  font-style: italic;
-  font-size: 14px;
-  color: var(--gold-bright);
-  letter-spacing: 0.05em;
 }
 
 /* Faction choose selector */

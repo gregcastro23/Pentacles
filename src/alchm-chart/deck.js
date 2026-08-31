@@ -34,7 +34,8 @@ const BIASED_SUIT = ["Wands", "Cups", "Swords", "Cups", "Wands", "Wands", "Penta
 // Sign → ruling planet idx (server sign_ruler).
 const SIGN_RULER = [4, 3, 2, 1, 0, 2, 3, 9, 5, 6, 7, 8];
 
-export const SUIT_GLYPHS = { Wands: "♣", Cups: "♥", Swords: "♠", Pentacles: "♦", wands: "♣", cups: "♥", swords: "♠", pentacles: "♦" };
+export const SUIT_GLYPHS = { Wands: "🜂", Cups: "🜄", Swords: "🜁", Pentacles: "🜃", wands: "🜂", cups: "🜄", swords: "🜁", pentacles: "🜃" };
+export const SUIT_GLYPH_NAMES = { Wands: "Fire", Cups: "Water", Swords: "Air", Pentacles: "Earth", wands: "Fire", cups: "Water", swords: "Air", pentacles: "Earth" };
 export const SUIT_COLORS = { Wands: "#db7a47", Cups: "#5f93d8", Swords: "#aebbd6", Pentacles: "#74ab6c", wands: "#db7a47", cups: "#5f93d8", swords: "#aebbd6", pentacles: "#74ab6c" };
 
 export const SUIT_ART = {
