@@ -14,6 +14,8 @@
     #gate h1 { font-family: "Cormorant Garamond", serif; color: #f6cf83; font-weight: 500; font-size: 30px; margin: 8px 0 4px; }
     #gate p { color: #cdbfa8; font-size: 13px; line-height: 1.6; }
     #gate .sp { font-size: 40px; }
+    #gate .btn { display: inline-block; margin-top: 16px; padding: 8px 16px; background: rgba(246,207,131,0.15); border: 1px solid #f6cf83; color: #f6cf83; border-radius: 6px; cursor: pointer; text-decoration: none; font-size: 12px; font-family: inherit; }
+    #gate .btn:hover { background: rgba(246,207,131,0.3); }
     #gate.hidden { display: none; }
   </style>
 </head>
@@ -22,6 +24,7 @@
     <div class="sp">🔭</div>
     <h1>The Observatory</h1>
     <p id="gate-msg">Connecting to the live module…</p>
+    <div id="gate-actions"></div>
   </div></div>
   <div id="obs-host"></div>
 
@@ -29,15 +32,13 @@
     import "/src/alchm-chart/alchm-chart.css";
     import spacetime from "/src/net/spacetime.js";
     import AdminTelemetry from "/src/alchm-chart/admin-telemetry.js";
+    import { sameIdentity, isAdmin } from "/src/net/admin-gate.js";
 
     window.__spacetime = spacetime;
     const gate = document.getElementById("gate");
     const msg = document.getElementById("gate-msg");
-    const sameId = (a, b) => !!a && !!b && String(a).replace(/^0x/, "").toLowerCase() === String(b).replace(/^0x/, "").toLowerCase();
+    const actions = document.getElementById("gate-actions");
 
-    // Mount the panel against the REAL client. Reads flow over HTTP /sql (version-
-    // tolerant), so data populates even if the WebSocket can't negotiate. We still
-    // try connect() for live auto-refresh + identity.
     function mount() {
       gate.classList.add("hidden");
       const inst = AdminTelemetry.create({ el: document.getElementById("obs-host"), spacetime });
@@ -45,21 +46,40 @@
       window.__obs = inst;
     }
 
+    function showRestricted(reason) {
+      msg.innerHTML = `<strong>Access Restricted</strong><br><span style="opacity:.8">${reason}</span>`;
+      actions.innerHTML = `
+        <a href="/" class="btn">✦ Return to Sky Map</a>
+      `;
+    }
+
     (async () => {
       try {
         await spacetime.ensureIdentity().catch(() => {});
-        // Probe the module over HTTP — proves the DB is reachable regardless of WS.
         msg.textContent = "Reaching the module over HTTP…";
         const cfg = await spacetime.query("SELECT owner FROM game_config").catch((e) => { throw e; });
         const owner = cfg && cfg[0] && (cfg[0].owner?.__identity__ ?? cfg[0].owner);
-        const isOwner = sameId(spacetime.identity, owner);
-        console.log("[observatory] reachable. identity=", spacetime.identity, "owner=", owner, "isOwner=", isOwner);
-        // Kick off the live WebSocket in the background (best-effort).
+        const isOwner = sameIdentity(spacetime.identity, owner);
+        const hasAdmin = isAdmin(spacetime.identity, null, cfg && cfg[0]);
+
+        console.log("[observatory] reachable. identity=", spacetime.identity, "owner=", owner, "isOwner=", isOwner, "isAdmin=", hasAdmin);
+
+        if (!isOwner && !hasAdmin) {
+          // Check if local dev or explicit bypass
+          if (location.hostname === "localhost" || location.hostname === "127.0.0.1" || location.search.includes("admin=1")) {
+            console.info("[observatory] Local development admin bypass active.");
+          } else {
+            showRestricted("This area is reserved for the constellation architect and game authorities.");
+            return;
+          }
+        }
+
         spacetime.connect().catch(() => {});
         mount();
       } catch (e) {
         console.error("[observatory] module unreachable", e);
         msg.innerHTML = "Could not reach the module.<br><span style='opacity:.7'>" + String(e.message || e) + "</span>";
+        actions.innerHTML = `<a href="/" class="btn">✦ Return to Sky Map</a>`;
       }
     })();
   </script>
