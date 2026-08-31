@@ -16,7 +16,7 @@ import {
   agentIdentitySet, agentByIdentity, buildTables, roundClock, canAccessZone,
   accessRefusalReason, PLANET_NAMES,
 } from "./war-model.js";
-import { agentDeck, MAJOR_NUMERALS, MAJOR_NAMES, ARCANA_NUMERALS, ARCANA_NAMES, SUIT_GLYPHS, SUIT_COLORS, SUIT_ART, rankName } from "./deck.js";
+import { agentDeck, dealHandFromCards, MAJOR_NUMERALS, MAJOR_NAMES, ARCANA_NUMERALS, ARCANA_NAMES, SUIT_GLYPHS, SUIT_COLORS, SUIT_ART, rankName } from "./deck.js";
 import { categoricalChartAnalytics } from "./sign-character.js";
 import MeleeTable from "./melee-table.js";
 
@@ -573,8 +573,84 @@ export class FactionWarInstance {
       const liveTable = m.tables?.byZone?.[zoneId] || (m.tables?.tables || []).find((t) => t.zoneId === zoneId && t.state !== "Resolved");
       if (liveTable) {
         this.showMeleeTable(liveTable);
+      } else {
+        const practiceTable = this._createPracticeTable(zoneId, m);
+        if (practiceTable) {
+          this.showMeleeTable(practiceTable);
+        }
       }
     }
+  }
+
+  _createPracticeTable(zoneId, m) {
+    const SIGN_ELEMENT_SUIT = ["wands", "pentacles", "swords", "cups", "wands", "pentacles", "swords", "cups", "wands", "pentacles", "swords", "cups"];
+    const trumpSuit = (SIGN_ELEMENT_SUIT[zoneId % 12] || "wands").toLowerCase();
+    const myF = this.myFaction != null ? this.myFaction : 0;
+    const practiceIdentity = this.myIdentity || "0xplayer";
+    
+    const opponentFactions = [4, 2, 3, 5, 6, 1].filter((f) => f !== myF).slice(0, 3);
+    const opponentNames = ["Mars Champion", "Hypatia", "Paracelsus", "John Dee"];
+    
+    const ladder = {};
+    for (let i = 0; i < 22; i++) {
+      ladder[i] = 100 - i * 4;
+    }
+
+    const humanHand = dealHandFromCards(this.myCards, 1000 + zoneId);
+
+    const seats = [
+      {
+        seatId: 1,
+        faction: myF,
+        handle: (typeof window !== "undefined" && window.state && window.state.player && window.state.player.handle) || "You (Seeker)",
+        isHuman: true,
+        isAgent: false,
+        occupant: practiceIdentity,
+        archetype: "Seeker",
+        tactic: "Live Seeker player",
+        score: 0,
+        counters: 0,
+        meldsValue: 0,
+        handRemaining: 12,
+        hasDeal: true,
+        hand: humanHand,
+      },
+      ...opponentFactions.map((f, idx) => ({
+        seatId: idx + 2,
+        faction: f,
+        handle: opponentNames[idx] || this.PN[f] || `Agent ${f}`,
+        isHuman: false,
+        isAgent: true,
+        occupant: `0xagent_${f}`,
+        archetype: "Champion",
+        tactic: "Astrological combat archetype",
+        score: 0,
+        counters: 0,
+        meldsValue: 0,
+        handRemaining: 12,
+        hasDeal: true,
+        hand: dealHandFromCards([], 2000 + zoneId * 10 + f),
+      }))
+    ];
+
+    return {
+      tableId: 9000 + zoneId,
+      zoneId,
+      roundIndex: 1,
+      trumpSuit,
+      state: "Playing",
+      seatCount: seats.length,
+      seats,
+      currentTrick: 1,
+      turnSeat: 1,
+      trickPlays: [],
+      tricks: [],
+      plays: [],
+      ladder,
+      practiceIdentity,
+      practiceFaction: myF,
+      isPractice: true,
+    };
   }
 
   // ── Show Melee Table Modal ──
@@ -587,14 +663,18 @@ export class FactionWarInstance {
     pop.appendChild(wrap);
     pop.hidden = false;
 
+    const practiceId = table.isPractice ? (this.myIdentity || table.practiceIdentity || "0xplayer") : this.myIdentity;
+    const practiceF = table.isPractice ? (this.myFaction ?? table.practiceFaction ?? 0) : this.myFaction;
+    const practiceHand = table.isPractice ? (table.seats.find((s) => s.isHuman)?.hand || this.myCards) : this.myCards;
+
     const mt = MeleeTable.create({
       el: wrap,
       table,
       seats: table.seats,
       plays: table.plays,
-      myFaction: this.myFaction,
-      myIdentity: this.myIdentity,
-      myHand: this.myCards,
+      myFaction: practiceF,
+      myIdentity: practiceId,
+      myHand: practiceHand,
       hooks: {
         onClose: () => this.closeAgentProfile(),
         onPlayCard: (tableId, cardId) => {
@@ -602,12 +682,12 @@ export class FactionWarInstance {
             this.hooks.onPlayCard(tableId, cardId);
             return;
           }
+          if (table.isPractice) {
+            this._handlePracticeCardPlay(table, cardId, mt);
+            return;
+          }
           const net = typeof window !== "undefined" && window.Pentacles && window.Pentacles.net;
           if (!net || typeof net.callReducer !== "function") return;
-          // The trick number comes from resolved `melee_trick` rows, exactly as
-          // the module derives it. Dividing plays by seats — the old guess —
-          // drifted the moment a seat was dealt short, and the reducer rejects a
-          // mismatch outright.
           const live = this._model().tables.byId[tableId] || table;
           const trickNumber = Math.min(12, Math.max(1, live.currentTrick || 1));
           net.callReducer("play_melee_card", [tableId, cardId, trickNumber]).then(() => {
@@ -619,9 +699,128 @@ export class FactionWarInstance {
       },
     });
     mt.mount();
-    // Hold the instance so `paint()` can push fresh rows into it: a table opened
-    // from one snapshot must keep animating as plays and tricks land.
     this._meleeView = { instance: mt, tableId: table.tableId };
+  }
+
+  _handlePracticeCardPlay(table, cardId, mt) {
+    const Engine = (typeof globalThis !== "undefined" && globalThis.ArcanaTrickEngine) || (typeof window !== "undefined" && window.ArcanaTrickEngine) || null;
+    const humanSeat = table.seats.find((s) => s.isHuman) || table.seats[0];
+    const unspentHuman = (humanSeat.hand || []).filter((c) => !c.played);
+    const playedCard = unspentHuman.find((c) => Number(c.card_id) === Number(cardId)) || unspentHuman[0];
+    if (!playedCard) return;
+
+    // Check legality if Engine exists
+    const pot = table.trickPlays || [];
+    const currentTrickPlays = pot.map((p) => ({
+      player: p.seatId,
+      card: { card_id: p.cardId, suit: p.suit, rank: p.rank, is_major: p.isMajor },
+    }));
+    const ledSuit = currentTrickPlays.length && !currentTrickPlays[0].card.is_major ? currentTrickPlays[0].card.suit : null;
+
+    if (Engine && typeof Engine.getLegalMoves === "function") {
+      try {
+        const legalMoves = Engine.getLegalMoves(unspentHuman, ledSuit, table.trumpSuit, currentTrickPlays, table.ladder);
+        const isLegal = legalMoves.some((m) => m.legal && Number(m.card.card_id) === Number(playedCard.card_id));
+        if (!isLegal && legalMoves.some((m) => m.legal)) {
+          if (typeof window !== "undefined" && window.toast) {
+            window.toast("That play is not legal under Arcana trick rules.", { type: "warn" });
+          }
+          return;
+        }
+      } catch {}
+    }
+
+    playedCard.played = true;
+    humanSeat.handRemaining = (humanSeat.hand || []).filter((c) => !c.played).length;
+
+    const playId = Date.now();
+    const humanPlay = {
+      playId,
+      tableId: table.tableId,
+      seatId: humanSeat.seatId,
+      trickNumber: table.currentTrick || 1,
+      cardId: playedCard.card_id,
+      suit: (playedCard.suit || "wands").toLowerCase(),
+      rank: playedCard.rank !== undefined ? playedCard.rank : 14,
+      isMajor: !!playedCard.is_major,
+    };
+
+    table.plays = table.plays || [];
+    table.plays.push(humanPlay);
+    const trickList = [{ player: humanSeat.faction, card: playedCard }];
+
+    // Simulate AI opponents answering the trick in seat order
+    const aiSeats = table.seats.filter((s) => !s.isHuman);
+    aiSeats.forEach((aiSeat, i) => {
+      const unspentAI = (aiSeat.hand || []).filter((c) => !c.played);
+      let aiCard = null;
+      if (Engine && typeof Engine.archetypeMovePicker === "function") {
+        aiCard = Engine.archetypeMovePicker(aiSeat.faction, unspentAI, ledSuit || humanPlay.suit, trickList, table.ladder, table.currentTrick);
+      }
+      if (!aiCard && unspentAI.length) {
+        aiCard = unspentAI[0];
+      }
+      if (aiCard) {
+        aiCard.played = true;
+        aiSeat.handRemaining = (aiSeat.hand || []).filter((c) => !c.played).length;
+        const aiPlay = {
+          playId: playId + i + 1,
+          tableId: table.tableId,
+          seatId: aiSeat.seatId,
+          trickNumber: table.currentTrick || 1,
+          cardId: aiCard.card_id,
+          suit: (aiCard.suit || "wands").toLowerCase(),
+          rank: aiCard.rank !== undefined ? aiCard.rank : 10,
+          isMajor: !!aiCard.is_major,
+        };
+        table.plays.push(aiPlay);
+        trickList.push({ player: aiSeat.faction, card: aiCard });
+      }
+    });
+
+    // Evaluate trick outcome using ArcanaTrickEngine
+    let winnerFaction = humanSeat.faction;
+    let harvestedCounters = 0;
+    if (Engine && typeof Engine.evaluateTrick === "function") {
+      try {
+        const evalRes = Engine.evaluateTrick(trickList, table.trumpSuit, table.ladder, table.currentTrick);
+        winnerFaction = evalRes.winner !== undefined ? evalRes.winner : humanSeat.faction;
+        harvestedCounters = evalRes.counters || 0;
+      } catch {
+        harvestedCounters = 10;
+      }
+    } else {
+      harvestedCounters = 10;
+    }
+
+    const winningSeat = table.seats.find((s) => s.faction === winnerFaction) || humanSeat;
+    winningSeat.tricksWon = (winningSeat.tricksWon || 0) + 1;
+    winningSeat.counters = (winningSeat.counters || 0) + harvestedCounters;
+    winningSeat.score = (winningSeat.score || 0) + (harvestedCounters > 0 ? harvestedCounters : 10);
+
+    if (typeof window !== "undefined" && window.toast) {
+      window.toast(`Played ${playedCard.title} · ${winningSeat.handle} took trick ${table.currentTrick} (+${harvestedCounters} counters)`, { type: "success" });
+    }
+
+    table.currentTrick = Math.min(12, (table.currentTrick || 1) + 1);
+    table.turnSeat = winningSeat.seatId;
+    table.trickPlays = [];
+
+    if (table.currentTrick === 12 && humanSeat.handRemaining === 0) {
+      table.state = "Resolved";
+      if (typeof window !== "undefined" && window.toast) {
+        window.toast(`12-Trick Melee Complete! Final score: ${humanSeat.score} pts`, { type: "success", title: "Match Resolved" });
+      }
+    }
+
+    mt.setData({
+      table,
+      seats: table.seats,
+      plays: table.plays,
+      myHand: (humanSeat.hand || []).filter((c) => !c.played),
+      myIdentity: table.isPractice ? (this.myIdentity || table.practiceIdentity || "0xplayer") : this.myIdentity,
+      myFaction: table.isPractice ? (this.myFaction ?? table.practiceFaction ?? 0) : this.myFaction,
+    });
   }
 
   /** Push the latest rows for the open melee modal, if there is one. */
@@ -633,14 +832,14 @@ export class FactionWarInstance {
       this._meleeView = null;
       return;
     }
-    const live = model && model.tables && model.tables.byId[view.tableId];
+    const live = (model && model.tables && model.tables.byId[view.tableId]) || (view.instance.table?.isPractice ? view.instance.table : null);
     if (!live) return;
     view.instance.setData({
       table: live,
       seats: live.seats,
       plays: live.plays,
-      myFaction: this.myFaction,
-      myIdentity: this.myIdentity,
+      myFaction: live.isPractice ? (this.myFaction ?? live.practiceFaction ?? 0) : this.myFaction,
+      myIdentity: live.isPractice ? (this.myIdentity || live.practiceIdentity || "0xplayer") : this.myIdentity,
     });
   }
 
