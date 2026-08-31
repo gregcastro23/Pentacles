@@ -22,7 +22,7 @@ import { zoneName, planetIdx, roundClock, PLANET_NAMES } from "./war-model.js";
 // what the Arcana Ladder is keyed by. MAJOR_* are indexed by PLANET body 0..9 —
 // a different table of the same shape. Reading a rank out of those renders The
 // Fool as The Sun and leaves every arcana above X blank.
-import { rankName, SUIT_GLYPHS, SUIT_COLORS, ARCANA_NAMES, ARCANA_NUMERALS } from "./deck.js";
+import { rankName, SUIT_GLYPHS, SUIT_COLORS, SUIT_ART, ARCANA_NAMES, ARCANA_NUMERALS } from "./deck.js";
 
 const PLANET_GLYPHS = ["☉", "☽", "☿", "♀", "♂", "♃", "♄", "♅", "♆", "♇"];
 const PLANET_COLORS = ["#e8b84b", "#cbd0db", "#9aa7c4", "#d98fb0", "#cf4d4d", "#cf9a52", "#9a937c", "#5fb6c4", "#6470c8", "#8a6aa0"];
@@ -219,7 +219,9 @@ export class MeleeTableInstance {
     this.dom.clockPill = clockPill;
 
     const trumpBadge = h("div", { class: "mt-trump-badge" }, [
-      h("span", { class: "mt-trump-glyph", text: trumpGlyph }),
+      SUIT_ART[trumpCap]
+        ? h("img", { class: "mt-trump-art", src: SUIT_ART[trumpCap], alt: trumpCap })
+        : h("span", { class: "mt-trump-glyph", text: trumpGlyph }),
       h("span", { text: `TRUMP: ${trumpCap.toUpperCase()}` }),
     ]);
 
@@ -363,17 +365,20 @@ export class MeleeTableInstance {
     const isMaj = play.isMajor;
     const rank = isMaj ? (ARCANA_NUMERALS[play.rank] || "?") : rankName(play.rank);
     const suit = play.suit || "wands";
-    const glyph = SUIT_GLYPHS[suitCap(suit)] || "✦";
-    const col = SUIT_COLORS[suitCap(suit)] || "var(--ac-gold)";
+    const cap = suitCap(suit);
+    const glyph = SUIT_GLYPHS[cap] || "✦";
+    const col = SUIT_COLORS[cap] || "var(--ac-gold)";
     const trump = (this.table && this.table.trumpSuit) || "";
     const isTrump = !isMaj && suit === trump;
     return h("div", {
       class: `mt-played-card aw-card--${suit}`
         + (isMaj ? " aw-card--major" : "")
         + (isTrump ? " is-trump" : ""),
-      title: isMaj ? ARCANA_NAMES[play.rank] || "Major Arcana" : `${rankName(play.rank)} of ${suitCap(suit)}`,
+      title: isMaj ? ARCANA_NAMES[play.rank] || "Major Arcana" : `${rankName(play.rank)} of ${cap}`,
     }, [
-      h("span", { class: "mt-card-glyph", style: { color: col }, text: isMaj ? "✦" : glyph }),
+      SUIT_ART[cap] && !isMaj
+        ? h("img", { class: "mt-card-suit-art", src: SUIT_ART[cap], alt: cap })
+        : h("span", { class: "mt-card-glyph", style: { color: col }, text: isMaj ? "✦" : glyph }),
       h("span", { class: "mt-card-rank", text: rank }),
     ]);
   }
@@ -478,7 +483,9 @@ export class MeleeTableInstance {
           },
         }, [
           h("div", { class: "mt-hand-top" }, [
-            h("span", { text: c.is_major ? "✦" : SUIT_GLYPHS[suitCap(c.suit)] || "✦" }),
+            SUIT_ART[suitCap(c.suit)] && !c.is_major
+              ? h("img", { class: "mt-hand-suit-art", src: SUIT_ART[suitCap(c.suit)], alt: c.suit })
+              : h("span", { text: c.is_major ? "✦" : (SUIT_GLYPHS[suitCap(c.suit)] || "✦") }),
             h("span", { text: c.is_major ? (ARCANA_NUMERALS[c.rank] || "?") : rankName(c.rank) }),
           ]),
           h("div", {

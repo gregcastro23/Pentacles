@@ -16,7 +16,17 @@ const SIGN_SUITS = ["wands", "pentacles", "swords", "cups", "wands", "pentacles"
 const SIGN_RULERS = [4, 3, 2, 1, 0, 2, 3, 9, 5, 6, 7, 8];
 const PLANET_SUITS = ["wands", "cups", "swords", "cups", "wands", "wands", "pentacles", "swords", "cups", "swords"];
 
-const SUIT_GLYPHS = { cups: "♥", swords: "♠", pentacles: "♦", wands: "♣" };
+const SUIT_GLYPHS = { cups: "♥", swords: "♠", pentacles: "♦", wands: "♣", Cups: "♥", Swords: "♠", Pentacles: "♦", Wands: "♣" };
+const SUIT_ART = {
+  swords: "https://lh3.googleusercontent.com/aida-public/AB6AXuA1b5lQy8bE3-yiq6sE4lHJX1iJSrJGUvcpqo-xxyK086QI9Cv4va_OFyTXWLqbN5DApdbisIyuLJRs8Qft3jDxPYAcGuKTjpWhOllboaEyYYFAjur3A4xsV5IhW6KKkY6fMUpEiJlsVBCYS21asDj0Ccmbbr9rlrYiU_Hc31VL2LnUYvknKkV6P5TehzV4wraVI5lpFMbWXcUbD-a7dUOeBlDWFujiYNmIGga5p9WGUSLZ3oOKuLHNLQ",
+  pentacles: "https://lh3.googleusercontent.com/aida-public/AB6AXuDw4AKIiBeQVHdbayL77PAGq8by-MnuR02fNQEnp4k7ZSSQfRJdiuBYYprlUH7eCK148cCjkzHrkF2yeSYfZ75XV8-e9SxUDFF7HxyRM6mb5RIIoqXYIi9kCQpL04fp45XdIVud3kVYCIBVVe4FFNm-EYXR19tN1iQjO5vYGY6zjF5j0BvWu8GLBoZxoOZKfzh9K6QtHcIp5mELrlKK9Hl-2dS6UUoRd5peWZKX7XjAmfZBt14_6Dw5VA",
+  cups: "https://lh3.googleusercontent.com/aida-public/AB6AXuCydcnlWudO0bR6rZDKDXn_UYtr1ADlckZuTeYqXW4xmGbUKpIfB0oYvkctq5GXSE8JOYH25OLgFW_RsOGawPIBA61svL-1eFo6JLEgd01S9TCE3ZGIDG7mYR-UnHpkH-v_OY5n3OiUQasA-5XVwc1UUQTCaLuFtYj_u4az4QfAW4nTNvhlDgl5dY6QLnV1dOoBat4nMVAI46n8ORfnGTAxKYyiR-KziF18A61r1E_C3z60no_vm1ipdA",
+  wands: "https://lh3.googleusercontent.com/aida-public/AB6AXuC9VJbJDND-dPuW6ENyIQrmCM62NSqGZDaMXWQJtKB71wKzLuUX0CsuisQegpqJWRyvvTLXNlxN3t9_pnbsowGmXCbMYDj4OImdrgTbGSf2ajS_yw6jnEM8lWCHRER8Mnev4TX-JIiRFhbL-SK0XCME6OKk0GLMGLrcTd6CkFXuH9KG41M1JcpzAEIkOxsv3QauYfRjjb1gkzqVI4QBA6si7kX0N8fa_UwQg7go44aeyQG4NKHJV0VptQ",
+  Swords: "https://lh3.googleusercontent.com/aida-public/AB6AXuA1b5lQy8bE3-yiq6sE4lHJX1iJSrJGUvcpqo-xxyK086QI9Cv4va_OFyTXWLqbN5DApdbisIyuLJRs8Qft3jDxPYAcGuKTjpWhOllboaEyYYFAjur3A4xsV5IhW6KKkY6fMUpEiJlsVBCYS21asDj0Ccmbbr9rlrYiU_Hc31VL2LnUYvknKkV6P5TehzV4wraVI5lpFMbWXcUbD-a7dUOeBlDWFujiYNmIGga5p9WGUSLZ3oOKuLHNLQ",
+  Pentacles: "https://lh3.googleusercontent.com/aida-public/AB6AXuDw4AKIiBeQVHdbayL77PAGq8by-MnuR02fNQEnp4k7ZSSQfRJdiuBYYprlUH7eCK148cCjkzHrkF2yeSYfZ75XV8-e9SxUDFF7HxyRM6mb5RIIoqXYIi9kCQpL04fp45XdIVud3kVYCIBVVe4FFNm-EYXR19tN1iQjO5vYGY6zjF5j0BvWu8GLBoZxoOZKfzh9K6QtHcIp5mELrlKK9Hl-2dS6UUoRd5peWZKX7XjAmfZBt14_6Dw5VA",
+  Cups: "https://lh3.googleusercontent.com/aida-public/AB6AXuCydcnlWudO0bR6rZDKDXn_UYtr1ADlckZuTeYqXW4xmGbUKpIfB0oYvkctq5GXSE8JOYH25OLgFW_RsOGawPIBA61svL-1eFo6JLEgd01S9TCE3ZGIDG7mYR-UnHpkH-v_OY5n3OiUQasA-5XVwc1UUQTCaLuFtYj_u4az4QfAW4nTNvhlDgl5dY6QLnV1dOoBat4nMVAI46n8ORfnGTAxKYyiR-KziF18A61r1E_C3z60no_vm1ipdA",
+  Wands: "https://lh3.googleusercontent.com/aida-public/AB6AXuC9VJbJDND-dPuW6ENyIQrmCM62NSqGZDaMXWQJtKB71wKzLuUX0CsuisQegpqJWRyvvTLXNlxN3t9_pnbsowGmXCbMYDj4OImdrgTbGSf2ajS_yw6jnEM8lWCHRER8Mnev4TX-JIiRFhbL-SK0XCME6OKk0GLMGLrcTd6CkFXuH9KG41M1JcpzAEIkOxsv3QauYfRjjb1gkzqVI4QBA6si7kX0N8fa_UwQg7go44aeyQG4NKHJV0VptQ"
+};
 const SUIT_NAMES = { cups: "Cups", swords: "Swords", pentacles: "Pentacles", wands: "Wands" };
 
 // ESMS — the four alchemical elements that back the Constellation liquidity pools.

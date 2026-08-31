@@ -36,6 +36,18 @@ const SIGN_RULER = [4, 3, 2, 1, 0, 2, 3, 9, 5, 6, 7, 8];
 
 export const SUIT_GLYPHS = { Wands: "♣", Cups: "♥", Swords: "♠", Pentacles: "♦", wands: "♣", cups: "♥", swords: "♠", pentacles: "♦" };
 export const SUIT_COLORS = { Wands: "#db7a47", Cups: "#5f93d8", Swords: "#aebbd6", Pentacles: "#74ab6c", wands: "#db7a47", cups: "#5f93d8", swords: "#aebbd6", pentacles: "#74ab6c" };
+
+export const SUIT_ART = {
+  Swords: "https://lh3.googleusercontent.com/aida-public/AB6AXuA1b5lQy8bE3-yiq6sE4lHJX1iJSrJGUvcpqo-xxyK086QI9Cv4va_OFyTXWLqbN5DApdbisIyuLJRs8Qft3jDxPYAcGuKTjpWhOllboaEyYYFAjur3A4xsV5IhW6KKkY6fMUpEiJlsVBCYS21asDj0Ccmbbr9rlrYiU_Hc31VL2LnUYvknKkV6P5TehzV4wraVI5lpFMbWXcUbD-a7dUOeBlDWFujiYNmIGga5p9WGUSLZ3oOKuLHNLQ",
+  Pentacles: "https://lh3.googleusercontent.com/aida-public/AB6AXuDw4AKIiBeQVHdbayL77PAGq8by-MnuR02fNQEnp4k7ZSSQfRJdiuBYYprlUH7eCK148cCjkzHrkF2yeSYfZ75XV8-e9SxUDFF7HxyRM6mb5RIIoqXYIi9kCQpL04fp45XdIVud3kVYCIBVVe4FFNm-EYXR19tN1iQjO5vYGY6zjF5j0BvWu8GLBoZxoOZKfzh9K6QtHcIp5mELrlKK9Hl-2dS6UUoRd5peWZKX7XjAmfZBt14_6Dw5VA",
+  Cups: "https://lh3.googleusercontent.com/aida-public/AB6AXuCydcnlWudO0bR6rZDKDXn_UYtr1ADlckZuTeYqXW4xmGbUKpIfB0oYvkctq5GXSE8JOYH25OLgFW_RsOGawPIBA61svL-1eFo6JLEgd01S9TCE3ZGIDG7mYR-UnHpkH-v_OY5n3OiUQasA-5XVwc1UUQTCaLuFtYj_u4az4QfAW4nTNvhlDgl5dY6QLnV1dOoBat4nMVAI46n8ORfnGTAxKYyiR-KziF18A61r1E_C3z60no_vm1ipdA",
+  Wands: "https://lh3.googleusercontent.com/aida-public/AB6AXuC9VJbJDND-dPuW6ENyIQrmCM62NSqGZDaMXWQJtKB71wKzLuUX0CsuisQegpqJWRyvvTLXNlxN3t9_pnbsowGmXCbMYDj4OImdrgTbGSf2ajS_yw6jnEM8lWCHRER8Mnev4TX-JIiRFhbL-SK0XCME6OKk0GLMGLrcTd6CkFXuH9KG41M1JcpzAEIkOxsv3QauYfRjjb1gkzqVI4QBA6si7kX0N8fa_UwQg7go44aeyQG4NKHJV0VptQ",
+  swords: "https://lh3.googleusercontent.com/aida-public/AB6AXuA1b5lQy8bE3-yiq6sE4lHJX1iJSrJGUvcpqo-xxyK086QI9Cv4va_OFyTXWLqbN5DApdbisIyuLJRs8Qft3jDxPYAcGuKTjpWhOllboaEyYYFAjur3A4xsV5IhW6KKkY6fMUpEiJlsVBCYS21asDj0Ccmbbr9rlrYiU_Hc31VL2LnUYvknKkV6P5TehzV4wraVI5lpFMbWXcUbD-a7dUOeBlDWFujiYNmIGga5p9WGUSLZ3oOKuLHNLQ",
+  pentacles: "https://lh3.googleusercontent.com/aida-public/AB6AXuDw4AKIiBeQVHdbayL77PAGq8by-MnuR02fNQEnp4k7ZSSQfRJdiuBYYprlUH7eCK148cCjkzHrkF2yeSYfZ75XV8-e9SxUDFF7HxyRM6mb5RIIoqXYIi9kCQpL04fp45XdIVud3kVYCIBVVe4FFNm-EYXR19tN1iQjO5vYGY6zjF5j0BvWu8GLBoZxoOZKfzh9K6QtHcIp5mELrlKK9Hl-2dS6UUoRd5peWZKX7XjAmfZBt14_6Dw5VA",
+  cups: "https://lh3.googleusercontent.com/aida-public/AB6AXuCydcnlWudO0bR6rZDKDXn_UYtr1ADlckZuTeYqXW4xmGbUKpIfB0oYvkctq5GXSE8JOYH25OLgFW_RsOGawPIBA61svL-1eFo6JLEgd01S9TCE3ZGIDG7mYR-UnHpkH-v_OY5n3OiUQasA-5XVwc1UUQTCaLuFtYj_u4az4QfAW4nTNvhlDgl5dY6QLnV1dOoBat4nMVAI46n8ORfnGTAxKYyiR-KziF18A61r1E_C3z60no_vm1ipdA",
+  wands: "https://lh3.googleusercontent.com/aida-public/AB6AXuC9VJbJDND-dPuW6ENyIQrmCM62NSqGZDaMXWQJtKB71wKzLuUX0CsuisQegpqJWRyvvTLXNlxN3t9_pnbsowGmXCbMYDj4OImdrgTbGSf2ajS_yw6jnEM8lWCHRER8Mnev4TX-JIiRFhbL-SK0XCME6OKk0GLMGLrcTd6CkFXuH9KG41M1JcpzAEIkOxsv3QauYfRjjb1gkzqVI4QBA6si7kX0N8fa_UwQg7go44aeyQG4NKHJV0VptQ"
+};
+
 const RANK_LABEL = { 1: "Ace", 11: "Page", 12: "Knight", 13: "Queen", 14: "King" };
 export const rankName = (r) => RANK_LABEL[r] || String(r);
 
@@ -168,4 +180,4 @@ export function agentDeck(placements, ascMin = 0, mcMin = 0, northNode = null) {
 
 const SIGN_GLYPHS = ["♈", "♉", "♊", "♋", "♌", "♍", "♎", "♏", "♐", "♑", "♒", "♓"];
 
-export default { agentDeck, MAJOR_NAMES, MAJOR_NUMERALS, ARCANA_NAMES, ARCANA_NUMERALS, SUIT_GLYPHS, SUIT_COLORS, rankName };
+export default { agentDeck, MAJOR_NAMES, MAJOR_NUMERALS, ARCANA_NAMES, ARCANA_NUMERALS, SUIT_GLYPHS, SUIT_COLORS, SUIT_ART, rankName };

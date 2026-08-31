@@ -1331,3 +1331,40 @@ body.alchm-open #pentacles-net { display: none; }
 .alchm-war .aw-queue-badge.is-seated { padding: 9px; border-radius: 8px; background: rgba(241,219,161,0.15); border: 1px solid var(--ac-gold); color: var(--ac-gold-bright); font-size: 12px; text-align: center; font-weight: 700; }
 .alchm-war .aw-pop-table-wrap { width: min(860px, 96vw); height: min(680px, 88vh); background: rgba(13,16,28,0.96); border: 1px solid var(--ac-line); border-radius: 16px; padding: 18px; box-shadow: 0 24px 80px rgba(0,0,0,0.7); }
 
+/* Bespoke Stitch Suit Imagery */
+.mc-card-suit-art, .aw-tray-suit-art {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 4px rgba(246, 207, 131, 0.4));
+  vertical-align: middle;
+}
+.mc-inspector-suit-art {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 8px rgba(246, 207, 131, 0.5));
+}
+.mc-decan-suit-art {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+}
+.mt-trump-art {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 6px rgba(246, 207, 131, 0.6));
+}
+.mt-card-suit-art, .aw-card-suit-art {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 4px rgba(0, 218, 243, 0.4));
+}
+.mt-hand-suit-art {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+}
+
