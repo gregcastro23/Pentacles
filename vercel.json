@@ -2,5 +2,9 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "vite",
   "buildCommand": "vite build",
-  "outputDirectory": "dist"
+  "outputDirectory": "dist",
+  "redirects": [
+    { "source": "/manifold.html", "destination": "/", "permanent": false },
+    { "source": "/singularity.html", "destination": "/", "permanent": false }
+  ]
 }

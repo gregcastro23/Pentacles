@@ -49,13 +49,28 @@ function settlementMiddleware() {
   }
 }
 
+function legacyRedirectsMiddleware() {
+  return (req, res, next) => {
+    const path = (req.url || '').split('?')[0]
+    if (path === '/manifold.html' || path === '/singularity.html') {
+      res.statusCode = 302
+      res.setHeader('location', '/')
+      res.end()
+      return
+    }
+    next()
+  }
+}
+
 function settlementPlugin() {
   return {
     name: 'pentacles-esms-settlement',
     configureServer(server) {
+      server.middlewares.use(legacyRedirectsMiddleware())
       server.middlewares.use(settlementMiddleware())
     },
     configurePreviewServer(server) {
+      server.middlewares.use(legacyRedirectsMiddleware())
       server.middlewares.use(settlementMiddleware())
     },
   }
@@ -81,7 +96,6 @@ export default defineConfig(({ mode }) => {
         input: {
           main: 'index.html',
           observatory: 'observatory.html',
-          singularity: 'singularity.html',
         },
       },
     },
