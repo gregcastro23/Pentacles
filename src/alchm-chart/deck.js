@@ -179,6 +179,120 @@ export function agentDeck(placements, ascMin = 0, mcMin = 0, northNode = null) {
   return cards;
 }
 
+/**
+ * Deal exactly 12 cards from a pool of cards (or generate baseline cards if empty/short),
+ * enforcing Pinochle/Pentacles rule: at most 3 Majors + 9 Minors.
+ */
+export function dealHandFromCards(sourceCards = [], seed = 12345) {
+  let rngVal = (seed ^ 0x9e3779b9) >>> 0;
+  const rng = () => {
+    rngVal = (rngVal + 0x6d2b79f5) >>> 0;
+    let t = Math.imul(rngVal ^ (rngVal >>> 15), 1 | rngVal);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+
+  const shuffle = (xs) => {
+    const a = [...xs];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  };
+
+  let pool = Array.isArray(sourceCards) && sourceCards.length ? sourceCards.slice() : [];
+
+  if (pool.length < 12) {
+    const baseline = [];
+    const suits = ["wands", "pentacles", "swords", "cups"];
+    for (let s = 0; s < 4; s++) {
+      for (let r = 1; r <= 14; r++) {
+        baseline.push({
+          card_id: 10000 + s * 100 + r,
+          suit: suits[s],
+          rank: r,
+          is_major: false,
+          isMajor: false,
+          title: `${rankName(r)} of ${suits[s].charAt(0).toUpperCase() + suits[s].slice(1)}`,
+          attack: 8 + (r === 1 ? 14 : r),
+        });
+      }
+    }
+    for (let m = 0; m < 22; m++) {
+      baseline.push({
+        card_id: 20000 + m,
+        suit: suits[m % 4],
+        rank: m,
+        is_major: true,
+        isMajor: true,
+        title: ARCANA_NAMES[m] || `Major ${m}`,
+        attack: 16 + (m % 5),
+      });
+    }
+    pool = [...pool, ...baseline];
+  }
+
+  const normalized = pool.map((c, idx) => {
+    const isMajor = !!(c.is_major || c.isMajor || c.major || c.kind === "major");
+    let rank = c.rank;
+    if (isMajor) {
+      if (typeof rank === "string") {
+        const romanIdx = ARCANA_NUMERALS.indexOf(rank);
+        if (romanIdx >= 0) rank = romanIdx;
+        else {
+          const majorRomanIdx = MAJOR_NUMERALS.indexOf(rank);
+          if (majorRomanIdx >= 0) {
+            const bodyMajor = [19, 2, 1, 3, 16, 10, 21, 0, 12, 20][majorRomanIdx];
+            rank = bodyMajor !== undefined ? bodyMajor : 0;
+          } else {
+            rank = Number(rank) || 0;
+          }
+        }
+      } else {
+        rank = Number(rank) || 0;
+      }
+    } else {
+      rank = Number(rank) || (c.rank === "Ace" ? 1 : 10);
+    }
+
+    const rawSuit = String(c.suit || "wands").toLowerCase();
+    const suit = rawSuit === "coins" ? "pentacles" : (rawSuit === "batons" ? "wands" : rawSuit);
+
+    return {
+      card_id: Number(c.card_id || c.cardId || (30000 + idx)),
+      title: c.title || c.name || (isMajor ? (ARCANA_NAMES[rank] || "Major Arcana") : `${rankName(rank)} of ${suit}`),
+      suit,
+      rank,
+      is_major: isMajor,
+      isMajor: isMajor,
+      attack: Number(c.attack || (isMajor ? 16 : 10)),
+      played: false,
+    };
+  });
+
+  const majors = shuffle(normalized.filter((c) => c.is_major)).slice(0, 3);
+  const minors = shuffle(normalized.filter((c) => !c.is_major));
+  const hand = [...majors, ...minors].slice(0, 12);
+
+  while (hand.length < 12) {
+    const r = (hand.length % 14) + 1;
+    const s = ["wands", "pentacles", "swords", "cups"][hand.length % 4];
+    hand.push({
+      card_id: 40000 + hand.length,
+      title: `${rankName(r)} of ${s}`,
+      suit: s,
+      rank: r,
+      is_major: false,
+      isMajor: false,
+      attack: 10 + r,
+      played: false,
+    });
+  }
+
+  return hand;
+}
+
 const SIGN_GLYPHS = ["♈", "♉", "♊", "♋", "♌", "♍", "♎", "♏", "♐", "♑", "♒", "♓"];
 
-export default { agentDeck, MAJOR_NAMES, MAJOR_NUMERALS, ARCANA_NAMES, ARCANA_NUMERALS, SUIT_GLYPHS, SUIT_COLORS, SUIT_ART, rankName };
+export default { agentDeck, dealHandFromCards, MAJOR_NAMES, MAJOR_NUMERALS, ARCANA_NAMES, ARCANA_NUMERALS, SUIT_GLYPHS, SUIT_COLORS, SUIT_ART, rankName };

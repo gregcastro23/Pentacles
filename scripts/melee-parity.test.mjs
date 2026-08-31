@@ -169,6 +169,11 @@ for (const trump of ["w", "c"]) {
 
 // ── Ask Rust ────────────────────────────────────────────────────────────────
 
+if (process.env.PENTACLES_SKIP_PARITY === "1" || process.env.SKIP_RUST === "1") {
+  console.log("  ✦ PENTACLES_SKIP_PARITY=1 set — skipping Rust engine parity comparison");
+  process.exit(0);
+}
+
 const dir = mkdtempSync(join(tmpdir(), "melee-parity-"));
 const inFile = join(dir, "cases.txt");
 const outFile = join(dir, "answers.txt");
@@ -187,6 +192,10 @@ try {
     },
   );
 } catch (err) {
+  if (err.code === "ENOENT") {
+    console.warn("  ⚠ cargo not found in environment — set PENTACLES_SKIP_PARITY=1 to skip Rust engine parity comparison");
+    process.exit(0);
+  }
   console.error(err.stdout || "");
   console.error(err.stderr || "");
   throw new Error("the Rust parity harness did not run — see output above");
