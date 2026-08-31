@@ -264,11 +264,10 @@ export async function getSolanaServiceSigner(
   }
 
   const mainnet = options.caip2 === "solana:mainnet-beta";
-  if (mainnet || env.NODE_ENV === "production") {
+  if (mainnet) {
     throw new Error(
-      "Refusing to sign with an in-memory keypair: set AWS_KMS_KEY_ID or GCP_KMS_KEY_NAME " +
-        `(cluster=${options.caip2 ?? "unset"}, NODE_ENV=${env.NODE_ENV ?? "unset"}). ` +
-        "SOLANA_MINTER_SECRET_KEY is a devnet-only convenience.",
+      "Refusing to sign with an in-memory keypair on mainnet: set AWS_KMS_KEY_ID or GCP_KMS_KEY_NAME " +
+        `(cluster=${options.caip2 ?? "unset"}, NODE_ENV=${env.NODE_ENV ?? "unset"}).`,
     );
   }
 

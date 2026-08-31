@@ -20,11 +20,10 @@ RUN bun install --production
 COPY feeder/package.json ./feeder/
 RUN cd feeder && bun install --production
 
-# The only source the services need: generated bindings, the WS row
-# normalizer, and the feeder code itself.
-COPY src/module_bindings ./src/module_bindings
-COPY src/net/ws-normalize.js ./src/net/ws-normalize.js
-COPY src/web3/abis.js ./src/web3/abis.js
+# Source tree needed by companion services: generated bindings, web3
+# modules, astrological calculators, game engine, and feeder code.
+COPY public ./public
+COPY src ./src
 COPY feeder ./feeder
 
 ENV NODE_ENV=production
