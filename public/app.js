@@ -1079,13 +1079,9 @@
       state.selectedZone = zoneId;
       state.selectedStarHip = null;
 
-      // Route to live Faction War / War Table if available, else local practice overlay
+      // Route to 6-seat Melee Manifold War Table for this zone
       if (zoneId !== null) {
-        if (typeof window.openFactionWar === "function") {
-          window.openFactionWar(zoneId);
-        } else if (state.player && state.rituals) {
-          showRitualOverlay("zone", zoneId);
-        }
+        showRitualOverlay("zone", zoneId);
       }
 
       // Update zone SVG paths selections
@@ -2701,13 +2697,37 @@ void main() {
       const sigil = targetType === "planet" ? PLANET_GLYPHS[targetId] : "✦";
       const name = targetType === "planet" ? `${PLANET_NAMES[targetId]} Alignment Trial` : `Zone ${targetId} Astral Melee`;
       const titleColor = targetType === "planet" ? PLANET_COLORS[targetId] : "var(--gold-bright)";
-      const trumpSuitCap = (melee.trumpSuit || "wands").toUpperCase();
+      const trumpSuit = (melee.trumpSuit || "wands").toLowerCase();
+      const trumpSuitCap = trumpSuit.toUpperCase();
+      const trumpArt = (typeof SUIT_ART !== "undefined" && SUIT_ART[trumpSuit]) ? SUIT_ART[trumpSuit] : "";
       const trumpGlyph = SUIT_GLYPHS[melee.trumpSuit] || "✦";
+
+      const seats = (melee.seats && melee.seats.length > 0) ? melee.seats : [
+        { seatId: 0, name: "You (Seeker)", faction: "Moon", glyph: "✦", isHuman: true, avatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuBG3IAfFZPaUazfdV6k6Qpy2XXyRE0FbSCQ5FEXOoUhIHdG2b_lNO1h5ujd3rJVNpfOTJ2nBXUS6NhW3XcuIPMnNCWCBcADuNZkPZeoAlD9OMyoSUyjRcZu40R1dKmhq5jRQ5NLE381NcDGvCMl0EhzPj8wNXdKIwE_RuyZuoS-CSsOb3gNiCGIgNB3E6jNf3CLAIbNtqylYNd5Q-pDVFBenFS-gXuvy_UtW6FtNYC0fc2H46GjfkEGNQ", color: "#f6cf83", score: melee.playerScore, tricksWon: melee.playerTricksWon },
+        { seatId: 1, name: "Hypatia", faction: "Mercury", glyph: "☿", isHuman: false, avatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuDod_RQk1s-pcUaa-qc40uOsRtn61ngd04V5qXM6Ex2F7kivkTgZhkN4JTSIjVi0BtpKEjR-DH5siPgH1lFZnmLsNR0EB9sZQCGmWwOr69MRbPfrZiO8vXigjazd_2PsKykpB7EScCcCtJNJb-XQ9Rwe24Gabmm4WuSZmwk5Lmvi3lJhnxNgEmfv_XmPqo7OPzMNB-SCp8VgipZYy1r0IrHb5uniB5Kl4Q8veL44utAQcMAwE2YxLGGtA", color: "#00daf3", score: melee.guardianScore, tricksWon: melee.guardianTricksWon }
+      ];
 
       // If Melee completed, show Climax / Post-Match Summary Screen
       if (melee.status === "completed") {
-        const isWin = melee.outcome === "player_win";
+        const sortedSeats = [...seats].sort((a, b) => (b.score || 0) - (a.score || 0));
+        const playerRank = sortedSeats.findIndex(s => s.isHuman) + 1;
+        const isWin = playerRank === 1;
         const rew = ritual.lastReward || null;
+
+        let rankingRowsHTML = sortedSeats.map((s, idx) => `
+          <div style="display:flex; justify-content:space-between; align-items:center; padding:5px 8px; background:${s.isHuman ? 'rgba(216,180,106,0.15)' : 'rgba(0,0,0,0.3)'}; border:1px solid ${s.isHuman ? 'rgba(216,180,106,0.4)' : 'rgba(255,255,255,0.05)'}; border-radius:6px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="font-weight:bold; font-size:12px; color:${idx === 0 ? '#ffd700' : 'var(--dim)'};">#${idx + 1}</span>
+              ${s.avatar ? `<img src="${s.avatar}" style="width:20px; height:20px; border-radius:50%; object-fit:cover; border:1px solid ${s.color || 'var(--gold)'};" />` : ''}
+              <span style="font-size:11.5px; font-weight:${s.isHuman ? 'bold' : 'normal'}; color:${s.isHuman ? 'var(--gold-bright)' : '#fff'};">${s.name}</span>
+            </div>
+            <div style="text-align:right;">
+              <span style="font-size:13px; font-weight:bold; color:#ffd700; font-family:var(--font-mono);">${s.score || 0} pts</span>
+              <span style="font-size:9.5px; color:var(--dim); margin-left:6px;">(${s.tricksWon || 0} Tricks)</span>
+            </div>
+          </div>
+        `).join('');
+
         overlay.className = "ritual-hud-overlay melee-hud-container";
         overlay.innerHTML = `
           <div class="ritual-header">
@@ -2716,46 +2736,39 @@ void main() {
               <span class="ritual-target-title" style="color: ${titleColor};">${name}</span>
             </div>
             <div style="display:flex; align-items:center; gap:6px;">
-              <button class="btn btn-reset-ritual" onclick="window.location.href='/manifold.html'">🌀 Manifold Arena</button>
-              <button class="btn btn-reset-ritual" onclick="resetActiveRitual()">Rematch</button>
+              <button class="btn btn-reset-ritual" onclick="resetActiveRitual()">⚔ Rematch</button>
+              <button class="btn btn-reset-ritual" onclick="closeRitualOverlay()">⭐ Sky Map</button>
               <button class="btn btn-reset-ritual" onclick="closeRitualOverlay()">✕</button>
             </div>
           </div>
 
-          <div style="text-align:center; padding: 16px 8px;">
-            <div style="font-size:22px; font-weight:bold; font-family:var(--display); color:${isWin ? '#ffd700' : '#f26262'}; text-shadow:0 0 20px ${isWin ? 'rgba(255,215,0,0.6)' : 'rgba(242,98,98,0.6)'};">
-              ${isWin ? '👑 ZONE GATE BREACHED — MELEE VICTORY' : '⚔ GUARDIAN REPUDIATION — DEFEAT'}
+          <div style="text-align:center; padding: 12px 6px;">
+            <div style="font-size:20px; font-weight:bold; font-family:var(--display); color:${isWin ? '#ffd700' : '#f26262'}; text-shadow:0 0 20px ${isWin ? 'rgba(255,215,0,0.6)' : 'rgba(242,98,98,0.6)'};">
+              ${isWin ? '👑 1ST PLACE · ZONE GATE BREACHED' : `⚔ ${playerRank}${playerRank === 2 ? 'ND' : (playerRank === 3 ? 'RD' : 'TH')} PLACE · MELEE CONCLUDED`}
             </div>
-            <div style="font-size:12px; color:var(--dim); margin-top:4px;">
-              ${isWin ? 'You have triumphed across the 12-trick Melee and seized control of the zone threshold!' : 'The Zone Guardian defended the threshold. Restructure your loadout and challenge again.'}
+            <div style="font-size:11.5px; color:var(--dim); margin-top:2px;">
+              ${isWin ? 'You triumphed over the 6-seat Melee and captured threshold control!' : 'Historical alchemists held strong. Refine your hand and challenge again.'}
             </div>
 
-            <div style="display:flex; justify-content:center; gap:24px; margin:16px 0;">
-              <div style="text-align:center;">
-                <span style="font-size:11px; color:var(--dim); text-transform:uppercase; display:block;">Your Final Score</span>
-                <span style="font-size:24px; font-weight:bold; color:#ffd700; font-family:var(--font-mono);">${melee.playerScore}</span>
-                <span style="font-size:10px; color:var(--dim); display:block;">(${melee.playerTricksWon} Tricks Won)</span>
-              </div>
-              <div style="font-size:20px; align-self:center; color:var(--dim);">VS</div>
-              <div style="text-align:center;">
-                <span style="font-size:11px; color:var(--dim); text-transform:uppercase; display:block;">Guardian Score</span>
-                <span style="font-size:24px; font-weight:bold; color:#f26262; font-family:var(--font-mono);">${melee.guardianScore}</span>
-                <span style="font-size:10px; color:var(--dim); display:block;">(${melee.guardianTricksWon} Tricks Won)</span>
-              </div>
+            <div style="display:flex; flex-direction:column; gap:4px; margin:12px 0;">
+              ${rankingRowsHTML}
             </div>
 
             ${isWin ? `
-              <div style="background:rgba(216,180,106,0.1); border:1px solid rgba(216,180,106,0.3); border-radius:8px; padding:10px; font-size:11.5px; color:var(--gold-bright); margin-bottom:12px;">
+              <div style="background:rgba(216,180,106,0.1); border:1px solid rgba(216,180,106,0.3); border-radius:8px; padding:8px; font-size:11px; color:var(--gold-bright); margin-bottom:10px;">
                 ✦ Yielded <b>+500 Tokens</b> · Zone Control <b>+500</b> · Synthesized Spoils in Deck
               </div>
             ` : ''}
 
             <div style="display:flex; justify-content:center; gap:8px;">
-              <button class="btn btn-primary" style="padding:8px 20px; font-size:12px; font-weight:bold;" onclick="resetActiveRitual()">
-                Challenge Again
+              <button class="btn btn-primary" style="padding:6px 18px; font-size:11.5px; font-weight:bold;" onclick="resetActiveRitual()">
+                ⚔ Challenge Again
               </button>
-              <button class="btn" style="padding:8px 20px; font-size:12px; font-weight:bold; border-color:var(--gold-bright); color:var(--gold-bright);" onclick="window.location.href='/manifold.html'">
-                🌀 Enter Multiplayer Manifold
+              <button class="btn" style="padding:6px 18px; font-size:11.5px; font-weight:bold; border-color:var(--gold-bright); color:var(--gold-bright);" onclick="closeRitualOverlay()">
+                ⭐ Return to Star Map
+              </button>
+              <button class="btn" style="padding:6px 14px; font-size:11px;" onclick="window.location.href='/manifold.html'">
+                🌀 Full Arena Mode
               </button>
             </div>
           </div>
@@ -2777,15 +2790,15 @@ void main() {
       if (melee.playerMelds && melee.playerMelds.length > 0) {
         meldsHTML = melee.playerMelds.map(m => `<span class="melee-meld-pill" title="${m.name}">✦ ${m.name} (+${m.value})</span>`).join("");
       } else {
-        meldsHTML = `<span style="color:var(--dim); font-size:10px;">No starting melds detected in hand</span>`;
+        meldsHTML = `<span style="color:var(--dim); font-size:10px;">No starting melds in current deal</span>`;
       }
 
       // Trick cards played on table
-      const playerPlayed = melee.currentTrick.find(t => t.player === "player");
-      const guardianPlayed = melee.currentTrick.find(t => t.player === "guardian");
-      const potCount = melee.currentTrick.reduce((s, t) => s + (Engine ? Engine.counterValue(t.card) : 0), 0);
+      const playsToRender = (melee.currentTrick && melee.currentTrick.length > 0) ? melee.currentTrick : (melee.lastTrickPlays || []);
+      const potCount = playsToRender.reduce((s, t) => s + (Engine ? Engine.counterValue(t.card) : 0), 0);
 
-      function renderTrickSlot(play, label, isTurn = false) {
+      function renderTrickSlot(s) {
+        const play = playsToRender.find(p => p.seatId === s.seatId || (s.isHuman && p.player === "player") || (!s.isHuman && p.contenderName === s.name));
         if (play && play.card) {
           const c = play.card;
           const cSuit = c.suit || "wands";
@@ -2794,22 +2807,28 @@ void main() {
           const isTrump = c.suit && c.suit.toLowerCase() === (melee.trumpSuit || "").toLowerCase();
           const pot = c.is_major && melee.arcanaLadder ? (melee.arcanaLadder[c.rank] || 50) : null;
           return `
-            <div class="melee-trick-card-slot played ${cSuit}">
-              <span style="font-size:8.5px; color:var(--dim); text-transform:uppercase;">${label}</span>
-              ${suitImg && !c.is_major ? `<img src="${suitImg}" style="width:20px; height:20px; object-fit:contain; margin:2px 0;" />` : `<span style="font-size:18px; margin:2px 0;">${glyph}</span>`}
-              <span style="font-size:10.5px; font-weight:bold; color:${c.is_major ? '#ffd700' : (isTrump ? 'var(--gold-bright)' : '#fff')}; text-align:center; padding:0 2px; line-height:1.1;">
+            <div class="melee-trick-card-slot played ${cSuit}" title="${s.name}: ${c.title || c.rank}">
+              <div style="display:flex; align-items:center; gap:3px; margin-bottom:1px;">
+                ${s.avatar ? `<img src="${s.avatar}" style="width:12px; height:12px; border-radius:50%; object-fit:cover;" />` : ''}
+                <span style="font-size:7.5px; color:var(--dim); text-transform:uppercase; max-width:55px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${s.name.split(' ')[0]}</span>
+              </div>
+              ${suitImg && !c.is_major ? `<img src="${suitImg}" style="width:16px; height:16px; object-fit:contain; margin:1px 0;" />` : `<span style="font-size:14px; margin:1px 0;">${glyph}</span>`}
+              <span style="font-size:9.5px; font-weight:bold; color:${c.is_major ? '#ffd700' : (isTrump ? 'var(--gold-bright)' : '#fff')}; text-align:center; padding:0 2px; line-height:1.05; max-height:22px; overflow:hidden;">
                 ${c.is_major ? c.title : `${rankName(c.rank)}`}
               </span>
-              ${pot !== null ? `<span class="melee-potency-badge">⚡${pot}</span>` : ''}
-              <span style="font-size:8.5px; color:#ffd700; font-weight:bold; margin-top:2px;">${Engine ? Engine.counterValue(c) : 0} pts</span>
+              ${pot !== null ? `<span class="melee-potency-badge" style="font-size:7.5px;">⚡${pot}</span>` : ''}
+              <span style="font-size:8px; color:#ffd700; font-weight:bold; margin-top:1px;">${Engine ? Engine.counterValue(c) : 0} pts</span>
             </div>
           `;
         }
         return `
-          <div class="melee-trick-card-slot ${isTurn ? 'is-turn-slot' : ''}">
-            <span style="font-size:8.5px; color:var(--dim); text-transform:uppercase;">${label}</span>
-            <span style="font-size:16px; color:rgba(216,180,106,0.3); margin:2px 0;">✦</span>
-            <span style="font-size:9.5px; color:var(--dim);">${isTurn ? 'Playing…' : 'Awaiting'}</span>
+          <div class="melee-trick-card-slot ${s.isHuman ? 'is-turn-slot' : ''}">
+            <div style="display:flex; align-items:center; gap:3px; margin-bottom:1px;">
+              ${s.avatar ? `<img src="${s.avatar}" style="width:12px; height:12px; border-radius:50%; object-fit:cover;" />` : ''}
+              <span style="font-size:7.5px; color:var(--dim); text-transform:uppercase; max-width:55px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${s.name.split(' ')[0]}</span>
+            </div>
+            <span style="font-size:12px; color:rgba(216,180,106,0.3); margin:1px 0;">✦</span>
+            <span style="font-size:8px; color:var(--dim);">${s.isHuman ? 'Your Turn' : 'Awaiting'}</span>
           </div>
         `;
       }
@@ -2878,47 +2897,60 @@ void main() {
         `;
       }
 
+      // Multi-Seat Contenders Strip HTML
+      let seatsRosterHTML = seats.map(s => {
+        const isCurrentLeader = (melee.leader === "player" && s.isHuman) || (melee.leader === s.name);
+        return `
+          <div class="melee-contender-badge ${s.isHuman ? 'is-player' : ''} ${isCurrentLeader ? 'is-lead' : ''}">
+            <div style="position:relative; width:28px; height:28px; flex-shrink:0;">
+              ${s.avatar ? `<img src="${s.avatar}" style="width:28px; height:28px; border-radius:50%; object-fit:cover; border:1.5px solid ${s.color || 'var(--gold)'}; ${isCurrentLeader ? 'box-shadow:0 0 10px rgba(255,215,0,0.6);' : ''}" />` : `<div style="width:28px; height:28px; border-radius:50%; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; border:1px solid ${s.color || 'var(--gold)'};">${s.glyph}</div>`}
+              ${s.glyph ? `<span style="position:absolute; bottom:-2px; right:-2px; font-size:9px; background:rgba(0,0,0,0.8); border-radius:50%; width:12px; height:12px; display:flex; align-items:center; justify-content:center; color:${s.color || 'var(--gold)'};">${s.glyph}</span>` : ''}
+            </div>
+            <div style="display:flex; flex-direction:column; min-width:0;">
+              <span style="font-size:9.5px; font-weight:bold; color:${s.isHuman ? 'var(--gold-bright)' : '#fff'}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${s.name}</span>
+              <div style="display:flex; gap:4px; font-size:8.5px; color:var(--dim);">
+                <span style="color:#ffd700; font-weight:bold;">${s.score || 0} pts</span>
+                <span>· ${s.tricksWon || 0} won</span>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
       overlay.className = "ritual-hud-overlay melee-hud-container";
       overlay.innerHTML = `
         <div class="ritual-header">
-          <div class="ritual-target-info">
+          <div class="ritual-target-info" style="gap:8px;">
             <span class="ritual-target-sigil" style="color: ${titleColor};">${sigil}</span>
-            <span class="ritual-target-title" style="color: ${titleColor};">${name}</span>
+            <select class="melee-zone-selector" onchange="selectZone(Number(this.value))" title="Switch Star Zone">
+              <option value="0" ${targetId===0?'selected':''}>Zone 0 · House I (Aries · Wands)</option>
+              <option value="1" ${targetId===1?'selected':''}>Zone 1 · House II (Taurus · Pentacles)</option>
+              <option value="2" ${targetId===2?'selected':''}>Zone 2 · House III (Gemini · Swords)</option>
+              <option value="3" ${targetId===3?'selected':''}>Zone 3 · House IV (Cancer · Cups)</option>
+              <option value="4" ${targetId===4?'selected':''}>Zone 4 · House V (Leo · Wands)</option>
+              <option value="5" ${targetId===5?'selected':''}>Zone 5 · Spire 1 (Virgo · Pentacles)</option>
+              <option value="6" ${targetId===6?'selected':''}>Zone 6 · Spire 2 (Libra · Swords)</option>
+              <option value="7" ${targetId===7?'selected':''}>Zone 7 · Spire 3 (Scorpio · Cups)</option>
+              <option value="8" ${targetId===8?'selected':''}>Zone 8 · Spire 4 (Sagittarius · Wands)</option>
+              <option value="9" ${targetId===9?'selected':''}>Zone 9 · Spire 5 (Capricorn · Pentacles)</option>
+              <option value="10" ${targetId===10?'selected':''}>Zone 10 · Crown Zenith (Swords)</option>
+            </select>
           </div>
-          <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
-            <span style="font-size:10.5px; font-weight:bold; color:var(--gold-bright); background:rgba(216,180,106,0.15); padding:2px 8px; border-radius:4px; border:1px solid rgba(216,180,106,0.3);">
-              TRUMP: ${trumpGlyph} ${trumpSuitCap}
+          <div style="display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
+            <span style="display:flex; align-items:center; gap:4px; font-size:10px; font-weight:bold; color:var(--gold-bright); background:rgba(216,180,106,0.15); padding:2px 8px; border-radius:4px; border:1px solid rgba(216,180,106,0.3);">
+              ${trumpArt ? `<img src="${trumpArt}" style="width:14px; height:14px; object-fit:contain;" />` : trumpGlyph}
+              <span>TRUMP: ${trumpSuitCap}</span>
             </span>
             <button class="btn btn-reset-ritual" onclick="toggleRitualLadder()" title="View live 22 Major Arcana Potency Ladder">⚡ Ladder</button>
-            <button class="btn btn-reset-ritual" onclick="window.location.href='/manifold.html'" title="Launch full Multiplayer Manifold Arena">🌀 Manifold</button>
             <button class="btn btn-reset-ritual" onclick="resetActiveRitual()" title="Reset the Melee table">↺</button>
+            <button class="btn btn-reset-ritual" onclick="closeRitualOverlay()" title="Minimize table and return to interactive Star Map" style="border-color:var(--gold); color:var(--gold-bright);">⭐ Sky Map</button>
             <button class="btn btn-reset-ritual" onclick="closeRitualOverlay()" title="Close overlay">✕</button>
           </div>
         </div>
 
-        <!-- Multi-Seat Contenders Roster Strip -->
-        <div class="melee-scoreboard">
-          <div class="melee-player-score">
-            <span class="melee-score-label">You (Seeker · Moon)</span>
-            <span class="melee-score-val">${melee.playerScore}</span>
-            <span style="font-size:9px; color:var(--dim);">${melee.playerTricksWon} Tricks Won</span>
-          </div>
-
-          <div class="melee-trick-badge">
-            <div class="melee-trick-num">TRICK ${melee.trickNumber} / 12</div>
-            <div style="font-size:9.5px; color:var(--gold-bright); font-weight:bold;">
-              Pot: ${potCount} ★
-            </div>
-            <div style="font-size:8.5px; color:var(--dim);">
-              ${melee.ledSuit ? `Led: <b style="color:#fff; text-transform:uppercase;">${melee.ledSuit}</b>` : 'Open Lead'}
-            </div>
-          </div>
-
-          <div class="melee-guardian-score" style="text-align:right;">
-            <span class="melee-score-label">Zone Guardian ${melee.guardianHandicap > 0 ? `(+${melee.guardianHandicap})` : ''}</span>
-            <span class="melee-score-val" style="color:#f26262;">${melee.guardianScore}</span>
-            <span style="font-size:9px; color:var(--dim);">${melee.guardianTricksWon} Tricks Won</span>
-          </div>
+        <!-- 6-Seat Contenders Roster Strip -->
+        <div class="melee-contenders-roster">
+          ${seatsRosterHTML}
         </div>
 
         <!-- Expandable Arcana Potency Ladder Drawer -->
@@ -2932,26 +2964,27 @@ void main() {
           </div>
         </div>
 
-        <!-- Dynamic Turn Action Banner -->
-        <div class="melee-turn-banner">
-          ${turnInstruction}
+        <!-- Dynamic Turn Action Banner & Pot status -->
+        <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(216,180,106,0.08); border:1px solid rgba(216,180,106,0.2); border-radius:6px; padding:4px 10px;">
+          <span style="font-size:10.5px; font-weight:bold; color:var(--gold-bright);">${turnInstruction}</span>
+          <span style="font-size:10px; color:#ffd700; font-weight:bold; white-space:nowrap; margin-left:8px;">TRICK ${melee.trickNumber}/12 · Pot: ${potCount} ★</span>
         </div>
 
-        <!-- Celestial Singularity Trick Arena Ring -->
+        <!-- 6-Contender Celestial Singularity Trick Arena Ring -->
         <div class="melee-arena-ring">
-          ${renderTrickSlot(playerPlayed, "You (Seeker)", melee.currentTurn === "player")}
+          <div class="melee-orbital-slots">
+            ${seats.map(s => renderTrickSlot(s)).join('')}
+          </div>
 
           <!-- Central WebGL Singularity Core -->
           <div class="melee-center-core">
             <canvas id="singularity-shader-canvas" style="width:100%; height:100%; display:block;"></canvas>
           </div>
-
-          ${renderTrickSlot(guardianPlayed, "Guardian", melee.currentTurn === "guardian")}
         </div>
 
         <!-- Melds Strip -->
         <div style="display:flex; flex-direction:column; gap:2px;">
-          <span style="font-size:9px; font-weight:bold; color:var(--dim); text-transform:uppercase; letter-spacing:0.5px;">Your Starting Melds & Honours</span>
+          <span style="font-size:8.5px; font-weight:bold; color:var(--dim); text-transform:uppercase; letter-spacing:0.5px;">Your Starting Melds & Honours</span>
           <div class="melee-melds-strip">
             ${meldsHTML}
           </div>
@@ -2960,8 +2993,8 @@ void main() {
         <!-- Player Active Hand Strip -->
         <div style="display:flex; flex-direction:column; gap:2px;">
           <div style="display:flex; justify-content:space-between; align-items:center;">
-            <span style="font-size:9px; font-weight:bold; color:var(--dim); text-transform:uppercase; letter-spacing:0.5px;">Your Hand (${melee.playerHand.length} Cards)</span>
-            <span style="font-size:9px; color:var(--gold-bright);">Click glowing card to play</span>
+            <span style="font-size:8.5px; font-weight:bold; color:var(--dim); text-transform:uppercase; letter-spacing:0.5px;">Your Hand (${melee.playerHand.length} Cards)</span>
+            <span style="font-size:8.5px; color:var(--gold-bright);">Click glowing card to play</span>
           </div>
           <div class="melee-hand-row">
             ${handHTML}
@@ -3118,3 +3151,8 @@ window.closeSignInModal = closeSignInModal;
 window.importAstralKey = importAstralKey;
 window.connectWeb3Wallet = connectWeb3Wallet;
 window.loginWithWeb3Wallet = loginWithWeb3Wallet;
+window.openMeleeManifold = function(zoneId = null) {
+  const z = (zoneId !== null && Number.isInteger(Number(zoneId))) ? Number(zoneId) : (state.selectedZone !== null ? state.selectedZone : 10);
+  selectZone(z);
+  showRitualOverlay("zone", z);
+};
