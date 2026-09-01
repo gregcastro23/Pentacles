@@ -14,6 +14,7 @@ import AdminAgentRecordStarStakeReducer from "../admin_agent_record_star_stake_r
 import AdminAgentRecordStarUnstakeReducer from "../admin_agent_record_star_unstake_reducer";
 import AdminAgentResolveStarBattleReducer from "../admin_agent_resolve_star_battle_reducer";
 import AdvanceMeleeReducer from "../advance_melee_reducer";
+import AnswerAgentMeleeTurnReducer from "../answer_agent_melee_turn_reducer";
 import AnswerDuelReducer from "../answer_duel_reducer";
 import AnswerJingReducer from "../answer_jing_reducer";
 import AnswerOracleReducer from "../answer_oracle_reducer";
@@ -81,6 +82,7 @@ export type AdminAgentRecordStarStakeParams = __Infer<typeof AdminAgentRecordSta
 export type AdminAgentRecordStarUnstakeParams = __Infer<typeof AdminAgentRecordStarUnstakeReducer>;
 export type AdminAgentResolveStarBattleParams = __Infer<typeof AdminAgentResolveStarBattleReducer>;
 export type AdvanceMeleeParams = __Infer<typeof AdvanceMeleeReducer>;
+export type AnswerAgentMeleeTurnParams = __Infer<typeof AnswerAgentMeleeTurnReducer>;
 export type AnswerDuelParams = __Infer<typeof AnswerDuelReducer>;
 export type AnswerJingParams = __Infer<typeof AnswerJingReducer>;
 export type AnswerOracleParams = __Infer<typeof AnswerOracleReducer>;

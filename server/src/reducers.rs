@@ -77,6 +77,9 @@ const TRADE_OPEN_TTL_SECS: i64 = 30 * 24 * 3600;
 const TRACE_TTL_SECS: i64 = 7 * 24 * 3600;
 /// A matchmaking ticket nobody ever paired with — the seeker is gone after a day.
 const DUEL_TICKET_TTL_SECS: i64 = 24 * 3600;
+/// Per-card ASOL handoffs are high-volume audit telemetry; one day is enough for
+/// operator diagnosis while keeping public subscription state bounded.
+const AGENT_MELEE_TURN_TTL_SECS: i64 = 24 * 3600;
 /// Word Duels of the Spheres: pace duels and size the (massive) token reward.
 const WORD_DUEL_COOLDOWN_SECS: i64 = 20;
 const TOKEN_PER_POINT: u64 = 50; // word_score × this is the base token reward
@@ -1454,9 +1457,9 @@ fn elapsed_secs(later: Timestamp, earlier: Timestamp) -> i64 {
 }
 
 /// Bound the append-only history tables. Battle logs, answered (and abandoned)
-/// Oracle Q&A, finished duels of every kind, settled trades, spent trace intents
-/// and stale matchmaking tickets are transient telemetry; past their TTL they only
-/// cost storage and subscription bandwidth. One global pass per `tick_sky` — each
+/// Oracle Q&A, finished duels of every kind, settled trades, spent trace intents,
+/// agent melee handoffs and stale matchmaking tickets are transient telemetry;
+/// past their TTL they only cost storage and subscription bandwidth. One global pass per `tick_sky` — each
 /// scan is linear in the *retained* window (which the prune itself keeps bounded),
 /// not the quadratic per-player scan #1 removed. Two tables are intentionally
 /// permanent: `oracle_cache` (the answer cache is the asset we want to keep) and
@@ -1619,6 +1622,21 @@ fn prune_stale(ctx: &ReducerContext) {
         ctx.db.duel_queue().ticket_id().delete(&id);
     }
 
+    let stale_agent_turns: Vec<u64> = ctx
+        .db
+        .agent_melee_turn()
+        .iter()
+        .filter(|turn| {
+            turn.resolved_at
+                .map(|resolved| elapsed_secs(now, resolved) > AGENT_MELEE_TURN_TTL_SECS)
+                .unwrap_or(false)
+        })
+        .map(|turn| turn.turn_id)
+        .collect();
+    for id in stale_agent_turns {
+        ctx.db.agent_melee_turn().turn_id().delete(&id);
+    }
+
     // Identity-link grants that were opened but never claimed.
     let stale_grants: Vec<String> = ctx
         .db
@@ -1659,12 +1677,11 @@ fn has_loadout(ctx: &ReducerContext, owner: Identity, card_id: u64, loadout: Loa
 pub fn tick_sky(ctx: &ReducerContext, _timer: SkyTickTimer) {
     // 0. Drive any War Table that is mid-play.
     //
-    // An all-agent table settles inside `open_melee_round`, and a human's play
-    // advances the agents behind it — so what reaches here is the case neither
-    // covers: a seated human who stopped playing. `melee_advance` plays for them
-    // once `MELEE_TURN_GRACE_SECS` has passed and is a no-op before that, so this
-    // is safe to run every tick. Collected first: the loop writes to the tables
-    // it would otherwise be iterating.
+    // This covers both kinds of deliberate pause: a seated human who stopped
+    // playing, and an unanswered ASOL agent handoff. `melee_advance` is a no-op
+    // before the applicable deadline, then applies the deterministic fallback,
+    // so this is safe to run every tick. Collected first: the loop writes to the
+    // tables it would otherwise be iterating.
     let live: Vec<u64> = ctx
         .db
         .melee_table()
@@ -3067,10 +3084,34 @@ fn zone_ran_melee(ctx: &ReducerContext, zone_id: u8) -> bool {
 /// Without this one absent player freezes a six-seat table forever.
 const MELEE_TURN_GRACE_SECS: i64 = 45;
 
+/// How long ASOL may hold an NPC turn. The controller sweeps every ten seconds,
+/// leaving one full network retry window before the scheduled sky tick falls
+/// back to the faction's deterministic archetype.
+const AGENT_MELEE_PLAN_GRACE_SECS: i64 = 20;
+
 /// Hard ceiling on plays the referee will make in one call. Twelve tricks at six
 /// seats is 72; anything past that means the state machine is not converging and
 /// we would rather stop than spin inside a reducer.
 const MELEE_MAX_STEPS: usize = 96;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum AgentTurnDirective {
+    Wait,
+    UsePlan(u64),
+    Fallback,
+}
+
+fn agent_turn_directive(
+    selected_card_id: Option<u64>,
+    now_micros: i64,
+    expires_micros: i64,
+) -> AgentTurnDirective {
+    match selected_card_id {
+        Some(card_id) => AgentTurnDirective::UsePlan(card_id),
+        None if now_micros >= expires_micros => AgentTurnDirective::Fallback,
+        None => AgentTurnDirective::Wait,
+    }
+}
 
 /// The live sky as the ladder reads it. `up` is true for every body: the server
 /// has no single observer, which is exactly the default the JS engine uses when
@@ -3451,19 +3492,104 @@ fn melee_advance(ctx: &ReducerContext, table_id: u64) -> usize {
                     break;
                 }
                 let cards = melee_trick_cards(&trick_plays);
-                // A timed-out human sheds their cheapest legal card; an agent
-                // plays its faction's doctrine.
+                // A timed-out human sheds their cheapest legal card. Agent seats
+                // first publish the exact legal choices for ASOL, then wait for
+                // its owner-authenticated answer until the deadline. The sky tick
+                // resumes this state machine and applies the archetype fallback.
                 let pick = if seat.is_human {
                     melee::guardian_pick(&hand, &cards, table.trump_suit, &ladder)
                 } else {
-                    melee::archetype_pick(
-                        seat.faction,
-                        &hand,
-                        &cards,
-                        table.trump_suit,
-                        &ladder,
-                        trick_no,
-                    )
+                    let legal_mask = melee::legal_mask(&hand, &cards, table.trump_suit, &ladder);
+                    let legal_card_ids: Vec<u64> = hand
+                        .iter()
+                        .zip(legal_mask.iter())
+                        .filter_map(|(card, legal)| legal.then_some(card.card_id))
+                        .collect();
+                    if legal_card_ids.is_empty() {
+                        break;
+                    }
+
+                    let mut turn = ctx
+                        .db
+                        .agent_melee_turn()
+                        .table_id()
+                        .filter(&table_id)
+                        .find(|turn| {
+                            turn.seat_id == seat_id
+                                && turn.trick_number == trick_no
+                                && turn.resolved_at.is_none()
+                        })
+                        .unwrap_or_else(|| {
+                            let expires_at = Timestamp::from_micros_since_unix_epoch(
+                                ctx.timestamp.to_micros_since_unix_epoch()
+                                    + AGENT_MELEE_PLAN_GRACE_SECS * 1_000_000,
+                            );
+                            ctx.db.agent_melee_turn().insert(AgentMeleeTurn {
+                                turn_id: 0,
+                                table_id,
+                                seat_id,
+                                occupant: seat.occupant,
+                                trick_number: trick_no,
+                                legal_card_ids: legal_card_ids.clone(),
+                                requested_at: ctx.timestamp,
+                                expires_at,
+                                selected_card_id: None,
+                                answered_at: None,
+                                resolved_at: None,
+                                fallback_used: false,
+                            })
+                        });
+
+                    let directive = agent_turn_directive(
+                        turn.selected_card_id,
+                        ctx.timestamp.to_micros_since_unix_epoch(),
+                        turn.expires_at.to_micros_since_unix_epoch(),
+                    );
+                    let (pick, fallback_used) = match directive {
+                        AgentTurnDirective::Wait => break,
+                        AgentTurnDirective::UsePlan(card_id) => {
+                            let selected = hand.iter().position(|card| {
+                                card.card_id == card_id && legal_card_ids.contains(&card.card_id)
+                            });
+                            match selected {
+                                Some(index) => (Some(index), false),
+                                // A stale or corrupt answer never widens legality.
+                                // Leave it pending so the ordinary deadline takes
+                                // the deterministic fallback path.
+                                None if ctx.timestamp < turn.expires_at => break,
+                                None => (
+                                    melee::archetype_pick(
+                                        seat.faction,
+                                        &hand,
+                                        &cards,
+                                        table.trump_suit,
+                                        &ladder,
+                                        trick_no,
+                                    ),
+                                    true,
+                                ),
+                            }
+                        }
+                        AgentTurnDirective::Fallback => (
+                            melee::archetype_pick(
+                                seat.faction,
+                                &hand,
+                                &cards,
+                                table.trump_suit,
+                                &ladder,
+                                trick_no,
+                            ),
+                            true,
+                        ),
+                    };
+
+                    if let Some(index) = pick {
+                        turn.selected_card_id = Some(hand[index].card_id);
+                        turn.resolved_at = Some(ctx.timestamp);
+                        turn.fallback_used = fallback_used;
+                        ctx.db.agent_melee_turn().turn_id().update(turn);
+                    }
+                    pick
                 };
                 let Some(i) = pick else { break };
                 melee_commit_play(ctx, table_id, seat_id, trick_no, &hand[i]);
@@ -3483,6 +3609,83 @@ pub fn advance_melee(ctx: &ReducerContext, table_id: u64) -> Result<(), String> 
         return Err("advance_melee: table not found".into());
     }
     melee_advance(ctx, table_id);
+    Ok(())
+}
+
+/// Answer one pending NPC card request on ASOL's behalf. Owner-gated because the
+/// owner credential is the trust boundary between the public handoff row and the
+/// server-only controller. Pentacles rechecks the live turn, dealt hand and legal
+/// mask before accepting the answer; retries of an already-applied answer are a
+/// no-op so the worker can be safely idempotent.
+#[reducer]
+pub fn answer_agent_melee_turn(
+    ctx: &ReducerContext,
+    turn_id: u64,
+    card_id: u64,
+) -> Result<(), String> {
+    let cfg = ctx.db.game_config().id().find(&0).ok_or("game not initialised")?;
+    if ctx.sender() != cfg.owner {
+        return Err("answer_agent_melee_turn: admin only".into());
+    }
+
+    let mut turn = ctx
+        .db
+        .agent_melee_turn()
+        .turn_id()
+        .find(&turn_id)
+        .ok_or("answer_agent_melee_turn: turn not found")?;
+    if turn.resolved_at.is_some() {
+        return if !turn.fallback_used && turn.selected_card_id == Some(card_id) {
+            Ok(())
+        } else {
+            Err("answer_agent_melee_turn: turn already resolved".into())
+        };
+    }
+    if ctx.timestamp >= turn.expires_at {
+        return Err("answer_agent_melee_turn: turn deadline passed".into());
+    }
+    if !turn.legal_card_ids.contains(&card_id) {
+        return Err("answer_agent_melee_turn: card was not offered as legal".into());
+    }
+
+    let table = ctx
+        .db
+        .melee_table()
+        .table_id()
+        .find(&turn.table_id)
+        .ok_or("answer_agent_melee_turn: table not found")?;
+    if table.state == MeleeState::Resolved {
+        return Err("answer_agent_melee_turn: table already resolved".into());
+    }
+    let seats = melee_seats(ctx, turn.table_id);
+    let seat = seats
+        .iter()
+        .find(|seat| seat.seat_id == turn.seat_id && !seat.is_human)
+        .ok_or("answer_agent_melee_turn: NPC seat not found")?;
+    if seat.occupant != turn.occupant {
+        return Err("answer_agent_melee_turn: seat occupant changed".into());
+    }
+
+    let (trick_number, trick_plays) = melee_open_trick(ctx, turn.table_id);
+    if trick_number != turn.trick_number {
+        return Err("answer_agent_melee_turn: trick already advanced".into());
+    }
+    let leader = melee_leader(ctx, turn.table_id, &seats, trick_number);
+    if melee_turn(ctx, &seats, leader, &trick_plays) != Some(turn.seat_id) {
+        return Err("answer_agent_melee_turn: seat is not on turn".into());
+    }
+
+    let hand = melee_hand_of(ctx, turn.seat_id);
+    let cards = melee_trick_cards(&trick_plays);
+    let ladder = melee::ladder_from_json(&table.ladder_raw);
+    if !melee::is_legal_play(&hand, card_id, &cards, table.trump_suit, &ladder) {
+        return Err("answer_agent_melee_turn: card is no longer legal".into());
+    }
+
+    turn.selected_card_id = Some(card_id);
+    turn.answered_at = Some(ctx.timestamp);
+    ctx.db.agent_melee_turn().turn_id().update(turn);
+    melee_advance(ctx, table.table_id);
     Ok(())
 }
 
@@ -3613,8 +3816,8 @@ pub fn open_melee_round(
         }
     }
 
-    // Play it. An all-agent table runs to settlement inside this call; a table
-    // with a human stops the moment that human is on turn.
+    // Start it. The state machine stops on the first human turn or the first
+    // agent handoff, then resumes from a human play, an ASOL answer, or tick_sky.
     melee_advance(ctx, table.table_id);
     Ok(())
 }
@@ -7017,10 +7220,10 @@ pub fn lock_anomaly(
 
 mod tests {
     use super::{
-        auto_battle_win, catchup_rounds, compute_ecliptic, expand_constellation, has_duplicates,
-        melee_control_deltas, pick_weakest, question_hash, round_interval_secs, seat_score,
-        should_replace, COLLECTION_CAP, MAX_CATCHUP_ROUNDS, ROUND_BASE_SECS, ZONE_SWING,
-        ZONE_SWING_WINNER_BONUS,
+        agent_turn_directive, auto_battle_win, catchup_rounds, compute_ecliptic,
+        expand_constellation, has_duplicates, melee_control_deltas, pick_weakest, question_hash,
+        round_interval_secs, seat_score, should_replace, AgentTurnDirective, COLLECTION_CAP,
+        MAX_CATCHUP_ROUNDS, ROUND_BASE_SECS, ZONE_SWING, ZONE_SWING_WINNER_BONUS,
     };
 
     // ── The War Table ───────────────────────────────────────────────────────
@@ -7092,6 +7295,34 @@ mod tests {
     fn control_delta_ties_break_to_the_earliest_seat() {
         let d = melee_control_deltas(&[70, 70, 10], ZONE_SWING);
         assert!(d[0] > d[1], "seat 0 was dealt first and takes the tie");
+    }
+
+    #[test]
+    fn agent_turn_waits_for_asol_until_the_deadline() {
+        assert_eq!(
+            agent_turn_directive(None, 1_000_000, 2_000_000),
+            AgentTurnDirective::Wait
+        );
+    }
+
+    #[test]
+    fn agent_turn_uses_asols_answer_before_the_deadline() {
+        assert_eq!(
+            agent_turn_directive(Some(42), 1_000_000, 2_000_000),
+            AgentTurnDirective::UsePlan(42)
+        );
+    }
+
+    #[test]
+    fn agent_turn_falls_back_at_the_deadline_without_stalling() {
+        assert_eq!(
+            agent_turn_directive(None, 2_000_000, 2_000_000),
+            AgentTurnDirective::Fallback
+        );
+        assert_eq!(
+            agent_turn_directive(None, 3_000_000, 2_000_000),
+            AgentTurnDirective::Fallback
+        );
     }
 
     // ── The Ascendant clock ──────────────────────────────────────────────────
