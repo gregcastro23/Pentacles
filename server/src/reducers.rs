@@ -79,7 +79,7 @@ const TRACE_TTL_SECS: i64 = 7 * 24 * 3600;
 const DUEL_TICKET_TTL_SECS: i64 = 24 * 3600;
 /// Per-card ASOL handoffs are high-volume audit telemetry; one day is enough for
 /// operator diagnosis while keeping public subscription state bounded.
-const AGENT_MELEE_TURN_TTL_SECS: i64 = 24 * 3600;
+const AGENT_MELEE_TURN_TTL_SECS: i64 = 5 * 60;
 /// Word Duels of the Spheres: pace duels and size the (massive) token reward.
 const WORD_DUEL_COOLDOWN_SECS: i64 = 20;
 const TOKEN_PER_POINT: u64 = 50; // word_score × this is the base token reward
