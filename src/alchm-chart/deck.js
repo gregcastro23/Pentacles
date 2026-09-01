@@ -39,14 +39,14 @@ export const SUIT_GLYPH_NAMES = { Wands: "Fire", Cups: "Water", Swords: "Air", P
 export const SUIT_COLORS = { Wands: "#db7a47", Cups: "#5f93d8", Swords: "#aebbd6", Pentacles: "#74ab6c", wands: "#db7a47", cups: "#5f93d8", swords: "#aebbd6", pentacles: "#74ab6c" };
 
 export const SUIT_ART = {
-  Swords: "https://lh3.googleusercontent.com/aida-public/AB6AXuA1b5lQy8bE3-yiq6sE4lHJX1iJSrJGUvcpqo-xxyK086QI9Cv4va_OFyTXWLqbN5DApdbisIyuLJRs8Qft3jDxPYAcGuKTjpWhOllboaEyYYFAjur3A4xsV5IhW6KKkY6fMUpEiJlsVBCYS21asDj0Ccmbbr9rlrYiU_Hc31VL2LnUYvknKkV6P5TehzV4wraVI5lpFMbWXcUbD-a7dUOeBlDWFujiYNmIGga5p9WGUSLZ3oOKuLHNLQ",
-  Pentacles: "https://lh3.googleusercontent.com/aida-public/AB6AXuDw4AKIiBeQVHdbayL77PAGq8by-MnuR02fNQEnp4k7ZSSQfRJdiuBYYprlUH7eCK148cCjkzHrkF2yeSYfZ75XV8-e9SxUDFF7HxyRM6mb5RIIoqXYIi9kCQpL04fp45XdIVud3kVYCIBVVe4FFNm-EYXR19tN1iQjO5vYGY6zjF5j0BvWu8GLBoZxoOZKfzh9K6QtHcIp5mELrlKK9Hl-2dS6UUoRd5peWZKX7XjAmfZBt14_6Dw5VA",
-  Cups: "https://lh3.googleusercontent.com/aida-public/AB6AXuCydcnlWudO0bR6rZDKDXn_UYtr1ADlckZuTeYqXW4xmGbUKpIfB0oYvkctq5GXSE8JOYH25OLgFW_RsOGawPIBA61svL-1eFo6JLEgd01S9TCE3ZGIDG7mYR-UnHpkH-v_OY5n3OiUQasA-5XVwc1UUQTCaLuFtYj_u4az4QfAW4nTNvhlDgl5dY6QLnV1dOoBat4nMVAI46n8ORfnGTAxKYyiR-KziF18A61r1E_C3z60no_vm1ipdA",
-  Wands: "https://lh3.googleusercontent.com/aida-public/AB6AXuC9VJbJDND-dPuW6ENyIQrmCM62NSqGZDaMXWQJtKB71wKzLuUX0CsuisQegpqJWRyvvTLXNlxN3t9_pnbsowGmXCbMYDj4OImdrgTbGSf2ajS_yw6jnEM8lWCHRER8Mnev4TX-JIiRFhbL-SK0XCME6OKk0GLMGLrcTd6CkFXuH9KG41M1JcpzAEIkOxsv3QauYfRjjb1gkzqVI4QBA6si7kX0N8fa_UwQg7go44aeyQG4NKHJV0VptQ",
-  swords: "https://lh3.googleusercontent.com/aida-public/AB6AXuA1b5lQy8bE3-yiq6sE4lHJX1iJSrJGUvcpqo-xxyK086QI9Cv4va_OFyTXWLqbN5DApdbisIyuLJRs8Qft3jDxPYAcGuKTjpWhOllboaEyYYFAjur3A4xsV5IhW6KKkY6fMUpEiJlsVBCYS21asDj0Ccmbbr9rlrYiU_Hc31VL2LnUYvknKkV6P5TehzV4wraVI5lpFMbWXcUbD-a7dUOeBlDWFujiYNmIGga5p9WGUSLZ3oOKuLHNLQ",
-  pentacles: "https://lh3.googleusercontent.com/aida-public/AB6AXuDw4AKIiBeQVHdbayL77PAGq8by-MnuR02fNQEnp4k7ZSSQfRJdiuBYYprlUH7eCK148cCjkzHrkF2yeSYfZ75XV8-e9SxUDFF7HxyRM6mb5RIIoqXYIi9kCQpL04fp45XdIVud3kVYCIBVVe4FFNm-EYXR19tN1iQjO5vYGY6zjF5j0BvWu8GLBoZxoOZKfzh9K6QtHcIp5mELrlKK9Hl-2dS6UUoRd5peWZKX7XjAmfZBt14_6Dw5VA",
-  cups: "https://lh3.googleusercontent.com/aida-public/AB6AXuCydcnlWudO0bR6rZDKDXn_UYtr1ADlckZuTeYqXW4xmGbUKpIfB0oYvkctq5GXSE8JOYH25OLgFW_RsOGawPIBA61svL-1eFo6JLEgd01S9TCE3ZGIDG7mYR-UnHpkH-v_OY5n3OiUQasA-5XVwc1UUQTCaLuFtYj_u4az4QfAW4nTNvhlDgl5dY6QLnV1dOoBat4nMVAI46n8ORfnGTAxKYyiR-KziF18A61r1E_C3z60no_vm1ipdA",
-  wands: "https://lh3.googleusercontent.com/aida-public/AB6AXuC9VJbJDND-dPuW6ENyIQrmCM62NSqGZDaMXWQJtKB71wKzLuUX0CsuisQegpqJWRyvvTLXNlxN3t9_pnbsowGmXCbMYDj4OImdrgTbGSf2ajS_yw6jnEM8lWCHRER8Mnev4TX-JIiRFhbL-SK0XCME6OKk0GLMGLrcTd6CkFXuH9KG41M1JcpzAEIkOxsv3QauYfRjjb1gkzqVI4QBA6si7kX0N8fa_UwQg7go44aeyQG4NKHJV0VptQ"
+  Swords: "/assets/suits/swords.jpg",
+  Pentacles: "/assets/suits/pentacles.jpg",
+  Cups: "/assets/suits/cups.jpg",
+  Wands: "/assets/suits/wands.jpg",
+  swords: "/assets/suits/swords.jpg",
+  pentacles: "/assets/suits/pentacles.jpg",
+  cups: "/assets/suits/cups.jpg",
+  wands: "/assets/suits/wands.jpg"
 };
 
 const RANK_LABEL = { 1: "Ace", 11: "Page", 12: "Knight", 13: "Queen", 14: "King" };

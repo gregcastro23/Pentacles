@@ -15,6 +15,7 @@
 // authority PDA. Burning now goes through ASOL's `redeem_for_esms` with a
 // detached holder signature — see `buildRedeemAuthorizationMessage`.
 
+import { Buffer } from 'buffer'
 import { Connection, PublicKey, TransactionInstruction } from '@solana/web3.js'
 import { getAssociatedTokenAddressSync, TOKEN_2022_PROGRAM_ID } from '@solana/spl-token'
 import {

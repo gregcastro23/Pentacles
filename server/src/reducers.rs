@@ -302,24 +302,25 @@ fn register_chart(
         }
     }
 
-    // Re-registering re-mints the deck from scratch — clear any prior cards and
-    // slots first so we never stack duplicates.
-    let old_cards: Vec<u64> = ctx.db.card().owner().filter(&owner).map(|c| c.card_id).collect();
-    for cid in old_cards {
-        ctx.db.card().card_id().delete(&cid);
-    }
-    let old_slots: Vec<u64> = ctx.db.deck_slot().owner().filter(&owner).map(|s| s.slot_id).collect();
-    for sid in old_slots {
-        ctx.db.deck_slot().slot_id().delete(&sid);
-    }
-
-    let asc_sign = ((chart.ascendant / 1800) % 12) as u8;
-    let chart_ruler = chart::sign_ruler(asc_sign);
-    let (deck_seed, _n) = chart::mint_deck(ctx, owner, &chart, chart_ruler);
+    // Only mint a new deck if the player has no existing cards (first-time registration);
+    // returning players/profile refreshes preserve their earned cards, levels, and deck slots.
+    let existing_cards = ctx.db.card().owner().filter(&owner).count();
+    let deck_seed = if existing_cards == 0 {
+        let asc_sign = ((chart.ascendant / 1800) % 12) as u8;
+        let chart_ruler = chart::sign_ruler(asc_sign);
+        let (seed, _n) = chart::mint_deck(ctx, owner, &chart, chart_ruler);
+        seed
+    } else {
+        ctx.db.player().identity().find(&owner).map(|p| p.deck_seed).unwrap_or(0)
+    };
 
     // Also persist the plain 36-decan natal attribution (public, queryable
     // id-for-id) — distinct from the game deck minted above.
-    let _decans = chart::mint_decans(ctx, owner, &chart);
+    let _decans = if existing_cards == 0 {
+        chart::mint_decans(ctx, owner, &chart)
+    } else {
+        0
+    };
 
     // Re-registration re-mints the deck but must never wipe the token wallet / ladder / wallet bindings.
     let (tokens, word_wins, evm_address, solana_pubkey) = ctx

@@ -85,6 +85,9 @@ function settlementPlugin() {
 export default defineConfig(({ mode }) => {
   Object.assign(process.env, loadEnv(mode, process.cwd(), ''))
   return {
+    define: {
+      global: 'globalThis',
+    },
     plugins: [settlementPlugin()],
     server: { port: Number(process.env.PORT) || 5173, open: false, host: true },
     preview: { port: 4173 },

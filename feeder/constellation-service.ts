@@ -51,7 +51,10 @@ const REGION_SALT = process.env.REGION_SALT ?? "pentacles";
 const SPACETIMEDB_URI = (process.env.SPACETIMEDB_URI ?? "https://maincloud.spacetimedb.com").replace(/\/+$/, "");
 const SPACETIME_TOKEN = process.env.SPACETIME_TOKEN || "";
 
-const ATTESTOR_PRIVATE_KEY = (process.env.ATTESTOR_PRIVATE_KEY || "0x44ed9d4109550c92800b5cb650e450728885451e8d70f3addcd2df10d5a848d0") as Hex;
+const ATTESTOR_PRIVATE_KEY = (process.env.ATTESTOR_PRIVATE_KEY || '').trim() as Hex;
+if (!ATTESTOR_PRIVATE_KEY || !/^0x[0-9a-fA-F]{64}$/.test(ATTESTOR_PRIVATE_KEY)) {
+  throw new Error("ATTESTOR_PRIVATE_KEY environment variable is required and must be a 32-byte hex key.");
+}
 const AMM_ADDRESS = (process.env.AMM_CONTRACT_ADDRESS || "0x6B4EE164320e9E5583C0F6BEe14D5BABb5ba5095") as Address;
 // The 12-pool ConstellationAMM (one pool per real constellation in `constellations.rs`) is
 // deployed on Base Sepolia by AlchmAgentsETH's Deploy.s.sol. (AlchmAgentsETH also runs a
