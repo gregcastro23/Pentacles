@@ -1,3 +1,4 @@
+import './polyfill.js'
 // ============================================================
 // Pentacles — ESM layer entry (bundled by Vite)
 // ============================================================
@@ -25,11 +26,12 @@ import deploy from './net/deploy.js'
 import { installDashboards } from './net/dashboards.js'
 import wallet from './web3/wallet.js'
 import { initEsmsHud } from './web3/hud.js'
-import { installPoolsUI } from './web3/pools-ui.js'
 import AlchmChart from './alchm-chart/index.js'
 import FactionWar from './alchm-chart/faction-war.js'
 import MyPentacles, { MyCodex } from './alchm-chart/my-pentacles.js'
 import AdminTelemetry from './alchm-chart/admin-telemetry.js'
+import { initSingularityShaderCanvas, cleanupSingularityShaderCanvas } from './alchm-chart/singularity-shader.js'
+import { isAdmin, verifyOwnerIdentity, ensureAdmin, sameIdentity } from './net/admin-gate.js'
 import './alchm-chart/alchm-chart.css'
 import * as dex from './web3/dex.js'
 import { ESMS_DECIMALS } from './web3/esms.js'
@@ -38,6 +40,10 @@ import { bridgeEsmsCrosschain, burner, burnEsmsForJing } from './web3/burner.js'
 
 const Pentacles = (window.Pentacles = window.Pentacles || {})
 Pentacles.version = '0.2.0'
+Pentacles.initSingularityShaderCanvas = initSingularityShaderCanvas
+Pentacles.cleanupSingularityShaderCanvas = cleanupSingularityShaderCanvas
+window.initSingularityShaderCanvas = initSingularityShaderCanvas
+window.cleanupSingularityShaderCanvas = cleanupSingularityShaderCanvas
 
 // Small shared utilities backed by real npm deps.
 Pentacles.util = {
@@ -311,7 +317,10 @@ function closeFactionWar() {
 }
 window.openFactionWar = openFactionWar
 window.closeFactionWar = closeFactionWar
+window.openMeleeManifold = openFactionWar
+window.closeMeleeManifold = closeFactionWar
 Pentacles.openWar = openFactionWar
+Pentacles.openMeleeManifold = openFactionWar
 
 // ── ✦ My Pentacles: the player's natal profile, celestial deck, and loadout manager ──
 let myPentaclesInst = null, myPentaclesEsc = null
@@ -393,61 +402,16 @@ document.addEventListener('keydown', (e) => {
 // ── ✦ The Observatory: admin-only telemetry console ──
 // Expose the live client so the telemetry model can default to it (console use).
 window.__spacetime = spacetime
-const ADMIN_EMAIL = 'gregcastro23@gmail.com'
-const ADMIN_KEY = 'pentacles_admin'
-// Authoritative gate: this client IS the SpacetimeDB module owner. Verified live
-// against game_config.owner on connect (see verifyOwnerIdentity). The email /
-// localStorage / ?admin paths remain as a convenience for offline/dev use.
-let ownerUnlocked = false
 
-const sameId = (a, b) =>
-  !!a && !!b && String(a).replace(/^0x/, '').toLowerCase() === String(b).replace(/^0x/, '').toLowerCase()
-
-/** Already-unlocked? Owner-identity match (authoritative), env allowlist, or email. */
-function isAdmin() {
-  try {
-    if (ownerUnlocked) return true
-    const envId = import.meta.env && import.meta.env.VITE_ADMIN_IDENTITY
-    if (envId && sameId(spacetime.identity, envId)) return true
-    if (localStorage.getItem(ADMIN_KEY) === ADMIN_EMAIL) return true
-    const qp = new URLSearchParams(location.search)
-    if (qp.has('admin') && qp.get('admin') === ADMIN_EMAIL) { localStorage.setItem(ADMIN_KEY, ADMIN_EMAIL); return true }
-  } catch {}
-  return false
-}
-
-/** Live owner check: if our identity == game_config.owner, this is the real admin. */
-async function verifyOwnerIdentity() {
-  try {
-    if (!spacetime.isLive || !spacetime.identity) return false
-    const rows = await spacetime.query('SELECT owner FROM game_config')
-    const owner = rows && rows[0] && (rows[0].owner?.__identity__ ?? rows[0].owner)
-    if (sameId(spacetime.identity, owner)) {
-      ownerUnlocked = true
-      revealAdminButton()
-      return true
-    }
-  } catch {}
-  return false
-}
-/** Gate: unlock if already admin, else prompt once for the admin email. */
-function ensureAdmin() {
-  if (isAdmin()) return true
-  let entered = null
-  try { entered = window.prompt('Admin email to unlock The Observatory:') } catch {}
-  if (entered && entered.trim().toLowerCase() === ADMIN_EMAIL) {
-    try { localStorage.setItem(ADMIN_KEY, ADMIN_EMAIL) } catch {}
-    revealAdminButton()
-    return true
-  }
-  if (entered != null && window.toast) window.toast('Not authorized for the admin console.', { type: 'error', title: 'The Observatory' })
-  return false
-}
 /** Show the gated nav button once we know this client is the admin. */
 function revealAdminButton() {
   const btn = document.getElementById('observatory-btn')
   if (btn) btn.style.display = ''
 }
+
+Pentacles.isAdmin = () => isAdmin(spacetime?.identity)
+Pentacles.verifyOwnerIdentity = () => verifyOwnerIdentity(spacetime, revealAdminButton)
+Pentacles.ensureAdmin = () => ensureAdmin(spacetime, revealAdminButton)
 
 let obsInst = null, obsEsc = null
 function openAdminTelemetry() {
@@ -523,11 +487,21 @@ function boot() {
   Pentacles.esmsHud = initEsmsHud()
   wallet.tryReconnect().catch(() => {})
 
-  // Constellation DEX: replace the dead PentaclesBridge stub with the real panel
-  // (runs after the classic app.js defined renderPoolsPanel/traceConstellation).
-  installPoolsUI()
+  // Constellation DEX: lazy-load Pools UI on tab activation or when tab-pools is active
+  const loadPoolsUI = () => {
+    import('./web3/pools-ui.js')
+      .then((m) => {
+        m.installPoolsUI()
+        m.renderPoolsPanel?.()
+      })
+      .catch((e) => console.warn('[Pentacles] Pools UI failed to load', e))
+  }
+  const poolsTabBtn = document.querySelector('[data-tab="tab-pools"]')
+  if (poolsTabBtn) {
+    poolsTabBtn.addEventListener('click', loadPoolsUI, { once: true })
+  }
   if (document.getElementById('tab-pools')?.classList.contains('active')) {
-    window.renderPoolsPanel?.()
+    loadPoolsUI()
   }
 
   // Faction Standings + Zones: live from subscribed tables when online, classic

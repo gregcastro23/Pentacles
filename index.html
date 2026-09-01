@@ -255,16 +255,19 @@
         </div>
         <div id="sky-status" style="align-self:center; font-size:11px; color:var(--gold-bright); text-shadow:0 2px 4px #000; letter-spacing:0.04em; pointer-events:none;"></div>
         <div class="hud-btn-group">
-          <button class="btn" id="reset-view-btn" style="display:none;" onclick="resetCameraView()">🔍 Reset View</button>
-          <button class="btn" onclick="toggleSound()">🔊 Sound: ON</button>
-          <button class="btn" onclick="toggleARMode()">📹 Toggle AR Mode</button>
-          <button class="btn" id="alchm-chart-btn" onclick="openAlchmChart()">✦ Alchm Chart</button>
-          <button class="btn" id="manifold-btn" onclick="openMeleeManifold()" style="border-color: var(--gold-bright); background: rgba(246,207,131,0.18); color: var(--gold-bright); font-weight: bold;" title="Open Multiplayer Celestial Manifold Arena">🌀 Manifold</button>
-          <button class="btn" id="singularity-btn" onclick="window.location.href='/singularity.html'" style="border-color: var(--gold-bright); color: var(--gold-bright);" title="Open Pentacles Singularity Dashboard">✨ Singularity</button>
-          <button class="btn" id="faction-war-btn" onclick="openFactionWar()">⚔ Faction War</button>
-          <button class="btn" id="my-pentacles-btn" onclick="openMyPentacles()" title="Open your full celestial deck, loadout manager, and natal profile">✦ My Pentacles</button>
-          <button class="btn" id="star-dex-btn" onclick="openStarDex()">⭐ Star-Dex</button>
-          <button class="btn" id="observatory-btn" style="display:none;" onclick="openAdminTelemetry()">🔭 Observatory</button>
+          <div class="hud-nav-primary">
+            <button class="btn" id="melee-manifold-btn" data-legacy-id="faction-war-btn" onclick="openFactionWar()" title="Open Live Melee Manifold War Table">⚔ Melee Manifold</button>
+            <button class="btn" id="my-pentacles-btn" onclick="openMyPentacles()" title="Open your full celestial deck, loadout manager, and natal profile">✦ My Pentacles</button>
+            <button class="btn" id="star-dex-btn" onclick="openStarDex()" title="Open Star-Dex Celestial Registry">⭐ Star-Dex</button>
+            <button class="btn" id="alchm-chart-btn" onclick="openAlchmChart()" title="Open Alchm Chart & Planetary Ephemeris">✦ Alchm Chart</button>
+          </div>
+          <div class="hud-nav-divider"></div>
+          <div class="hud-nav-utility">
+            <button class="btn" id="reset-view-btn" style="display:none;" onclick="resetCameraView()">🔍 Reset View</button>
+            <button class="btn" onclick="toggleSound()">🔊 Sound: ON</button>
+            <button class="btn" onclick="toggleARMode()">📹 Toggle AR Mode</button>
+            <button class="btn" id="observatory-btn" style="display:none;" onclick="openAdminTelemetry()">🔭 Observatory</button>
+          </div>
         </div>
       </div>
 
@@ -329,7 +332,6 @@
     <aside class="sidebar right">
       <div class="tab-headers">
         <button class="tab-btn active" data-tab="tab-collection" onclick="switchTab('tab-collection')">Tarot Hand</button>
-        <button class="tab-btn" data-tab="tab-duel" onclick="switchTab('tab-duel')">Siege</button>
         <button class="tab-btn" data-tab="tab-pools" onclick="switchTab('tab-pools')">✦ Pools</button>
       </div>
       
@@ -339,7 +341,7 @@
           <div class="hand-panel-header">
             <div>
               <h3 class="title-orn">Tarot Hand</h3>
-              <p><span id="hand-card-count">0</span> active cards · <span id="active-hand-count">0 / 3 Slots Placed</span></p>
+              <p><span id="hand-card-count">0</span> active cards in loadout</p>
             </div>
             <button class="btn hand-deck-btn" onclick="openMyPentacles()">Open My Pentacles</button>
           </div>
@@ -375,47 +377,6 @@
               <button class="btn" onclick="cancelFuse()">Cancel</button>
             </div>
           </details>
-        </div>
-
-        <!-- Duel & Auto-Siege Console -->
-        <div id="tab-duel" class="tab-pane">
-          <!-- Strike target Details -->
-          <div class="panel" style="display:flex; flex-direction:column; gap:10px">
-            <h4 style="font-size:12px; color:var(--gold-bright);">✦ StarDex Node Siege Target</h4>
-            <div id="duel-target-details" style="font-size:13px; color:var(--dim)">
-              Select a star in the sky map to coordinate a siege target.
-            </div>
-
-            <!-- Interactive 3-Card Battle Board Slots -->
-            <div class="siege-board-container">
-              <div class="siege-board-header">
-                <span>✦ SIEGE CARD SLOTS (DRAG OR CLICK CARDS)</span>
-                <span id="siege-board-power" style="color:var(--gold-bright); font-weight:bold;">0 ATK</span>
-              </div>
-              <div id="siege-slots-grid" class="siege-slots-grid">
-                <div id="siege-slot-0" class="siege-slot" data-slot="0" ondragover="allowSlotDrop(event)" ondragenter="highlightSlot(event)" ondragleave="unhighlightSlot(event)" ondrop="handleSlotDrop(event, 0)" onclick="removeCardFromSiegeSlot(0)">
-                  <div class="slot-placeholder">✦ SLOT I<br><span style="font-size:10px; opacity:0.6;">Drag / Click Card</span></div>
-                </div>
-                <div id="siege-slot-1" class="siege-slot" data-slot="1" ondragover="allowSlotDrop(event)" ondragenter="highlightSlot(event)" ondragleave="unhighlightSlot(event)" ondrop="handleSlotDrop(event, 1)" onclick="removeCardFromSiegeSlot(1)">
-                  <div class="slot-placeholder">✦ SLOT II<br><span style="font-size:10px; opacity:0.6;">Drag / Click Card</span></div>
-                </div>
-                <div id="siege-slot-2" class="siege-slot" data-slot="2" ondragover="allowSlotDrop(event)" ondragenter="highlightSlot(event)" ondragleave="unhighlightSlot(event)" ondrop="handleSlotDrop(event, 2)" onclick="removeCardFromSiegeSlot(2)">
-                  <div class="slot-placeholder">✦ SLOT III<br><span style="font-size:10px; opacity:0.6;">Drag / Click Card</span></div>
-                </div>
-              </div>
-              <div id="siege-synergy-banner" class="siege-synergy-banner" style="display:none;"></div>
-            </div>
-
-            <button id="strike-btn" class="btn btn-primary strike-pulse-btn" style="width:100%" disabled onclick="initiateSiegeStrike()">⚡ LAUNCH SIEGE STRIKE ⚔</button>
-          </div>
-
-          <!-- Real-Time Combat Logs -->
-          <div style="display:flex; flex-direction:column; gap:8px; flex:1;">
-            <h4 class="title-orn">Combat Log</h4>
-            <div id="combat-log-console" class="battle-console">
-              <span class="log-line system">Waiting for target selection...</span>
-            </div>
-          </div>
         </div>
 
         <!-- Constellation Liquidity Pools (the sky DEX) -->

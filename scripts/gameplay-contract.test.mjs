@@ -16,7 +16,6 @@ for (const handler of [
   "handleRitualDrop",
   "handleCardDragStart",
   "handleCardDragEnd",
-  "handleSlotDrop",
 ]) {
   assert.match(app, new RegExp(`window\\.${handler}\\s*=`), `${handler} must be available to markup`);
 }

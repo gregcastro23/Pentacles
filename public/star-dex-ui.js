@@ -661,7 +661,13 @@
 
   function targetStarForSiege(hipId) {
     centerStarOnMap(hipId);
-    if (global.switchTab) global.switchTab("tab-duel");
+    const star = getLiveStar(hipId);
+    const zoneId = star && star.zone !== undefined ? star.zone : (star ? star.region_hint ?? 0 : 0);
+    if (typeof global.openFactionWar === "function") {
+      global.openFactionWar(zoneId);
+    } else if (typeof global.openMeleeManifold === "function") {
+      global.openMeleeManifold(zoneId);
+    }
   }
 
   function aimCameraAtHorizon(hipId) {

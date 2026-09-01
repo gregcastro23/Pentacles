@@ -4,6 +4,7 @@ unity/
 feeder/
 scripts/
 docs/
+tests/
 
 # Exclude local environment files and logs
 .git/

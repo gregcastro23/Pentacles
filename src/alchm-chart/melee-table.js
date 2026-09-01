@@ -18,6 +18,7 @@
 
 import { h, clear } from "./dom.js";
 import { zoneName, planetIdx, roundClock, PLANET_NAMES } from "./war-model.js";
+import { initSingularityShaderCanvas } from "./singularity-shader.js";
 // ARCANA_* are indexed by arcana 0..21, which is what a Major's `rank` IS, and
 // what the Arcana Ladder is keyed by. MAJOR_* are indexed by PLANET body 0..9 —
 // a different table of the same shape. Reading a rank out of those renders The
@@ -135,6 +136,10 @@ export class MeleeTableInstance {
 
   /** This seat's row, or null when spectating. */
   _mySeat() {
+    if (this.table && this.table.isPractice) {
+      const human = (this.seats || []).find((s) => s.isHuman);
+      if (human) return human;
+    }
     if (!this.myIdentity) return null;
     return (this.seats || []).find((s) => s.isHuman && s.occupant === this.myIdentity) || null;
   }
@@ -158,7 +163,7 @@ export class MeleeTableInstance {
    * would reject; `scripts/melee-parity.test.mjs` is what keeps that true.
    */
   _legalIds() {
-    const Engine = (typeof globalThis !== "undefined" && globalThis.ArcanaTrickEngine) || null;
+    const Engine = (typeof globalThis !== "undefined" && globalThis.ArcanaTrickEngine) || (typeof window !== "undefined" && window.ArcanaTrickEngine) || null;
     const cards = this._myCards();
     if (!Engine || !cards.length) return null; // null = "cannot tell", so allow all
     const pot = this._pot();
@@ -525,71 +530,7 @@ export class MeleeTableInstance {
 
   _initShader(canvas) {
     if (!canvas) return;
-    const gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
-    if (!gl) return;
-
-    const vs = `attribute vec2 a_pos; varying vec2 v_uv; void main(){ v_uv=a_pos*0.5+0.5; gl_Position=vec4(a_pos,0.0,1.0); }`;
-    const fs = `precision highp float; uniform float u_time; uniform vec2 u_res; varying vec2 v_uv;
-void main(){
-  vec2 uv = (gl_FragCoord.xy * 2.0 - u_res.xy) / min(u_res.x, u_res.y);
-  float d = length(uv);
-  float distort = 1.0 / (d + 0.1);
-  vec2 duv = uv * (1.0 + 0.05 * sin(d * 10.0 - u_time * 2.0) * distort);
-  float d2 = length(duv);
-  float core = smoothstep(0.35, 0.34, d2);
-  float angle = atan(duv.y, duv.x);
-  float disk = smoothstep(0.7, 0.35, d2) * smoothstep(0.34, 0.45, d2) * (0.5 + 0.5 * sin(angle * 3.0 + u_time * 1.5 + d2 * 5.0));
-  float ring = smoothstep(0.01, 0.0, abs(d2 - 0.48 + 0.02 * sin(u_time * 4.0 + angle * 5.0)));
-  vec3 col = vec3(0.02, 0.023, 0.047);
-  col = mix(col, vec3(0.6, 0.45, 0.15), disk);
-  col = mix(col, vec3(0.95, 0.82, 0.48), ring * 0.8);
-  col *= (1.0 - core);
-  gl_FragColor = vec4(col, 1.0);
-}`;
-
-    const compile = (src, type) => {
-      const s = gl.createShader(type);
-      gl.shaderSource(s, src);
-      gl.compileShader(s);
-      return s;
-    };
-
-    const prog = gl.createProgram();
-    gl.attachShader(prog, compile(vs, gl.VERTEX_SHADER));
-    gl.attachShader(prog, compile(fs, gl.FRAGMENT_SHADER));
-    gl.linkProgram(prog);
-    gl.useProgram(prog);
-
-    const buf = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
-
-    const aPos = gl.getAttribLocation(prog, "a_pos");
-    gl.enableVertexAttribArray(aPos);
-    gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
-
-    const uTime = gl.getUniformLocation(prog, "u_time");
-    const uRes = gl.getUniformLocation(prog, "u_res");
-
-    let start = Date.now();
-    let alive = true;
-
-    const render = () => {
-      if (!alive) return;
-      const w = canvas.clientWidth || 240, h = canvas.clientHeight || 240;
-      if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
-      gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-      gl.uniform1f(uTime, (Date.now() - start) * 0.001);
-      gl.uniform2f(uRes, gl.canvas.width, gl.canvas.height);
-      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-      this._animFrame = requestAnimationFrame(render);
-    };
-    render();
-
-    this._glCleanup = () => {
-      alive = false;
-      if (this._animFrame) cancelAnimationFrame(this._animFrame);
-    };
+    this._glCleanup = initSingularityShaderCanvas(canvas);
   }
 }
 

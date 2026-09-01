@@ -109,4 +109,85 @@ console.log("▶ 3 · FactionWar selectZone and autoOpenTable");
   console.log("  ✓ selectZone(zoneId, { autoOpenTable: true }) routes directly to active War Table");
 }
 
+// ── 4. Offline Practice Table Fallback & Playability ─────────────────────────
+console.log("▶ 4 · Offline Practice Table Fallback & Playability when no live table on zone");
+{
+  let practiceTable = null;
+  const war = new FactionWarInstance({
+    selectedZone: null,
+    myFaction: 0,
+    myIdentity: "0xseeker",
+    myCards: [{ card_id: 101, title: "Ace of Wands", suit: "wands", rank: 1, is_major: false, attack: 14 }],
+  });
+
+  war.setData({
+    zones: [{ zone_id: 7, control: 0, owner: 0, in_flux: false }],
+    tables: [], // No live table on zone 7
+  });
+
+  war.showMeleeTable = (t) => { practiceTable = t; };
+
+  war.selectZone(7, { autoOpenTable: true });
+
+  assert.equal(war.selectedZone, 7, "selectedZone is set to 7");
+  assert.ok(practiceTable !== null, "showMeleeTable was called with practice fallback");
+  assert.equal(practiceTable.isPractice, true, "table is marked as practice");
+  assert.equal(practiceTable.tableId, 9007, "tableId is 9000 + zoneId (9007)");
+  assert.equal(practiceTable.seats.length, 4, "practice table has 4 seats");
+  assert.equal(practiceTable.seats[0].isHuman, true, "seat 1 is human seeker");
+  assert.equal(practiceTable.seats[1].isAgent, true, "seat 2 is AI champion agent");
+  assert.equal(practiceTable.currentTrick, 1, "starts at trick 1");
+
+  // Assert all 4 seats are dealt full 12-card hands
+  assert.ok(
+    practiceTable.seats.every((s) => Array.isArray(s.hand) && s.hand.length === 12),
+    "Every seat on the practice table is dealt 12 real cards",
+  );
+  assert.equal(practiceTable.seats[0].handRemaining, 12, "human seeker has 12 unspent cards");
+
+  // Play a card on the practice table and verify trick progression
+  const cardToPlay = practiceTable.seats[0].hand[0];
+  let updatedTable = null;
+  const mockMt = {
+    setData: (data) => {
+      updatedTable = data.table;
+    },
+  };
+
+  war._handlePracticeCardPlay(practiceTable, cardToPlay.card_id, mockMt);
+
+  assert.ok(updatedTable !== null, "mt.setData was called after card play");
+  assert.equal(practiceTable.currentTrick, 2, "trick advanced from 1 to 2");
+  assert.equal(practiceTable.seats[0].handRemaining, 11, "human hand spent 1 card (11 remaining)");
+  assert.equal(practiceTable.plays.length, 4, "all 4 seats (1 human + 3 AI) made legal plays in trick 1");
+
+  const winningSeat = practiceTable.seats.find((s) => (s.score || 0) > 0 || (s.tricksWon || 0) > 0);
+  assert.ok(winningSeat, "a winning seat took the trick and scored");
+
+  console.log("  ✓ Offline Practice Table successfully created, mounted, and played through trick 1");
+}
+
+// ── 5. Dead Siege Tab (tab-duel) Removal Verification ───────────────────────
+console.log("▶ 5 · Static assertion: tab-duel must not exist in production sources");
+{
+  import("node:fs").then((fs) => {
+    const prodFiles = [
+      "index.html",
+      "public/app.js",
+      "public/horizon-tracker.js",
+      "public/star-dex-ui.js",
+      "src/main.js",
+    ];
+
+    for (const f of prodFiles) {
+      const content = fs.readFileSync(new URL(`../${f}`, import.meta.url), "utf8");
+      assert.ok(
+        !content.includes("tab-duel"),
+        `Production file ${f} must not contain references to deprecated tab-duel`,
+      );
+    }
+    console.log("  ✓ No production sources reference deprecated tab-duel");
+  });
+}
+
 console.log("ALL Gate Routing & Multi-Seat Integration tests passed with 100% success!");

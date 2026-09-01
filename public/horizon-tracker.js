@@ -256,11 +256,12 @@
       const star = state.reticleTargetStar || (state.horizonEncounterStars[0] || null);
       if (star) {
         if (global.selectStarByHip) global.selectStarByHip(star.hip_id);
-        if (global.stdb && global.stdb.reducers && typeof global.stdb.reducers.siege_horizon_star === "function") {
-          global.stdb.reducers.siege_horizon_star(star.hip_id);
-          if (global.toast) global.toast(`⚔ Initiated SpacetimeDB Siege Strike on ${star.name}!`, { type: "success" });
+        const zoneId = star.zone !== undefined ? star.zone : (star.region_hint ?? 0);
+        if (typeof global.openFactionWar === "function") {
+          global.openFactionWar(zoneId);
+        } else if (typeof global.openMeleeManifold === "function") {
+          global.openMeleeManifold(zoneId);
         }
-        if (global.switchTab) global.switchTab("tab-duel");
       }
     },
     executeARHarvest(constellationId, zoneId) {

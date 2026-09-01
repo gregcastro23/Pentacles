@@ -51,13 +51,23 @@ export const SOLANA_PROGRAM_ID = import.meta.env.VITE_SOLANA_PROGRAM_ID
   ? new PublicKey(import.meta.env.VITE_SOLANA_PROGRAM_ID)
   : PENTACLES_PROGRAM_ID
 
-/** The four ESMS mints, derived from ASOL's program id. */
-export const ELEMENT_MINTS = asolEsmsMints()
+/** The four ESMS mints, derived from ASOL's program id (lazy to prevent top-level Buffer evaluation). */
+let _elementMints = null
+export function getElementMints() {
+  if (!_elementMints) _elementMints = asolEsmsMints()
+  return _elementMints
+}
 
-export const [GAME_AUTHORITY_PDA] = PublicKey.findProgramAddressSync(
-  [Buffer.from('game_authority')],
-  SOLANA_PROGRAM_ID,
-)
+let _gameAuthorityPda = null
+export function getGameAuthorityPda() {
+  if (!_gameAuthorityPda) {
+    _gameAuthorityPda = PublicKey.findProgramAddressSync(
+      [Buffer.from('game_authority')],
+      SOLANA_PROGRAM_ID,
+    )[0]
+  }
+  return _gameAuthorityPda
+}
 
 /** USDC mint for the active cluster; devnet uses the faucet mint. */
 export const USDC_MINT = new PublicKey(
@@ -105,7 +115,7 @@ export async function readSolanaEsmsBalances(playerPublicKey) {
     typeof playerPublicKey === 'string' ? new PublicKey(playerPublicKey) : playerPublicKey
 
   return Promise.all(
-    ELEMENT_MINTS.map(async (mint) => {
+    getElementMints().map(async (mint) => {
       try {
         const ata = getAssociatedTokenAddressSync(mint, owner, false, TOKEN_2022_PROGRAM_ID)
         const balance = await solanaConnection.getTokenAccountBalance(ata)
@@ -188,7 +198,7 @@ function starVaultKeys({ staker, starId, usdcMint }) {
     mint,
     keys: [
       { pubkey: owner, isSigner: true, isWritable: true },
-      { pubkey: GAME_AUTHORITY_PDA, isSigner: false, isWritable: true },
+      { pubkey: getGameAuthorityPda(), isSigner: false, isWritable: true },
       { pubkey: starPoolPda(starId), isSigner: false, isWritable: true },
       { pubkey: stakePositionPda(starId, owner), isSigner: false, isWritable: true },
       { pubkey: mint, isSigner: false, isWritable: false },
@@ -248,7 +258,8 @@ export default {
   SOLANA_RPC_URL,
   ASOL_PROGRAM_ID,
   ASOL_ESMS_DECIMALS,
-  ELEMENT_MINTS,
+  getElementMints,
+  getGameAuthorityPda,
   solanaConnection,
   asolEsmsMint,
   readSolanaEsmsBalances,
