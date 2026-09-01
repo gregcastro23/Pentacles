@@ -10,6 +10,7 @@
 //   VITE_BUNDLER_URL    — ERC-4337 bundler RPC (Base Sepolia)
 //   VITE_PAYMASTER_URL  — paymaster service (optional; else the bundler sponsors)
 
+import { Buffer } from 'buffer'
 import { http, createWalletClient, keccak256, toHex } from 'viem'
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import { createBundlerClient, createPaymasterClient, toCoinbaseSmartAccount } from 'viem/account-abstraction'

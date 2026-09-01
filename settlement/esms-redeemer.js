@@ -201,9 +201,11 @@ export function createBurnSettlementHandler(overrides = {}) {
     if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
     let payload
     try {
-      const declaredLength = Number(req.headers.get('content-length') || 0)
+      const declaredLength = Number(
+        (typeof req.headers?.get === 'function' ? req.headers.get('content-length') : req.headers?.['content-length']) || 0
+      )
       if (declaredLength > 65_536) return json({ error: 'Request body is too large' }, 413)
-      const rawBody = await req.text()
+      const rawBody = typeof req.text === 'function' ? await req.text() : (typeof req.body === 'string' ? req.body : JSON.stringify(req.body || {}))
       if (rawBody.length > 65_536) return json({ error: 'Request body is too large' }, 413)
       payload = parsePayload(JSON.parse(rawBody), deps.nowSeconds)
     } catch (error) {

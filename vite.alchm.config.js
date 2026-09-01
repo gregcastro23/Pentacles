@@ -5,6 +5,9 @@ import { defineConfig } from 'vite'
 // app bundle. The app's own `vite build` (vite.config.js) is untouched.
 //   npm run build:chart  →  dist-alchm/alchm-chart.{js,umd.cjs} + alchm-chart.css
 export default defineConfig({
+  define: {
+    global: 'globalThis',
+  },
   publicDir: false, // don't copy public/ into the library output
   build: {
     outDir: 'dist-alchm',

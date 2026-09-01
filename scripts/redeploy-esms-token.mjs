@@ -16,7 +16,10 @@ import { dirname, join } from 'path'
 const SCRIPT_PATH = fileURLToPath(import.meta.url)
 const ROOT = dirname(dirname(SCRIPT_PATH))
 
-const KEY = (process.env.MINTER_PRIVATE_KEY || '0xf8cd0cef555ce5d32c0bb4079318f2fa2cadf0967ef227b8c7f6cc132765a0bb').trim()
+const KEY = (process.env.MINTER_PRIVATE_KEY || '').trim()
+if (!KEY || !/^0x[0-9a-fA-F]{64}$/.test(KEY)) {
+  throw new Error('MINTER_PRIVATE_KEY environment variable is required and must be a 32-byte hex key.')
+}
 const RPC = (process.env.RPC || process.env.BASE_SEPOLIA_RPC || 'https://sepolia.base.org').trim()
 const IMPLEMENTATION = '0x339f17b2bee3522fd87ff37c5fbcd43b3815e98c'
 const URI = 'https://alchmagents.eth.limo/esms/{id}.json'

@@ -612,6 +612,7 @@ export class MyPentaclesInstance {
     }
 
     const existingIdx = deck.findIndex((d) => Number(d.card_id) === cardIdNum);
+    const prevLoadout = existingIdx >= 0 ? deck[existingIdx].loadout : "bench";
     if (existingIdx >= 0) {
       deck[existingIdx].loadout = newLoadout;
     } else {
@@ -626,9 +627,31 @@ export class MyPentaclesInstance {
       try { window.renderActiveHand(); } catch {}
     }
 
+    const card = collection.find((c) => Number(c.card_id) === cardIdNum);
+    const title = card ? (card.title || "Card") : "Card";
+
+    // Call live SpacetimeDB set_loadout reducer if connected
+    const net = (typeof window !== "undefined" && window.Pentacles && window.Pentacles.net) ? window.Pentacles.net : null;
+    if (net && net.isLive && typeof net.callReducer === "function") {
+      const variant = newLoadout.toLowerCase();
+      net.callReducer("set_loadout", [cardIdNum, { [variant]: [] }])
+        .catch((err) => {
+          console.warn("[MyPentacles] set_loadout reducer failed, rolling back:", err);
+          if (existingIdx >= 0) {
+            deck[existingIdx].loadout = prevLoadout;
+          }
+          st.deck = deck;
+          if (typeof st.save === "function") {
+            try { st.save(); } catch {}
+          }
+          if (typeof window !== "undefined" && window.toast) {
+            window.toast(`Failed to update loadout on server: ${err?.message || err}`, { type: "error" });
+          }
+          this.paint();
+        });
+    }
+
     if (typeof window !== "undefined" && window.toast) {
-      const card = collection.find((c) => Number(c.card_id) === cardIdNum);
-      const title = card ? (card.title || "Card") : "Card";
       window.toast(`${title} assigned to ${newLoadout.toUpperCase()} loadout.`, { type: "success" });
     }
 

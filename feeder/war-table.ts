@@ -2,9 +2,10 @@
 //
 // Every 60s each of the eleven zones musters the factions that want it and seats
 // their champions (2..6). That is now the WHOLE job: `open_melee_round` deals the
-// hands, freezes the Arcana ladder from the module's own ephemeris, plays every
-// agent seat through `melee::archetype_pick`, resolves each trick and settles the
-// table. This daemon picks who sits down; the module referees.
+// hands and freezes the Arcana ladder from the module's own ephemeris. Pentacles
+// publishes each NPC's exact legal choices for ASOL, falls back to
+// `melee::archetype_pick` on timeout, resolves each trick and settles the table.
+// This daemon picks who sits down; the module referees.
 //
 // It used to play the twelve tricks here in JavaScript and report the totals —
 // which meant a compromised feeder could misreport who harvested what. The rules

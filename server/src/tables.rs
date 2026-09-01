@@ -238,7 +238,7 @@ pub struct Zone {
 // (the `report_service_health` trusted-bridge pattern). Humans only ever touch
 // the queue, which is player-callable and gated by `can_access_zone`.
 //
-// All five tables are ADDITIVE — SpacetimeDB 2.x cannot rename or drop a column,
+// These tables are ADDITIVE — SpacetimeDB 2.x cannot rename or drop a column,
 // but a new table is a compatible update. Nothing here touches an existing row.
 
 /// One melee at one zone for one round. `seat_count` is 2..6 — the factions that
@@ -341,6 +341,34 @@ pub struct MeleeHand {
     pub is_major: bool,
     pub inverted: bool,
     pub played: bool,
+}
+
+/// One authoritative request for ASOL to choose an NPC seat's next card.
+///
+/// Pentacles computes and publishes the legal card IDs. The owner-authenticated
+/// ASOL worker may answer with one of them before `expires_at`; otherwise the
+/// scheduled sky tick applies the existing deterministic archetype fallback.
+/// Rows remain as a compact audit trail of whether ASOL or the fallback acted.
+#[spacetimedb::table(accessor = agent_melee_turn, public)]
+#[derive(Clone)]
+pub struct AgentMeleeTurn {
+    #[primary_key]
+    #[auto_inc]
+    pub turn_id: u64,
+    #[index(btree)]
+    pub table_id: u64,
+    #[index(btree)]
+    pub seat_id: u64,
+    #[index(btree)]
+    pub occupant: Identity,
+    pub trick_number: u8,
+    pub legal_card_ids: Vec<u64>,
+    pub requested_at: Timestamp,
+    pub expires_at: Timestamp,
+    pub selected_card_id: Option<u64>,
+    pub answered_at: Option<Timestamp>,
+    pub resolved_at: Option<Timestamp>,
+    pub fallback_used: bool,
 }
 
 /// One resolved trick: who led, who took it, and what it was worth.

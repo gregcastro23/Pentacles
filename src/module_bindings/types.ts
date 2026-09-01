@@ -30,6 +30,22 @@ export const AgentChart = __t.object("AgentChart", {
 });
 export type AgentChart = __Infer<typeof AgentChart>;
 
+export const AgentMeleeTurn = __t.object("AgentMeleeTurn", {
+  turnId: __t.u64(),
+  tableId: __t.u64(),
+  seatId: __t.u64(),
+  occupant: __t.identity(),
+  trickNumber: __t.u8(),
+  legalCardIds: __t.array(__t.u64()),
+  requestedAt: __t.timestamp(),
+  expiresAt: __t.timestamp(),
+  selectedCardId: __t.option(__t.u64()),
+  answeredAt: __t.option(__t.timestamp()),
+  resolvedAt: __t.option(__t.timestamp()),
+  fallbackUsed: __t.bool(),
+});
+export type AgentMeleeTurn = __Infer<typeof AgentMeleeTurn>;
+
 export const AgentRest = __t.object("AgentRest", {
   identity: __t.identity(),
   restedAtRound: __t.u64(),

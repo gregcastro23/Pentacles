@@ -13,6 +13,7 @@
 // testnets directly; `bridgeChainToCaip2()` maps the legacy variants forward so
 // the two ledgers can be reconciled without a lossy rename.
 
+import { Buffer } from 'buffer'
 import { PublicKey } from '@solana/web3.js'
 
 // ── CAIP-2 chain ids ────────────────────────────────────────────────────────

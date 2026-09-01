@@ -42,6 +42,7 @@ import AdminAgentRecordStarStakeReducer from "./admin_agent_record_star_stake_re
 import AdminAgentRecordStarUnstakeReducer from "./admin_agent_record_star_unstake_reducer";
 import AdminAgentResolveStarBattleReducer from "./admin_agent_resolve_star_battle_reducer";
 import AdvanceMeleeReducer from "./advance_melee_reducer";
+import AnswerAgentMeleeTurnReducer from "./answer_agent_melee_turn_reducer";
 import AnswerDuelReducer from "./answer_duel_reducer";
 import AnswerJingReducer from "./answer_jing_reducer";
 import AnswerOracleReducer from "./answer_oracle_reducer";
@@ -105,6 +106,7 @@ import VerifySolanaWalletBindingReducer from "./verify_solana_wallet_binding_red
 
 // Import all table schema definitions
 import AgentChartRow from "./agent_chart_table";
+import AgentMeleeTurnRow from "./agent_melee_turn_table";
 import AgentRestRow from "./agent_rest_table";
 import ArConstellationCaptureRow from "./ar_constellation_capture_table";
 import BattleRow from "./battle_table";
@@ -171,6 +173,26 @@ const tablesSchema = __schema({
       { name: 'agent_chart_identity_key', constraint: 'unique', columns: ['identity'] },
     ],
   }, AgentChartRow),
+  agent_melee_turn: __table({
+    name: 'agent_melee_turn',
+    indexes: [
+      { accessor: 'occupant', name: 'agent_melee_turn_occupant_idx_btree', algorithm: 'btree', columns: [
+        'occupant',
+      ] },
+      { accessor: 'seat_id', name: 'agent_melee_turn_seat_id_idx_btree', algorithm: 'btree', columns: [
+        'seatId',
+      ] },
+      { accessor: 'table_id', name: 'agent_melee_turn_table_id_idx_btree', algorithm: 'btree', columns: [
+        'tableId',
+      ] },
+      { accessor: 'turn_id', name: 'agent_melee_turn_turn_id_idx_btree', algorithm: 'btree', columns: [
+        'turnId',
+      ] },
+    ],
+    constraints: [
+      { name: 'agent_melee_turn_turn_id_key', constraint: 'unique', columns: ['turnId'] },
+    ],
+  }, AgentMeleeTurnRow),
   agent_rest: __table({
     name: 'agent_rest',
     indexes: [
@@ -834,6 +856,7 @@ const reducersSchema = __reducers(
   __reducerSchema("admin_agent_record_star_unstake", AdminAgentRecordStarUnstakeReducer),
   __reducerSchema("admin_agent_resolve_star_battle", AdminAgentResolveStarBattleReducer),
   __reducerSchema("advance_melee", AdvanceMeleeReducer),
+  __reducerSchema("answer_agent_melee_turn", AnswerAgentMeleeTurnReducer),
   __reducerSchema("answer_duel", AnswerDuelReducer),
   __reducerSchema("answer_jing", AnswerJingReducer),
   __reducerSchema("answer_oracle", AnswerOracleReducer),

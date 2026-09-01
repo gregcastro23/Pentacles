@@ -33,10 +33,6 @@ import AdminTelemetry from './alchm-chart/admin-telemetry.js'
 import { initSingularityShaderCanvas, cleanupSingularityShaderCanvas } from './alchm-chart/singularity-shader.js'
 import { isAdmin, verifyOwnerIdentity, ensureAdmin, sameIdentity } from './net/admin-gate.js'
 import './alchm-chart/alchm-chart.css'
-import * as dex from './web3/dex.js'
-import { ESMS_DECIMALS } from './web3/esms.js'
-import { makeTradeProvider } from './web3/chart-trade.js'
-import { bridgeEsmsCrosschain, burner, burnEsmsForJing } from './web3/burner.js'
 
 const Pentacles = (window.Pentacles = window.Pentacles || {})
 Pentacles.version = '0.2.0'
@@ -83,7 +79,19 @@ Pentacles.deploy = deploy
 Pentacles.wallet = wallet
 
 // ── ✦ Alchm Chart: the embeddable SMES landscape, mounted into a full-screen overlay ──
-Pentacles.dex = dex
+let _dex = null
+Pentacles.getDex = async () => {
+  if (!_dex) _dex = await import('./web3/dex.js')
+  return _dex
+}
+Object.defineProperty(Pentacles, 'dex', {
+  get() {
+    if (!_dex) import('./web3/dex.js').then((m) => { _dex = m }).catch(() => {})
+    return _dex
+  },
+  configurable: true,
+})
+
 let acEsc = null
 function acObserver() {
   const o = window.state && window.state.observer
@@ -99,8 +107,11 @@ function acNatalProfile() {
     birth_lon: Number(ch.birth_lon ?? acObserver().lon),
   }
 }
-function acProviders() {
+async function acProviders() {
   const sky = window.PentaclesSky || {}
+  const { makeTradeProvider } = await import('./web3/chart-trade.js')
+  const dexModule = await import('./web3/dex.js')
+  const { ESMS_DECIMALS } = await import('./web3/esms.js')
   return {
     sky,
     chart: {
@@ -109,7 +120,7 @@ function acProviders() {
       lonAt: (body, date) => (sky.lonAt ? sky.lonAt(body, date) : 0),
     },
     amm: {
-      readAllPools: () => dex.readAllPools(),
+      readAllPools: () => dexModule.readAllPools(),
       toNumber: (raw) => {
         try { return Number(formatUnits(raw ?? 0n, ESMS_DECIMALS)) } catch { return 0 }
       },
@@ -131,18 +142,42 @@ function acProviders() {
     },
   }
 }
-Pentacles.burner = burner
-Pentacles.burnEsmsForJing = burnEsmsForJing
-Pentacles.bridgeEsmsCrosschain = bridgeEsmsCrosschain
-function openAlchmChart() {
+
+let _burner = null
+Pentacles.getBurner = async () => {
+  if (!_burner) {
+    const m = await import('./web3/burner.js')
+    _burner = m.burner
+  }
+  return _burner
+}
+Object.defineProperty(Pentacles, 'burner', {
+  get() {
+    if (!_burner) import('./web3/burner.js').then((m) => { _burner = m.burner }).catch(() => {})
+    return _burner
+  },
+  configurable: true,
+})
+
+Pentacles.burnEsmsForJing = async (...args) => {
+  const { burnEsmsForJing } = await import('./web3/burner.js')
+  return burnEsmsForJing(...args)
+}
+Pentacles.bridgeEsmsCrosschain = async (...args) => {
+  const { bridgeEsmsCrosschain } = await import('./web3/burner.js')
+  return bridgeEsmsCrosschain(...args)
+}
+
+async function openAlchmChart() {
   const ov = document.getElementById('alchm-overlay')
   const host = document.getElementById('alchm-chart-host')
   if (!ov || !host) return
   try {
     if (!Pentacles.chart) {
+      const providers = await acProviders()
       Pentacles.chart = AlchmChart.create({
         el: host,
-        providers: acProviders(),
+        providers,
         pools: (window.PentaclesSky || {}).CONSTELLATIONS,
         observer: acObserver(),
         // "Add birth chart" CTA (natal empty state) → close chart, open onboarding.

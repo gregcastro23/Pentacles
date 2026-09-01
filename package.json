@@ -20,7 +20,8 @@
     "test:routing": "bun scripts/gate-routing.test.mjs",
     "test:warmodel": "node src/alchm-chart/__tests__/war-model.test.js",
     "test:client": "bun run test:gameplay && bun run test:war && bun run test:warmodel && bun run test:routing && bun run test:chart",
-    "test:all": "bun run test:client && bun run test:parity",
+    "test:smoke": "bun scripts/smoke.test.mjs",
+    "test:all": "bun run test:client && bun run test:parity && bun run test:smoke",
     "test:parity": "bun scripts/melee-parity.test.mjs"
   },
   "devDependencies": {
