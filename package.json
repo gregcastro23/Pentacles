@@ -19,10 +19,11 @@
     "test:war": "bun scripts/war-table.test.mjs",
     "test:routing": "bun scripts/gate-routing.test.mjs",
     "test:warmodel": "node src/alchm-chart/__tests__/war-model.test.js",
+    "test:feeder": "bun test tests/feeder-services.test.ts",
     "test:client": "bun run test:gameplay && bun run test:war && bun run test:warmodel && bun run test:routing && bun run test:chart",
     "test:smoke": "bun scripts/smoke.test.mjs",
     "test:live": "node scripts/production-live.test.mjs",
-    "test:all": "bun run test:client && bun run test:solana && bun run test:parity && bun run test:smoke",
+    "test:all": "bun run test:client && bun run test:solana && bun run test:feeder && bun run test:parity && bun run test:smoke",
     "test:parity": "bun scripts/melee-parity.test.mjs"
   },
   "devDependencies": {

@@ -8,13 +8,14 @@
 // Dependency-free by design — no npm supervisor packages, just Bun.spawn.
 //
 // Children (each also runs standalone via the package.json scripts):
-//   oracle         oracle-service.ts         Claude Oracle answers
-//   duel           duel-service.ts           Word-Duel agent moves
-//   jing           jing-service.ts           Jing Arena agent counters
-//   constellation  constellation-service.ts  EIP-712 visibility attestor
-//   bridge         bridge-service.ts         verified burn-and-mint settlement
-//   ephemeris      push-ephemeris.ts         real ephemeris → push_ephemeris
-//   war-table      war-table.ts              the 60s multi-seat zone melee round
+//   oracle             oracle-service.ts            Claude Oracle answers
+//   duel               duel-service.ts              Word-Duel agent moves
+//   jing               jing-service.ts              Jing Arena agent counters
+//   ephemeris          push-ephemeris.ts            real ephemeris → push_ephemeris
+//   solana-sync        solana-sync-service.ts       Solana Token-2022 event settlement
+//   historical-agents  historical-agent-service.ts  Historical agent simulation
+//   war-table          war-table.ts                 the 60s multi-seat zone melee round
+//   indoor-spatial     indoor-spatial-service.ts    Indoor spatial location mapping
 //
 // push-ephemeris already loops on its own timer (FEED_INTERVAL_MIN, default
 // 15 min), so it is supervised like the long-running services rather than
@@ -23,9 +24,9 @@
 // the sky moving whenever the feed is late.
 //
 // A child that exits IMMEDIATELY (e.g. oracle-service without
-// ANTHROPIC_API_KEY, constellation-service without ATTESTOR_PRIVATE_KEY) is
-// restarted on the same backoff schedule — it settles at one attempt per 60s,
-// with the child's own error line telling you which env var is missing.
+// ANTHROPIC_API_KEY) is restarted on the same backoff schedule — it settles at
+// one attempt per 60s, with the child's own error line telling you which env var
+// is missing.
 //
 // SIGINT/SIGTERM: forward SIGTERM to every child, wait briefly for them to
 // exit, then exit ourselves — so `railway down` / Ctrl+C never leaves orphans.
@@ -51,12 +52,10 @@ interface Service {
   file: string; // entrypoint, relative to feeder/
 }
 
-const SERVICES: Service[] = [
+export const SERVICES: Service[] = [
   { name: "oracle", file: "oracle-service.ts" },
   { name: "duel", file: "duel-service.ts" },
   { name: "jing", file: "jing-service.ts" },
-  { name: "constellation", file: "constellation-service.ts" },
-  { name: "bridge", file: "bridge-service.ts" },
   { name: "ephemeris", file: "push-ephemeris.ts" },
   { name: "solana-sync", file: "solana-sync-service.ts" },
   { name: "historical-agents", file: "historical-agent-service.ts" },
@@ -281,12 +280,14 @@ async function shutdown(signal: string): Promise<void> {
   process.exit(0);
 }
 
-process.on("SIGINT", () => void shutdown("SIGINT"));
-process.on("SIGTERM", () => void shutdown("SIGTERM"));
+if (import.meta.main) {
+  process.on("SIGINT", () => void shutdown("SIGINT"));
+  process.on("SIGTERM", () => void shutdown("SIGTERM"));
 
-log(
-  `supervising ${SERVICES.length} feeders → db=${DB} ` +
-    `(writes: ${SPACETIME_TOKEN ? "HTTP bearer token" : "spacetime CLI fallback"}).`,
-);
-for (const svc of SERVICES) supervise(svc);
-startHealthLoop();
+  log(
+    `supervising ${SERVICES.length} feeders → db=${DB} ` +
+      `(writes: ${SPACETIME_TOKEN ? "HTTP bearer token" : "spacetime CLI fallback"}).`,
+  );
+  for (const svc of SERVICES) supervise(svc);
+  startHealthLoop();
+}
