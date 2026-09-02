@@ -29,7 +29,7 @@
         },
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' blob:; connect-src 'self' https://*.spacetimedb.com wss://*.spacetimedb.com https://api.devnet.solana.com https://api.mainnet-beta.solana.com https://geocoding-api.open-meteo.com https://*.alchm.kitchen wss://*.alchm.kitchen; worker-src 'self' blob:; frame-ancestors 'none';"
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' blob:; connect-src 'self' https://*.spacetimedb.com wss://*.spacetimedb.com https://api.devnet.solana.com https://api.mainnet-beta.solana.com https://geocoding-api.open-meteo.com https://*.alchm.kitchen wss://*.alchm.kitchen; worker-src 'self' blob:; frame-ancestors 'none';"
         }
       ]
     }

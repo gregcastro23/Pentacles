@@ -19,14 +19,16 @@
     "test:war": "bun scripts/war-table.test.mjs",
     "test:routing": "bun scripts/gate-routing.test.mjs",
     "test:warmodel": "node src/alchm-chart/__tests__/war-model.test.js",
+    "test:tarot": "bun scripts/tarot-card-rendering.test.mjs",
     "test:feeder": "bun test tests/feeder-services.test.ts",
-    "test:client": "bun run test:gameplay && bun run test:war && bun run test:warmodel && bun run test:routing && bun run test:chart",
+    "test:client": "bun run test:gameplay && bun run test:tarot && bun run test:war && bun run test:warmodel && bun run test:routing && bun run test:chart",
     "test:smoke": "bun scripts/smoke.test.mjs",
     "test:live": "node scripts/production-live.test.mjs",
     "test:all": "bun run test:client && bun run test:solana && bun run test:feeder && bun run test:parity && bun run test:smoke",
     "test:parity": "bun scripts/melee-parity.test.mjs"
   },
   "devDependencies": {
+    "vercel": "^59.10.0",
     "vite": "^8.0.16"
   },
   "dependencies": {
@@ -39,7 +41,6 @@
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "spacetimedb": "^2.6.0",
-    "three": "^0.185.0",
-    "vercel": "^59.10.0"
+    "three": "^0.185.0"
   }
 }

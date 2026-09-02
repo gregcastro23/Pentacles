@@ -625,64 +625,131 @@
     }
 
     // Render Web Card Component HTML
-    function buildCardHTML(c, loadout, isSelectionMode = false) {
-      const isSelected = state.selectedCards.has(c.card_id) || state.selectedCards.has(Number(c.card_id));
-      const selClass = isSelected ? "selected" : "";
-      const isMajor = !!c.is_major;
-      const bodyIdx = typeof c.source_body === "number" ? c.source_body : (typeof c.source_body === "string" ? PLANET_NAMES.indexOf(c.source_body) : 0);
-      const planetColor = PLANET_COLORS[bodyIdx] || "#e8b84b";
-      const planetGlyph = PLANET_GLYPHS[bodyIdx] || "✦";
-      const suitKey = (c.suit || "wands").toLowerCase();
-      const suitGlyph = SUIT_GLYPHS[suitKey] || "✦";
-      const suitName = typeof SUIT_GLYPH_NAMES !== "undefined" ? (SUIT_GLYPH_NAMES[suitKey] || "Element") : "Element";
-      const numeral = (c.rank !== undefined && ARCANA_NUMERALS[c.rank]) || (bodyIdx >= 0 && MAJOR_NUMERALS[bodyIdx]) || "✦";
-      const signIdx = (c.sign_idx !== undefined && c.sign_idx !== null) ? Number(c.sign_idx) : 0;
-      const detailText = isMajor ? `Major ${numeral}` : `${SIGN_GLYPHS[signIdx] || "✦"} ${SIGN_NAMES[signIdx] || ""}`;
-      const actionFn = isSelectionMode ? `autoPlaceCardInSiege(${c.card_id})` : `handleCollectionCardClick(${c.card_id})`;
-      const normLoadout = (loadout || "").toLowerCase();
-      const badge = normLoadout === "active" ? `<span class="web-card-chip">Active</span>` : (normLoadout === "defense" ? `<span class="web-card-chip defense">Defense</span>` : "");
+    function buildCardHTML(rawCard, loadout, isSelectionMode = false, options = {}) {
+      const contract = typeof PentaclesCardContract !== "undefined" ? PentaclesCardContract : null;
+      const c = (contract && contract.normalizeTarotCard)
+        ? contract.normalizeTarotCard(rawCard, loadout, options)
+        : {
+            cardId: Number(rawCard.card_id ?? rawCard.cardId ?? 0),
+            isMajor: Boolean(rawCard.is_major ?? rawCard.isMajor ?? false),
+            suitKey: (rawCard.suit || "wands").toLowerCase(),
+            suitName: rawCard.suit || "Wands",
+            suitGlyph: "✦",
+            suitElement: "Element",
+            suitColor: "#db7a47",
+            suitArtSrc: `/assets/suits/${(rawCard.suit || "wands").toLowerCase()}.jpg`,
+            planetGlyph: "✦",
+            planetName: "Celestial",
+            planetColor: "#f6cf83",
+            rank: rawCard.rank,
+            rankDisplay: String(rawCard.rank || "✦"),
+            rankCorner: String(rawCard.rank || "✦"),
+            title: rawCard.title || "Tarot Card",
+            subline: "Celestial Arcana",
+            loadout: (loadout || rawCard.loadout || "bench").toLowerCase(),
+            isFaceDown: Boolean(options?.faceDown || rawCard?.faceDown),
+            isInverted: Boolean(rawCard.inverted || rawCard.is_inverted),
+            attack: rawCard.attack ?? rawCard.atk ?? null,
+            health: rawCard.health ?? rawCard.hp ?? null,
+            armour: rawCard.armour ?? rawCard.arm ?? null,
+            cooldownMs: rawCard.cooldown_ms ?? rawCard.cooldownMs ?? 1000,
+            level: rawCard.level || 1,
+            letter: rawCard.letter || null,
+          };
 
+      const isSelected = state.selectedCards.has(c.cardId) || state.selectedCards.has(Number(c.cardId));
+      const selClass = isSelected ? "selected" : "";
+      const actionFn = isSelectionMode ? `autoPlaceCardInSiege(${c.cardId})` : `handleCollectionCardClick(${c.cardId})`;
       const dragAttr = isSelectionMode
-        ? `draggable="true" ondragstart="handleCardDragStart(event, ${c.card_id})" ondragend="handleCardDragEnd(event, ${c.card_id})"`
+        ? `draggable="true" ondragstart="handleCardDragStart(event, ${c.cardId})" ondragend="handleCardDragEnd(event, ${c.cardId})"`
         : "";
 
-      const title = c.title || (isMajor ? (ARCANA_NAMES[c.rank] || MAJOR_NAMES[bodyIdx] || "Major Arcana") : `${rankName(c.rank)} of ${SUIT_NAMES[suitKey] || suitKey}`);
+      const escapeFn = (contract && contract.escapeHtml) ? contract.escapeHtml : (str => String(str || "").replace(/[&<>"']/g, ""));
+      const safeTitle = escapeFn(c.title);
+      const safeSubline = escapeFn(c.subline);
+      const chipLabel = c.loadout === "active" ? "Active" : (c.loadout === "defense" ? "Defense" : "Bench");
+      const chipClass = c.loadout === "active" ? "" : ` ${c.loadout}`;
+      const badgeHTML = `<span class="web-card-chip${chipClass}">${chipLabel}</span>`;
 
-      // Art Strategy: Hybrid (use lightweight SUIT_ART in gameplay views)
-      const suitImgSrc = typeof SUIT_ART !== "undefined" ? SUIT_ART[suitKey] : null;
-      const artHTML = isMajor 
-        ? `<div class="web-card-major-sigil">${planetGlyph}</div>`
-        : (suitImgSrc ? `<img class="web-card-suit-img" src="${suitImgSrc}" alt="${suitKey} art" loading="lazy">` : `<div class="web-card-glyph" style="color: ${planetColor};"><span class="sr-only">${suitName}</span><span aria-hidden="true">${suitGlyph}</span></div>`);
+      // Art Stage (roughly 45–55% of card height)
+      let artStageHTML = "";
+      if (c.isMajor) {
+        artStageHTML = `
+          <div class="web-card-art major-art">
+            <div class="web-card-art-frame major-frame">
+              <div class="web-card-major-sigil">
+                <div class="sigil-ring sigil-ring-outer"></div>
+                <div class="sigil-ring sigil-ring-inner"></div>
+                <span class="sigil-glyph">${c.planetGlyph}</span>
+              </div>
+              <div class="web-card-major-tag">${escapeFn(c.planetName)}</div>
+            </div>
+          </div>
+        `;
+      } else {
+        const imgSrc = c.suitArtSrc || `/assets/suits/${c.suitKey}.jpg`;
+        artStageHTML = `
+          <div class="web-card-art">
+            <div class="web-card-art-frame">
+              <img class="web-card-suit-img" src="${imgSrc}" alt="${escapeFn(c.suitName)} suit art" loading="lazy" onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='flex';">
+              <div class="web-card-art-fallback" style="display:none; color: ${c.suitColor};">
+                <span class="web-card-fallback-glyph">${c.suitGlyph}</span>
+                <span class="web-card-fallback-label">${escapeFn(c.suitElement)}</span>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      const atkStr = c.attack !== null ? `⚔ <b>${c.attack}</b>` : `⚔ <b class="stat-na">—</b>`;
+      const hpStr = c.health !== null ? `♥ <b>${c.health}</b>` : `♥ <b class="stat-na">—</b>`;
+      const armStr = c.armour !== null ? `🛡 <b>${c.armour}</b>` : `🛡 <b class="stat-na">—</b>`;
+      const cdStr = c.cooldownMs !== null ? `⏳ <b>${c.cooldownMs}</b>` : `⏳ <b class="stat-na">1000</b>`;
+      const letterTag = c.letter ? ` · [${escapeFn(c.letter)}]` : "";
+
+      const backHTML = c.isFaceDown ? `<div class="web-card-back" aria-hidden="true"></div>` : "";
+      const faceDownClass = c.isFaceDown ? "face-down" : "";
+      const invertedClass = c.isInverted ? "inverted" : "";
+      const majorClass = c.isMajor ? "major" : "";
+
+      const ariaLabel = `${safeTitle}, ${safeSubline}${c.attack !== null ? `, Attack ${c.attack}` : ""}${c.health !== null ? `, Health ${c.health}` : ""}`;
 
       return `
-        <div class="web-card ${suitKey} ${selClass} ${isMajor ? 'major' : ''} ${c.inverted ? 'inverted' : ''}" data-card-id="${c.card_id}" ${dragAttr} onclick="${actionFn}">
-          ${isMajor ? '<div class="web-card-holo"></div>' : ''}
-          ${badge}
+        <div class="web-card ${c.suitKey} ${selClass} ${majorClass} ${invertedClass} ${faceDownClass}"
+             data-card-id="${c.cardId}"
+             role="button"
+             tabindex="0"
+             aria-label="${ariaLabel}"
+             ${dragAttr}
+             onclick="${actionFn}"
+             onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault(); ${actionFn};}">
+          ${c.isMajor ? '<div class="web-card-holo"></div>' : ''}
+          ${badgeHTML}
           
-          <div class="web-card-pip top-left"><span class="sr-only">${suitName}</span><span aria-hidden="true">${suitGlyph}</span></div>
-          <div class="web-card-pip top-right"><span class="sr-only">${suitName}</span><span aria-hidden="true">${suitGlyph}</span></div>
+          <div class="web-card-pip top-left" aria-hidden="true"><span class="pip-rank">${c.rankCorner}</span><span class="pip-glyph">${c.suitGlyph}</span></div>
+          <div class="web-card-pip top-right" aria-hidden="true"><span class="pip-glyph">${c.suitGlyph}</span><span class="pip-rank">${c.rankCorner}</span></div>
           
-          <div class="web-card-title">${title}</div>
-          <div class="web-card-subtitle">${detailText} ${c.inverted ? '(rev)' : ''}</div>
-          
-          <div class="web-card-art">
-            ${artHTML}
+          <div class="web-card-header">
+            <div class="web-card-title">${safeTitle}</div>
+            <div class="web-card-subtitle">${safeSubline}${c.isInverted ? ' (rev)' : ''}</div>
           </div>
+          
+          ${artStageHTML}
           
           <div class="web-card-sep"></div>
           <div class="web-card-stats">
-            <div class="web-card-stat">⚔ <b>${c.attack || 0}</b></div>
-            <div class="web-card-stat">♥ <b>${c.health || 0}</b></div>
-            <div class="web-card-stat">🛡 <b>${c.armour || 0}</b></div>
-            <div class="web-card-stat">⏳ <b>${c.cooldown_ms || 1000}</b></div>
+            <div class="web-card-stat" title="Attack">${atkStr}</div>
+            <div class="web-card-stat" title="Health">${hpStr}</div>
+            <div class="web-card-stat" title="Armour">${armStr}</div>
+            <div class="web-card-stat" title="Cooldown">${cdStr}</div>
           </div>
-          <div class="web-card-footnote" style="color: ${planetColor};">
-            ${planetGlyph} Lv ${c.level || 1}
+          <div class="web-card-footnote" style="color: ${c.planetColor};">
+            ${c.planetGlyph} Lv ${c.level}${letterTag}
           </div>
           
-          <div class="web-card-pip bottom-left"><span class="sr-only">${suitName}</span><span aria-hidden="true">${suitGlyph}</span></div>
-          <div class="web-card-pip bottom-right"><span class="sr-only">${suitName}</span><span aria-hidden="true">${suitGlyph}</span></div>
-          <div class="web-card-back"></div>
+          <div class="web-card-pip bottom-left" aria-hidden="true"><span class="pip-glyph flip">${c.suitGlyph}</span><span class="pip-rank">${c.rankCorner}</span></div>
+          <div class="web-card-pip bottom-right" aria-hidden="true"><span class="pip-rank">${c.rankCorner}</span><span class="pip-glyph flip">${c.suitGlyph}</span></div>
+          ${backHTML}
         </div>
       `;
     }

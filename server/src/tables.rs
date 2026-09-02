@@ -310,7 +310,7 @@ pub struct MeleeQueue {
 /// seats are agents whose Active loadout is already public via `deck_slot`, so
 /// the information this leaks is one human's twelve cards to five NPCs and any
 /// spectator. Narrow it to a per-seat filter the moment RLS is enforced.
-#[spacetimedb::table(accessor = melee_hand, public)]
+#[spacetimedb::table(accessor = melee_hand)] // private to table/match (not public)
 #[derive(Clone)]
 pub struct MeleeHand {
     #[primary_key]
@@ -394,7 +394,7 @@ pub struct AgentRest {
 /// Verified AR camera capture of a constellation by a human player.
 /// Grants a temporary 4x Meta Advantage multiplier in that constellation's zone,
 /// and awards high-precision astronomical telemetry data and ESMS tokens.
-#[spacetimedb::table(accessor = ar_constellation_capture, public)]
+#[spacetimedb::table(accessor = ar_constellation_capture)] // private to player (not public)
 #[derive(Clone)]
 pub struct ArConstellationCapture {
     #[primary_key]
@@ -416,7 +416,7 @@ pub struct ArConstellationCapture {
 }
 
 /// Player 3D Volumetric Depth and Environment Tracking State (Indoor vs Outdoor).
-#[spacetimedb::table(accessor = seeker_state, public)]
+#[spacetimedb::table(accessor = seeker_state)] // private to player (not public)
 #[derive(Clone)]
 pub struct SeekerState {
     #[primary_key]
@@ -430,7 +430,7 @@ pub struct SeekerState {
 }
 
 /// Encrypted Deep Space Cache Nodes seeded in volumetric Cartesian 3D space.
-#[spacetimedb::table(accessor = deep_space_cache, public)]
+#[spacetimedb::table(accessor = deep_space_cache)] // private to prevent coordinate scraping (not public)
 #[derive(Clone)]
 pub struct DeepSpaceCache {
     #[primary_key]
@@ -443,6 +443,29 @@ pub struct DeepSpaceCache {
     pub encryption_status: u8, // 0..100%
     pub active_seekers: u32,   // Number of players currently anchored to this cache
     pub created_at: Timestamp,
+}
+
+/// Per-player Deep Space Cache claim records preventing duplicate yield farming.
+#[spacetimedb::table(accessor = deep_space_claim)] // private (not public)
+#[derive(Clone)]
+pub struct DeepSpaceClaim {
+    #[primary_key]
+    #[auto_inc]
+    pub claim_id: u64,
+    #[index(btree)]
+    pub cache_id: u64,
+    #[index(btree)]
+    pub player: Identity,
+    pub claimed_at: Timestamp,
+}
+
+/// Per-player action cooldown tracker preventing automated script spam.
+#[spacetimedb::table(accessor = player_action_cooldown)] // private (not public)
+#[derive(Clone)]
+pub struct PlayerActionCooldown {
+    #[primary_key]
+    pub key: String, // format: "{identity}:{action}"
+    pub last_executed_at: Timestamp,
 }
 
 
@@ -564,7 +587,7 @@ pub struct Duel {
 /// A player's question for the Oracle. The companion service watches these,
 /// asks Claude, and answers via `answer_oracle`. Public so the asker's client
 /// sees the reply. `context` is a derived chart/state summary — never birth data.
-#[spacetimedb::table(accessor = oracle_request, public)]
+#[spacetimedb::table(accessor = oracle_request)] // private to asker (not public)
 #[derive(Clone)]
 pub struct OracleRequest {
     #[primary_key]
@@ -580,7 +603,7 @@ pub struct OracleRequest {
 }
 
 /// The Oracle's answer to a request (1:1 by request_id).
-#[spacetimedb::table(accessor = oracle_reply, public)]
+#[spacetimedb::table(accessor = oracle_reply)] // private to asker (not public)
 #[derive(Clone)]
 pub struct OracleReply {
     #[primary_key]
@@ -765,7 +788,7 @@ pub struct ConstellationLine {
 /// the figure is risen over the trader's location. The attestor service watches
 /// for `attested == false` rows, re-verifies, signs the EIP-712 attestation, and
 /// writes a `trace_attestation`. Public so the trader's client sees the result.
-#[spacetimedb::table(accessor = trace_intent, public)]
+#[spacetimedb::table(accessor = trace_intent)] // private to trader (not public)
 #[derive(Clone)]
 pub struct TraceIntent {
     #[primary_key]
@@ -780,10 +803,9 @@ pub struct TraceIntent {
     pub created_at: Timestamp,
 }
 
-/// The signed EIP-712 VisibilityAttestation the client submits with `seedLiquidity`/
-/// `swap`. Written by the attestor service (owner-gated `answer_trace`). All fields
-/// mirror the on-chain struct exactly; `region_commit` and `signature` are 0x-hex.
-#[spacetimedb::table(accessor = trace_attestation, public)]
+/// The signed VisibilityAttestation for Solana horizon proofs.
+/// Written by the attestor service (owner-gated `answer_trace`).
+#[spacetimedb::table(accessor = trace_attestation)] // private to trader (not public)
 #[derive(Clone)]
 pub struct TraceAttestation {
     #[primary_key]
@@ -791,11 +813,11 @@ pub struct TraceAttestation {
     #[index(btree)]
     pub trader: Identity,
     pub constellation_id: u16,
-    pub region_commit: String, // 0x-hex bytes32: keccak(latBucket,lonBucket,salt)
+    pub region_commit: String, // 0x-hex bytes32 or base58 commit
     pub visible_stars: u8,
-    pub nonce: u64,            // must equal the AMM's usedNonce[trader] at submit
-    pub deadline: u64,         // unix seconds; the AMM rejects after this
-    pub signature: String,     // 0x-hex 65-byte ECDSA sig over the typed struct
+    pub nonce: u64,            // trader sequence nonce
+    pub deadline: u64,         // unix seconds; rejected after this
+    pub signature: String,     // Solana ed25519 signature
     pub created_at: Timestamp,
 }
 
@@ -923,7 +945,7 @@ pub struct JingCast {
 /// The player's Sacred-7 + ESMS consciousness pools a Jing cast drains
 /// (game-side, mirrored — ESMS on-chain is soulbound and never burned here).
 /// Public so the agent page can surface the authoritative pool when live.
-#[spacetimedb::table(accessor = jing_pool, public)]
+#[spacetimedb::table(accessor = jing_pool)] // private to player (not public)
 #[derive(Clone)]
 pub struct JingPool {
     #[primary_key]
@@ -943,10 +965,10 @@ pub struct JingRate {
     pub casts: u32,
 }
 
-// ── Star Staking & Yield Accrual (EIP-712 Arc gateway integration) ───────────
+// ── Star Staking & Yield Accrual (Solana Bridge integration) ───────────
 
 /// One staker's position on one star. Mirrors the on-chain StarVault stake.
-#[spacetimedb::table(accessor = star_stake, public)]
+#[spacetimedb::table(accessor = star_stake)] // private to staker (not public)
 #[derive(Clone)]
 pub struct StarStake {
     #[primary_key]

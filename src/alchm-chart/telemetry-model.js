@@ -85,15 +85,13 @@ export class TelemetryModel {
     if (!this.spacetime || typeof this.spacetime.query !== 'function') return [];
     try { return (await this.spacetime.query(sql)) || []; } catch { return []; }
   }
-  /** Count a (possibly large) table; tries COUNT(*), falls back to row length. */
+  /** Count a table using COUNT(*); returns 0 if count fails or table is private without dumping whole rows. */
   async _count(table) {
     const rows = await this._q(`SELECT COUNT(*) AS n FROM ${table}`);
     if (rows.length && rows[0] && (rows[0].n != null || rows[0].col0 != null)) {
       return num(rows[0].n ?? rows[0].col0);
     }
-    // Fallback: pull ids only (still cheaper than *), length = count.
-    const all = await this._q(`SELECT * FROM ${table}`);
-    return all.length;
+    return 0;
   }
 
   // ---- the full snapshot ----------------------------------------------------
@@ -176,6 +174,7 @@ export class TelemetryModel {
     const avgTokens = total ? supply / total : 0;
     const topHolder = byTokens[0] ? byTokens[0].tokens : 0;
     return {
+      restricted: total === 0,
       total, new24, new7d, active1h, active24,
       factions, tokenSupply: supply, totalWins,
       avgTokens, topHolderShare: supply ? topHolder / supply : 0,
@@ -187,13 +186,13 @@ export class TelemetryModel {
 
   // ── ECONOMY: card supply & composition, trade flow, jing pools, star staking ─
   async economy() {
-    const [cardCount, deckCount, decanCount, trades, pools, stakes] = await Promise.all([
+    const [cardCount, deckCount, decanCount, trades, pools, stakePools] = await Promise.all([
       this._count('card'),
       this._count('deck_slot'),
       this._count('natal_decan'),
       this._q('SELECT trade_id, state, offer, request, created_at FROM trade'),
       this._count('jing_pool'),
-      this._q('SELECT stake_id, element, principal_usdc, accrued_essence, claimed_essence FROM star_stake'),
+      this._q('SELECT star_id, total_principal_usdc, total_shares FROM star_stake_pool'),
     ]);
 
     // Real card composition (by suit / major / inverted / lettered / level) — pulled
@@ -229,13 +228,9 @@ export class TelemetryModel {
       if (s === 'Open' || s === 'Proposed') { openTrades += 1; cardsEscrowed += off + req; }
     }
 
-    let principal = 0n, accrued = 0n, claimed = 0n;
-    const byElem = [0, 0, 0, 0];
-    for (const s of stakes) {
-      principal += big(s.principal_usdc);
-      accrued += big(s.accrued_essence);
-      claimed += big(s.claimed_essence);
-      const e = num(s.element); if (e >= 0 && e < 4) byElem[e] += 1;
+    let principal = 0n;
+    for (const p of stakePools) {
+      principal += big(p.total_principal_usdc);
     }
     return {
       cards: cardCount, deckSlots: deckCount, decanCards: decanCount,
@@ -243,11 +238,11 @@ export class TelemetryModel {
       majors, inverted, lettered,
       trades: trades.length, tradeStates, openTrades, cardsEscrowed,
       jingPools: pools,
-      stakes: stakes.length,
+      stakes: stakePools.length,
       stakePrincipalUsdc: Number(principal) / 1e6, // 6-dp USDC
-      stakeAccruedEssence: Number(accrued) / 1e18,  // 18-dp ESMS
-      stakeClaimedEssence: Number(claimed) / 1e18,
-      stakesByElement: byElem,
+      stakeAccruedEssence: 0,
+      stakeClaimedEssence: 0,
+      stakesByElement: [0, 0, 0, 0],
     };
   }
 

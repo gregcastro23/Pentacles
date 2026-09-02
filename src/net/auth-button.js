@@ -22,15 +22,24 @@ export function initAuthButton() {
   document.body.appendChild(btn)
 
   const paint = (u) => {
+    const dot = document.createElement('span')
+    dot.className = 'pt-net__dot'
+    dot.setAttribute('aria-hidden', 'true')
+    const text = document.createElement('span')
+
     if (u && spacetime.signedIn) {
       const label = firstName(u)
       btn.classList.add('pt-auth--in')
-      btn.innerHTML = `<span class="pt-net__dot" aria-hidden="true">◈</span><span>${label}</span>`
+      dot.textContent = '◈'
+      text.textContent = label
+      btn.replaceChildren(dot, text)
       btn.title = `Signed in as ${u.email || label} — click to sign out`
       btn.setAttribute('aria-label', btn.title)
     } else {
       btn.classList.remove('pt-auth--in')
-      btn.innerHTML = `<span class="pt-net__dot" aria-hidden="true">◇</span><span>Sign in</span>`
+      dot.textContent = '◇'
+      text.textContent = 'Sign in'
+      btn.replaceChildren(dot, text)
       btn.title = 'Sign in with Google to save your deck across devices'
       btn.setAttribute('aria-label', btn.title)
     }

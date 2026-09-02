@@ -17,12 +17,10 @@
 //          https://alchm-agents-eth.vercel.app) fallback brain.
 
 import { startFeed } from "./stdb-feed";
-import { cliCall } from "./spacetime-cli";
+import { cliCall, resolveFeederEnv } from "./spacetime-cli";
 import { brainCall, BRAIN_PRIMARY_URL, BRAIN_FALLBACK_URL } from "./brain";
 
-const DB = process.env.SPACETIMEDB_DB ?? "cookingwithcastrollc";
-const SPACETIMEDB_URI = (process.env.SPACETIMEDB_URI ?? "https://maincloud.spacetimedb.com").replace(/\/+$/, "");
-const SPACETIME_TOKEN = process.env.SPACETIME_TOKEN || "";
+const { db: DB, uri: SPACETIMEDB_URI, token: SPACETIME_TOKEN } = resolveFeederEnv();
 
 // The counter graph (mirrors server JingMove::countered_by): the move that beats
 // each opening. The agent plays to win by declaring it.

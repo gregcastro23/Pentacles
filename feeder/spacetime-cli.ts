@@ -31,6 +31,21 @@ export function getSpacetimeCli(): string {
 
 export const SPACETIMEDB_CLI = getSpacetimeCli();
 
+export function resolveFeederEnv(): { db: string; uri: string; token: string } {
+  if (process.env.NODE_ENV === "production") {
+    if (!process.env.SPACETIMEDB_DB) {
+      throw new Error("SPACETIMEDB_DB must be explicitly set in production.");
+    }
+    if (!process.env.SPACETIME_TOKEN) {
+      throw new Error("SPACETIME_TOKEN must be explicitly set in production.");
+    }
+  }
+  const db = process.env.SPACETIMEDB_DB ?? "cookingwithcastrollc";
+  const uri = (process.env.SPACETIMEDB_URI ?? "https://maincloud.spacetimedb.com").replace(/\/+$/, "");
+  const token = process.env.SPACETIME_TOKEN || "";
+  return { db, uri, token };
+}
+
 let warnedCliFallback = false;
 
 // One reducer argument for the CLI fallback. Encoding is explicit at this
@@ -65,6 +80,11 @@ function encodeCliArg(arg: CliArg): string {
 // identically. (The HTTP bearer path builds a JSON body itself and never goes
 // through this encoding.)
 export async function cliCall(db: string, reducer: string, args: CliArg[]): Promise<void> {
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "CLI write fallback is prohibited in production. Explicit SPACETIME_TOKEN and HTTP bearer auth are required.",
+    );
+  }
   if (!warnedCliFallback) {
     warnedCliFallback = true;
     console.warn(

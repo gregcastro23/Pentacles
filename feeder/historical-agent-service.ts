@@ -13,11 +13,9 @@
 //   FLUX_SWEEP_MS        (default: 60000) interval for checking and triggering zone flux
 
 import { sqlOneShot } from "./stdb-feed";
-import { cliCall } from "./spacetime-cli";
+import { cliCall, resolveFeederEnv } from "./spacetime-cli";
 
-const DB = process.env.SPACETIMEDB_DB ?? "cookingwithcastrollc";
-const SPACETIMEDB_URI = (process.env.SPACETIMEDB_URI ?? "https://maincloud.spacetimedb.com").replace(/\/+$/, "");
-const SPACETIME_TOKEN = process.env.SPACETIME_TOKEN || "";
+const { db: DB, uri: SPACETIMEDB_URI, token: SPACETIME_TOKEN } = resolveFeederEnv();
 const FLUX_SWEEP_MS = Number(process.env.FLUX_SWEEP_MS ?? "60000");
 
 // `sqlOneShot` takes (uri, db, token, query). This file used to call it with two
