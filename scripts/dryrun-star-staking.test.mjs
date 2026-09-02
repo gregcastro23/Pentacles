@@ -37,20 +37,17 @@ async function runDryRunTests() {
   }
 
   // 1. Identity & Wallet Binding Test
-  test('1. Cryptographic Wallet Binding (bind_wallet_address)', () => {
+  test('1. Cryptographic Wallet Binding (bind_solana_wallet)', () => {
     const playerSender = 'identity_player_1'
-    const evmAddr = '0x1111111111111111111111111111111111111111'
     const solPubkey = 'SolanaPlayerWallet111111111111111111111111111'
 
     mockDb.players.set(playerSender, {
       identity: playerSender,
-      evm_address: evmAddr,
       solana_pubkey: solPubkey,
     })
 
     const boundPlayer = mockDb.players.get(playerSender)
     assert(boundPlayer !== undefined, 'Player profile must exist')
-    assert(boundPlayer.evm_address === evmAddr, 'EVM address bound correctly')
     assert(boundPlayer.solana_pubkey === solPubkey, 'Solana public key bound correctly')
   })
 
@@ -128,7 +125,6 @@ async function runDryRunTests() {
     // Register Buyer
     mockDb.players.set('identity_player_2', {
       identity: 'identity_player_2',
-      evm_address: '0x2222222222222222222222222222222222222222',
       solana_pubkey: buyerSolPubkey,
     })
 

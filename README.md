@@ -46,10 +46,8 @@ Pentacles/
 │   ├── BattlePanel.cs              # star-target overlay: strike + result
 │   └── DuelPanel.cs                # live PvP "Lane Skirmish" duel
 └── feeder/                     # supervised Bun side-service network
-    ├── all.ts                      # restarts and health-checks all seven workers
     ├── push-ephemeris.ts           # real ephemeris → SpacetimeDB
     ├── solana-sync-service.ts      # Token-2022 logs → idempotent Maincloud sync
-    ├── bridge-service.ts           # verified cross-chain burn/mint settlement
     └── Dockerfile                  # Railway worker image (repo-root build context)
 ```
 
@@ -206,15 +204,13 @@ bun install
 bun run all
 ```
 
-`all.ts` supervises seven long-running workers: Oracle, Word Duel, Jing,
-constellation attestation, omnichain bridge settlement, ephemeris, and Solana
-Token-2022 synchronization. It restarts crashed children with bounded backoff
-and reports a `feeders 7/7 children up` heartbeat. Run one worker directly when
+`all.ts` supervises the long-running side services: Oracle, Word Duel, Jing,
+ephemeris, and Solana Token-2022 synchronization. It restarts crashed children
+with bounded backoff and reports feeder health. Run one worker directly when
 debugging:
 
 ```bash
 cd feeder
-bun run bridge
 bun run solana-sync-service.ts
 bun run push-ephemeris.ts --once
 ```

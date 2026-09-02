@@ -13,7 +13,6 @@ import './polyfill.js'
 // inline `onclick="fn()"` handlers and classic scripts can call it.
 
 import './ui/ui.css'
-import { isAddress, getAddress, formatUnits } from 'viem'
 import { toast, confirmToast } from './ui/toast.js'
 import { initA11y } from './ui/a11y.js'
 import spacetime from './net/spacetime.js'
@@ -26,6 +25,7 @@ import deploy from './net/deploy.js'
 import { installDashboards } from './net/dashboards.js'
 import wallet from './web3/wallet.js'
 import { initEsmsHud } from './web3/hud.js'
+import { ESMS_DECIMALS } from './web3/esms.js'
 import AlchmChart from './alchm-chart/index.js'
 import FactionWar from './alchm-chart/faction-war.js'
 import MyPentacles, { MyCodex } from './alchm-chart/my-pentacles.js'
@@ -41,16 +41,12 @@ Pentacles.cleanupSingularityShaderCanvas = cleanupSingularityShaderCanvas
 window.initSingularityShaderCanvas = initSingularityShaderCanvas
 window.cleanupSingularityShaderCanvas = cleanupSingularityShaderCanvas
 
-// Small shared utilities backed by real npm deps.
+// Small shared utilities
 Pentacles.util = {
-  isAddress,
-  /** Checksum an address, or return null if it isn't a valid EVM address. */
-  toChecksum(addr) {
-    try {
-      return isAddress(addr) ? getAddress(addr) : null
-    } catch {
-      return null
-    }
+  isSolanaAddress(addr) {
+    if (typeof addr !== 'string') return false
+    const trimmed = addr.trim()
+    return trimmed.length >= 32 && trimmed.length <= 44 && !trimmed.startsWith('0x')
   },
 }
 
@@ -111,7 +107,6 @@ async function acProviders() {
   const sky = window.PentaclesSky || {}
   const { makeTradeProvider } = await import('./web3/chart-trade.js')
   const dexModule = await import('./web3/dex.js')
-  const { ESMS_DECIMALS } = await import('./web3/esms.js')
   return {
     sky,
     chart: {
@@ -122,7 +117,7 @@ async function acProviders() {
     amm: {
       readAllPools: () => dexModule.readAllPools(),
       toNumber: (raw) => {
-        try { return Number(formatUnits(raw ?? 0n, ESMS_DECIMALS)) } catch { return 0 }
+        try { return Number(raw ?? 0) / (10 ** ESMS_DECIMALS) } catch { return 0 }
       },
       onChange: (cb) => wallet.onChange(() => cb()),
     },
@@ -141,31 +136,6 @@ async function acProviders() {
       }))
     },
   }
-}
-
-let _burner = null
-Pentacles.getBurner = async () => {
-  if (!_burner) {
-    const m = await import('./web3/burner.js')
-    _burner = m.burner
-  }
-  return _burner
-}
-Object.defineProperty(Pentacles, 'burner', {
-  get() {
-    if (!_burner) import('./web3/burner.js').then((m) => { _burner = m.burner }).catch(() => {})
-    return _burner
-  },
-  configurable: true,
-})
-
-Pentacles.burnEsmsForJing = async (...args) => {
-  const { burnEsmsForJing } = await import('./web3/burner.js')
-  return burnEsmsForJing(...args)
-}
-Pentacles.bridgeEsmsCrosschain = async (...args) => {
-  const { bridgeEsmsCrosschain } = await import('./web3/burner.js')
-  return bridgeEsmsCrosschain(...args)
 }
 
 async function openAlchmChart() {

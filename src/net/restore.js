@@ -71,6 +71,9 @@ export async function restoreProfileFromSpacetimeDB(net, state) {
     const handle = pRow.handle
     console.info(`[CloudSync] Syncing player "${handle}" with SpacetimeDB authoritative state...`)
 
+    // Start live reactive subscriptions immediately for all users (existing & new)
+    startLiveInventorySync(net, state)
+
     // 2. Fetch natal chart (private table, returns only the owner's row)
     const charts = await net.query('SELECT * FROM natal_chart').catch(() => [])
     const ncRow = charts[0]
@@ -87,48 +90,11 @@ export async function restoreProfileFromSpacetimeDB(net, state) {
       (r) => r.owner && (r.owner === myId || sameIdentity(r.owner.__identity__ ?? r.owner, myId))
     )
 
-    // Map cards back to client shape with all metadata populated
-    let clientCollection = myCards.map((c) => {
-      const cardId = Number(c.card_id)
-      const isMajor = !!c.is_major
-      const rawCard = {
-        card_id: cardId,
-        suit: suitName(c.suit),
-        rank: Number(c.rank),
-        health: Number(c.health),
-        attack: Number(c.attack),
-        armour: Number(c.armour),
-        cooldown_ms: Number(c.cooldown_ms),
-        source_body: planetIndex(c.source_body),
-        inverted: !!c.inverted,
-        is_major: isMajor,
-        level: Number(c.level || 1),
-        minted_at: Number(c.minted_at || Date.now()),
-        sign_idx: Number(c.sign_idx ?? 0),
-        letter: c.letter ? String.fromCharCode(c.letter) : letterFor(cardId),
-      }
-      rawCard.title = deriveCardTitle(rawCard)
-      return rawCard
-    })
-
-    // Reconstruct deck slots
-    let clientDeck = []
-    if (mySlots.length > 0) {
-      clientDeck = mySlots.map((s) => ({
-        card_id: Number(s.card_id),
-        loadout: (loadoutName(s.loadout) || 'active').toLowerCase(),
-      }))
-    } else if (clientCollection.length > 0) {
-      clientDeck = clientCollection.map((c, idx) => ({
-        card_id: c.card_id,
-        loadout: idx < 8 ? 'active' : 'bench',
-      }))
-    }
-
-    // Reconstruct chart placements
+    // Reconstruct chart placements first so cards can derive sign_idx
     let clientChart = null
+    let clientPlacements = []
     if (ncRow) {
-      const clientPlacements = (ncRow.placements || []).map((p) => ({
+      clientPlacements = (ncRow.placements || []).map((p) => ({
         body: planetIndex(p.body),
         sign: Number(p.sign),
         arc_minutes: Number(p.arc_minutes),
@@ -151,6 +117,47 @@ export async function restoreProfileFromSpacetimeDB(net, state) {
             : ncRow.house_system
           : 'WholeSign',
       }
+    }
+
+    // Map cards back to client shape with all metadata populated
+    let clientCollection = myCards.map((c) => {
+      const cardId = Number(c.card_id)
+      const isMajor = !!c.is_major
+      const sourceBody = planetIndex(c.source_body)
+      const placement = clientPlacements.find((p) => p.body === sourceBody)
+      const derivedSign = placement ? placement.sign : Number(c.sign_idx ?? 0)
+      const rawCard = {
+        card_id: cardId,
+        suit: suitName(c.suit),
+        rank: Number(c.rank),
+        health: Number(c.health),
+        attack: Number(c.attack),
+        armour: Number(c.armour),
+        cooldown_ms: Number(c.cooldown_ms),
+        source_body: sourceBody,
+        inverted: !!c.inverted,
+        is_major: isMajor,
+        level: Number(c.level || 1),
+        minted_at: Number(c.minted_at || Date.now()),
+        sign_idx: derivedSign,
+        letter: c.letter ? String.fromCharCode(c.letter) : letterFor(cardId),
+      }
+      rawCard.title = deriveCardTitle(rawCard)
+      return rawCard
+    })
+
+    // Reconstruct deck slots
+    let clientDeck = []
+    if (mySlots.length > 0) {
+      clientDeck = mySlots.map((s) => ({
+        card_id: Number(s.card_id),
+        loadout: (loadoutName(s.loadout) || 'active').toLowerCase(),
+      }))
+    } else if (clientCollection.length > 0) {
+      clientDeck = clientCollection.map((c, idx) => ({
+        card_id: c.card_id,
+        loadout: idx < 8 ? 'active' : 'bench',
+      }))
     }
 
     // Check if a local save already exists
@@ -248,10 +255,91 @@ export async function restoreProfileFromSpacetimeDB(net, state) {
       if (window.renderActiveHand) window.renderActiveHand()
       toast(`Restored profile "${handle}" from SpacetimeDB!`, { type: 'success', title: 'Cloud Sync' })
     }
+
+    // Start live reactive subscriptions for continuous inventory/deck sync
+    startLiveInventorySync(net, state)
   } catch (err) {
     console.error('[CloudSync] Failed to restore profile from SpacetimeDB:', err)
   }
 }
 
-export default { restoreProfileFromSpacetimeDB }
+let unsubCards = null
+let unsubSlots = null
+
+/**
+ * Subscribes to live `card` and `deck_slot` tables over WebSocket.
+ * Updates state.collection and state.deck reactively when deltas occur on-chain.
+ */
+export function startLiveInventorySync(net, state) {
+  if (!net || typeof net.subscribe !== 'function' || !net.identity) return
+
+  const myId = net.identity
+
+  if (unsubCards) {
+    try { unsubCards() } catch {}
+    unsubCards = null
+  }
+  if (unsubSlots) {
+    try { unsubSlots() } catch {}
+    unsubSlots = null
+  }
+
+  unsubCards = net.subscribe('card', (cards) => {
+    if (!Array.isArray(cards) || !state) return
+    const myCards = cards.filter(
+      (r) => r.owner && (r.owner === myId || sameIdentity(r.owner.__identity__ ?? r.owner, myId))
+    )
+    if (!myCards.length) return
+
+    const clientPlacements = state.player?.chart?.placements || []
+    const updatedCollection = myCards.map((c) => {
+      const cardId = Number(c.card_id)
+      const isMajor = !!c.is_major
+      const sourceBody = planetIndex(c.source_body)
+      const placement = clientPlacements.find((p) => p.body === sourceBody)
+      const derivedSign = placement ? placement.sign : Number(c.sign_idx ?? 0)
+      const rawCard = {
+        card_id: cardId,
+        suit: suitName(c.suit),
+        rank: Number(c.rank),
+        health: Number(c.health),
+        attack: Number(c.attack),
+        armour: Number(c.armour),
+        cooldown_ms: Number(c.cooldown_ms),
+        source_body: sourceBody,
+        inverted: !!c.inverted,
+        is_major: isMajor,
+        level: Number(c.level || 1),
+        minted_at: Number(c.minted_at || Date.now()),
+        sign_idx: derivedSign,
+        letter: c.letter ? String.fromCharCode(c.letter) : letterFor(cardId),
+      }
+      rawCard.title = deriveCardTitle(rawCard)
+      return rawCard
+    })
+
+    state.collection = updatedCollection
+    if (typeof state.save === 'function') state.save()
+    if (window.renderAll) window.renderAll()
+    if (window.renderActiveHand) window.renderActiveHand()
+  })
+
+  unsubSlots = net.subscribe('deck_slot', (slots) => {
+    if (!Array.isArray(slots) || !state) return
+    const mySlots = slots.filter(
+      (r) => r.owner && (r.owner === myId || sameIdentity(r.owner.__identity__ ?? r.owner, myId))
+    )
+    if (!mySlots.length) return
+
+    state.deck = mySlots.map((s) => ({
+      card_id: Number(s.card_id),
+      loadout: (loadoutName(s.loadout) || 'active').toLowerCase(),
+    }))
+    if (typeof state.save === 'function') state.save()
+    if (window.renderAll) window.renderAll()
+    if (window.renderActiveHand) window.renderActiveHand()
+  })
+}
+
+export default { restoreProfileFromSpacetimeDB, startLiveInventorySync }
 

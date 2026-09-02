@@ -90,24 +90,17 @@ describe('ESMS unit boundary (18-dp ledger ↔ 4-dp Solana atoms)', () => {
 describe('CAIP-2 chain registry', () => {
   test('separates testnets from value-bearing chains', () => {
     expect(isMainnet(CAIP2.solanaMainnet)).toBe(true)
-    expect(isMainnet(CAIP2.baseMainnet)).toBe(true)
     expect(isMainnet(CAIP2.solanaDevnet)).toBe(false)
-    expect(isMainnet(CAIP2.baseSepolia)).toBe(false)
   })
 
   test('maps legacy BridgeChain variants without relabelling history', () => {
-    // SolanaToken2022 predates any mainnet deployment, so every row carrying it
-    // is a devnet row and must keep reading as one.
     expect(bridgeChainToCaip2('SolanaToken2022')).toBe(CAIP2.solanaDevnet)
-    expect(bridgeChainToCaip2('EvmBaseSepolia')).toBe(CAIP2.baseSepolia)
     expect(bridgeChainToCaip2('SolanaMainnetToken2022')).toBe(CAIP2.solanaMainnet)
     expect(caip2ToBridgeChain(CAIP2.solanaMainnet)).toBe('SolanaMainnetToken2022')
     expect(() => bridgeChainToCaip2('Nonsense')).toThrow(/Unknown BridgeChain/)
   })
 
   test('gives devnet and mainnet distinct processed_tx namespaces', () => {
-    // A base58 signature is valid on both clusters; without this the two share
-    // one idempotency namespace and a devnet tx can block a mainnet one.
     expect(processedTxChain(CAIP2.solanaDevnet)).toBe('solana_devnet')
     expect(processedTxChain(CAIP2.solanaMainnet)).toBe('solana_mainnet_beta')
     expect(processedTxChain(CAIP2.solanaDevnet)).not.toBe(processedTxChain(CAIP2.solanaMainnet))
@@ -116,7 +109,6 @@ describe('CAIP-2 chain registry', () => {
   test('builds cluster-correct explorer links', () => {
     expect(txUrl(CAIP2.solanaDevnet, 'sig')).toContain('?cluster=devnet')
     expect(txUrl(CAIP2.solanaMainnet, 'sig')).not.toContain('cluster=')
-    expect(txUrl(CAIP2.baseSepolia, '0xabc')).toBe('https://sepolia.basescan.org/tx/0xabc')
   })
 })
 

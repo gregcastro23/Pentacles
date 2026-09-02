@@ -1,15 +1,10 @@
 // ============================================================
-// Pentacles — ESMS balances (live read + labeled simulation)
+// Pentacles — ESMS balances (live Solana Token-2022 read + simulation)
 // ============================================================
-// ESMS is a soulbound ERC-1155 (ids 0..3), 18 decimals by convention. We read
-// the connected wallet's four balances via balanceOfBatch; with no wallet/chain
-// we show clearly-tagged deterministic simulated balances.
 
-import { formatUnits } from 'viem'
-import { publicClient, ADDRESSES } from './chain.js'
-import { ESMS_ABI } from './abis.js'
+import { readSolanaEsmsBalances } from './solana.js'
 
-export const ESMS_DECIMALS = 18
+export const ESMS_DECIMALS = 4 // Solana Token-2022 ASOL mints
 
 // The four elements — matches client.js ESMS_NAMES/GLYPHS/COLORS exactly.
 export const ESMS = [
@@ -19,17 +14,14 @@ export const ESMS = [
   { id: 3, name: 'Substance', glyph: '🜁', color: '#b98cd6' },
 ]
 
-/** Read the wallet's four ESMS balances from Base Sepolia. Returns formatted strings. */
-export async function readEsmsBalances(address) {
-  const accounts = [address, address, address, address]
-  const ids = [0n, 1n, 2n, 3n]
-  const raw = await publicClient.readContract({
-    address: ADDRESSES.esms,
-    abi: ESMS_ABI,
-    functionName: 'balanceOfBatch',
-    args: [accounts, ids],
+/** Read the wallet's four ESMS balances from Solana Token-2022 mints. Returns formatted strings. */
+export async function readEsmsBalances(solanaAddress) {
+  if (!solanaAddress) return simEsmsBalances('guest')
+  const rawBalances = await readSolanaEsmsBalances(solanaAddress)
+  return rawBalances.map((atoms) => {
+    const formatted = (Number(atoms) / 10_000).toFixed(2)
+    return { raw: atoms, formatted }
   })
-  return raw.map((b) => ({ raw: b, formatted: formatUnits(b, ESMS_DECIMALS) }))
 }
 
 /** Deterministic, clearly-labeled simulated balances (stable per seed). */

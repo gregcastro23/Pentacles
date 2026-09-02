@@ -12,5 +12,5 @@ import {
 
 export default {
   constellationId: __t.u16(),
-  evmAddress: __t.string(),
+  solanaPubkey: __t.string(),
 };

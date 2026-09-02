@@ -258,6 +258,15 @@ fn register_chart(
     schedule_rounds: bool,
     agent_public: bool,
 ) -> Result<(), String> {
+    let trimmed_handle = handle.trim();
+    if trimmed_handle.len() < 2 || trimmed_handle.len() > 32 {
+        return Err("handle must be between 2 and 32 characters".into());
+    }
+    if !trimmed_handle.chars().all(|c| c.is_alphanumeric() || c == '_' || c == '-' || c == ' ') {
+        return Err("handle may only contain alphanumeric characters, spaces, hyphens, and underscores".into());
+    }
+    let handle = trimmed_handle.to_string();
+
     // The chosen faction must be one of the chart's top-3 dignity scores.
     let scores = chart::faction_scores(&chart);
     let mut ranked: Vec<(usize, f32)> = scores.iter().copied().enumerate().collect();
@@ -323,13 +332,13 @@ fn register_chart(
     };
 
     // Re-registration re-mints the deck but must never wipe the token wallet / ladder / wallet bindings.
-    let (tokens, word_wins, evm_address, solana_pubkey) = ctx
+    let (tokens, word_wins, solana_pubkey) = ctx
         .db
         .player()
         .identity()
         .find(&owner)
-        .map(|p| (p.tokens, p.word_wins, p.evm_address, p.solana_pubkey))
-        .unwrap_or((0, 0, None, None));
+        .map(|p| (p.tokens, p.word_wins, p.solana_pubkey))
+        .unwrap_or((0, 0, None));
     let player = Player {
         identity: owner,
         handle,
@@ -339,7 +348,6 @@ fn register_chart(
         last_active: ctx.timestamp,
         tokens,
         word_wins,
-        evm_address,
         solana_pubkey,
     };
     if ctx.db.player().identity().find(&owner).is_some() {
@@ -442,22 +450,18 @@ fn purge_player_fully(ctx: &ReducerContext, id: Identity) {
 }
 
 /// GDPR Art. 17 — Right to be Forgotten / Right to Erasure reducer.
-/// Deletes private NatalChart, removes verified EVM/Solana wallets, and resets
+/// Deletes private NatalChart, removes verified Solana wallet, and resets
 /// the Player handle to anonymized-seeker-<identity> while clearing linked wallets.
 #[reducer]
 pub fn delete_player_data(ctx: &ReducerContext) -> Result<(), String> {
     let sender = ctx.sender();
     if let Some(mut player) = ctx.db.player().identity().find(&sender) {
         player.handle = format!("anonymized-seeker-{}", sender);
-        player.evm_address = None;
         player.solana_pubkey = None;
         ctx.db.player().identity().update(player);
     }
     if ctx.db.natal_chart().identity().find(&sender).is_some() {
         ctx.db.natal_chart().identity().delete(&sender);
-    }
-    if ctx.db.verified_evm_wallet().identity().find(&sender).is_some() {
-        ctx.db.verified_evm_wallet().identity().delete(&sender);
     }
     if ctx.db.verified_solana_wallet().identity().find(&sender).is_some() {
         ctx.db.verified_solana_wallet().identity().delete(&sender);
@@ -4153,16 +4157,7 @@ fn seed_star_batch(ctx: &ReducerContext, start: usize, count: usize) -> u32 {
     end as u32
 }
 
-fn normalized_evm_tx_hash(raw: &str, field: &str) -> Result<String, String> {
-    let hash = raw.trim().to_ascii_lowercase();
-    if hash.len() != 66
-        || !hash.starts_with("0x")
-        || !hash[2..].bytes().all(|b| b.is_ascii_hexdigit())
-    {
-        return Err(format!("{field} must be a 0x-prefixed 32-byte transaction hash"));
-    }
-    Ok(hash)
-}
+
 
 fn normalized_solana_signature(raw: &str, field: &str) -> Result<String, String> {
     let signature = raw.trim();
@@ -4253,8 +4248,8 @@ fn record_horizon_action(
         });
 }
 
-/// Bind a StarDex mutation to an unexpired, feeder-written EIP-712 horizon
-/// attestation whose subject is the caller's bound EVM wallet.
+/// Bind a StarDex mutation to an unexpired, feeder-written horizon
+/// attestation whose subject is the caller's bound Solana wallet.
 fn verified_stardex_player(
     ctx: &ReducerContext,
     horizon_intent_id: u64,
@@ -4266,22 +4261,22 @@ fn verified_stardex_player(
         .identity()
         .find(&ctx.sender())
         .ok_or_else(|| "player profile not found".to_string())?;
-    let bound_evm = player
-        .evm_address
+    let bound_sol = player
+        .solana_pubkey
         .as_deref()
         .map(str::trim)
         .filter(|address| !address.is_empty())
-        .ok_or_else(|| "No EVM address bound to player profile".to_string())?
-        .to_ascii_lowercase();
+        .ok_or_else(|| "No Solana address bound to player profile".to_string())?
+        .to_string();
     let verified_binding = ctx
         .db
-        .verified_evm_wallet()
+        .verified_solana_wallet()
         .identity()
         .find(&ctx.sender())
-        .filter(|binding| binding.evm_address.eq_ignore_ascii_case(&bound_evm))
-        .ok_or_else(|| "EVM wallet ownership has not been verified".to_string())?;
+        .filter(|binding| binding.solana_pubkey == bound_sol)
+        .ok_or_else(|| "Solana wallet ownership has not been verified".to_string())?;
     if verified_binding.proof_hash.is_empty() {
-        return Err("EVM wallet ownership proof is invalid".into());
+        return Err("Solana wallet ownership proof is invalid".into());
     }
     let intent = ctx
         .db
@@ -4291,9 +4286,6 @@ fn verified_stardex_player(
         .ok_or_else(|| "horizon trace intent not found".to_string())?;
     if intent.trader != ctx.sender() {
         return Err("horizon attestation belongs to a different player".into());
-    }
-    if intent.evm_address.trim().to_ascii_lowercase() != bound_evm {
-        return Err("bound EVM address does not match the horizon attestation trader".into());
     }
     if !intent.attested {
         return Err("horizon trace has not been attested".into());
@@ -4342,8 +4334,8 @@ pub fn sync_stardex_ephemeris(
     lon: f64,
     elev_m: f64,
 ) -> Result<(), String> {
-    let hash = normalized_evm_tx_hash(&tx_hash, "tx_hash")?;
-    ensure_unprocessed(ctx, "evm_base_sepolia", &hash)?;
+    let hash = normalized_solana_signature(&tx_hash, "tx_hash")?;
+    ensure_unprocessed(ctx, "solana_token_2022", &hash)?;
     verified_stardex_player(ctx, horizon_intent_id, None)?;
     let action_key =
         ensure_horizon_action_unspent(ctx, horizon_intent_id, "sync_stardex_ephemeris")?;
@@ -4396,7 +4388,7 @@ pub fn sync_stardex_ephemeris(
     }
 
     record_horizon_action(ctx, action_key, horizon_intent_id, hash.clone());
-    record_processed(ctx, hash, "evm_base_sepolia", "sync_stardex_ephemeris");
+    record_processed(ctx, hash, "solana_token_2022", "sync_stardex_ephemeris");
     Ok(())
 }
 
@@ -4424,8 +4416,8 @@ pub fn stardex_claim_constellation(
     horizon_intent_id: u64,
     constellation_name: String,
 ) -> Result<(), String> {
-    let hash = normalized_evm_tx_hash(&tx_hash, "tx_hash")?;
-    ensure_unprocessed(ctx, "evm_base_sepolia", &hash)?;
+    let hash = normalized_solana_signature(&tx_hash, "tx_hash")?;
+    ensure_unprocessed(ctx, "solana_token_2022", &hash)?;
     let mut player = verified_stardex_player(ctx, horizon_intent_id, Some(&constellation_name))?;
     let action_key = ensure_horizon_action_unspent(
         ctx,
@@ -4460,7 +4452,7 @@ pub fn stardex_claim_constellation(
     player.tokens += bonus;
     ctx.db.player().identity().update(player.clone());
     record_horizon_action(ctx, action_key, horizon_intent_id, hash.clone());
-    record_processed(ctx, hash, "evm_base_sepolia", "stardex_claim_constellation");
+    record_processed(ctx, hash, "solana_token_2022", "stardex_claim_constellation");
     log::info!("Player {} claimed StarDex constellation bonus: +{} tokens for {}", player.handle, bonus, constellation_name);
     Ok(())
 }
@@ -4474,8 +4466,8 @@ pub fn stardex_fortify_node(
     star_id: u32,
     energy_amount: u32,
 ) -> Result<(), String> {
-    let hash = normalized_evm_tx_hash(&tx_hash, "tx_hash")?;
-    ensure_unprocessed(ctx, "evm_base_sepolia", &hash)?;
+    let hash = normalized_solana_signature(&tx_hash, "tx_hash")?;
+    ensure_unprocessed(ctx, "solana_token_2022", &hash)?;
     let mut star = ctx.db.star_node().hip_id().find(&star_id).ok_or("star node not found")?;
     let player = verified_stardex_player(ctx, horizon_intent_id, Some(&star.constellation))?;
     let action_key = ensure_horizon_action_unspent(
@@ -4495,7 +4487,7 @@ pub fn stardex_fortify_node(
     star.magnitude = (star.magnitude - (energy_amount as f32 * 0.05)).max(-2.0);
     ctx.db.star_node().hip_id().update(star);
     record_horizon_action(ctx, action_key, horizon_intent_id, hash.clone());
-    record_processed(ctx, hash, "evm_base_sepolia", "stardex_fortify_node");
+    record_processed(ctx, hash, "solana_token_2022", "stardex_fortify_node");
     log::info!("Player {} fortified StarDex node {} (+{} energy)", player.handle, star_id, energy_amount);
     Ok(())
 }
@@ -4553,24 +4545,20 @@ fn seed_constellations(ctx: &ReducerContext) {
 pub fn trace_constellation(
     ctx: &ReducerContext,
     constellation_id: u16,
-    evm_address: String,
+    solana_pubkey: String,
 ) -> Result<(), String> {
-    // The on-chain attestation is bound to this EVM wallet; the trader must submit
-    // `seedLiquidity` from it (the AMM checks `att.trader == msg.sender`).
-    // Authoritatively check the player's bound EVM address from their Player record first.
-    let bound_evm = ctx
+    let bound_sol = ctx
         .db
         .player()
         .identity()
         .find(&ctx.sender())
-        .and_then(|p| p.evm_address);
-    let evm = match bound_evm {
-        Some(addr) if !addr.trim().is_empty() => addr.trim().to_lowercase(),
-        _ => evm_address.trim().to_lowercase(),
+        .and_then(|p| p.solana_pubkey);
+    let sol = match bound_sol {
+        Some(addr) if !addr.trim().is_empty() => addr.trim().to_string(),
+        _ => solana_pubkey.trim().to_string(),
     };
-    if evm.len() != 42 || !evm.starts_with("0x") || !evm[2..].bytes().all(|b| b.is_ascii_hexdigit())
-    {
-        return Err("evm_address must be a 0x-prefixed 20-byte hex address".into());
+    if sol.len() < 32 || sol.len() > 44 {
+        return Err("solana_pubkey must be a base58 public key".into());
     }
     let loc = ctx
         .db
@@ -4608,7 +4596,7 @@ pub fn trace_constellation(
     ctx.db.trace_intent().insert(TraceIntent {
         intent_id: 0,
         trader: ctx.sender(),
-        evm_address: evm,
+        solana_pubkey: sol,
         constellation_id,
         visible_stars: visible,
         attested: false,
@@ -6062,7 +6050,7 @@ pub fn open_identity_link(ctx: &ReducerContext, code_hash: String) -> Result<(),
 /// player keeps their chart, cards, loadout, pools, stakes, history and trophies
 /// under the signed-in identity. The new identity must not already have a
 /// profile (no merging). Deliberately left untouched: `battle` / classic `duel`
-/// logs (historical), and `trace_intent`/`trace_attestation` (EVM-addressed,
+/// logs (historical), and `trace_intent`/`trace_attestation` (Solana-addressed,
 /// TTL-pruned spent paper).
 #[reducer]
 pub fn claim_profile(ctx: &ReducerContext, code: String) -> Result<(), String> {
@@ -6118,11 +6106,6 @@ pub fn claim_profile(ctx: &ReducerContext, code: String) -> Result<(), String> {
         ctx.db.jing_pool().identity().delete(&old);
         r.identity = new;
         ctx.db.jing_pool().insert(r);
-    }
-    if let Some(mut r) = ctx.db.verified_evm_wallet().identity().find(&old) {
-        ctx.db.verified_evm_wallet().identity().delete(&old);
-        r.identity = new;
-        ctx.db.verified_evm_wallet().insert(r);
     }
     if let Some(mut r) = ctx.db.verified_solana_wallet().identity().find(&old) {
         ctx.db.verified_solana_wallet().identity().delete(&old);
@@ -6278,406 +6261,125 @@ pub fn claim_profile(ctx: &ReducerContext, code: String) -> Result<(), String> {
     Ok(())
 }
 
-/// Bind an EVM or Solana wallet to the player's SpacetimeDB profile.
+
+/// Authenticated Solana wallet binding. Verifies an Ed25519 signature of a domain-separated
+/// challenge directly in SpacetimeDB and binds the verified Solana pubkey to ctx.sender().
 #[reducer]
-pub fn bind_wallet_address(
+pub fn bind_solana_wallet(
     ctx: &ReducerContext,
-    evm_address: Option<String>,
-    solana_pubkey: Option<String>,
+    cluster: String,
+    solana_pubkey: String,
+    signature_b58: String,
+    deadline_secs: u64,
 ) -> Result<(), String> {
+    let clean_cluster = cluster.trim().to_ascii_lowercase();
+    if clean_cluster != "devnet" && clean_cluster != "mainnet-beta" {
+        return Err("cluster must be 'devnet' or 'mainnet-beta'".into());
+    }
+
+    let sender = ctx.sender();
     let mut player = ctx
         .db
         .player()
         .identity()
-        .find(&ctx.sender())
+        .find(&sender)
         .ok_or_else(|| "player profile not found — register first (create_player)".to_string())?;
 
     let now_sec = (ctx.timestamp.to_micros_since_unix_epoch() / 1_000_000) as i64;
-    if let Some(chart) = ctx.db.natal_chart().identity().find(&ctx.sender()) {
+    if let Some(chart) = ctx.db.natal_chart().identity().find(&sender) {
         if chart::is_minor(chart.birth_unix, now_sec) {
             return Err("Minor age restriction: Web3 / Token-2022 wallet binding requires verified parental consent under NY SAFE Kids Act".into());
         }
     }
 
-    if let Some(ref evm) = evm_address {
-        let clean_evm = evm.trim().to_lowercase();
-        if clean_evm.len() != 42 || !clean_evm.starts_with("0x") || !clean_evm[2..].bytes().all(|b| b.is_ascii_hexdigit()) {
-            return Err("evm_address must be a 0x-prefixed 20-byte hex address".into());
-        }
-        if player.evm_address.as_deref() != Some(clean_evm.as_str()) {
-            ctx.db
-                .verified_evm_wallet()
-                .identity()
-                .delete(&ctx.sender());
-        }
-        player.evm_address = Some(clean_evm);
+    let pubkey_str = solana_pubkey.trim();
+    let pubkey_bytes = bs58::decode(pubkey_str)
+        .into_vec()
+        .map_err(|_| "solana_pubkey is not valid base58".to_string())?;
+    if pubkey_bytes.len() != 32 {
+        return Err("solana_pubkey must decode to exactly 32 bytes".into());
     }
 
-    if let Some(ref sol) = solana_pubkey {
-        let clean_sol = sol.trim().to_string();
-        if clean_sol.len() < 32 || clean_sol.len() > 44 {
-            return Err("invalid solana_pubkey format".into());
-        }
-        if player.solana_pubkey.as_deref() != Some(clean_sol.as_str()) {
-            ctx.db
-                .verified_solana_wallet()
-                .identity()
-                .delete(&ctx.sender());
-        }
-        player.solana_pubkey = Some(clean_sol);
+    let sig_bytes = bs58::decode(signature_b58.trim())
+        .into_vec()
+        .map_err(|_| "signature is not valid base58".to_string())?;
+    if sig_bytes.len() != 64 {
+        return Err("signature must decode to exactly 64 bytes".into());
     }
 
-    ctx.db.player().identity().update(player);
-    Ok(())
-}
+    let now_secs = (ctx.timestamp.to_micros_since_unix_epoch() / 1_000_000) as u64;
+    if deadline_secs < now_secs {
+        return Err("wallet binding authorization expired".into());
+    }
+    if deadline_secs > now_secs + 900 {
+        return Err("wallet binding deadline is too far in the future".into());
+    }
 
-/// Owner-authenticated callback after the HTTP verifier recovers the holder's
-/// EIP-712 WalletBinding signature.
-#[reducer]
-pub fn verify_evm_wallet_binding(
-    ctx: &ReducerContext,
-    player_identity: Identity,
-    evm_address: String,
-    proof_hash: String,
-) -> Result<(), String> {
-    let cfg = ctx.db.game_config().id().find(&0).ok_or("game not initialised")?;
-    if ctx.sender() != cfg.owner {
-        return Err("verify_evm_wallet_binding: admin/verifier only".into());
-    }
-    let address = evm_address.trim().to_ascii_lowercase();
-    if address.len() != 42
-        || !address.starts_with("0x")
-        || !address[2..].bytes().all(|b| b.is_ascii_hexdigit())
-    {
-        return Err("evm_address must be a 0x-prefixed 20-byte hex address".into());
-    }
-    let proof = normalized_evm_tx_hash(&proof_hash, "proof_hash")?;
-    let player = ctx
-        .db
-        .player()
-        .identity()
-        .find(&player_identity)
-        .ok_or_else(|| "player profile not found".to_string())?;
-    if !player
-        .evm_address
-        .as_deref()
-        .is_some_and(|bound| bound.eq_ignore_ascii_case(&address))
-    {
-        return Err("verified wallet does not match the player's current binding".into());
-    }
-    if ctx
-        .db
-        .verified_evm_wallet()
-        .evm_address()
-        .find(&address)
-        .is_some_and(|existing| existing.identity != player_identity)
-    {
-        return Err("EVM wallet is already verified for another player".into());
-    }
-    let row = VerifiedEvmWallet {
-        identity: player_identity,
-        evm_address: address,
-        proof_hash: proof,
-        verified_at: ctx.timestamp,
-    };
-    if ctx
-        .db
-        .verified_evm_wallet()
-        .identity()
-        .find(&player_identity)
-        .is_some()
-    {
-        ctx.db.verified_evm_wallet().identity().update(row);
-    } else {
-        ctx.db.verified_evm_wallet().insert(row);
-    }
-    Ok(())
-}
+    let sender_hex = format!("0x{}", hex_bytes(sender.as_bytes()));
+    let message = format!(
+        "Pentacles Solana Wallet Binding\nDomain: pentacles.alchm.kitchen\nCluster: {}\nIdentity: {}\nPubkey: {}\nDeadline: {}",
+        clean_cluster, sender_hex, pubkey_str, deadline_secs
+    );
 
-/// Owner-authenticated callback after the HTTP verifier validates the holder's
-/// Ed25519 Solana WalletBinding signature.
-#[reducer]
-pub fn verify_solana_wallet_binding(
-    ctx: &ReducerContext,
-    player_identity: Identity,
-    solana_pubkey: String,
-    proof_hash: String,
-) -> Result<(), String> {
-    let cfg = ctx.db.game_config().id().find(&0).ok_or("game not initialised")?;
-    if ctx.sender() != cfg.owner {
-        return Err("verify_solana_wallet_binding: admin/verifier only".into());
-    }
-    let pubkey = solana_pubkey.trim().to_string();
-    if !(32..=44).contains(&pubkey.len())
-        || !pubkey.bytes().all(|b| {
-            matches!(b, b'1'..=b'9' | b'A'..=b'H' | b'J'..=b'N' | b'P'..=b'Z' | b'a'..=b'k' | b'm'..=b'z')
-        })
-    {
-        return Err("solana_pubkey must be a base58 public key".into());
-    }
-    let proof = normalized_evm_tx_hash(&proof_hash, "proof_hash")?;
-    let player = ctx
-        .db
-        .player()
-        .identity()
-        .find(&player_identity)
-        .ok_or_else(|| "player profile not found".to_string())?;
-    if player.solana_pubkey.as_deref() != Some(pubkey.as_str()) {
-        return Err("verified wallet does not match the player's current binding".into());
-    }
+    use ed25519_dalek::{Signature, Verifier, VerifyingKey};
+    let pubkey_array: [u8; 32] = pubkey_bytes.as_slice().try_into().unwrap();
+    let verifying_key = VerifyingKey::from_bytes(&pubkey_array)
+        .map_err(|e| format!("invalid ed25519 public key: {}", e))?;
+    let sig_array: [u8; 64] = sig_bytes.as_slice().try_into().unwrap();
+    let signature = Signature::from_bytes(&sig_array);
+
+    verifying_key
+        .verify(message.as_bytes(), &signature)
+        .map_err(|_| "ed25519 signature verification failed".to_string())?;
+
     if ctx
         .db
         .verified_solana_wallet()
         .solana_pubkey()
-        .find(&pubkey)
-        .is_some_and(|existing| existing.identity != player_identity)
+        .find(&pubkey_str.to_string())
+        .is_some_and(|existing| existing.identity != sender)
     {
         return Err("Solana wallet is already verified for another player".into());
     }
+
+    use sha2::{Digest, Sha256};
+    let hash_bytes = Sha256::digest(message.as_bytes());
+    let proof_hash = format!("0x{}", hex_bytes(&hash_bytes));
+
     let row = VerifiedSolanaWallet {
-        identity: player_identity,
-        solana_pubkey: pubkey,
-        proof_hash: proof,
+        identity: sender,
+        solana_pubkey: pubkey_str.to_string(),
+        proof_hash,
         verified_at: ctx.timestamp,
     };
-    if ctx
-        .db
-        .verified_solana_wallet()
-        .identity()
-        .find(&player_identity)
-        .is_some()
-    {
+
+    if ctx.db.verified_solana_wallet().identity().find(&sender).is_some() {
         ctx.db.verified_solana_wallet().identity().update(row);
     } else {
         ctx.db.verified_solana_wallet().insert(row);
     }
+
+    player.solana_pubkey = Some(pubkey_str.to_string());
+    ctx.db.player().identity().update(player);
+
     Ok(())
+}
+
+fn hex_bytes(bytes: &[u8]) -> String {
+    use std::fmt::Write;
+    let mut s = String::with_capacity(bytes.len() * 2);
+    for b in bytes {
+        let _ = write!(s, "{:02x}", b);
+    }
+    s
 }
 
 fn parse_bridge_chain(value: &str, field: &str) -> Result<BridgeChain, String> {
     match value.trim().to_ascii_lowercase().as_str() {
-        "evm_base_sepolia" => Ok(BridgeChain::EvmBaseSepolia),
-        "solana_token_2022" => Ok(BridgeChain::SolanaToken2022),
-        _ => Err(format!("{field} is not a supported bridge chain")),
+        "solana_token_2022" | "solana_devnet" => Ok(BridgeChain::SolanaToken2022),
+        "solana_mainnet_token_2022" | "solana_mainnet_beta" => Ok(BridgeChain::SolanaMainnetToken2022),
+        _ => Err(format!("{field} is not a supported Solana cluster")),
     }
-}
-
-struct ValidatedBridgeRequest {
-    source: BridgeChain,
-    target: BridgeChain,
-    source_name: String,
-    target_name: String,
-    evm: String,
-    solana: String,
-}
-
-fn validate_bridge_request(
-    ctx: &ReducerContext,
-    source_chain: &str,
-    target_chain: &str,
-    element_id: u8,
-    amount: u128,
-) -> Result<ValidatedBridgeRequest, String> {
-    if element_id > 3 {
-        return Err("element_id must be between 0 and 3".into());
-    }
-    if amount == 0 {
-        return Err("amount must be greater than zero".into());
-    }
-    if amount > u64::MAX as u128 {
-        return Err("amount exceeds the Solana Token-2022 u64 range".into());
-    }
-    let source_name = source_chain.trim().to_ascii_lowercase();
-    let target_name = target_chain.trim().to_ascii_lowercase();
-    let source = parse_bridge_chain(&source_name, "source_chain")?;
-    let target = parse_bridge_chain(&target_name, "target_chain")?;
-    let supported_pair = matches!(
-        (source, target),
-        (BridgeChain::EvmBaseSepolia, BridgeChain::SolanaToken2022)
-            | (BridgeChain::SolanaToken2022, BridgeChain::EvmBaseSepolia)
-    );
-    if !supported_pair {
-        return Err("source_chain and target_chain must be opposite supported chains".into());
-    }
-
-    let player = ctx
-        .db
-        .player()
-        .identity()
-        .find(&ctx.sender())
-        .ok_or_else(|| "player profile not found".to_string())?;
-    let evm = player
-        .evm_address
-        .as_deref()
-        .map(str::trim)
-        .filter(|address| !address.is_empty())
-        .ok_or_else(|| "bind an EVM wallet before bridging".to_string())?
-        .to_ascii_lowercase();
-    if evm.len() != 42
-        || !evm.starts_with("0x")
-        || !evm[2..].bytes().all(|b| b.is_ascii_hexdigit())
-    {
-        return Err("bound EVM address is invalid".into());
-    }
-    let solana = player
-        .solana_pubkey
-        .as_deref()
-        .map(str::trim)
-        .filter(|address| !address.is_empty())
-        .ok_or_else(|| "bind a Solana wallet before bridging".to_string())?
-        .to_string();
-    if !ctx
-        .db
-        .verified_evm_wallet()
-        .identity()
-        .find(&ctx.sender())
-        .is_some_and(|binding| binding.evm_address.eq_ignore_ascii_case(&evm))
-    {
-        return Err("verify the bound EVM wallet before bridging".into());
-    }
-    if !ctx
-        .db
-        .verified_solana_wallet()
-        .identity()
-        .find(&ctx.sender())
-        .is_some_and(|binding| binding.solana_pubkey == solana)
-    {
-        return Err("verify the bound Solana wallet before bridging".into());
-    }
-
-    Ok(ValidatedBridgeRequest {
-        source,
-        target,
-        source_name,
-        target_name,
-        evm,
-        solana,
-    })
-}
-
-/// Preflight every reducer-side bridge requirement that can be checked before
-/// the source burn exists, preventing an irreversible burn with no mint record.
-#[reducer]
-pub fn assert_esms_bridge_ready(
-    ctx: &ReducerContext,
-    source_chain: String,
-    target_chain: String,
-    element_id: u8,
-    amount: u128,
-) -> Result<(), String> {
-    validate_bridge_request(ctx, &source_chain, &target_chain, element_id, amount)?;
-    Ok(())
-}
-
-/// Register a claimed source-chain ESMS burn for feeder verification and a
-/// pending mint on the other supported chain. Both wallet bindings are captured
-/// from the caller's Player row, so the destination cannot be redirected.
-#[reducer]
-pub fn bridge_esms_crosschain(
-    ctx: &ReducerContext,
-    burn_tx_hash: String,
-    source_chain: String,
-    target_chain: String,
-    element_id: u8,
-    amount: u128,
-) -> Result<(), String> {
-    let ValidatedBridgeRequest {
-        source,
-        target,
-        source_name,
-        target_name,
-        evm,
-        solana,
-    } = validate_bridge_request(ctx, &source_chain, &target_chain, element_id, amount)?;
-    let hash = if source == BridgeChain::EvmBaseSepolia {
-        normalized_evm_tx_hash(&burn_tx_hash, "burn_tx_hash")?
-    } else {
-        normalized_solana_signature(&burn_tx_hash, "burn_tx_hash")?
-    };
-    if ctx
-        .db
-        .bridge_transfer()
-        .burn_tx_hash()
-        .find(&hash)
-        .is_some()
-    {
-        return Err("Bridge burn transaction already registered".into());
-    }
-    ensure_unprocessed(ctx, source.chain_key(), &hash)?;
-    let (source_address, target_address) = if source == BridgeChain::EvmBaseSepolia {
-        (evm, solana)
-    } else {
-        (solana, evm)
-    };
-
-    ctx.db.bridge_transfer().insert(BridgeTransfer {
-        burn_tx_hash: hash.clone(),
-        player: ctx.sender(),
-        source_chain: source,
-        target_chain: target,
-        source_address,
-        target_address,
-        element_id,
-        amount,
-        status: BridgeStatus::PendingMint,
-        destination_tx_hash: None,
-        created_at: ctx.timestamp,
-        updated_at: ctx.timestamp,
-    });
-    record_processed(
-        ctx,
-        hash,
-        &source_name,
-        &format!("bridge_burn_to_{target_name}"),
-    );
-    Ok(())
-}
-
-/// Owner-only bridge feeder acknowledgement after it verifies the source burn
-/// and observes the exact destination mint.
-#[reducer]
-pub fn complete_esms_bridge(
-    ctx: &ReducerContext,
-    burn_tx_hash: String,
-    destination_tx_hash: String,
-) -> Result<(), String> {
-    let cfg = ctx.db.game_config().id().find(&0).ok_or("game not initialised")?;
-    if ctx.sender() != cfg.owner {
-        return Err("complete_esms_bridge: admin/feeder only".into());
-    }
-    let mut transfer = ctx
-        .db
-        .bridge_transfer()
-        .burn_tx_hash()
-        .find(&burn_tx_hash)
-        .ok_or_else(|| "bridge transfer not found".to_string())?;
-    let destination_hash = if transfer.target_chain.is_solana() {
-        normalized_solana_signature(&destination_tx_hash, "destination_tx_hash")?
-    } else {
-        normalized_evm_tx_hash(&destination_tx_hash, "destination_tx_hash")?
-    };
-    if transfer.status == BridgeStatus::Completed {
-        return if transfer.destination_tx_hash.as_deref() == Some(destination_hash.as_str()) {
-            Ok(())
-        } else {
-            Err("bridge transfer already completed with a different destination transaction".into())
-        };
-    }
-    ensure_unprocessed(ctx, transfer.target_chain.chain_key(), &destination_hash)?;
-    transfer.status = BridgeStatus::Completed;
-    transfer.destination_tx_hash = Some(destination_hash.clone());
-    transfer.updated_at = ctx.timestamp;
-    ctx.db
-        .bridge_transfer()
-        .burn_tx_hash()
-        .update(transfer.clone());
-    record_processed(
-        ctx,
-        destination_hash,
-        transfer.target_chain.chain_key(),
-        "bridge_destination_mint",
-    );
-    Ok(())
 }
 
 /// The module ledger counts ESMS in 18-decimal base units, matching the Base
@@ -6779,54 +6481,6 @@ fn apply_esms_event_to_jing_pool(
     } else {
         ctx.db.jing_pool().insert(pool);
     }
-    Ok(())
-}
-
-/// Feeder sync for a confirmed Base Sepolia Redeemed/mint event.
-#[reducer]
-pub fn sync_evm_event(
-    ctx: &ReducerContext,
-    tx_hash: String,
-    player_address: String,
-    event_type: String,
-    element_id: u8,
-    amount: String,
-) -> Result<(), String> {
-    let cfg = ctx.db.game_config().id().find(&0).ok_or("game not initialised")?;
-    if ctx.sender() != cfg.owner {
-        return Err("sync_evm_event: admin/feeder only".into());
-    }
-    let hash = normalized_evm_tx_hash(&tx_hash, "tx_hash")?;
-    ensure_unprocessed(ctx, "evm_base_sepolia", &hash)?;
-    let address = player_address.trim().to_ascii_lowercase();
-    let player = ctx
-        .db
-        .player()
-        .iter()
-        .find(|row| {
-            row.evm_address
-                .as_deref()
-                .is_some_and(|bound| bound.trim().eq_ignore_ascii_case(&address))
-        })
-        .ok_or_else(|| "no player bound to EVM event address".to_string())?;
-    if !ctx
-        .db
-        .verified_evm_wallet()
-        .identity()
-        .find(&player.identity)
-        .is_some_and(|binding| binding.evm_address.eq_ignore_ascii_case(&address))
-    {
-        return Err("EVM event wallet ownership has not been verified".into());
-    }
-    let parsed_amount = amount
-        .trim()
-        .parse::<u128>()
-        .map_err(|_| "amount must be an unsigned integer string".to_string())?;
-    if parsed_amount == 0 {
-        return Err("amount must be greater than zero".into());
-    }
-    apply_esms_event_to_jing_pool(ctx, &player, &event_type, element_id, parsed_amount)?;
-    record_processed(ctx, hash, "evm_base_sepolia", &event_type);
     Ok(())
 }
 

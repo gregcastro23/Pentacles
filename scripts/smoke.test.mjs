@@ -1,15 +1,13 @@
 // ============================================================
-// Pentacles — Production Build & API Smoke Test
+// Pentacles — Production Build Smoke Test (Solana Architecture)
 // ============================================================
 // Asserts that the production build boots cleanly in a browser-like DOM
 // environment without ReferenceErrors (Buffer, etc.), registers all
-// required window bridges, mounts UI overlays, and that serverless API
-// handlers respond with valid non-404 status codes.
+// required window bridges, mounts UI overlays, and that card art
+// assets and Solana Web3 facades load properly.
 
 import { readdir, readFile } from 'fs/promises'
 import { join } from 'path'
-import { handleBurnSettlement } from '../settlement/esms-redeemer.js'
-import { handleWalletVerification } from '../settlement/wallet-verifier.js'
 
 const ROOT = process.cwd()
 
@@ -30,44 +28,7 @@ if (!deckSource.includes('/assets/suits/wands.jpg')) {
 }
 console.log('  ✓ Card art uses shipped local assets without third-party CDN dependencies')
 
-console.log('▶ 3 · Verifying /api/web3 endpoints (non-404, method & payload gating)...')
-
-// Test burn-esms endpoint
-const getBurnRes = await handleBurnSettlement(new Request('http://localhost/api/web3/burn-esms', { method: 'GET' }))
-if (getBurnRes.status !== 405) {
-  throw new Error(`Expected GET /api/web3/burn-esms to return 405, got ${getBurnRes.status}`)
-}
-
-const badBurnRes = await handleBurnSettlement(
-  new Request('http://localhost/api/web3/burn-esms', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ invalid: true }),
-  })
-)
-if (badBurnRes.status !== 400) {
-  throw new Error(`Expected invalid POST /api/web3/burn-esms to return 400, got ${badBurnRes.status}`)
-}
-
-// Test verify-wallet endpoint
-const getVerifyRes = await handleWalletVerification(new Request('http://localhost/api/web3/verify-wallet', { method: 'GET' }))
-if (getVerifyRes.status !== 405) {
-  throw new Error(`Expected GET /api/web3/verify-wallet to return 405, got ${getVerifyRes.status}`)
-}
-
-const badVerifyRes = await handleWalletVerification(
-  new Request('http://localhost/api/web3/verify-wallet', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ invalid: true }),
-  })
-)
-if (badVerifyRes.status !== 400) {
-  throw new Error(`Expected invalid POST /api/web3/verify-wallet to return 400, got ${badVerifyRes.status}`)
-}
-console.log('  ✓ /api/web3/burn-esms and /api/web3/verify-wallet are active and validated')
-
-console.log('▶ 4 · Verifying DOM environment and window bridge registration...')
+console.log('▶ 3 · Verifying DOM environment and window bridge registration...')
 // Setup minimal DOM window environment to test ESM main bundle
 if (typeof globalThis.window === 'undefined') {
   globalThis.window = globalThis

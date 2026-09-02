@@ -639,10 +639,16 @@ export class MyPentaclesInstance {
           console.warn("[MyPentacles] set_loadout reducer failed, rolling back:", err);
           if (existingIdx >= 0) {
             deck[existingIdx].loadout = prevLoadout;
+          } else {
+            const rollbackIdx = deck.findIndex((d) => Number(d.card_id) === cardIdNum);
+            if (rollbackIdx >= 0) deck.splice(rollbackIdx, 1);
           }
           st.deck = deck;
           if (typeof st.save === "function") {
             try { st.save(); } catch {}
+          }
+          if (typeof window !== "undefined" && window.renderActiveHand) {
+            try { window.renderActiveHand(); } catch {}
           }
           if (typeof window !== "undefined" && window.toast) {
             window.toast(`Failed to update loadout on server: ${err?.message || err}`, { type: "error" });

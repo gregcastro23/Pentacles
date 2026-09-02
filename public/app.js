@@ -1,5 +1,16 @@
     // ---- WEB CLIENT UI RENDERING BINDINGS ----
 
+    function escapeHTML(str) {
+      if (str == null) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+    window.escapeHTML = escapeHTML;
+
     const ZONE_CENTERS = {
       10: { alt: 75, az: 0 },
       0: { alt: 22, az: 36 },
@@ -489,9 +500,9 @@
 
         if (window.state && typeof window.state.registerPlayer === "function") {
           window.state.registerPlayer(handle, window.chosenFaction, window.tempChart);
-          if (window.tempEvmAddress && window.state.player) {
-            window.state.player.evm_address = window.tempEvmAddress;
-            window.tempEvmAddress = null;
+          if (window.tempSolanaAddress && window.state.player) {
+            window.state.player.solana_pubkey = window.tempSolanaAddress;
+            window.tempSolanaAddress = null;
           }
           if (typeof window.state.save === "function") window.state.save();
         }
@@ -1707,13 +1718,13 @@
       const banner = document.getElementById("player-banner");
       if (!state.player) return;
       const fIdx = state.player.faction;
-      const evmStr = state.player.evm_address 
-        ? `<span style="font-size: 9px; color: var(--gold); font-family: var(--mono); background: rgba(216,180,106,0.1); border: 1px solid rgba(216,180,106,0.25); padding: 2px 6px; border-radius: 2px; text-shadow: none;">Wallet: ${state.player.evm_address.slice(0,6)}...${state.player.evm_address.slice(-4)}</span>` 
+      const solStr = state.player.solana_pubkey 
+        ? `<span style="font-size: 9px; color: var(--gold); font-family: var(--mono); background: rgba(216,180,106,0.1); border: 1px solid rgba(216,180,106,0.25); padding: 2px 6px; border-radius: 2px; text-shadow: none;">Solana: ${state.player.solana_pubkey.slice(0,4)}...${state.player.solana_pubkey.slice(-4)}</span>` 
         : "";
       banner.innerHTML = `
         <div style="display:flex; align-items:center; gap:8px;">
           <span style="font-size: 14px; font-weight: bold; color: #fff;">${state.player.handle}</span>
-          ${evmStr}
+          ${solStr}
           <span style="font-size: 10px; color: var(--gold); cursor:pointer; text-decoration:underline;" onclick="openSignInModal()">[Switch]</span>
         </div>
         <span style="font-size: 10px; color: ${PLANET_COLORS[fIdx]}; letter-spacing: 0.05em; text-transform: uppercase;">
@@ -1869,12 +1880,10 @@
     function renderWeb3Status() {
       const status = document.getElementById("web3-wallet-status");
       if (!status || !web3Address) return;
-      const onBase = window.Pentacles?.wallet?.onBaseSepolia;
+      const safeAddr = escapeHTML(web3Address);
       status.innerHTML =
-        `Connected EVM Wallet:<br><strong style="font-family: var(--mono); color: var(--gold-bright); font-size: 11px;">${web3Address}</strong>` +
-        (onBase
-          ? `<br><span style="color:var(--pentacles);font-size:11px;">● Base Sepolia · live</span>`
-          : `<br><button class="btn" style="margin-top:6px;font-size:11px;padding:4px 8px;" onclick="switchWalletToBaseSepolia()">Switch to Base Sepolia ⚡</button>`);
+        `Connected Solana Wallet:<br><strong style="font-family: var(--mono); color: var(--gold-bright); font-size: 11px;">${safeAddr}</strong>` +
+        `<br><span style="color:var(--pentacles);font-size:11px;">● Solana Devnet / Mainnet · live</span>`;
     }
 
     async function connectWeb3Wallet() {
@@ -1884,8 +1893,8 @@
       }
 
       const wallet = window.Pentacles && window.Pentacles.wallet;
-      if (!wallet || typeof window.ethereum === 'undefined') {
-        toast("No EVM wallet extension (e.g. MetaMask) detected. Please install one to use Web3 login.", { type: "warn" });
+      if (!wallet || (typeof window.solana === 'undefined' && !wallet.solanaProvider)) {
+        toast("No Solana wallet extension (e.g. Phantom, Solflare) detected. Please install one to use Web3 login.", { type: "warn" });
         return;
       }
 
@@ -1896,8 +1905,6 @@
         status.innerHTML = "Requesting account access…";
         btn.disabled = true;
 
-        // Route through the wallet façade: wires account/chain events, persistence,
-        // and updates the ESMS HUD automatically.
         web3Address = await wallet.connectInjected();
         renderWeb3Status();
         btn.innerText = "Disconnect Wallet";
@@ -1912,43 +1919,32 @@
 
         profileSection.style.display = "flex";
         if (handle) {
-          profileInfo.innerHTML = `Profile: <strong>${handle}</strong>`;
+          const safeHandle = escapeHTML(handle);
+          profileInfo.innerHTML = `Profile: <strong>${safeHandle}</strong>`;
           loginBtn.innerText = `Sign In as ${handle} ⚡`;
         } else {
           profileInfo.innerHTML = `No seeker profile associated with this wallet. Sign in to create a new profile.`;
           loginBtn.innerText = `Create New Profile for Wallet ✦`;
         }
 
-        if (!wallet.onBaseSepolia) {
-          toast("Connected — switch to Base Sepolia for live ESMS balances and pool trading.", { type: "info" });
-        }
         synth.playFanfare();
       } catch (e) {
         console.error("Wallet connection failed", e);
-        status.innerHTML = `<span style="color:#e88a8a;">Connection failed: ${e.message || e}</span>`;
+        const safeErr = escapeHTML(e?.message || e);
+        status.innerHTML = `<span style="color:#e88a8a;">Connection failed: ${safeErr}</span>`;
         btn.disabled = false;
-        btn.innerText = "Connect EVM Wallet 🦊";
+        btn.innerText = "Connect Solana Wallet 🪐";
         btn.setAttribute("onclick", "connectWeb3Wallet()");
         synth.playClick();
-      }
-    }
-
-    async function switchWalletToBaseSepolia() {
-      try {
-        await window.Pentacles.wallet.switchToBaseSepolia();
-        toast("Switched to Base Sepolia.", { type: "success" });
-        renderWeb3Status();
-      } catch (e) {
-        toast(`Could not switch network: ${e.message || e}`, { type: "error" });
       }
     }
 
     function disconnectWeb3Wallet() {
       web3Address = null;
       window.Pentacles?.wallet?.disconnect();
-      document.getElementById("web3-wallet-status").innerHTML = "Connect your EVM wallet to authenticate and register on-chain.";
+      document.getElementById("web3-wallet-status").innerHTML = "Connect your Solana wallet to authenticate and register on-chain.";
       const btn = document.getElementById("web3-connect-btn");
-      btn.innerText = "Connect EVM Wallet 🦊";
+      btn.innerText = "Connect Solana Wallet 🪐";
       btn.setAttribute("onclick", "connectWeb3Wallet()");
       document.getElementById("web3-profile-section").style.display = "none";
       synth.playSelect();
@@ -1961,7 +1957,7 @@
         if (profileRaw) {
           try {
             const data = JSON.parse(profileRaw);
-            if (data.player && data.player.evm_address && data.player.evm_address.toLowerCase() === address.toLowerCase()) {
+            if (data.player && data.player.solana_pubkey && data.player.solana_pubkey.toLowerCase() === address.toLowerCase()) {
               return handle;
             }
           } catch(e) {}
@@ -1985,10 +1981,10 @@
         document.getElementById("onboarding-step-2").style.display = "none";
         
         // Prefill handle with first 6 chars of address
-        document.getElementById("ob-handle").value = `Seeker_${web3Address.slice(2, 8)}`;
+        document.getElementById("ob-handle").value = `Seeker_${web3Address.slice(0, 6)}`;
         
         // Store temp address so onboarding registers it
-        window.tempEvmAddress = web3Address;
+        window.tempSolanaAddress = web3Address;
         synth.playSelect();
       }
     }

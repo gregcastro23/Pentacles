@@ -11,6 +11,8 @@ import {
 } from "spacetimedb";
 
 export default {
-  burnTxHash: __t.string(),
-  destinationTxHash: __t.string(),
+  cluster: __t.string(),
+  solanaPubkey: __t.string(),
+  signatureB58: __t.string(),
+  deadlineSecs: __t.u64(),
 };
