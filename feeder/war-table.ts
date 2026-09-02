@@ -125,24 +125,6 @@ export function dealHand(active: Agent["active"], rng: () => number): Agent["act
   return [...majors, ...minors].slice(0, HAND_SIZE);
 }
 
-export interface SeatOutcome {
-  faction: number;
-  occupant: string;
-  counters: number;
-  meldsValue: number;
-  tookFinalTrick: boolean;
-  plays?: Array<{ trickNumber: number; card: any }>;
-}
-
-export type MovePicker = (
-  faction: number,
-  hand: Agent["active"],
-  ledSuit: string | null,
-  trick: Array<{ player: number; card: any }>,
-  ladder: Record<number, number>,
-  trickNumber?: number,
-) => any | null;
-
 /**
  * 10 Astrological Combat Archetypes for automated historical agents.
  * 
@@ -217,14 +199,22 @@ const planetIdx = (v: unknown): number | null => {
 
 /** One read of everything a round needs. */
 export async function loadWorld() {
-  const [zoneRows, playerRows, agentRows, slotRows, cardRows, ephemRows] = await Promise.all([
+  const [zoneRows, playerRows, agentRows, slotRows, cardRows, ephemRows, tableRows] = await Promise.all([
     sql("SELECT zone_id, owner, control, in_flux FROM zone"),
     sql("SELECT identity, handle, faction FROM player"),
     sql("SELECT identity, handle, placements, ascendant, time_known FROM agent_chart"),
     sql("SELECT owner, card_id, loadout FROM deck_slot"),
     sql("SELECT card_id, owner, suit, rank, is_major, inverted FROM card"),
     sql("SELECT body, transiting_zone FROM ephemeris"),
+    sql("SELECT table_id, zone_id, state FROM melee_table").catch(() => [] as any[]),
   ]);
+
+  const activeZones = new Set<number>();
+  for (const t of tableRows || []) {
+    if (t.state !== "Resolved" && !t.state?.resolved) {
+      activeZones.add(Number(t.zone_id));
+    }
+  }
 
   const zoneOwners: Array<number | null> = new Array(11).fill(null);
   const zones = [] as Array<{ zoneId: number; control: number; owner: number | null; inFlux: boolean }>;
@@ -258,7 +248,7 @@ export async function loadWorld() {
     if (f !== null) factionOf.set(String(p.identity), f);
   }
 
-  return { zones, zoneOwners, agentRows, activeByOwner, factionOf, ephemRows };
+  return { zones, zoneOwners, agentRows, activeByOwner, factionOf, ephemRows, activeZones };
 }
 
 /**
@@ -364,7 +354,8 @@ export async function runRound(roundIndex: number): Promise<number> {
   } catch { /* first round: no rest rows yet */ }
 
   const agents = buildAgents(world.agentRows, world.factionOf, world.activeByOwner, restedIds, world.zoneOwners);
-  const plans = chooseChampions(agents, world.zones, world.zoneOwners);
+  const allPlans = chooseChampions(agents, world.zones, world.zoneOwners);
+  const plans = allPlans.filter((p) => !world.activeZones.has(p.zoneId));
 
   // Live planet longitudes still drive the FALLBACK ladder. The module computes
   // its own from `ephemeris` and ignores this whenever it has a sky — we send it
@@ -376,17 +367,21 @@ export async function runRound(roundIndex: number): Promise<number> {
 
   let opened = 0;
   for (const plan of plans) {
-    const byId = new Map(agents.map((a) => [a.identity, a]));
-    const lead = byId.get(plan.seats[0].occupant);
-    const fallbackLadder = Engine.buildArcanaLadder(planets, lead ? lead.signVector : null);
+    try {
+      const byId = new Map(agents.map((a) => [a.identity, a]));
+      const lead = byId.get(plan.seats[0].occupant);
+      const fallbackLadder = Engine.buildArcanaLadder(planets, lead ? lead.signVector : null);
 
-    await call("open_melee_round", [
-      plan.zoneId,
-      roundIndex,
-      JSON.stringify(fallbackLadder),
-      plan.seats.map((s) => ({ faction: planetEnum(s.faction), occupant: { __identity__: s.occupant }, claim: s.claim })),
-    ]);
-    opened++;
+      await call("open_melee_round", [
+        plan.zoneId,
+        roundIndex,
+        JSON.stringify(fallbackLadder),
+        plan.seats.map((s) => ({ faction: planetEnum(s.faction), occupant: { __identity__: s.occupant }, claim: s.claim })),
+      ]);
+      opened++;
+    } catch (err) {
+      console.warn(`[war-table] round ${roundIndex} failed to open zone ${plan.zoneId}:`, err);
+    }
   }
   return opened;
 }

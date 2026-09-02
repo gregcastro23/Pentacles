@@ -13,6 +13,7 @@ import {
   Planet,
 } from "./types";
 
+
 export default __t.row({
   identity: __t.identity().primaryKey(),
   handle: __t.string(),
@@ -24,5 +25,6 @@ export default __t.row({
   lastActive: __t.timestamp().name("last_active"),
   tokens: __t.u64(),
   wordWins: __t.u32().name("word_wins"),
+  evmAddress: __t.option(__t.string()).name("evm_address"),
   solanaPubkey: __t.option(__t.string()).name("solana_pubkey"),
 });

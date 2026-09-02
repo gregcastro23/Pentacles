@@ -6,7 +6,8 @@
  * and manages DeepSpaceCache multiplayer locks.
  */
 
-import { sqlOneShot, cliCall } from "./spacetime-cli";
+import { cliCall } from "./spacetime-cli";
+import { sqlOneShot } from "./stdb-feed";
 
 const PORT = parseInt(process.env.SPATIAL_PORT || "8089", 10);
 const SERVICE_NAME = "indoor-spatial";
