@@ -62,6 +62,8 @@ export class MeleeTableInstance {
     this._resolvedTricks = 0;
     this._sweep = null;
     this._sweepTimer = null;
+    this.isFastForwarding = false;
+    this._ffTimer = null;
   }
 
   static create(opts) {
@@ -93,8 +95,19 @@ export class MeleeTableInstance {
   destroy() {
     if (this._clockTimer) clearInterval(this._clockTimer);
     if (this._sweepTimer) clearTimeout(this._sweepTimer);
+    if (this._ffTimer) clearTimeout(this._ffTimer);
+    this.isFastForwarding = false;
     if (this._glCleanup) this._glCleanup();
     if (this.el) clear(this.el);
+  }
+
+  stopFastForward() {
+    this.isFastForwarding = false;
+    if (this._ffTimer) {
+      clearTimeout(this._ffTimer);
+      this._ffTimer = null;
+    }
+    this.paint();
   }
 
   setData(data = {}) {
@@ -230,6 +243,16 @@ export class MeleeTableInstance {
       h("span", { text: `TRUMP: ${trumpCap.toUpperCase()}` }),
     ]);
 
+    const ffBtn = h("button", {
+      class: "mt-btn mt-btn-fastforward" + (this.isFastForwarding ? " is-active" : ""),
+      title: "Fast-forward through melee tricks rounds",
+      onClick: () => {
+        if (this.hooks.onFastForward) {
+          this.hooks.onFastForward(this.table, this);
+        }
+      },
+    }, [h("span", { text: this.isFastForwarding ? "⏸ Pause FF" : "⏩ Fast Forward" })]);
+
     const ladderBtn = h("button", {
       class: "mt-btn mt-btn-ladder" + (this.showLadder ? " is-active" : ""),
       onClick: () => {
@@ -244,7 +267,7 @@ export class MeleeTableInstance {
       onClick: () => this.hooks.onClose && this.hooks.onClose(),
     }, ["✕"]);
 
-    const right = h("div", { class: "mt-head-right" }, [trumpBadge, clockPill, ladderBtn, closeBtn]);
+    const right = h("div", { class: "mt-head-right" }, [trumpBadge, clockPill, ffBtn, ladderBtn, closeBtn]);
     host.appendChild(left);
     host.appendChild(right);
   }

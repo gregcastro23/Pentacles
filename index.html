@@ -517,6 +517,22 @@
   <!-- ===================== ⭐ REAL-SKY STAR-DEX ===================== -->
   <div id="star-dex-overlay" class="overlay-fullscreen star-dex-overlay stardex-overlay pokedex-overlay" style="display:none; z-index:125;" role="dialog" aria-modal="true" aria-label="Real-Sky Star-Dex & Celestial Registry"></div>
 
+  <!-- ===================== 📱 MOBILE NAVIGATION BAR ===================== -->
+  <nav id="mobile-nav-bar" class="mobile-nav-bar" aria-label="Mobile Navigation">
+    <button type="button" class="mobile-nav-btn active" id="mob-nav-map" onclick="switchMobileView('map')">
+      <span class="mob-nav-icon">🌌</span>
+      <span class="mob-nav-label">Sky Map</span>
+    </button>
+    <button type="button" class="mobile-nav-btn" id="mob-nav-hand" onclick="switchMobileView('hand')">
+      <span class="mob-nav-icon">🂠</span>
+      <span class="mob-nav-label">Tarot Hand</span>
+    </button>
+    <button type="button" class="mobile-nav-btn" id="mob-nav-dashboard" onclick="switchMobileView('dashboard')">
+      <span class="mob-nav-icon">✦</span>
+      <span class="mob-nav-label">Dashboard</span>
+    </button>
+  </nav>
+
   <!-- Celestial data + math + legacy game logic + UI bindings: classic GLOBAL
        scripts served verbatim from public/. Load order is load-bearing, and the
        inline onclick="fn()" handlers in the markup require these to stay global. -->
