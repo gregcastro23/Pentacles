@@ -30,8 +30,8 @@ jobs:
       - name: Rust module tests
         run: cargo test --manifest-path server/Cargo.toml
 
-      - name: Bun test suite
-        run: bun run test:all
-
       - name: Frontend build check
         run: bun run build
+
+      - name: Bun test suite
+        run: bun run test:all
