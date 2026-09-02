@@ -29,11 +29,10 @@
   --major-rgb:     241, 219, 161;
 
   /* Card scaling tokens — all card dimensions derive from these */
-  --card-w: 110px;
-  --card-h: 165px;
-  --card-radius: 6px;
-  --card-pip-size: 9px;
-  --card-art-h: 35%;
+  --card-aspect: 2 / 3;
+  --card-w: 140px;
+  --card-radius: 8px;
+  --card-pip-size: 8.5px;
   --card-border-w: 1.5px;
 
   /* Card back SVG tile — pentacle star pattern, all # URL-encoded as %23 */
@@ -491,65 +490,75 @@ body {
   scroll-behavior: smooth;
 }
 
-/* Web Tarot Card UI — Premium Overhaul */
+/* Web Tarot Card UI — True 2:3 Portrait Tarot Card Front */
 .web-card {
-  width: var(--card-w);
-  height: var(--card-h);
+  width: 100%;
+  max-width: 190px;
+  aspect-ratio: var(--card-aspect, 2 / 3);
+  min-height: 195px;
+  height: auto;
   border-radius: var(--card-radius);
   position: relative;
-  background: rgba(8, 10, 20, 0.92);
-  border: var(--card-border-w) solid rgba(216, 180, 106, 0.2);
+  background: radial-gradient(circle at 50% 15%, rgba(18, 22, 40, 0.96) 0%, rgba(6, 8, 16, 0.98) 100%);
+  border: var(--card-border-w) solid rgba(216, 180, 106, 0.25);
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
   align-items: center;
-  padding: 18px 8px 8px;
+  padding: 8px 6px;
   cursor: pointer;
   user-select: none;
-  transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1),
-              box-shadow 0.3s cubic-bezier(0.25, 0.8, 0.25, 1),
-              border-color 0.3s ease;
+  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1),
+              box-shadow 0.25s cubic-bezier(0.2, 0.8, 0.2, 1),
+              border-color 0.25s ease;
   flex-shrink: 0;
   transform-origin: center bottom;
-  transform-style: preserve-3d;
   overflow: hidden;
+  box-sizing: border-box;
 }
 
-/* Inner decorative frame */
+/* Inner decorative gold frame */
 .web-card::after {
   content: "";
   position: absolute;
-  inset: 4px;
-  border: 1px solid rgba(216, 180, 106, 0.08);
-  border-radius: calc(var(--card-radius) - 2px);
+  inset: 3px;
+  border: 1px solid rgba(216, 180, 106, 0.12);
+  border-radius: calc(var(--card-radius) - 3px);
   pointer-events: none;
+  z-index: 1;
 }
 
 .web-card:hover {
-  transform: perspective(800px) rotateY(3deg) rotateX(-2deg) translateY(-8px);
-  border-color: rgba(216, 180, 106, 0.6);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5), 0 0 16px rgba(var(--major-rgb), 0.1);
-  z-index: 10;
+  transform: translateY(-6px);
+  border-color: rgba(216, 180, 106, 0.7);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.6), 0 0 14px rgba(var(--suit-rgb, var(--major-rgb)), 0.3);
+  z-index: 6;
+}
+.web-card:focus-visible {
+  outline: 2px solid var(--gold-bright);
+  outline-offset: 2px;
+  z-index: 7;
 }
 .web-card.selected {
-  transform: translateY(-8px) scale(1.04);
+  transform: translateY(-6px) scale(1.02);
   border-color: var(--gold-bright);
-  box-shadow: 0 4px 14px rgba(241, 219, 161, 0.25);
-  z-index: 11;
+  box-shadow: 0 4px 16px rgba(241, 219, 161, 0.35);
+  z-index: 7;
 }
 .web-card.bench {
-  opacity: 0.55;
+  opacity: 0.6;
 }
 
 /* ── Suit borders & hover glows ── */
-.web-card.cups    { border-color: rgba(var(--cups-rgb), 0.35); --suit-rgb: var(--cups-rgb); }
-.web-card.swords  { border-color: rgba(var(--swords-rgb), 0.35); --suit-rgb: var(--swords-rgb); }
-.web-card.pentacles { border-color: rgba(var(--pentacles-rgb), 0.35); --suit-rgb: var(--pentacles-rgb); }
-.web-card.wands   { border-color: rgba(var(--wands-rgb), 0.35); --suit-rgb: var(--wands-rgb); }
+.web-card.cups    { border-color: rgba(var(--cups-rgb), 0.4); --suit-rgb: var(--cups-rgb); }
+.web-card.swords  { border-color: rgba(var(--swords-rgb), 0.4); --suit-rgb: var(--swords-rgb); }
+.web-card.pentacles { border-color: rgba(var(--pentacles-rgb), 0.4); --suit-rgb: var(--pentacles-rgb); }
+.web-card.wands   { border-color: rgba(var(--wands-rgb), 0.4); --suit-rgb: var(--wands-rgb); }
 
-.web-card.cups:hover    { border-color: rgba(var(--cups-rgb), 0.7); box-shadow: 0 12px 28px rgba(0,0,0,0.5), 0 0 20px rgba(var(--cups-rgb), 0.25); }
-.web-card.swords:hover  { border-color: rgba(var(--swords-rgb), 0.7); box-shadow: 0 12px 28px rgba(0,0,0,0.5), 0 0 20px rgba(var(--swords-rgb), 0.25); }
-.web-card.pentacles:hover { border-color: rgba(var(--pentacles-rgb), 0.7); box-shadow: 0 12px 28px rgba(0,0,0,0.5), 0 0 20px rgba(var(--pentacles-rgb), 0.25); }
-.web-card.wands:hover   { border-color: rgba(var(--wands-rgb), 0.7); box-shadow: 0 12px 28px rgba(0,0,0,0.5), 0 0 20px rgba(var(--wands-rgb), 0.25); }
+.web-card.cups:hover    { border-color: rgba(var(--cups-rgb), 0.85); box-shadow: 0 10px 24px rgba(0,0,0,0.6), 0 0 18px rgba(var(--cups-rgb), 0.35); }
+.web-card.swords:hover  { border-color: rgba(var(--swords-rgb), 0.85); box-shadow: 0 10px 24px rgba(0,0,0,0.6), 0 0 18px rgba(var(--swords-rgb), 0.35); }
+.web-card.pentacles:hover { border-color: rgba(var(--pentacles-rgb), 0.85); box-shadow: 0 10px 24px rgba(0,0,0,0.6), 0 0 18px rgba(var(--pentacles-rgb), 0.35); }
+.web-card.wands:hover   { border-color: rgba(var(--wands-rgb), 0.85); box-shadow: 0 10px 24px rgba(0,0,0,0.6), 0 0 18px rgba(var(--wands-rgb), 0.35); }
 
 .web-card.cups.selected    { border-color: var(--cups); }
 .web-card.swords.selected  { border-color: var(--swords); }
@@ -559,7 +568,7 @@ body {
 /* ── Major Arcana gold treatment ── */
 .web-card.major {
   border-color: var(--gold-bright);
-  background: linear-gradient(135deg, rgba(16, 13, 6, 0.95) 0%, rgba(6, 8, 15, 0.98) 100%);
+  background: radial-gradient(circle at 50% 15%, rgba(26, 20, 10, 0.96) 0%, rgba(6, 8, 16, 0.98) 100%);
   --suit-rgb: var(--major-rgb);
 }
 .web-card.major::before {
@@ -583,113 +592,70 @@ body {
   background: linear-gradient(
     135deg,
     transparent 20%,
-    rgba(255, 200, 100, 0.06) 35%,
-    rgba(180, 140, 255, 0.06) 50%,
-    rgba(100, 200, 255, 0.06) 65%,
+    rgba(255, 200, 100, 0.08) 35%,
+    rgba(180, 140, 255, 0.08) 50%,
+    rgba(100, 200, 255, 0.08) 65%,
     transparent 80%
   );
   background-size: 300% 300%;
   animation: holo-shift 4s ease-in-out infinite;
   pointer-events: none;
-  z-index: 2;
-  opacity: 0;
+  z-index: 1;
+  opacity: 0.35;
   transition: opacity 0.3s;
 }
 .web-card.major:hover .web-card-holo {
-  opacity: 1;
-}
-@keyframes holo-shift {
-  0%   { background-position: 0% 0%; }
-  50%  { background-position: 100% 100%; }
-  100% { background-position: 0% 0%; }
+  opacity: 0.8;
 }
 
 /* ── Corner pips ── */
 .web-card-pip {
   position: absolute;
   font-family: var(--glyph-font);
-  font-size: var(--card-pip-size);
+  font-size: var(--card-pip-size, 8.5px);
   font-weight: 700;
   line-height: 1;
   color: var(--dim);
   z-index: 3;
   pointer-events: none;
-}
-.web-card-pip.top-left     { top: 5px; left: 6px; }
-.web-card-pip.top-right    { top: 5px; right: 6px; }
-.web-card-pip.bottom-left  { bottom: 5px; left: 6px; transform: rotate(180deg); }
-.web-card-pip.bottom-right { bottom: 5px; right: 6px; transform: rotate(180deg); }
-.web-card.major .web-card-pip { color: var(--gold); }
-.web-card.cups .web-card-pip { color: rgba(var(--cups-rgb), 0.7); }
-.web-card.swords .web-card-pip { color: rgba(var(--swords-rgb), 0.7); }
-.web-card.pentacles .web-card-pip { color: rgba(var(--pentacles-rgb), 0.7); }
-.web-card.wands .web-card-pip { color: rgba(var(--wands-rgb), 0.7); }
-
-/* ── Card art zone ── */
-.web-card-art {
-  width: 100%;
-  height: var(--card-art-h);
   display: flex;
   align-items: center;
-  justify-content: center;
-  position: relative;
-  margin-bottom: 3px;
-  flex-shrink: 0;
+  gap: 2px;
 }
-.web-card-suit-img {
-  width: 38px;
-  height: 38px;
-  object-fit: contain;
-  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.5));
-  transition: transform 0.3s, filter 0.3s;
-}
-.web-card:hover .web-card-suit-img {
-  transform: scale(1.08);
-  filter: drop-shadow(0 2px 10px rgba(var(--suit-rgb, var(--major-rgb)), 0.4));
-}
-.web-card.inverted .web-card-suit-img,
-.web-card.inverted .web-card-major-sigil {
-  transform: rotate(180deg);
-}
+.web-card-pip.top-left     { top: 5px; left: 5px; }
+.web-card-pip.top-right    { top: 5px; right: 5px; }
+.web-card-pip.bottom-left  { bottom: 5px; left: 5px; }
+.web-card-pip.bottom-right { bottom: 5px; right: 5px; }
+.web-card-pip .pip-glyph.flip { transform: rotate(180deg); display: inline-block; }
 
-/* Major Arcana radiant sigil (replaces suit art) */
-.web-card-major-sigil {
-  font-family: var(--display);
-  font-size: 20px;
-  font-weight: 600;
-  color: var(--gold-bright);
-  text-shadow: 0 0 12px rgba(var(--major-rgb), 0.6), 0 0 24px rgba(var(--major-rgb), 0.3);
-  animation: sigil-glow 3s ease-in-out infinite;
-}
-@keyframes sigil-glow {
-  0%, 100% { text-shadow: 0 0 12px rgba(var(--major-rgb), 0.6), 0 0 24px rgba(var(--major-rgb), 0.3); }
-  50%      { text-shadow: 0 0 18px rgba(var(--major-rgb), 0.9), 0 0 36px rgba(var(--major-rgb), 0.5); }
-}
+.web-card.major .web-card-pip { color: var(--gold-bright); }
+.web-card.cups .web-card-pip { color: rgba(var(--cups-rgb), 0.85); }
+.web-card.swords .web-card-pip { color: rgba(var(--swords-rgb), 0.85); }
+.web-card.pentacles .web-card-pip { color: rgba(var(--pentacles-rgb), 0.85); }
+.web-card.wands .web-card-pip { color: rgba(var(--wands-rgb), 0.85); }
 
-/* ── Card glyph (fallback when no art image) ── */
-.web-card-glyph {
-  font-family: var(--glyph-font);
-  font-size: 18px;
-  line-height: 1;
+/* ── Header zone ── */
+.web-card-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  margin-top: 8px;
   margin-bottom: 2px;
+  padding: 0 4px;
+  z-index: 3;
 }
-.web-card.inverted .web-card-glyph {
-  transform: rotate(180deg);
-}
-
-/* ── Title & subtitle ── */
 .web-card-title {
   font-family: var(--display);
-  font-size: 9.5px;
+  font-size: 11px;
   font-weight: 600;
   text-align: center;
   color: #fff;
-  margin: 1px 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  width: 100%;
-  z-index: 3;
+  max-width: 100%;
+  line-height: 1.2;
 }
 .web-card.major .web-card-title { color: var(--gold-bright); }
 
@@ -698,8 +664,123 @@ body {
   color: var(--dim);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  margin-bottom: 2px;
-  z-index: 3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  line-height: 1.2;
+}
+
+/* ── Card art zone: roughly 45–55% of card height ── */
+.web-card-art {
+  width: 100%;
+  flex: 1 1 0;
+  min-height: 75px;
+  max-height: 110px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  margin: 2px 0;
+}
+.web-card-art-frame {
+  width: 90%;
+  height: 100%;
+  border-radius: 4px;
+  border: 1px solid rgba(216, 180, 106, 0.2);
+  background: rgba(5, 7, 14, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+  transition: transform 0.3s ease;
+}
+.web-card.inverted .web-card-art-frame {
+  transform: rotate(180deg);
+}
+
+.web-card-suit-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: brightness(0.92) contrast(1.05);
+  transition: transform 0.3s, filter 0.3s;
+}
+.web-card:hover .web-card-suit-img {
+  transform: scale(1.05);
+  filter: brightness(1) contrast(1.1) drop-shadow(0 2px 10px rgba(var(--suit-rgb, var(--major-rgb)), 0.4));
+}
+
+.web-card-art-fallback {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle, rgba(216, 180, 106, 0.1) 0%, transparent 70%);
+}
+.web-card-fallback-glyph {
+  font-size: 26px;
+  line-height: 1;
+}
+.web-card-fallback-label {
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-top: 2px;
+  opacity: 0.8;
+}
+
+/* Major Arcana radiant sigil */
+.web-card.major .web-card-art-frame {
+  border-color: rgba(241, 219, 161, 0.45);
+  background: radial-gradient(circle at center, rgba(35, 25, 10, 0.8) 0%, rgba(8, 10, 20, 0.95) 100%);
+}
+.web-card-major-sigil {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.sigil-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid rgba(241, 219, 161, 0.35);
+  pointer-events: none;
+}
+.sigil-ring-outer {
+  inset: 0;
+  border-style: dashed;
+  animation: sigil-rotate 24s linear infinite;
+}
+.sigil-ring-inner {
+  inset: 7px;
+  border: 1px solid rgba(241, 219, 161, 0.5);
+}
+@keyframes sigil-rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.sigil-glyph {
+  font-size: 24px;
+  color: var(--gold-bright);
+  text-shadow: 0 0 10px rgba(var(--major-rgb), 0.6), 0 0 20px rgba(var(--major-rgb), 0.3);
+  z-index: 1;
+}
+.web-card-major-tag {
+  position: absolute;
+  bottom: 2px;
+  font-size: 7.5px;
+  font-weight: 600;
+  color: var(--gold-bright);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.9;
 }
 
 /* ── Ornamental separator ── */
@@ -707,25 +788,26 @@ body {
   width: 85%;
   height: 1px;
   background: linear-gradient(90deg, transparent, rgba(216, 180, 106, 0.2), transparent);
-  margin: 3px 0;
+  margin: 2px 0;
   z-index: 3;
 }
 .web-card.major .web-card-sep {
   background: linear-gradient(90deg, transparent, rgba(var(--major-rgb), 0.35), transparent);
 }
 
-/* ── Stats grid ── */
+/* ── Stats grid (tabular numerals) ── */
 .web-card-stats {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 1px 6px;
-  font-size: 8px;
+  gap: 1px 4px;
+  font-size: 8.5px;
   color: var(--text);
   text-align: center;
-  line-height: 1.3;
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
   z-index: 3;
   width: 100%;
-  padding: 0 2px;
+  padding: 0 4px;
 }
 .web-card-stat {
   display: flex;
@@ -738,49 +820,81 @@ body {
   font-weight: 700;
   color: #fff;
 }
+.web-card-stat b.stat-na {
+  color: var(--dim);
+  font-weight: 400;
+}
 
 /* ── Footnote ── */
 .web-card-footnote {
-  margin-top: auto;
+  width: 100%;
+  text-align: center;
   font-size: 7.5px;
   font-weight: 600;
   letter-spacing: 0.05em;
   text-transform: uppercase;
+  margin-bottom: 4px;
   z-index: 3;
 }
 
-/* ── Card back (face-down) ── */
+/* ── Card back (face-down ONLY) ── */
 .web-card.face-down > *:not(.web-card-back) {
-  visibility: hidden;
+  visibility: hidden !important;
 }
 .web-card-back {
+  display: none;
   position: absolute;
   inset: 0;
   border-radius: var(--card-radius);
   background: var(--card-back-svg);
   background-size: 48px 48px;
   border: var(--card-border-w) solid var(--gold);
-  z-index: 4;
+  z-index: 10;
+}
+.web-card.face-down .web-card-back {
+  display: block;
 }
 
-/* ── Badge chip (Active / Defense) ── */
+/* ── Badge chip (Active / Defense / Bench) ── */
 .web-card-chip {
   position: absolute;
-  top: -6px;
-  right: -6px;
-  font-size: 8px;
-  font-weight: 600;
-  background: var(--gold-deep);
-  color: #000;
-  padding: 1px 4px;
-  border-radius: 20px;
-  border: 1px solid var(--gold-bright);
+  top: 4px;
+  right: 4px;
+  font-size: 7.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 1px 5px;
+  border-radius: 10px;
+  background: rgba(246, 207, 131, 0.2);
+  color: #f6cf83;
+  border: 1px solid rgba(246, 207, 131, 0.5);
   z-index: 5;
 }
 .web-card-chip.defense {
-  background: #25446b;
-  color: #fff;
-  border-color: #5f93d8;
+  background: rgba(95, 182, 196, 0.2);
+  color: #5fb6c4;
+  border-color: rgba(95, 182, 196, 0.5);
+}
+.web-card-chip.bench {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--dim);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .web-card {
+    transition: none !important;
+  }
+  .web-card:hover {
+    transform: none !important;
+  }
+  .web-card.major .web-card-holo {
+    animation: none !important;
+  }
+  .sigil-ring-outer {
+    animation: none !important;
+  }
 }
 
 /* ── Playable pulse (for melee / selection contexts) ── */
@@ -946,16 +1060,26 @@ body {
 .tarot-hand-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: minmax(195px, auto);
   align-content: start;
   gap: 12px;
   overflow-x: hidden;
   overflow-y: auto;
-  padding: 14px 4px 18px;
-  max-height: calc(100vh - 330px);
+  padding: 12px 4px 18px;
+  max-height: calc(100vh - 280px);
+  min-height: 240px;
 }
 .tarot-hand-grid .web-card {
   width: 100%;
+  max-width: 185px;
+  margin: 0 auto;
   min-width: 0;
+}
+@media (max-width: 600px) {
+  .tarot-hand-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
 }
 .hand-empty {
   grid-column: 1 / -1;
@@ -994,12 +1118,24 @@ body {
 .fusion-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: minmax(195px, auto);
   gap: 10px;
-  max-height: 360px;
+  max-height: 380px;
   overflow-y: auto;
   padding: 6px 4px;
 }
-.fusion-grid .web-card { width: 100%; min-width: 0; }
+.fusion-grid .web-card {
+  width: 100%;
+  max-width: 185px;
+  margin: 0 auto;
+  min-width: 0;
+}
+@media (max-width: 600px) {
+  .fusion-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+}
 .fuse-controls {
   display: none;
   padding: 10px;

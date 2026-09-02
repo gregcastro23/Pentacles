@@ -19,6 +19,7 @@
 import { h, clear } from "./dom.js";
 import { decanCard } from "./decans.js";
 import { SUIT_GLYPHS, SUIT_COLORS, SUIT_ART, rankName, MAJOR_NUMERALS, MAJOR_NAMES, ARCANA_NUMERALS, ARCANA_NAMES } from "./deck.js";
+import { normalizeTarotCard } from "./card-model.js";
 import { categoricalChartAnalytics } from "./sign-character.js";
 
 const PLANET_GLYPHS = ["☉", "☽", "☿", "♀", "♂", "♃", "♄", "♅", "♆", "♇"];
@@ -477,56 +478,93 @@ export class MyPentaclesInstance {
     });
   }
 
-  _card(c) {
-    const cap = suitCap(c.suit);
-    const scol = SUIT_COLORS[cap] || "var(--ac-gold)";
-    const pcol = PLANET_COLORS[c.source_body] || scol;
-    const isMajor = !!c.is_major;
-    const numeral = (c.rank !== undefined && ARCANA_NUMERALS[c.rank]) || (c.source_body !== undefined && MAJOR_NUMERALS[c.source_body]) || "major";
-    const rank = isMajor ? numeral : rankName(c.rank);
-    const name = c.title || (isMajor ? (ARCANA_NAMES[c.rank] || MAJOR_NAMES[c.source_body] || "Major Arcana") : `${rank} of ${cap}`);
-    const l = c.currentLoadout || "bench";
-    const cls = "mc-card mc-card--" + (c.suit || "wands").toLowerCase() + (isMajor ? " mc-card--major" : "") + (c.inverted ? " mc-card--inv" : "") + ` is-loadout-${l}`;
+  _card(rawCard) {
+    const card = normalizeTarotCard(rawCard, rawCard.currentLoadout || "bench");
+    const isMajor = card.isMajor;
+    const l = card.loadout;
+    const cls = "mc-card mc-card--" + card.suitKey + (isMajor ? " mc-card--major" : "") + (card.isInverted ? " mc-card--inv" : "") + ` is-loadout-${l}`;
+
+    // Art Stage element (45-55% height)
+    let artEl;
+    if (isMajor) {
+      artEl = h("div", { class: "mc-card-art major-art" }, [
+        h("div", { class: "mc-card-art-frame major-frame" }, [
+          h("div", { class: "mc-card-major-sigil" }, [
+            h("div", { class: "sigil-ring sigil-ring-outer" }),
+            h("div", { class: "sigil-ring sigil-ring-inner" }),
+            h("span", { class: "sigil-glyph", text: card.planetGlyph }),
+          ]),
+          h("div", { class: "mc-card-major-tag", text: card.planetName }),
+        ]),
+      ]);
+    } else {
+      const imgEl = h("img", {
+        class: "mc-card-suit-art",
+        src: card.suitArtSrc || `/assets/suits/${card.suitKey}.jpg`,
+        alt: `${card.suitName} art`,
+        loading: "lazy",
+      });
+      const fallbackEl = h("div", { class: "mc-card-art-fallback", style: { display: "none", color: card.suitColor } }, [
+        h("span", { class: "mc-card-fallback-glyph", text: card.suitGlyph }),
+        h("span", { class: "mc-card-fallback-label", text: card.suitElement }),
+      ]);
+      imgEl.onerror = () => {
+        imgEl.style.display = "none";
+        fallbackEl.style.display = "flex";
+      };
+      artEl = h("div", { class: "mc-card-art" }, [
+        h("div", { class: "mc-card-art-frame" }, [imgEl, fallbackEl]),
+      ]);
+    }
+
+    const ariaLabel = `${card.title}, ${card.subline}${card.attack !== null ? `, Attack ${card.attack}` : ""}${card.health !== null ? `, Health ${card.health}` : ""}`;
 
     return h("div", {
       class: cls,
-      style: isMajor ? null : { borderColor: scol },
+      style: isMajor ? null : { borderColor: card.suitColor },
+      role: "button",
+      tabindex: "0",
+      "aria-label": ariaLabel,
       title: "Click to inspect card and assign loadout slot",
       onClick: () => {
-        this.inspectedCard = c;
+        this.inspectedCard = rawCard;
         this.paint();
+      },
+      onKeydown: (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          this.inspectedCard = rawCard;
+          this.paint();
+        }
       }
     }, [
       h("div", { class: "mc-card-top" }, [
-        SUIT_ART[cap] && !isMajor
-          ? h("img", { class: "mc-card-suit-art", src: SUIT_ART[cap], alt: cap })
-          : h("span", { class: "mc-card-glyph", style: { color: pcol }, text: isMajor ? "✦" : (SUIT_GLYPHS[cap] || "✦") }),
+        h("span", { class: "mc-card-rank-badge mc-dim", text: card.rankCorner }),
         h("span", { class: "mc-card-loadout-tag " + l, text: l.toUpperCase() }),
-        h("span", { class: "mc-card-rank mc-dim", text: rank }),
+        h("span", { class: "mc-card-glyph-badge", style: { color: card.planetColor }, text: card.suitGlyph }),
       ]),
-      h("div", { class: "mc-card-title", text: name }),
+      h("div", { class: "mc-card-header" }, [
+        h("div", { class: "mc-card-title", text: card.title }),
+        h("div", { class: "mc-card-subline mc-dim", text: card.subline }),
+      ]),
+      artEl,
       h("div", { class: "mc-card-stats" }, [
-        h("span", { title: "attack", text: `⚔ ${c.attack || 0}` }),
-        h("span", { title: "health", text: `♥ ${c.health || 0}` }),
-        h("span", { title: "armour", text: `🛡 ${c.armour || 0}` }),
+        h("span", { title: "attack", text: `⚔ ${card.attack !== null ? card.attack : "—"}` }),
+        h("span", { title: "health", text: `♥ ${card.health !== null ? card.health : "—"}` }),
+        h("span", { title: "armour", text: `🛡 ${card.armour !== null ? card.armour : "—"}` }),
       ]),
       h("div", { class: "mc-card-foot mc-dim" }, [
-        h("span", { style: { color: pcol }, text: `${PLANET_GLYPHS[c.source_body] || ""} Lv ${c.level || 1}` }),
-        c.letter ? h("span", { class: "mc-card-letter", text: String(c.letter) }) : null,
-        c.inverted ? h("span", { text: "℞" }) : null,
+        h("span", { style: { color: card.planetColor }, text: `${card.planetGlyph} Lv ${card.level}` }),
+        card.letter ? h("span", { class: "mc-card-letter", text: String(card.letter) }) : null,
+        card.isInverted ? h("span", { text: "℞" }) : null,
       ]),
     ]);
   }
 
   // ── Card Inspector Popover Modal ──
   _cardInspectorModal(c, deck, collection) {
-    const cap = suitCap(c.suit);
-    const scol = SUIT_COLORS[cap] || "var(--ac-gold)";
-    const pcol = PLANET_COLORS[c.source_body] || scol;
-    const isMajor = !!c.is_major;
-    const numeral = (c.rank !== undefined && ARCANA_NUMERALS[c.rank]) || (c.source_body !== undefined && MAJOR_NUMERALS[c.source_body]) || "major";
-    const rank = isMajor ? numeral : rankName(c.rank);
-    const name = c.title || (isMajor ? (ARCANA_NAMES[c.rank] || MAJOR_NAMES[c.source_body] || "Major Arcana") : `${rank} of ${cap}`);
+    const card = normalizeTarotCard(c);
+    const isMajor = card.isMajor;
     const currentLoadout = (deck.find((d) => Number(d.card_id) === Number(c.card_id)) || {}).loadout || "bench";
 
     return h("div", { class: "mc-inspector-overlay", onClick: (e) => { if (e.target.classList.contains("mc-inspector-overlay")) { this.inspectedCard = null; this.paint(); } } }, [
@@ -534,13 +572,29 @@ export class MyPentaclesInstance {
         h("button", { class: "mc-inspector-close", text: "✕", onClick: () => { this.inspectedCard = null; this.paint(); } }),
         
         h("div", { class: "mc-inspector-head" }, [
-          SUIT_ART[cap] && !isMajor
-            ? h("img", { class: "mc-inspector-suit-art", src: SUIT_ART[cap], alt: cap })
-            : h("span", { class: "mc-inspector-glyph", style: { color: pcol }, text: isMajor ? "✦" : (SUIT_GLYPHS[cap] || "✦") }),
+          isMajor
+            ? h("span", { class: "mc-inspector-glyph", style: { color: card.planetColor }, text: card.planetGlyph })
+            : (card.suitArtSrc
+                ? h("img", { class: "mc-inspector-suit-icon", src: card.suitArtSrc, alt: card.suitName })
+                : h("span", { class: "mc-inspector-glyph", style: { color: card.planetColor }, text: card.suitGlyph })),
           h("div", {}, [
-            h("div", { class: "mc-inspector-title", text: name }),
-            h("div", { class: "mc-inspector-sub mc-dim", text: `${isMajor ? "Major Arcana" : `${cap} · Rank ${rank}`} · ${PLANET_NAMES[c.source_body] || "Celestial"} Ruled` }),
+            h("div", { class: "mc-inspector-title", text: card.title }),
+            h("div", { class: "mc-inspector-sub mc-dim", text: `${card.subline} · ${card.planetName} Ruled` }),
           ]),
+        ]),
+
+        h("div", { class: "mc-inspector-art-stage" }, [
+          isMajor
+            ? h("div", { class: "mc-card-major-sigil" }, [
+                h("div", { class: "sigil-ring sigil-ring-outer" }),
+                h("div", { class: "sigil-ring sigil-ring-inner" }),
+                h("span", { class: "sigil-glyph", text: card.planetGlyph }),
+              ])
+            : h("img", {
+                class: "mc-inspector-suit-art",
+                src: card.suitArtSrc || `/assets/suits/${card.suitKey}.jpg`,
+                alt: `${card.suitName} art`
+              })
         ]),
 
         h("div", { class: "mc-inspector-stats-grid" }, [
