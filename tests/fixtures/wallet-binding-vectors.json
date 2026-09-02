@@ -1,0 +1,115 @@
+{
+  "version": "1.0.0",
+  "domain": "pentacles.alchm.kitchen",
+  "test_public_key_b58": "3F5qRPtKg8GhGNnbd3qCj6nVJxWsGxq7pvH84okYLAqf",
+  "vectors": [
+    {
+      "name": "valid_devnet_binding",
+      "identity_be_bytes_hex": "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+      "expected_identity_hex": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+      "cluster": "devnet",
+      "solana_pubkey": "3F5qRPtKg8GhGNnbd3qCj6nVJxWsGxq7pvH84okYLAqf",
+      "deadline_secs": 1756800000,
+      "expected_challenge_message": "Pentacles Solana Wallet Binding\nDomain: pentacles.alchm.kitchen\nCluster: devnet\nIdentity: 0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef\nPubkey: 3F5qRPtKg8GhGNnbd3qCj6nVJxWsGxq7pvH84okYLAqf\nDeadline: 1756800000",
+      "signature_b58": "2Cj1QJuktPm8a7QFg4QCNVgWYrXQofLAcrV5UoxmAVhVQh8bdBJDsNswGwQFwBpSNHPZK9xhnacp9MAxSZaLR1E9",
+      "expected_valid": true,
+      "failure_reason": null
+    },
+    {
+      "name": "valid_mainnet_binding",
+      "identity_be_bytes_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "expected_identity_hex": "0x000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "cluster": "mainnet-beta",
+      "solana_pubkey": "3F5qRPtKg8GhGNnbd3qCj6nVJxWsGxq7pvH84okYLAqf",
+      "deadline_secs": 1760000000,
+      "expected_challenge_message": "Pentacles Solana Wallet Binding\nDomain: pentacles.alchm.kitchen\nCluster: mainnet-beta\nIdentity: 0x000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f\nPubkey: 3F5qRPtKg8GhGNnbd3qCj6nVJxWsGxq7pvH84okYLAqf\nDeadline: 1760000000",
+      "signature_b58": "3mLtrHufGqq4YqRmwy46fuu41qatud2gQA6WBzEJ7p71ZmcEYcPEnEye4Yu8NWfkJ4Fwvgc4nrRxxq5gNPMBpdC5",
+      "expected_valid": true,
+      "failure_reason": null
+    },
+    {
+      "name": "altered_message_tampered_cluster",
+      "identity_be_bytes_hex": "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+      "expected_identity_hex": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+      "cluster": "mainnet-beta",
+      "solana_pubkey": "3F5qRPtKg8GhGNnbd3qCj6nVJxWsGxq7pvH84okYLAqf",
+      "deadline_secs": 1756800000,
+      "expected_challenge_message": "Pentacles Solana Wallet Binding\nDomain: pentacles.alchm.kitchen\nCluster: mainnet-beta\nIdentity: 0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef\nPubkey: 3F5qRPtKg8GhGNnbd3qCj6nVJxWsGxq7pvH84okYLAqf\nDeadline: 1756800000",
+      "signature_b58": "2Cj1QJuktPm8a7QFg4QCNVgWYrXQofLAcrV5UoxmAVhVQh8bdBJDsNswGwQFwBpSNHPZK9xhnacp9MAxSZaLR1E9",
+      "expected_valid": false,
+      "failure_reason": "signature_mismatch"
+    },
+    {
+      "name": "invalid_pubkey_not_base58",
+      "identity_be_bytes_hex": "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+      "expected_identity_hex": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+      "cluster": "devnet",
+      "solana_pubkey": "0xInvalidBase58Pubkey!!!",
+      "deadline_secs": 1756800000,
+      "expected_challenge_message": "",
+      "signature_b58": "2Cj1QJuktPm8a7QFg4QCNVgWYrXQofLAcrV5UoxmAVhVQh8bdBJDsNswGwQFwBpSNHPZK9xhnacp9MAxSZaLR1E9",
+      "expected_valid": false,
+      "failure_reason": "invalid_pubkey_b58"
+    },
+    {
+      "name": "invalid_pubkey_wrong_length_31_bytes",
+      "identity_be_bytes_hex": "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+      "expected_identity_hex": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+      "cluster": "devnet",
+      "solana_pubkey": "WUNr2ZULjt8mGMkeAhpyDBm2MHHNk1Uq1k5KXyzPvS",
+      "deadline_secs": 1756800000,
+      "expected_challenge_message": "",
+      "signature_b58": "2Cj1QJuktPm8a7QFg4QCNVgWYrXQofLAcrV5UoxmAVhVQh8bdBJDsNswGwQFwBpSNHPZK9xhnacp9MAxSZaLR1E9",
+      "expected_valid": false,
+      "failure_reason": "invalid_pubkey_len"
+    },
+    {
+      "name": "invalid_signature_wrong_length_63_bytes",
+      "identity_be_bytes_hex": "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+      "expected_identity_hex": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+      "cluster": "devnet",
+      "solana_pubkey": "3F5qRPtKg8GhGNnbd3qCj6nVJxWsGxq7pvH84okYLAqf",
+      "deadline_secs": 1756800000,
+      "expected_challenge_message": "Pentacles Solana Wallet Binding\nDomain: pentacles.alchm.kitchen\nCluster: devnet\nIdentity: 0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef\nPubkey: 3F5qRPtKg8GhGNnbd3qCj6nVJxWsGxq7pvH84okYLAqf\nDeadline: 1756800000",
+      "signature_b58": "GoDnA3SMFfzuMwCwAP2DaEUzWoK5gVp3EUfAvgpcgaeFRxC1wtw7tBBV5d5k6Aqo4G5bvgorJ8fKf6t5S42E9D",
+      "expected_valid": false,
+      "failure_reason": "invalid_sig_len"
+    },
+    {
+      "name": "unsupported_cluster_testnet",
+      "identity_be_bytes_hex": "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+      "expected_identity_hex": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+      "cluster": "testnet",
+      "solana_pubkey": "3F5qRPtKg8GhGNnbd3qCj6nVJxWsGxq7pvH84okYLAqf",
+      "deadline_secs": 1756800000,
+      "expected_challenge_message": "",
+      "signature_b58": "2Cj1QJuktPm8a7QFg4QCNVgWYrXQofLAcrV5UoxmAVhVQh8bdBJDsNswGwQFwBpSNHPZK9xhnacp9MAxSZaLR1E9",
+      "expected_valid": false,
+      "failure_reason": "unsupported_cluster"
+    },
+    {
+      "name": "expired_deadline",
+      "identity_be_bytes_hex": "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+      "expected_identity_hex": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+      "cluster": "devnet",
+      "solana_pubkey": "3F5qRPtKg8GhGNnbd3qCj6nVJxWsGxq7pvH84okYLAqf",
+      "deadline_secs": 1000000000,
+      "expected_challenge_message": "",
+      "signature_b58": "2Cj1QJuktPm8a7QFg4QCNVgWYrXQofLAcrV5UoxmAVhVQh8bdBJDsNswGwQFwBpSNHPZK9xhnacp9MAxSZaLR1E9",
+      "expected_valid": false,
+      "failure_reason": "expired_deadline"
+    },
+    {
+      "name": "overlong_deadline",
+      "identity_be_bytes_hex": "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+      "expected_identity_hex": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+      "cluster": "devnet",
+      "solana_pubkey": "3F5qRPtKg8GhGNnbd3qCj6nVJxWsGxq7pvH84okYLAqf",
+      "deadline_secs": 1756801000,
+      "expected_challenge_message": "",
+      "signature_b58": "2Cj1QJuktPm8a7QFg4QCNVgWYrXQofLAcrV5UoxmAVhVQh8bdBJDsNswGwQFwBpSNHPZK9xhnacp9MAxSZaLR1E9",
+      "expected_valid": false,
+      "failure_reason": "overlong_deadline"
+    }
+  ]
+}

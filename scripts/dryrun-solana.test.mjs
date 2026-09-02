@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import crypto from 'node:crypto'
 import { Keypair } from '@solana/web3.js'
 import bs58 from 'bs58'
@@ -79,6 +80,105 @@ assert.equal(
   'Altered cluster must invalidate signature'
 )
 console.log('  ✓ Domain-separated challenge signs and verifies cryptographically')
+
+// Deterministic cross-language test vectors loaded from shared fixture (Rust ↔ JS)
+const fixturePath = new URL('../tests/fixtures/wallet-binding-vectors.json', import.meta.url)
+const fixtureData = JSON.parse(readFileSync(fixturePath, 'utf8'))
+assert.equal(fixtureData.version, '1.0.0')
+assert.ok(Array.isArray(fixtureData.vectors) && fixtureData.vectors.length > 0)
+
+for (const vector of fixtureData.vectors) {
+  // 1. Validate identity big-endian hex formatting from raw bytes
+  const rawBytes = Buffer.from(vector.identity_be_bytes_hex, 'hex')
+  const identityHex = `0x${rawBytes.toString('hex').toLowerCase()}`
+  assert.equal(
+    identityHex,
+    vector.expected_identity_hex,
+    `Identity hex conversion must match for ${vector.name}`
+  )
+
+  if (vector.expected_valid) {
+    // 2. Pure challenge construction verification
+    const message = [
+      'Pentacles Solana Wallet Binding',
+      `Domain: ${fixtureData.domain}`,
+      `Cluster: ${vector.cluster}`,
+      `Identity: ${identityHex}`,
+      `Pubkey: ${vector.solana_pubkey}`,
+      `Deadline: ${vector.deadline_secs}`,
+    ].join('\n')
+
+    assert.equal(
+      message,
+      vector.expected_challenge_message,
+      `Challenge message for ${vector.name} must match shared fixture byte-for-byte`
+    )
+
+    // 3. Cryptographic Ed25519 signature verification
+    const pubKeyBytes = bs58.decode(vector.solana_pubkey)
+    assert.equal(pubKeyBytes.length, 32)
+    const sigBytes = bs58.decode(vector.signature_b58)
+    assert.equal(sigBytes.length, 64)
+
+    // Convert raw 32-byte Ed25519 pubkey to SPKI DER
+    const spkiPrefix = Buffer.from('302a300506032b6570032100', 'hex')
+    const spkiDer = Buffer.concat([spkiPrefix, Buffer.from(pubKeyBytes)])
+    const publicKey = crypto.createPublicKey({ key: spkiDer, format: 'der', type: 'spki' })
+
+    const verified = crypto.verify(null, Buffer.from(message, 'utf8'), publicKey, sigBytes)
+    assert.equal(verified, true, `Signature must verify for ${vector.name}`)
+  } else {
+    // Validate failure modes
+    switch (vector.failure_reason) {
+      case 'signature_mismatch': {
+        const pubKeyBytes = bs58.decode(vector.solana_pubkey)
+        const spkiPrefix = Buffer.from('302a300506032b6570032100', 'hex')
+        const publicKey = crypto.createPublicKey({
+          key: Buffer.concat([spkiPrefix, Buffer.from(pubKeyBytes)]),
+          format: 'der',
+          type: 'spki',
+        })
+        const sigBytes = bs58.decode(vector.signature_b58)
+        const verified = crypto.verify(
+          null,
+          Buffer.from(vector.expected_challenge_message, 'utf8'),
+          publicKey,
+          sigBytes
+        )
+        assert.equal(verified, false, 'Tampered message must fail signature verification')
+        break
+      }
+      case 'invalid_pubkey_b58': {
+        assert.throws(() => bs58.decode(vector.solana_pubkey), 'Invalid base58 must throw')
+        break
+      }
+      case 'invalid_pubkey_len': {
+        const decoded = bs58.decode(vector.solana_pubkey)
+        assert.notEqual(decoded.length, 32, 'Invalid pubkey length must not equal 32')
+        break
+      }
+      case 'invalid_sig_len': {
+        const decoded = bs58.decode(vector.signature_b58)
+        assert.notEqual(decoded.length, 64, 'Invalid signature length must not equal 64')
+        break
+      }
+      case 'unsupported_cluster': {
+        const clean = vector.cluster.trim().toLowerCase()
+        assert.ok(clean !== 'devnet' && clean !== 'mainnet-beta')
+        break
+      }
+      case 'expired_deadline': {
+        assert.ok(vector.deadline_secs < 1756800000)
+        break
+      }
+      case 'overlong_deadline': {
+        assert.ok(vector.deadline_secs > 1756800000 + 900)
+        break
+      }
+    }
+  }
+}
+console.log('  ✓ Shared deterministic test vectors fixture validated across all vectors (Rust ↔ JS)')
 
 // 4. Test Idempotency Scoping
 console.log('▶ 4 · Testing idempotency scoping for devnet and mainnet...')

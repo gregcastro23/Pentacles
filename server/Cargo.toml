@@ -15,12 +15,12 @@ log = "0.4"
 sha2 = "0.10" # claim_profile: hash the one-time identity-link code
 ed25519-dalek = { version = "2.1", default-features = false }
 bs58 = "0.5"
-# Shared ephemeris/astrology core. It moved with the Solana migration: the old
-# EthGlobalHackathon/AlchmAgentsETH-main path no longer exists on disk, so the
-# module could not build at all until this was repointed. Still an absolute-ish
-# path outside the repo — see docs/SOLANA_MAINNET_CONFORMANCE.md for the note on
-# vendoring or publishing it before mainnet, so a clean checkout can build.
-alchm-astro-core = { path = "../../../AlchmAgentsSolana/alchm-astro-core" }
+# In-tree vendored ephemeris/astrology core crate for reproducible builds.
+alchm-astro-core = { path = "vendor/alchm-astro-core" }
+
+[dev-dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 
 [profile.release]
 opt-level = "s"

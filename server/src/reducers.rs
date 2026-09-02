@@ -6170,19 +6170,8 @@ pub fn claim_profile(ctx: &ReducerContext, code: String) -> Result<(), String> {
         j.initiator = new;
         ctx.db.jing_duel().duel_id().update(j);
     }
-    for mut transfer in ctx
-        .db
-        .bridge_transfer()
-        .player()
-        .filter(&old)
-        .collect::<Vec<_>>()
-    {
-        transfer.player = new;
-        ctx.db
-            .bridge_transfer()
-            .burn_tx_hash()
-            .update(transfer);
-    }
+    // Note: bridge_transfer table was removed during the pure Solana migration;
+    // legacy bridge transfers are immutable historical records.
 
     // Small / TTL-pruned tables without an identity index: linear rewrite.
     for mut j in ctx
@@ -6315,10 +6304,13 @@ pub fn bind_solana_wallet(
         return Err("wallet binding deadline is too far in the future".into());
     }
 
-    let sender_hex = format!("0x{}", hex_bytes(sender.as_bytes()));
-    let message = format!(
-        "Pentacles Solana Wallet Binding\nDomain: pentacles.alchm.kitchen\nCluster: {}\nIdentity: {}\nPubkey: {}\nDeadline: {}",
-        clean_cluster, sender_hex, pubkey_str, deadline_secs
+    let sender_hex = format!("0x{}", hex_bytes(&sender.to_be_byte_array()));
+    let message = format_wallet_binding_message(
+        "pentacles.alchm.kitchen",
+        &clean_cluster,
+        &sender_hex,
+        pubkey_str,
+        deadline_secs,
     );
 
     use ed25519_dalek::{Signature, Verifier, VerifyingKey};
@@ -6365,7 +6357,21 @@ pub fn bind_solana_wallet(
     Ok(())
 }
 
-fn hex_bytes(bytes: &[u8]) -> String {
+/// Pure helper: formats the domain-separated challenge string signed by a Solana wallet.
+pub fn format_wallet_binding_message(
+    domain: &str,
+    cluster: &str,
+    sender_hex: &str,
+    pubkey_str: &str,
+    deadline_secs: u64,
+) -> String {
+    format!(
+        "Pentacles Solana Wallet Binding\nDomain: {}\nCluster: {}\nIdentity: {}\nPubkey: {}\nDeadline: {}",
+        domain, cluster, sender_hex, pubkey_str, deadline_secs
+    )
+}
+
+pub(crate) fn hex_bytes(bytes: &[u8]) -> String {
     use std::fmt::Write;
     let mut s = String::with_capacity(bytes.len() * 2);
     for b in bytes {
@@ -6876,9 +6882,10 @@ pub fn lock_anomaly(
 mod tests {
     use super::{
         agent_turn_directive, auto_battle_win, catchup_rounds, compute_ecliptic,
-        expand_constellation, has_duplicates, melee_control_deltas, pick_weakest, question_hash,
-        round_interval_secs, seat_score, should_replace, AgentTurnDirective, COLLECTION_CAP,
-        MAX_CATCHUP_ROUNDS, ROUND_BASE_SECS, ZONE_SWING, ZONE_SWING_WINNER_BONUS,
+        expand_constellation, format_wallet_binding_message, has_duplicates, hex_bytes,
+        melee_control_deltas, pick_weakest, question_hash, round_interval_secs, seat_score,
+        should_replace, AgentTurnDirective, COLLECTION_CAP, MAX_CATCHUP_ROUNDS, ROUND_BASE_SECS,
+        ZONE_SWING, ZONE_SWING_WINNER_BONUS,
     };
 
     // ── The War Table ───────────────────────────────────────────────────────
@@ -7092,5 +7099,170 @@ mod tests {
         assert_eq!(expand_constellation("Ori"), "Orion");
         assert_eq!(expand_constellation("CMa"), "Canis Major");
         assert_eq!(expand_constellation("Boo"), "Boötes");
+    }
+
+    #[test]
+    fn hex_bytes_produces_lowercase_hex_matching_canonical_representation() {
+        let bytes = [
+            0x12, 0x34, 0x56, 0x78, 0x90, 0xab, 0xcd, 0xef,
+            0x12, 0x34, 0x56, 0x78, 0x90, 0xab, 0xcd, 0xef,
+            0x12, 0x34, 0x56, 0x78, 0x90, 0xab, 0xcd, 0xef,
+            0x12, 0x34, 0x56, 0x78, 0x90, 0xab, 0xcd, 0xef,
+        ];
+        let hex = hex_bytes(&bytes);
+        assert_eq!(hex, "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef");
+        assert_eq!(format!("0x{}", hex), "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef");
+    }
+
+    #[derive(serde::Deserialize)]
+    struct WalletBindingFixture {
+        version: String,
+        domain: String,
+        test_public_key_b58: String,
+        vectors: Vec<WalletBindingVector>,
+    }
+
+    #[derive(serde::Deserialize)]
+    struct WalletBindingVector {
+        name: String,
+        identity_be_bytes_hex: String,
+        expected_identity_hex: String,
+        cluster: String,
+        solana_pubkey: String,
+        deadline_secs: u64,
+        expected_challenge_message: String,
+        signature_b58: String,
+        expected_valid: bool,
+        failure_reason: Option<String>,
+    }
+
+    #[test]
+    fn identity_conversion_and_challenge_matches_shared_fixture() {
+        use ed25519_dalek::{Signature, Verifier, VerifyingKey};
+
+        let fixture_str = include_str!("../../../tests/fixtures/wallet-binding-vectors.json");
+        let fixture: WalletBindingFixture = serde_json::from_str(fixture_str)
+            .expect("failed to parse wallet-binding-vectors.json into typed WalletBindingFixture");
+
+        assert_eq!(fixture.version, "1.0.0");
+        assert_eq!(fixture.domain, "pentacles.alchm.kitchen");
+        assert!(!fixture.vectors.is_empty(), "vectors list must not be empty");
+
+        for vector in &fixture.vectors {
+            // 1. Validate raw big-endian byte decoding and Identity representation
+            let mut bytes = [0u8; 32];
+            for i in 0..32 {
+                bytes[i] = u8::from_str_radix(&vector.identity_be_bytes_hex[i * 2..i * 2 + 2], 16)
+                    .expect("invalid hex byte in fixture");
+            }
+            let identity = spacetimedb::Identity::from_be_byte_array(bytes);
+            let sender_hex = format!("0x{}", hex_bytes(&identity.to_be_byte_array()));
+            assert_eq!(
+                sender_hex, vector.expected_identity_hex,
+                "identity hex mismatch for vector {}",
+                vector.name
+            );
+
+            if vector.expected_valid {
+                // 2. Pure challenge construction helper verification
+                let formatted_msg = format_wallet_binding_message(
+                    &fixture.domain,
+                    &vector.cluster,
+                    &sender_hex,
+                    &vector.solana_pubkey,
+                    vector.deadline_secs,
+                );
+                assert_eq!(
+                    formatted_msg, vector.expected_challenge_message,
+                    "challenge message mismatch for vector {}",
+                    vector.name
+                );
+
+                // 3. Cryptographic Ed25519 signature verification
+                let pubkey_bytes = bs58::decode(&vector.solana_pubkey)
+                    .into_vec()
+                    .expect("valid pubkey base58");
+                assert_eq!(pubkey_bytes.len(), 32);
+                let pubkey_array: [u8; 32] = pubkey_bytes.as_slice().try_into().unwrap();
+                let verifying_key = VerifyingKey::from_bytes(&pubkey_array).unwrap();
+
+                let sig_bytes = bs58::decode(&vector.signature_b58)
+                    .into_vec()
+                    .expect("valid signature base58");
+                assert_eq!(sig_bytes.len(), 64);
+                let sig_array: [u8; 64] = sig_bytes.as_slice().try_into().unwrap();
+                let signature = Signature::from_bytes(&sig_array);
+
+                let verified = verifying_key.verify(formatted_msg.as_bytes(), &signature);
+                assert!(
+                    verified.is_ok(),
+                    "valid signature should verify for {}",
+                    vector.name
+                );
+            } else {
+                // Failure vector verification
+                let reason = vector.failure_reason.as_deref().unwrap_or("");
+                match reason {
+                    "signature_mismatch" => {
+                        let pubkey_bytes = bs58::decode(&vector.solana_pubkey).into_vec().unwrap();
+                        let pubkey_array: [u8; 32] = pubkey_bytes.as_slice().try_into().unwrap();
+                        let verifying_key = VerifyingKey::from_bytes(&pubkey_array).unwrap();
+                        let sig_bytes = bs58::decode(&vector.signature_b58).into_vec().unwrap();
+                        let sig_array: [u8; 64] = sig_bytes.as_slice().try_into().unwrap();
+                        let signature = Signature::from_bytes(&sig_array);
+                        let verified = verifying_key.verify(
+                            vector.expected_challenge_message.as_bytes(),
+                            &signature,
+                        );
+                        assert!(
+                            verified.is_err(),
+                            "tampered message must fail signature verification"
+                        );
+                    }
+                    "invalid_pubkey_b58" => {
+                        let decoded = bs58::decode(&vector.solana_pubkey).into_vec();
+                        assert!(decoded.is_err(), "non-base58 pubkey must fail decoding");
+                    }
+                    "invalid_pubkey_len" => {
+                        let decoded = bs58::decode(&vector.solana_pubkey).into_vec().unwrap();
+                        assert_ne!(
+                            decoded.len(),
+                            32,
+                            "invalid pubkey length must differ from 32 bytes"
+                        );
+                    }
+                    "invalid_sig_len" => {
+                        let decoded = bs58::decode(&vector.signature_b58).into_vec().unwrap();
+                        assert_ne!(
+                            decoded.len(),
+                            64,
+                            "invalid signature length must differ from 64 bytes"
+                        );
+                    }
+                    "unsupported_cluster" => {
+                        let clean = vector.cluster.trim().to_ascii_lowercase();
+                        assert!(
+                            clean != "devnet" && clean != "mainnet-beta",
+                            "unsupported cluster must not be devnet or mainnet-beta"
+                        );
+                    }
+                    "expired_deadline" => {
+                        let now_sim = 1756800000u64;
+                        assert!(
+                            vector.deadline_secs < now_sim,
+                            "expired deadline must be less than current time"
+                        );
+                    }
+                    "overlong_deadline" => {
+                        let now_sim = 1756800000u64;
+                        assert!(
+                            vector.deadline_secs > now_sim + 900,
+                            "overlong deadline must exceed current time + 900s"
+                        );
+                    }
+                    _ => {}
+                }
+            }
+        }
     }
 }
