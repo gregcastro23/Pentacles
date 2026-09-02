@@ -129,3 +129,4 @@ export type TraceConstellationParams = __Infer<typeof TraceConstellationReducer>
 export type TransferStarStakeParams = __Infer<typeof TransferStarStakeReducer>;
 export type TriggerZoneFluxParams = __Infer<typeof TriggerZoneFluxReducer>;
 export type UpdateSeekerEnvironmentParams = __Infer<typeof UpdateSeekerEnvironmentReducer>;
+

@@ -332,13 +332,13 @@ fn register_chart(
     };
 
     // Re-registration re-mints the deck but must never wipe the token wallet / ladder / wallet bindings.
-    let (tokens, word_wins, solana_pubkey) = ctx
+    let (tokens, word_wins, evm_address, solana_pubkey) = ctx
         .db
         .player()
         .identity()
         .find(&owner)
-        .map(|p| (p.tokens, p.word_wins, p.solana_pubkey))
-        .unwrap_or((0, 0, None));
+        .map(|p| (p.tokens, p.word_wins, p.evm_address, p.solana_pubkey))
+        .unwrap_or((0, 0, None, None));
     let player = Player {
         identity: owner,
         handle,
@@ -348,6 +348,7 @@ fn register_chart(
         last_active: ctx.timestamp,
         tokens,
         word_wins,
+        evm_address,
         solana_pubkey,
     };
     if ctx.db.player().identity().find(&owner).is_some() {
@@ -1687,6 +1688,7 @@ pub fn tick_sky(ctx: &ReducerContext, _timer: SkyTickTimer) {
     // before the applicable deadline, then applies the deterministic fallback,
     // so this is safe to run every tick. Collected first: the loop writes to the
     // tables it would otherwise be iterating.
+    let now = ctx.timestamp;
     let live: Vec<u64> = ctx
         .db
         .melee_table()
@@ -1695,7 +1697,14 @@ pub fn tick_sky(ctx: &ReducerContext, _timer: SkyTickTimer) {
         .map(|t| t.table_id)
         .collect();
     for table_id in live {
-        melee_advance(ctx, table_id);
+        if let Some(table) = ctx.db.melee_table().table_id().find(&table_id) {
+            // Settle tables that have been stalled/open for > 10 minutes to drain old backlog.
+            if elapsed_secs(now, table.opened_at) > 600 {
+                melee_settle(ctx, table_id);
+            } else {
+                melee_advance(ctx, table_id);
+            }
+        }
     }
 
     // 1. Decay held zones
@@ -3497,12 +3506,22 @@ fn melee_advance(ctx: &ReducerContext, table_id: u64) -> usize {
                     break;
                 }
                 let cards = melee_trick_cards(&trick_plays);
-                // A timed-out human sheds their cheapest legal card. Agent seats
-                // first publish the exact legal choices for ASOL, then wait for
-                // its owner-authenticated answer until the deadline. The sky tick
-                // resumes this state machine and applies the archetype fallback.
+                // A timed-out human sheds their cheapest legal card. Historical
+                // agent seats execute their deterministic archetype moves immediately.
+                // External ASOL agent seats publish exact legal choices and wait
+                // for an answer until deadline.
                 let pick = if seat.is_human {
                     melee::guardian_pick(&hand, &cards, table.trump_suit, &ladder)
+                } else if ctx.db.agent_chart().identity().find(&seat.occupant).is_some() {
+                    // Historical agent: play deterministic archetype move immediately.
+                    melee::archetype_pick(
+                        seat.faction,
+                        &hand,
+                        &cards,
+                        table.trump_suit,
+                        &ladder,
+                        trick_no,
+                    )
                 } else {
                     let legal_mask = melee::legal_mask(&hand, &cards, table.trump_suit, &ladder);
                     let legal_card_ids: Vec<u64> = hand
@@ -3712,6 +3731,16 @@ pub fn open_melee_round(
     }
     if zone_id > 10 {
         return Err("open_melee_round: zone_id must be 0..=10".into());
+    }
+    // One active table per zone at a time so backlog cannot recur.
+    let active_exists = ctx
+        .db
+        .melee_table()
+        .zone_id()
+        .filter(&zone_id)
+        .any(|t| t.state != MeleeState::Resolved);
+    if active_exists {
+        return Err(format!("open_melee_round: zone {} already has an active melee", zone_id));
     }
     // 2..6 seats. Below two the caller should have seated the Zone Guardian; above
     // six it should have dropped the lowest claims before calling.
@@ -4639,11 +4668,12 @@ pub fn trace_constellation(
     ctx.db.trace_intent().insert(TraceIntent {
         intent_id: 0,
         trader: ctx.sender(),
-        solana_pubkey: sol,
+        evm_address: String::new(),
         constellation_id,
         visible_stars: visible,
         attested: false,
         created_at: ctx.timestamp,
+        solana_pubkey: Some(sol),
     });
     Ok(())
 }
@@ -6520,6 +6550,7 @@ pub(crate) fn hex_bytes(bytes: &[u8]) -> String {
     s
 }
 
+#[allow(dead_code)]
 fn parse_bridge_chain(value: &str, field: &str) -> Result<BridgeChain, String> {
     match value.trim().to_ascii_lowercase().as_str() {
         "solana_token_2022" | "solana_devnet" => Ok(BridgeChain::SolanaToken2022),
@@ -7347,6 +7378,7 @@ mod tests {
         assert_eq!(format!("0x{}", hex), "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef");
     }
 
+    #[allow(dead_code)]
     #[derive(serde::Deserialize)]
     struct WalletBindingFixture {
         version: String,
@@ -7355,6 +7387,7 @@ mod tests {
         vectors: Vec<WalletBindingVector>,
     }
 
+    #[allow(dead_code)]
     #[derive(serde::Deserialize)]
     struct WalletBindingVector {
         name: String,
