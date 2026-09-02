@@ -132,7 +132,7 @@ export const SQUADS_V4_PROGRAM_ID = new PublicKey('SQDS4ep65T869zMMBKyuUq6aD6EgT
 export const ASOL_ESMS_DECIMALS = 4
 export const ASOL_ESMS_ATOMS_PER_TOKEN = 10n ** BigInt(ASOL_ESMS_DECIMALS)
 
-/** Element ids, fixed by the ASOL program and shared with the EVM ERC-1155 ids. */
+/** Element ids, fixed by the ASOL program. */
 export const ELEMENT_IDS = Object.freeze({ spirit: 0, essence: 1, matter: 2, substance: 3 })
 export const ELEMENT_NAMES = Object.freeze(['Spirit', 'Essence', 'Matter', 'Substance'])
 

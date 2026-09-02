@@ -6050,7 +6050,7 @@ pub fn open_identity_link(ctx: &ReducerContext, code_hash: String) -> Result<(),
 /// player keeps their chart, cards, loadout, pools, stakes, history and trophies
 /// under the signed-in identity. The new identity must not already have a
 /// profile (no merging). Deliberately left untouched: `battle` / classic `duel`
-/// logs (historical), and `trace_intent`/`trace_attestation` (EVM-addressed,
+/// logs (historical), and `trace_intent`/`trace_attestation` (Solana-addressed,
 /// TTL-pruned spent paper).
 #[reducer]
 pub fn claim_profile(ctx: &ReducerContext, code: String) -> Result<(), String> {
