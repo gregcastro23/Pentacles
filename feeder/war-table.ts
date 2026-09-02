@@ -29,6 +29,7 @@ import { signVector } from "../src/alchm-chart/sign-character.js";
 import { dignityScore } from "../src/alchm-chart/dignity.js";
 import { canAccessZone, accessRefusalReason } from "../src/alchm-chart/zone-access.js";
 export { canAccessZone, accessRefusalReason };
+import { warLedger, getDecanInfo } from "./war-ledger";
 
 // The engine is a classic IIFE; importing it for its side effect publishes it on
 // globalThis, exactly as the browser and the engine test suite do.
@@ -205,7 +206,7 @@ export async function loadWorld() {
     sql("SELECT identity, handle, placements, ascendant, time_known FROM agent_chart"),
     sql("SELECT owner, card_id, loadout FROM deck_slot"),
     sql("SELECT card_id, owner, suit, rank, is_major, inverted FROM card"),
-    sql("SELECT body, transiting_zone FROM ephemeris"),
+    sql("SELECT body, ra, dec, transiting_zone FROM ephemeris"),
     sql("SELECT table_id, zone_id, state FROM melee_table").catch(() => [] as any[]),
   ]);
 
@@ -366,6 +367,10 @@ export async function runRound(roundIndex: number): Promise<number> {
   }));
 
   let opened = 0;
+  const sunRow = world.ephemRows.find((e: any) => planetIdx(e.body) === 0);
+  const sunLon = sunRow ? (typeof sunRow.ra === "number" ? sunRow.ra : ((Number(sunRow.transiting_zone) || 0) % 12) * 30) : 0;
+  const decan = getDecanInfo(sunLon);
+
   for (const plan of plans) {
     try {
       const byId = new Map(agents.map((a) => [a.identity, a]));
@@ -379,10 +384,39 @@ export async function runRound(roundIndex: number): Promise<number> {
         plan.seats.map((s) => ({ faction: planetEnum(s.faction), occupant: { __identity__: s.occupant }, claim: s.claim })),
       ]);
       opened++;
+
+      // Record round in server-side WarLedger
+      if (plan.seats.length > 0) {
+        const topSeat = plan.seats.reduce((max, s) => s.claim > max.claim ? s : max, plan.seats[0]);
+        const zoneName = plan.zoneId === 10 ? "Crown Zenith" : (plan.zoneId >= 5 ? `Spire ${plan.zoneId}` : `House ${plan.zoneId}`);
+        const estScore = Math.max(80, Math.min(240, Math.round(topSeat.claim * 2.2)));
+
+        warLedger.recordRound({
+          roundId: roundIndex,
+          zoneId: plan.zoneId,
+          zoneName,
+          decanId: decan.absDecan,
+          card: decan.card,
+          rank: decan.rank,
+          suit: decan.suit,
+          sunDegree: sunLon,
+          degInDecan: decan.degInDecan,
+          winnerFaction: topSeat.faction,
+          winnerName: PLANET_NAMES[topSeat.faction],
+          winnerAgent: topSeat.handle || lead?.handle || "Agent Champion",
+          winningScore: estScore,
+          controlDelta: Math.max(120, Math.min(260, estScore * 3)),
+          capturedZone: false
+        });
+      }
     } catch (err) {
       console.warn(`[war-table] round ${roundIndex} failed to open zone ${plan.zoneId}:`, err);
     }
   }
+
+  // Check 10-day decan boundary crossing
+  warLedger.checkDecanBoundary(sunLon);
+
   return opened;
 }
 

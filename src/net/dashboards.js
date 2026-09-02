@@ -27,14 +27,18 @@ let origZones = null
 // ---- enum decoding helpers -------------------------------------------------
 function planetIndex(v) {
   if (v == null) return null
-  if (typeof v === 'number') return v
+  if (typeof v === 'number') return (v >= 0 && v < 10) ? v : null
   if (typeof v === 'string') {
-    const i = PLANET_NAMES.indexOf(v)
+    const s = v.toLowerCase()
+    const i = PLANET_NAMES.findIndex(n => n.toLowerCase() === s)
     return i >= 0 ? i : null
   }
   if (typeof v === 'object') {
+    if ('__identity__' in v) return null
     const key = Object.keys(v)[0]
-    const i = PLANET_NAMES.indexOf(key)
+    if (!key) return null
+    const s = key.toLowerCase()
+    const i = PLANET_NAMES.findIndex(n => n.toLowerCase() === s)
     return i >= 0 ? i : null
   }
   return null
@@ -43,6 +47,32 @@ function kindName(v) {
   let s = v
   if (v && typeof v === 'object') s = Object.keys(v)[0]
   return String(s || '').toLowerCase()
+}
+
+// ---- Server-side Decan Ledger sync (Railway) ------------------------------
+const FEEDER_BACKEND_URL = (typeof window !== 'undefined' && window.FEEDER_BACKEND_URL)
+  ? window.FEEDER_BACKEND_URL
+  : 'https://pentacles-feeders-production.up.railway.app'
+
+let lastLedgerSync = 0
+export async function syncServerDecanLedger() {
+  const now = Date.now()
+  if (now - lastLedgerSync < 15_000) return // Throttle to 15s
+  lastLedgerSync = now
+
+  try {
+    const res = await fetch(`${FEEDER_BACKEND_URL}/api/v1/war/decan-ledger`, {
+      headers: { Accept: 'application/json' }
+    })
+    if (!res.ok) return
+    const data = await res.json()
+    if (data?.success && window.state && typeof window.state.syncDecanLedger === 'function') {
+      window.state.syncDecanLedger(data)
+      renderLeaderboardLive()
+    }
+  } catch {
+    // Non-blocking: fallback gracefully to local simulation state
+  }
 }
 
 // ---- live render -----------------------------------------------------------
@@ -57,11 +87,16 @@ function renderLeaderboardLive() {
     container.innerHTML = liveFlag('') + `<div class="dash-loading">Syncing standings…</div>`
     return
   }
-  // score = Σ positive control on owned zones  +  5 × stars held
+  // score = Σ zone weights (House 100, Spire 200, Crown 400) + positive control + 5 × stars held + round performance
   const score = Array.from({ length: 10 }, () => 0)
   for (const z of zoneCache) {
     const o = planetIndex(z.owner)
-    if (o != null) score[o] += Math.max(0, Number(z.control) || 0)
+    if (o != null) {
+      const k = kindName(z.kind)
+      const weight = k === 'crown' ? 400 : (k === 'spire' ? 200 : 100)
+      score[o] += weight
+      score[o] += Math.max(0, Math.floor(Number(z.control) / 10) || 0)
+    }
   }
   if (starCache) {
     for (const s of starCache) {
@@ -69,17 +104,60 @@ function renderLeaderboardLive() {
       if (h != null) score[h] += 5
     }
   }
+  if (window.state?.factionRoundPoints) {
+    for (let i = 0; i < 10; i++) {
+      score[i] += Math.max(0, Number(window.state.factionRoundPoints[i]) || 0)
+    }
+  }
+  if (window.state?.decanVictories) {
+    for (let i = 0; i < 10; i++) {
+      score[i] += (Number(window.state.decanVictories[i]) || 0) * 50
+    }
+  }
+
+  // Render live decan battle banner if container exists
+  const banner = document.getElementById('decan-status-banner')
+  if (banner && typeof window.state?.getCurrentDecan === 'function') {
+    const decan = window.state.getCurrentDecan()
+    const rulerCol = PLANET_COLORS[decan.rulerFaction] || 'var(--gold)'
+    banner.innerHTML = `
+      <div style="background: rgba(216,180,106,0.08); border: 1px solid rgba(216,180,106,0.25); border-radius: 8px; padding: 8px 10px; margin-bottom: 12px; font-size: 11px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 4px;">
+          <span style="font-weight: bold; color: var(--gold-bright); font-size: 12px;">🎴 ${decan.card}</span>
+          <span style="font-family: var(--font-mono); color: #ffd700; font-size: 11px; font-weight: bold;">☉ ${decan.degInSign}° ${decan.signGlyph}</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; color: var(--dim); font-size: 10px; margin-bottom: 6px;">
+          <span>${decan.startDeg}°–${decan.endDeg}° ${decan.signName} (10-day round)</span>
+          <span style="color: ${rulerCol}; font-weight: 600;">Ruler: ${decan.rulerGlyph} ${decan.rulerName}</span>
+        </div>
+        <div style="width: 100%; height: 5px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden;">
+          <div style="width: ${decan.progressPct}%; height: 100%; background: linear-gradient(90deg, #d8b46a, #ffd700); border-radius: 3px; transition: width 0.3s ease;"></div>
+        </div>
+        <div style="display:flex; justify-content:space-between; font-size: 9.5px; color: var(--dim); margin-top: 4px;">
+          <span>Bounds: ${decan.startDeg}°</span>
+          <span style="color: #fff; font-weight: 500;">${decan.degInDecan}° / 10° (${decan.progressPct}%)</span>
+          <span>${decan.endDeg}°</span>
+        </div>
+      </div>
+    `
+  }
+
   const myFaction = window.state?.player?.faction
   const ranked = score.map((s, id) => ({ id, score: s })).sort((a, b) => b.score - a.score)
   container.innerHTML =
     liveFlag('') +
     ranked
       .map(
-        (item, i) =>
-          `<div class="standings-item ${myFaction === item.id ? 'me' : ''}">
-            <span>#${i + 1} &nbsp; ${PLANET_GLYPHS[item.id]} ${PLANET_NAMES[item.id]}</span>
+        (item, i) => {
+          const decanWins = (window.state?.decanVictories && window.state.decanVictories[item.id]) || 0
+          return `<div class="standings-item ${myFaction === item.id ? 'me' : ''}">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span>#${i + 1} &nbsp; ${PLANET_GLYPHS[item.id]} ${PLANET_NAMES[item.id]}</span>
+              ${decanWins > 0 ? `<span style="font-size:9.5px; color:#ffd700; background:rgba(255,215,0,0.15); padding:1px 5px; border-radius:10px; border:1px solid rgba(255,215,0,0.3);" title="${decanWins} Decan Victories">👑 ${decanWins}</span>` : ''}
+            </div>
             <span>${item.score} pts</span>
           </div>`
+        }
       )
       .join('')
 }
@@ -168,8 +246,13 @@ export function installDashboards() {
   spacetime.onStatus((s) => {
     if (s === 'live') {
       try { window.renderLeaderboard(); window.renderZonesList() } catch {}
+      syncServerDecanLedger()
     }
   })
+
+  // Periodically sync server decan ledger (every 30s)
+  syncServerDecanLedger()
+  setInterval(syncServerDecanLedger, 30_000)
 }
 
 export default { installDashboards }

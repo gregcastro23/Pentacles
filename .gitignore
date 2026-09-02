@@ -13,6 +13,7 @@ bun.lockb
 
 # Local DB export snapshots (spacetime backups)
 backups/
+data/
 bun.lock
 .npm/
 
