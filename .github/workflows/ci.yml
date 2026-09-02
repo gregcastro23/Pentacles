@@ -23,7 +23,7 @@ jobs:
         run: bun install
 
       - name: Setup Rust toolchain
-        uses: dtolnay/rust-toolchain@1.82.0
+        uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
 
