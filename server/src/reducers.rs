@@ -7373,7 +7373,7 @@ mod tests {
     fn identity_conversion_and_challenge_matches_shared_fixture() {
         use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 
-        let fixture_str = include_str!("../../../tests/fixtures/wallet-binding-vectors.json");
+        let fixture_str = include_str!("../../tests/fixtures/wallet-binding-vectors.json");
         let fixture: WalletBindingFixture = serde_json::from_str(fixture_str)
             .expect("failed to parse wallet-binding-vectors.json into typed WalletBindingFixture");
 
