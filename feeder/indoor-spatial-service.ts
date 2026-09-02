@@ -6,7 +6,8 @@
  * and manages DeepSpaceCache multiplayer locks.
  */
 
-import { sqlOneShot, cliCall } from "./spacetime-cli";
+import { cliCall } from "./spacetime-cli";
+import { sqlOneShot } from "./stdb-feed";
 import { warLedger } from "./war-ledger";
 
 const PORT = parseInt(process.env.PORT || process.env.SPATIAL_PORT || "8080", 10);

@@ -79,7 +79,9 @@ pub enum TradeState { Open, Committed, Cancelled }
 /// variant name, is what reconciles against the AlchmAgentsSolana ledger.
 #[derive(SpacetimeType, Clone, Copy, PartialEq, Eq, Debug)]
 pub enum BridgeChain {
+    EvmBaseSepolia,
     SolanaToken2022,
+    EvmBaseMainnet,
     SolanaMainnetToken2022,
 }
 
@@ -87,7 +89,9 @@ impl BridgeChain {
     /// CAIP-2 chain id — the cross-project identity for this ledger.
     pub fn caip2(self) -> &'static str {
         match self {
+            BridgeChain::EvmBaseSepolia => "eip155:84532",
             BridgeChain::SolanaToken2022 => "solana:devnet",
+            BridgeChain::EvmBaseMainnet => "eip155:8453",
             BridgeChain::SolanaMainnetToken2022 => "solana:mainnet-beta",
         }
     }
@@ -95,19 +99,21 @@ impl BridgeChain {
     /// Stable key fragment used to scope `processed_tx` idempotency per chain.
     pub fn chain_key(self) -> &'static str {
         match self {
+            BridgeChain::EvmBaseSepolia => "evm_base_sepolia",
             BridgeChain::SolanaToken2022 => "solana_devnet",
+            BridgeChain::EvmBaseMainnet => "evm_base_mainnet",
             BridgeChain::SolanaMainnetToken2022 => "solana_mainnet_beta",
         }
     }
 
     /// True when this ledger settles real value. Guards every mainnet path.
     pub fn is_mainnet(self) -> bool {
-        matches!(self, BridgeChain::SolanaMainnetToken2022)
+        matches!(self, BridgeChain::SolanaMainnetToken2022 | BridgeChain::EvmBaseMainnet)
     }
 
     /// True for the two Solana clusters.
     pub fn is_solana(self) -> bool {
-        true
+        matches!(self, BridgeChain::SolanaToken2022 | BridgeChain::SolanaMainnetToken2022)
     }
 }
 
