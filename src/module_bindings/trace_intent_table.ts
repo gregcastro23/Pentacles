@@ -13,7 +13,7 @@ import {
 export default __t.row({
   intentId: __t.u64().primaryKey().name("intent_id"),
   trader: __t.identity(),
-  evmAddress: __t.string().name("evm_address"),
+  solanaPubkey: __t.string().name("solana_pubkey"),
   constellationId: __t.u16().name("constellation_id"),
   visibleStars: __t.u16().name("visible_stars"),
   attested: __t.bool(),

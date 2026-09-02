@@ -19,41 +19,18 @@ import { PublicKey } from '@solana/web3.js'
 // ── CAIP-2 chain ids ────────────────────────────────────────────────────────
 
 export const CAIP2 = Object.freeze({
-  baseSepolia: 'eip155:84532',
-  baseMainnet: 'eip155:8453',
   solanaDevnet: 'solana:devnet',
   solanaMainnet: 'solana:mainnet-beta',
 })
 
 /** Every chain Pentacles settles on, keyed by CAIP-2 id. */
 export const CHAINS = Object.freeze({
-  [CAIP2.baseSepolia]: Object.freeze({
-    caip2: CAIP2.baseSepolia,
-    namespace: 'eip155',
-    name: 'Base Sepolia',
-    evmChainId: 84532,
-    testnet: true,
-    explorer: 'https://sepolia.basescan.org',
-    defaultRpc: 'https://sepolia.base.org',
-  }),
-  [CAIP2.baseMainnet]: Object.freeze({
-    caip2: CAIP2.baseMainnet,
-    namespace: 'eip155',
-    name: 'Base',
-    evmChainId: 8453,
-    testnet: false,
-    explorer: 'https://basescan.org',
-    defaultRpc: 'https://mainnet.base.org',
-  }),
   [CAIP2.solanaDevnet]: Object.freeze({
     caip2: CAIP2.solanaDevnet,
     namespace: 'solana',
     name: 'Solana Devnet',
     cluster: 'devnet',
     testnet: true,
-    // `solana genesis-hash --url devnet`. The deploy guard compares the live
-    // cluster against this so a mainnet-shaped command can never land on the
-    // wrong network (or the reverse) merely because an RPC URL was edited.
     genesisHash: 'EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG',
     explorer: 'https://explorer.solana.com',
     explorerQuery: '?cluster=devnet',
@@ -87,30 +64,18 @@ export function isMainnet(caip2) {
 /** Explorer URL for a transaction on any registered chain. */
 export function txUrl(caip2, hash) {
   const chain = chainFor(caip2)
-  return chain.namespace === 'solana'
-    ? `${chain.explorer}/tx/${hash}${chain.explorerQuery}`
-    : `${chain.explorer}/tx/${hash}`
+  return `${chain.explorer}/tx/${hash}${chain.explorerQuery}`
 }
 
 /** Explorer URL for an address on any registered chain. */
 export function addrUrl(caip2, address) {
   const chain = chainFor(caip2)
-  return chain.namespace === 'solana'
-    ? `${chain.explorer}/address/${address}${chain.explorerQuery}`
-    : `${chain.explorer}/address/${address}`
+  return `${chain.explorer}/address/${address}${chain.explorerQuery}`
 }
 
-// ── Legacy BridgeChain interop ──────────────────────────────────────────────
-//
-// `server/src/types.rs` declares `BridgeChain { EvmBaseSepolia, SolanaToken2022 }`.
-// Those two variants hardcode a testnet in their names and carry no cluster, so
-// they cannot express "Solana mainnet". The module keeps them (SpacetimeDB 2.x
-// cannot rename or drop) and gains explicit mainnet variants; these maps are the
-// bridge between the enum and CAIP-2 for as long as both exist.
+// ── BridgeChain interop ───────────────────────────────────────────────────
 
 export const BRIDGE_CHAIN_TO_CAIP2 = Object.freeze({
-  EvmBaseSepolia: CAIP2.baseSepolia,
-  EvmBaseMainnet: CAIP2.baseMainnet,
   SolanaToken2022: CAIP2.solanaDevnet,
   SolanaMainnetToken2022: CAIP2.solanaMainnet,
 })

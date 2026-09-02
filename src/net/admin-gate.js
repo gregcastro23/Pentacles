@@ -1,25 +1,22 @@
 /* ============================================================
    Pentacles — Canonical Admin & Owner Identity Gate
    ============================================================ */
+// Enforces cryptographic server-side identity verification against
+// GameConfig.owner. Client-side URL bypasses and prompts have been removed.
 
 export const ADMIN_EMAIL = "gregcastro23@gmail.com";
-export const ADMIN_KEY = "pentacles_admin";
 
 let _ownerUnlocked = false;
 
 export function sameIdentity(a, b) {
   if (!a || !b) return false;
-  const cleanA = String(a).replace(/^0x/, "").toLowerCase().trim();
-  const cleanB = String(b).replace(/^0x/, "").toLowerCase().trim();
+  const cleanA = String(a.__identity__ ?? a).replace(/^0x/, "").toLowerCase().trim();
+  const cleanB = String(b.__identity__ ?? b).replace(/^0x/, "").toLowerCase().trim();
   return cleanA === cleanB;
 }
 
 export function isAdmin(identity = null, player = null, config = null) {
   if (_ownerUnlocked) return true;
-
-  if (player && (player.is_admin || player.role === "admin" || player.role === "owner")) {
-    return true;
-  }
 
   if (config && config.owner) {
     const ownerId = config.owner.__identity__ ?? config.owner;
@@ -34,31 +31,6 @@ export function isAdmin(identity = null, player = null, config = null) {
       _ownerUnlocked = true;
       return true;
     }
-  }
-
-  if (typeof window !== "undefined") {
-    if (window.Pentacles?.isAdmin || window.__IS_ADMIN__) return true;
-
-    try {
-      // Check query param ?admin=
-      if (typeof location !== "undefined" && location.search) {
-        const qp = new URLSearchParams(location.search);
-        if (qp.has("admin")) {
-          const val = (qp.get("admin") || "").trim().toLowerCase();
-          if (val === ADMIN_EMAIL || val === "true" || val === "1") {
-            try { localStorage.setItem(ADMIN_KEY, ADMIN_EMAIL); } catch {}
-            return true;
-          }
-        }
-      }
-
-      // Check localStorage & sessionStorage (supports email, "true", or "1")
-      const stored = localStorage.getItem(ADMIN_KEY) || sessionStorage.getItem(ADMIN_KEY);
-      if (stored) {
-        const clean = stored.trim().toLowerCase();
-        if (clean === ADMIN_EMAIL || clean === "true" || clean === "1") return true;
-      }
-    } catch {}
   }
 
   return false;
@@ -94,34 +66,17 @@ export function ensureAdmin(spacetime = null, onUnlock = null) {
     return true;
   }
 
-  let entered = null;
-  if (typeof window !== "undefined" && typeof window.prompt === "function") {
-    try {
-      entered = window.prompt("Admin email to unlock The Observatory:");
-    } catch {}
-  }
-
-  if (entered && entered.trim().toLowerCase() === ADMIN_EMAIL) {
-    try {
-      localStorage.setItem(ADMIN_KEY, ADMIN_EMAIL);
-    } catch {}
-    _ownerUnlocked = true;
-    if (typeof onUnlock === "function") onUnlock();
-    if (typeof window !== "undefined" && window.toast) {
-      window.toast("The Observatory unlocked.", { type: "success", title: "Admin Access" });
-    }
-    return true;
-  }
-
-  if (entered != null && typeof window !== "undefined" && window.toast) {
-    window.toast("Not authorized for the admin console.", { type: "error", title: "The Observatory" });
+  if (typeof window !== "undefined" && window.toast) {
+    window.toast("Not authorized: deployer identity required to access The Observatory.", {
+      type: "error",
+      title: "The Observatory",
+    });
   }
   return false;
 }
 
 export default {
   ADMIN_EMAIL,
-  ADMIN_KEY,
   sameIdentity,
   isAdmin,
   verifyOwnerIdentity,

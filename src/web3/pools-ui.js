@@ -37,7 +37,7 @@ let lastPosAddr = null
 let ctx = null
 
 const toast = (...a) => window.toast?.(...a)
-const mode = () => (wallet.onBaseSepolia || wallet.solanaAddress ? 'live' : 'sim')
+const mode = () => (wallet.solanaAddress ? 'live' : 'sim')
 
 function poolMeta() {
   const cons = (window.state && window.state.constellations) || []

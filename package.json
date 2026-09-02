@@ -11,7 +11,7 @@
     "test:chart": "node src/alchm-chart/__tests__/math.test.js",
     "test:engine": "node scripts/arcana-trick-engine.test.mjs",
     "test:gameplay": "node scripts/arcana-trick-engine.test.mjs && node scripts/gameplay-contract.test.mjs && node scripts/card-synthesis.test.mjs && bun scripts/starter-deck.test.mjs && bun scripts/pentacles-stardex.test.mjs",
-    "test:omnichain": "bun scripts/dryrun-omnichain.test.mjs && bun test tests/solana-sync-service.test.ts",
+    "test:solana": "node scripts/dryrun-solana.test.mjs && node scripts/dryrun-star-staking.test.mjs && bun scripts/solana-settlement-e2e.test.mjs && bun test tests/esms-units.test.ts tests/solana-sync-service.test.ts tests/solana-instructions.test.ts",
     "build:chart": "vite build --config vite.alchm.config.js",
     "serve": "bun run serve.ts",
     "gen": "spacetime generate --lang typescript --module-path server --out-dir src/module_bindings -y && node scripts/patch-bindings.mjs",
@@ -21,7 +21,8 @@
     "test:warmodel": "node src/alchm-chart/__tests__/war-model.test.js",
     "test:client": "bun run test:gameplay && bun run test:war && bun run test:warmodel && bun run test:routing && bun run test:chart",
     "test:smoke": "bun scripts/smoke.test.mjs",
-    "test:all": "bun run test:client && bun run test:parity && bun run test:smoke",
+    "test:live": "node scripts/production-live.test.mjs",
+    "test:all": "bun run test:client && bun run test:solana && bun run test:parity && bun run test:smoke",
     "test:parity": "bun scripts/melee-parity.test.mjs"
   },
   "devDependencies": {
@@ -29,7 +30,6 @@
   },
   "dependencies": {
     "@coral-xyz/anchor": "0.30.1",
-    "@dynamic-labs/ethereum": "^4.90.0",
     "@dynamic-labs/sdk-react-core": "^4.90.0",
     "@solana/spl-token": "^0.4.15",
     "@solana/web3.js": "^1.98.4",
@@ -39,7 +39,6 @@
     "react-dom": "^19.2.7",
     "spacetimedb": "^2.6.0",
     "three": "^0.185.0",
-    "vercel": "^59.10.0",
-    "viem": "^2.53.1"
+    "vercel": "^59.10.0"
   }
 }

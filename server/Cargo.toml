@@ -13,6 +13,8 @@ crate-type = ["cdylib"]
 spacetimedb = "2.6"
 log = "0.4"
 sha2 = "0.10" # claim_profile: hash the one-time identity-link code
+ed25519-dalek = { version = "2.1", default-features = false }
+bs58 = "0.5"
 # Shared ephemeris/astrology core. It moved with the Solana migration: the old
 # EthGlobalHackathon/AlchmAgentsETH-main path no longer exists on disk, so the
 # module could not build at all until this was repointed. Still an absolute-ish

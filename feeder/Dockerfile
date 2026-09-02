@@ -16,7 +16,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN bun install --production
 
-# Feeder deps (@anthropic-ai/sdk, viem).
+# Feeder deps (@anthropic-ai/sdk, @solana/web3.js).
 COPY feeder/package.json ./feeder/
 RUN cd feeder && bun install --production
 
@@ -24,7 +24,6 @@ RUN cd feeder && bun install --production
 # normalizer, and the feeder code itself.
 COPY src/module_bindings ./src/module_bindings
 COPY src/net/ws-normalize.js ./src/net/ws-normalize.js
-COPY src/web3/abis.js ./src/web3/abis.js
 COPY feeder ./feeder
 
 ENV NODE_ENV=production

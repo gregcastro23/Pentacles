@@ -86,34 +86,10 @@ export const BattleLog = __t.object("BattleLog", {
 export type BattleLog = __Infer<typeof BattleLog>;
 
 // The tagged union or sum type for the algebraic type `BridgeChain`.
-export const BridgeChain = __t.enum("BridgeChain", ["EvmBaseSepolia", "SolanaToken2022", "EvmBaseMainnet", "SolanaMainnetToken2022"]);
+export const BridgeChain = __t.enum("BridgeChain", ["SolanaToken2022", "SolanaMainnetToken2022"]);
 export type BridgeChain = __Infer<typeof BridgeChain>;
 
-// The tagged union or sum type for the algebraic type `BridgeStatus`.
-export const BridgeStatus = __t.enum("BridgeStatus", ["PendingMint", "Completed"]);
-export type BridgeStatus = __Infer<typeof BridgeStatus>;
 
-export const BridgeTransfer = __t.object("BridgeTransfer", {
-  burnTxHash: __t.string(),
-  player: __t.identity(),
-  get sourceChain() {
-    return BridgeChain;
-  },
-  get targetChain() {
-    return BridgeChain;
-  },
-  sourceAddress: __t.string(),
-  targetAddress: __t.string(),
-  elementId: __t.u8(),
-  amount: __t.u128(),
-  get status() {
-    return BridgeStatus;
-  },
-  destinationTxHash: __t.option(__t.string()),
-  createdAt: __t.timestamp(),
-  updatedAt: __t.timestamp(),
-});
-export type BridgeTransfer = __Infer<typeof BridgeTransfer>;
 
 export const Card = __t.object("Card", {
   cardId: __t.u64(),
@@ -592,7 +568,6 @@ export const Player = __t.object("Player", {
   lastActive: __t.timestamp(),
   tokens: __t.u64(),
   wordWins: __t.u32(),
-  evmAddress: __t.option(__t.string()),
   solanaPubkey: __t.option(__t.string()),
 });
 export type Player = __Infer<typeof Player>;
@@ -755,7 +730,7 @@ export type TraceAttestation = __Infer<typeof TraceAttestation>;
 export const TraceIntent = __t.object("TraceIntent", {
   intentId: __t.u64(),
   trader: __t.identity(),
-  evmAddress: __t.string(),
+  solanaPubkey: __t.string(),
   constellationId: __t.u16(),
   visibleStars: __t.u16(),
   attested: __t.bool(),
@@ -782,14 +757,6 @@ export type Trade = __Infer<typeof Trade>;
 // The tagged union or sum type for the algebraic type `TradeState`.
 export const TradeState = __t.enum("TradeState", ["Open", "Committed", "Cancelled"]);
 export type TradeState = __Infer<typeof TradeState>;
-
-export const VerifiedEvmWallet = __t.object("VerifiedEvmWallet", {
-  identity: __t.identity(),
-  evmAddress: __t.string(),
-  proofHash: __t.string(),
-  verifiedAt: __t.timestamp(),
-});
-export type VerifiedEvmWallet = __Infer<typeof VerifiedEvmWallet>;
 
 export const VerifiedSolanaWallet = __t.object("VerifiedSolanaWallet", {
   identity: __t.identity(),

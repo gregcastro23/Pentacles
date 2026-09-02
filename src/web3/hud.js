@@ -1,8 +1,8 @@
 // ============================================================
 // Pentacles — persistent ESMS balance HUD (top-right)
 // ============================================================
-// Always-on readout of the four ESMS balances. Live (on-chain balanceOfBatch)
-// when a wallet is connected on Base Sepolia; clearly-tagged simulation otherwise.
+// Always-on readout of the four ESMS balances. Live (on-chain Token-2022 reads)
+// when a Solana wallet is connected; clearly-tagged simulation otherwise.
 
 import { wallet } from './wallet.js'
 import { ESMS, readEsmsBalances, simEsmsBalances } from './esms.js'
@@ -19,8 +19,8 @@ export function initEsmsHud() {
   const paint = (mode, balances) => {
     const tagTitle =
       mode === 'live'
-        ? 'Live on-chain ESMS balances (Base Sepolia)'
-        : 'Simulated balances — connect a wallet on Base Sepolia for live ESMS'
+        ? 'Live on-chain ESMS balances (Solana Token-2022)'
+        : 'Simulated balances — connect a Solana wallet for live ESMS'
     hud.innerHTML =
       `<span class="pt-esms__tag pt-esms__tag--${mode}" title="${tagTitle}">ESMS · ${mode}</span>` +
       ESMS.map(
@@ -32,25 +32,25 @@ export function initEsmsHud() {
 
   async function render(snap) {
     const token = ++renderToken
-    const live = snap.connected && snap.address && snap.onBaseSepolia
+    const live = snap.connected && snap.solanaAddress
     if (live) {
       try {
-        const balances = await readEsmsBalances(snap.address)
+        const balances = await readEsmsBalances(snap.solanaAddress)
         if (token === renderToken) paint('live', balances)
       } catch {
-        if (token === renderToken) paint('sim', simEsmsBalances(snap.address))
+        if (token === renderToken) paint('sim', simEsmsBalances(snap.solanaAddress))
       }
     } else {
-      paint('sim', simEsmsBalances(snap.address || 'guest'))
+      paint('sim', simEsmsBalances(snap.solanaAddress || 'guest'))
     }
   }
 
   wallet.onChange(render)
 
-  // Periodic refresh of live balances (cheap; only when connected on the chain).
+  // Periodic refresh of live balances (cheap; only when connected on Solana).
   setInterval(() => {
     const s = wallet.snapshot()
-    if (s.connected && s.onBaseSepolia) render(s)
+    if (s.connected && s.solanaAddress) render(s)
   }, 30000)
 
   return { refresh: () => render(wallet.snapshot()) }

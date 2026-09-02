@@ -1,14 +1,10 @@
 // ============================================================
 // Pentacles — Constellation DEX simulation (dual-mode fallback)
 // ============================================================
-// A self-contained, deterministic constant-product AMM over the 12 pools, in the
-// SAME bigint/18-decimal shape as the live reads so pools-ui treats live and sim
-// uniformly. Used (clearly labeled) whenever a wallet isn't connected on Base
-// Sepolia. No attestation needed in simulation.
+// A self-contained, deterministic constant-product AMM over the 12 pools.
+// Used (clearly labeled) whenever offline or running simulated trades.
 
-import { parseUnits } from 'viem'
-
-const E = (n) => parseUnits(String(n), 18)
+const E = (n) => BigInt(Math.round(Number(n) * 10000))
 const sim = { pools: new Map(), positions: [], nextDeed: 9001n }
 
 function ensure(constId, elemA, elemB, feeBps) {

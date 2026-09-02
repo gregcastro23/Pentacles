@@ -7,7 +7,7 @@ use crate::reducers::{tick_sky, resolve_round};
 
 // ── Identity & natal chart ────────────────────────────────────────────────
 
-#[spacetimedb::table(accessor = player, public)]
+#[spacetimedb::table(accessor = player)] // private to owner (not public)
 #[derive(Clone)]
 pub struct Player {
     #[primary_key]
@@ -24,27 +24,12 @@ pub struct Player {
     #[default(0u32)]
     pub word_wins: u32,
     #[default(None::<String>)]
-    pub evm_address: Option<String>,
-    #[default(None::<String>)]
     pub solana_pubkey: Option<String>,
 }
 
-/// An EVM binding whose holder signed a short-lived EIP-712 proof containing
-/// this SpacetimeDB identity. Only the owner-authenticated verifier can write it.
-#[spacetimedb::table(accessor = verified_evm_wallet, public)]
-#[derive(Clone)]
-pub struct VerifiedEvmWallet {
-    #[primary_key]
-    pub identity: Identity,
-    #[unique]
-    pub evm_address: String,
-    pub proof_hash: String,
-    pub verified_at: Timestamp,
-}
-
 /// A Solana binding whose holder signed a short-lived proof containing this
-/// SpacetimeDB identity. Only the owner-authenticated verifier can write it.
-#[spacetimedb::table(accessor = verified_solana_wallet, public)]
+/// SpacetimeDB identity. Verified and bound directly to ctx.sender() in bind_solana_wallet.
+#[spacetimedb::table(accessor = verified_solana_wallet)] // private to owner (not public)
 #[derive(Clone)]
 pub struct VerifiedSolanaWallet {
     #[primary_key]
@@ -117,7 +102,7 @@ pub struct AgentChart {
 /// an Ace and angular / sign-ruling bodies to courts; this table is the plain
 /// astrological truth (always a 2..10 pip). Mirrors the client `decanCard()` in
 /// src/alchm-chart/decans.js, which mirrors `pip_rank`/`decan` in chart.rs.
-#[spacetimedb::table(accessor = natal_decan, public)]
+#[spacetimedb::table(accessor = natal_decan)] // private to owner (not public)
 #[derive(Clone)]
 pub struct NatalDecan {
     #[primary_key]
@@ -147,7 +132,7 @@ pub struct PlayerLocation {
 
 // ── Cards & inventory ─────────────────────────────────────────────────────
 
-#[spacetimedb::table(accessor = card, public)]
+#[spacetimedb::table(accessor = card)] // private to owner (not public)
 #[derive(Clone)]
 pub struct Card {
     #[primary_key]
@@ -173,7 +158,7 @@ pub struct Card {
     pub letter: u8,
 }
 
-#[spacetimedb::table(accessor = deck_slot, public)]
+#[spacetimedb::table(accessor = deck_slot)] // private to owner (not public)
 #[derive(Clone)]
 pub struct DeckSlot {
     #[primary_key]
@@ -788,7 +773,7 @@ pub struct TraceIntent {
     pub intent_id: u64,
     #[index(btree)]
     pub trader: Identity,     // the SpacetimeDB player who traced
-    pub evm_address: String,  // their EVM wallet (0x-hex) — the on-chain attestation subject
+    pub solana_pubkey: String, // their Solana wallet (base58) — the on-chain attestation subject
     pub constellation_id: u16,
     pub visible_stars: u16,   // member stars above the horizon at request time
     pub attested: bool,       // flipped true once the attestor has signed
@@ -1067,8 +1052,8 @@ pub struct ClaimGrant {
 #[derive(Clone)]
 pub struct ProcessedTx {
     #[primary_key]
-    pub tx_hash: String,        // 0x-hex EVM tx hash or base58 Solana signature
-    pub chain: String,          // "evm_base_sepolia" | "solana_token_2022"
+    pub tx_hash: String,        // base58 Solana signature
+    pub chain: String,          // "solana_token_2022" | "solana_mainnet_token_2022"
     pub event_type: String,     // "mint" | "burn" | "stake"
     pub processed_at: Timestamp,
 }
@@ -1084,26 +1069,4 @@ pub struct HorizonActionReceipt {
     pub intent_id: u64,
     pub tx_hash: String,
     pub processed_at: Timestamp,
-}
-
-/// A claimed source-chain burn waiting for the feeder/attestor to verify it and
-/// mint the equivalent ESMS on the destination chain.
-#[spacetimedb::table(accessor = bridge_transfer, public)]
-#[derive(Clone)]
-pub struct BridgeTransfer {
-    #[primary_key]
-    pub burn_tx_hash: String,
-    #[index(btree)]
-    pub player: Identity,
-    pub source_chain: BridgeChain,
-    pub target_chain: BridgeChain,
-    pub source_address: String,
-    pub target_address: String,
-    pub element_id: u8,
-    pub amount: u128,
-    pub status: BridgeStatus,
-    #[default(None::<String>)]
-    pub destination_tx_hash: Option<String>,
-    pub created_at: Timestamp,
-    pub updated_at: Timestamp,
 }

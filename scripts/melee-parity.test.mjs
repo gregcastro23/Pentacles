@@ -193,7 +193,11 @@ try {
   );
 } catch (err) {
   if (err.code === "ENOENT") {
-    console.warn("  ⚠ cargo not found in environment — set PENTACLES_SKIP_PARITY=1 to skip Rust engine parity comparison");
+    if (process.env.CI && process.env.PENTACLES_SKIP_PARITY !== "1") {
+      console.error("  ✗ cargo not found in CI environment — cannot verify Rust engine parity");
+      process.exit(1);
+    }
+    console.warn("  ⚠ cargo not found in local environment — set PENTACLES_SKIP_PARITY=1 or install Rust for parity comparison");
     process.exit(0);
   }
   console.error(err.stdout || "");
