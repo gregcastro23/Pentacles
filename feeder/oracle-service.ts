@@ -50,9 +50,9 @@ if (!anthropic) {
   console.warn("[Oracle] No ANTHROPIC_API_KEY set — answering via the planetary-agents brain only.");
 }
 
-const DB = process.env.SPACETIMEDB_DB ?? "cookingwithcastrollc";
-const SPACETIMEDB_URI = (process.env.SPACETIMEDB_URI ?? "https://maincloud.spacetimedb.com").replace(/\/+$/, "");
-const SPACETIME_TOKEN = process.env.SPACETIME_TOKEN || "";
+import { resolveFeederEnv } from "./spacetime-cli";
+
+const { db: DB, uri: SPACETIMEDB_URI, token: SPACETIME_TOKEN } = resolveFeederEnv();
 
 // Shown to the player when a question can't be answered (refusal, malformed input,
 // or a persistent API error). Writing it *closes* the request so the re-sweep stops

@@ -57,6 +57,7 @@ describe('Anchor event decoding', () => {
     // Pinned in the feeder so decoding stays synchronous; if the event is ever
     // renamed in the program this is what catches it.
     expect(Array.from(discriminator('StarStaked'))).toEqual([196, 97, 37, 231, 187, 111, 123, 3])
+    expect(Array.from(discriminator('StarUnstaked'))).toEqual([162, 83, 72, 193, 72, 117, 207, 119])
     expect(Array.from(discriminator('StarStakeTransferred'))).toEqual([204, 122, 16, 230, 79, 217, 84, 82])
   })
 
@@ -77,6 +78,27 @@ describe('Anchor event decoding', () => {
     expect(events[0].data.pubkey()).toBe(staker.toBase58())
     expect(events[0].data.u32()).toBe(677)
     expect(events[0].data.u64()).toBe(10_000_000n)
+  })
+
+  test('decodes a StarUnstaked event out of a Program data log line', () => {
+    const staker = asolEsmsMints()[0]
+    const payload = Buffer.concat([
+      discriminator('StarUnstaked'),
+      staker.toBuffer(),
+      (() => { const b = Buffer.alloc(4); b.writeUInt32LE(677); return b })(),
+      (() => { const b = Buffer.alloc(8); b.writeBigUInt64LE(5_000_000n); return b })(),
+      (() => { const b = Buffer.alloc(8); b.writeBigUInt64LE(5_000_000n); return b })(),
+    ])
+    const events = decodeAnchorEvents([
+      'Program log: something unrelated',
+      `Program data: ${payload.toString('base64')}`,
+    ])
+    expect(events).toHaveLength(1)
+    expect(events[0].name).toBe('StarUnstaked')
+    expect(events[0].data.pubkey()).toBe(staker.toBase58())
+    expect(events[0].data.u32()).toBe(677)
+    expect(events[0].data.u64()).toBe(5_000_000n) // principal_usdc
+    expect(events[0].data.u64()).toBe(5_000_000n) // position_principal
   })
 
   test('ignores log lines that are not events', () => {

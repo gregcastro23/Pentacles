@@ -36,9 +36,9 @@ import "../public/arcanaTrickEngine.js";
 const Engine: any = (globalThis as any).ArcanaTrickEngine;
 if (!Engine) throw new Error("war-table: arcanaTrickEngine.js did not attach to globalThis");
 
-const DB = process.env.SPACETIMEDB_DB ?? "cookingwithcastrollc";
-const SPACETIMEDB_URI = (process.env.SPACETIMEDB_URI ?? "https://maincloud.spacetimedb.com").replace(/\/+$/, "");
-const SPACETIME_TOKEN = process.env.SPACETIME_TOKEN || "";
+import { cliCall, resolveFeederEnv } from "./spacetime-cli";
+
+const { db: DB, uri: SPACETIMEDB_URI, token: SPACETIME_TOKEN } = resolveFeederEnv();
 const ROUND_MS = Number(process.env.WAR_ROUND_MS ?? "60000");
 
 export const PLANET_NAMES = ["Sun", "Moon", "Mercury", "Venus", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune", "Pluto"];

@@ -46,11 +46,31 @@ function generateVolumetricStarCluster(minX: number, minY: number, minZ: number,
   return stars;
 }
 
+const DB = process.env.SPACETIMEDB_DB ?? "cookingwithcastrollc";
+const INDOOR_SECRET = process.env.INDOOR_SERVICE_SECRET || process.env.SPACETIME_TOKEN || "";
+
+// Simple in-memory rate limiter: max 30 requests per 60 seconds per client
+const rateLimits = new Map<string, { count: number; resetAt: number }>();
+function checkRateLimit(clientId: string): boolean {
+  const now = Date.now();
+  const entry = rateLimits.get(clientId);
+  if (!entry || entry.resetAt <= now) {
+    rateLimits.set(clientId, { count: 1, resetAt: now + 60_000 });
+    return true;
+  }
+  if (entry.count >= 30) {
+    return false;
+  }
+  entry.count += 1;
+  return true;
+}
+
 // Bun REST Server Implementation
 const server = Bun.serve({
   port: PORT,
   async fetch(req) {
     const url = new URL(req.url);
+    const clientIp = req.headers.get("x-forwarded-for") || "local";
 
     // CORS Headers
     const corsHeaders = {
@@ -61,6 +81,13 @@ const server = Bun.serve({
 
     if (req.method === "OPTIONS") {
       return new Response(null, { headers: corsHeaders });
+    }
+
+    if (!checkRateLimit(clientIp)) {
+      return Response.json(
+        { success: false, error: "Rate limit exceeded (max 30 requests per minute)" },
+        { status: 429, headers: corsHeaders }
+      );
     }
 
     try {
@@ -115,7 +142,6 @@ const server = Bun.serve({
         if (manual_override !== undefined) {
           is_indoor = Boolean(manual_override);
         } else {
-          // If GPS accuracy is worse than 25m or ambient lux is low indoor lighting (<50 lux), classify as indoor
           const lowGpsPrecision = gps_accuracy_m ? gps_accuracy_m > 25.0 : false;
           const lowLight = ambient_lux !== undefined ? ambient_lux < 50.0 : false;
           is_indoor = lowGpsPrecision || lowLight;
@@ -132,26 +158,44 @@ const server = Bun.serve({
         );
       }
 
-      // 4. Anomaly Lock & Solana Anchor Payload Generation Endpoint
+      // 4. Anomaly Lock & Solana Anchor Payload Generation Endpoint (Authenticated)
       if (url.pathname === "/api/v1/spatial/lock-anomaly" && req.method === "POST") {
-        const body = await req.json();
-        const { cache_id = 1, x = 145.0, y = -89.4, z = 310.2, player_pubkey = "4fhb...4Ns2" } = body;
-
-        // Trigger SpacetimeDB reducer: lock_anomaly(cache_id, x, y, z)
-        try {
-          await cliCall("lock_anomaly", [cache_id, x, y, z]);
-        } catch (stdbErr) {
-          console.warn("SpacetimeDB lock_anomaly warning:", stdbErr);
+        // Authenticate request
+        const authHeader = req.headers.get("authorization") || "";
+        const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+        if (INDOOR_SECRET && token !== INDOOR_SECRET) {
+          return Response.json(
+            { success: false, error: "Unauthorized: valid Bearer token required" },
+            { status: 401, headers: corsHeaders }
+          );
         }
 
-        const esms_reward = 5000;
+        const body = await req.json();
+        const { cache_id = 1, x = 145.0, y = -89.4, z = 310.2, player_pubkey } = body;
+
+        if (!player_pubkey) {
+          return Response.json(
+            { success: false, error: "player_pubkey is required" },
+            { status: 400, headers: corsHeaders }
+          );
+        }
+
+        // Trigger SpacetimeDB reducer with correct arity: cliCall(db, reducer, args)
+        try {
+          await cliCall(DB, "lock_anomaly", [cache_id, x, y, z]);
+        } catch (stdbErr: any) {
+          console.error("SpacetimeDB lock_anomaly error:", stdbErr?.message || stdbErr);
+          return Response.json(
+            { success: false, error: "Failed to lock anomaly on SpacetimeDB ledger", detail: stdbErr?.message },
+            { status: 502, headers: corsHeaders }
+          );
+        }
 
         return Response.json(
           {
             success: true,
             cache_id,
             decrypted: true,
-            esms_reward,
             solana_anchor_payload: {
               instruction: "MineDeepSpaceCache",
               program_id: process.env.SOLANA_PROGRAM_ID || "7MPHZUmxFcLQiqmhnfvgVtTsMRu7jHdmGzjZbKbECE5R",
@@ -163,8 +207,7 @@ const server = Bun.serve({
               },
               args: {
                 cache_id,
-                spatial_vector: { x, y, z },
-                esms_yield: esms_reward
+                spatial_vector: { x, y, z }
               }
             }
           },

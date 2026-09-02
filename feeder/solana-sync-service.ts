@@ -20,6 +20,15 @@ import { cliCall } from "./spacetime-cli";
 import { assertGenesis, createResilientLogStream, resolveCluster } from "./solana-cluster";
 import { asolEsmsMints, PENTACLES_PROGRAM_ID } from "../src/web3/chains.js";
 
+if (process.env.NODE_ENV === "production") {
+  if (!process.env.SPACETIMEDB_DB) {
+    throw new Error("SPACETIMEDB_DB must be explicitly set in production environments.");
+  }
+  if (!process.env.SPACETIME_TOKEN) {
+    throw new Error("SPACETIME_TOKEN must be set in production environments.");
+  }
+}
+
 const DB = process.env.SPACETIMEDB_DB ?? "cookingwithcastrollc";
 const SPACETIMEDB_URI = (process.env.SPACETIMEDB_URI ?? "https://maincloud.spacetimedb.com").replace(/\/+$/, "");
 const SPACETIME_TOKEN = process.env.SPACETIME_TOKEN || "";
@@ -65,6 +74,15 @@ export interface StarStakeEvent {
   starId: number;
   principalUsdc: bigint;
   shares: bigint;
+  timestamp: number;
+}
+
+export interface StarUnstakeEvent {
+  signature: string;
+  staker: string;
+  starId: number;
+  principalUsdc: bigint;
+  positionPrincipal: bigint;
   timestamp: number;
 }
 
@@ -323,6 +341,20 @@ export async function syncStarStake(event: StarStakeEvent): Promise<void> {
   );
 }
 
+export async function syncStarUnstake(event: StarUnstakeEvent): Promise<void> {
+  await callReducer("record_star_unstake", [
+    { tag: BRIDGE_CHAIN },
+    event.signature,
+    event.staker,
+    event.starId,
+    event.principalUsdc,
+    event.positionPrincipal,
+  ]);
+  console.log(
+    `[SolanaSync] star ${event.starId} unstaked ${event.principalUsdc} USDC units by ${event.staker.slice(0, 8)}… (remaining: ${event.positionPrincipal})`,
+  );
+}
+
 /** Route one transaction's logs and balances into the ledger. */
 export async function handleTransaction(entry: {
   signature: string;
@@ -351,6 +383,19 @@ export async function handleTransaction(entry: {
           fromWallet: data.pubkey(),
           toWallet: data.pubkey(),
           amount: data.u64(),
+          timestamp,
+        });
+      } else if (name === "StarUnstaked") {
+        const staker = data.pubkey();
+        const starId = data.u32();
+        const principalUsdc = data.u64();
+        const positionPrincipal = data.u64();
+        await syncStarUnstake({
+          signature: entry.signature,
+          staker,
+          starId,
+          principalUsdc,
+          positionPrincipal,
           timestamp,
         });
       }

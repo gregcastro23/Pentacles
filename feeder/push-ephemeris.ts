@@ -13,13 +13,11 @@
 // Env: SPACETIMEDB_DB (default cookingwithcastrollc), FEED_INTERVAL_MIN (15).
 
 import { bodyEquatorial, geocentricEclipticLon, julianDay } from "./ephemeris.ts";
-import { cliCall } from "./spacetime-cli";
+import { cliCall, resolveFeederEnv } from "./spacetime-cli";
 
-const DB = process.env.SPACETIMEDB_DB ?? "cookingwithcastrollc";
+const { db: DB, uri: SPACETIMEDB_URI, token: SPACETIME_TOKEN } = resolveFeederEnv();
 const INTERVAL_MIN = Number(process.env.FEED_INTERVAL_MIN ?? "15");
 const BODIES = ["Sun", "Moon", "Mercury", "Venus", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune", "Pluto"];
-const SPACETIMEDB_URI = (process.env.SPACETIMEDB_URI ?? "https://maincloud.spacetimedb.com").replace(/\/+$/, "");
-const SPACETIME_TOKEN = process.env.SPACETIME_TOKEN || "";
 
 // Canonical (global) transit zone: the planet's ecliptic longitude mapped into
 // the eleven zones. Each player's AR view anchors the Pentacle to their own

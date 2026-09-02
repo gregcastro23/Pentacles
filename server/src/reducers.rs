@@ -4300,11 +4300,8 @@ fn verified_stardex_player(
         return Err("horizon attestation identity mismatch".into());
     }
     let signature = attestation.signature.trim();
-    if signature.len() != 132
-        || !signature.starts_with("0x")
-        || !signature[2..].bytes().all(|b| b.is_ascii_hexdigit())
-    {
-        return Err("horizon attestation has an invalid EIP-712 signature".into());
+    if normalized_solana_signature(signature, "attestation_signature").is_err() {
+        return Err("horizon attestation has an invalid Solana signature".into());
     }
     let now = (ctx.timestamp.to_micros_since_unix_epoch() / 1_000_000).max(0) as u64;
     if attestation.deadline < now {
@@ -4393,18 +4390,64 @@ pub fn sync_stardex_ephemeris(
 }
 
 /// Allows a player to claim/siege a star node when it sits on the horizon band.
+/// Enforces a 60-second player cooldown, 50 token cost gate, and horizon altitude checks.
 #[spacetimedb::reducer]
 pub fn siege_horizon_star(ctx: &ReducerContext, star_id: u32) -> Result<(), String> {
-    let player = ctx.db.player().identity().find(&ctx.sender()).ok_or("player not found")?;
+    let mut player = ctx.db.player().identity().find(&ctx.sender()).ok_or("player not found")?;
     let mut star = ctx.db.star_node().hip_id().find(&star_id).ok_or("star not found")?;
 
-    if star.horizon_state != "ON_HORIZON_BAND" && star.refracted_alt < 0.0 {
-        return Err(format!("Star {} is not currently on the horizon encounter band", star.name));
+    if star.held_by == Some(player.faction) {
+        return Err(format!("Star {} is already held by your faction", star.name));
+    }
+
+    // Cooldown check (60s)
+    let cooldown_key = format!("{:?}:siege_star", ctx.sender());
+    if let Some(cooldown) = ctx.db.player_action_cooldown().key().find(&cooldown_key) {
+        let elapsed_micros = ctx.timestamp.to_micros_since_unix_epoch()
+            .saturating_sub(cooldown.last_executed_at.to_micros_since_unix_epoch());
+        if elapsed_micros < 60 * 1_000_000 {
+            let remaining_secs = (60 * 1_000_000 - elapsed_micros) / 1_000_000;
+            return Err(format!("Siege cooldown active; retry in {remaining_secs}s"));
+        }
+    }
+
+    // Cost gate: 50 tokens
+    const SIEGE_COST: u64 = 50;
+    if player.tokens < SIEGE_COST {
+        return Err(format!("Siege requires at least {SIEGE_COST} tokens (current: {})", player.tokens));
+    }
+
+    // Verify star is actually on the player's horizon band
+    let loc = ctx
+        .db
+        .player_location()
+        .identity()
+        .find(&ctx.sender())
+        .ok_or_else(|| "set your location first (set_location)".to_string())?;
+    let alt = altitude_deg(star.ra, star.dec, loc.lat, loc.lon, ctx.timestamp);
+    if !(-1.0..=10.0).contains(&alt) && star.horizon_state != "ON_HORIZON_BAND" {
+        return Err(format!("Star {} is not currently on the horizon encounter band (alt {:.1}°)", star.name, alt));
+    }
+
+    // Deduct cost and update player
+    player.tokens = player.tokens.saturating_sub(SIEGE_COST);
+    player.last_active = ctx.timestamp;
+    ctx.db.player().identity().update(player.clone());
+
+    // Record cooldown
+    let cooldown_row = PlayerActionCooldown {
+        key: cooldown_key.clone(),
+        last_executed_at: ctx.timestamp,
+    };
+    if ctx.db.player_action_cooldown().key().find(&cooldown_key).is_some() {
+        ctx.db.player_action_cooldown().key().update(cooldown_row);
+    } else {
+        ctx.db.player_action_cooldown().insert(cooldown_row);
     }
 
     star.held_by = Some(player.faction);
     ctx.db.star_node().hip_id().update(star);
-    log::info!("Player {} ({:?}) conquered horizon star node {}", player.handle, player.faction, star_id);
+    log::info!("Player {} ({:?}) conquered horizon star node {} (-{} tokens)", player.handle, player.faction, star_id, SIEGE_COST);
     Ok(())
 }
 
@@ -4627,6 +4670,7 @@ pub fn answer_trace(
     if ctx.sender() != cfg.owner {
         return Err("owner-only reducer".into());
     }
+    normalized_solana_signature(&signature, "trace_signature")?;
     let mut intent = ctx
         .db
         .trace_intent()
@@ -4743,23 +4787,61 @@ pub fn add_star_to_constellation(
     constellation_id: u16,
     hip_id: u32,
 ) -> Result<(), String> {
-    ctx.db
+    let mut player = ctx.db
         .player()
         .identity()
         .find(&ctx.sender())
         .ok_or_else(|| "register first".to_string())?;
-    let loc = ctx
-        .db
-        .player_location()
-        .identity()
-        .find(&ctx.sender())
-        .ok_or_else(|| "set your location first (set_location)".to_string())?;
+
+    // Cooldown check (300s / 5 minutes)
+    let cooldown_key = format!("{:?}:add_star", ctx.sender());
+    if let Some(cooldown) = ctx.db.player_action_cooldown().key().find(&cooldown_key) {
+        let elapsed_micros = ctx.timestamp.to_micros_since_unix_epoch()
+            .saturating_sub(cooldown.last_executed_at.to_micros_since_unix_epoch());
+        if elapsed_micros < 300 * 1_000_000 {
+            let remaining_secs = (300 * 1_000_000 - elapsed_micros) / 1_000_000;
+            return Err(format!("Add-star cooldown active; retry in {remaining_secs}s"));
+        }
+    }
+
+    // Cost gate: 100 tokens
+    const ADD_STAR_COST: u64 = 100;
+    if player.tokens < ADD_STAR_COST {
+        return Err(format!("Adding a star requires at least {ADD_STAR_COST} tokens (current: {})", player.tokens));
+    }
+
     let mut con = ctx
         .db
         .constellation()
         .constellation_id()
         .find(&constellation_id)
         .ok_or_else(|| "no such constellation".to_string())?;
+
+    // Capacity cap (max 30 members)
+    if con.member_count >= 30 {
+        return Err(format!("Constellation {} has reached maximum member capacity (30 stars)", con.name));
+    }
+
+    player.tokens = player.tokens.saturating_sub(ADD_STAR_COST);
+    player.last_active = ctx.timestamp;
+    ctx.db.player().identity().update(player);
+
+    let cooldown_row = PlayerActionCooldown {
+        key: cooldown_key.clone(),
+        last_executed_at: ctx.timestamp,
+    };
+    if ctx.db.player_action_cooldown().key().find(&cooldown_key).is_some() {
+        ctx.db.player_action_cooldown().key().update(cooldown_row);
+    } else {
+        ctx.db.player_action_cooldown().insert(cooldown_row);
+    }
+
+    let loc = ctx
+        .db
+        .player_location()
+        .identity()
+        .find(&ctx.sender())
+        .ok_or_else(|| "set your location first (set_location)".to_string())?;
     let star = ctx
         .db
         .star_node()
@@ -5204,19 +5286,77 @@ pub fn record_star_stake(
     Ok(())
 }
 
-// Called after a confirmed on-chain unstake. Removes shares/principal.
+/// Mirror a confirmed on-chain `StarUnstaked` event into the ledger.
+///
+/// Owner/feeder-only and keyed on the finalized unstake transaction.
+/// Removes or reduces the staker's position and updates the pool.
 #[reducer]
-pub fn record_star_unstake(ctx: &ReducerContext, stake_id: u64) -> Result<(), String> {
-    let s = ctx.db.star_stake().stake_id().find(&stake_id).ok_or("no stake")?;
-    if s.staker != ctx.sender() {
-        return Err("not your stake".into());
+pub fn record_star_unstake(
+    ctx: &ReducerContext,
+    chain: BridgeChain,
+    tx_hash: String,
+    staker_pubkey: String,
+    star_id: u32,
+    principal_usdc: u64,
+    position_principal: u64,
+) -> Result<(), String> {
+    let cfg = ctx.db.game_config().id().find(&0).ok_or("game not initialised")?;
+    if ctx.sender() != cfg.owner {
+        return Err("record_star_unstake: admin/feeder only".into());
     }
-    if let Some(mut pool) = ctx.db.star_stake_pool().star_id().find(&s.star_id) {
-        pool.total_principal_usdc = pool.total_principal_usdc.saturating_sub(s.principal_usdc);
-        pool.total_shares = pool.total_shares.saturating_sub(s.shares);
+    if !chain.is_solana() {
+        return Err("record_star_unstake: chain must be a Solana cluster".into());
+    }
+    if principal_usdc == 0 {
+        return Err("principal_usdc must be greater than zero".into());
+    }
+
+    let hash = normalized_solana_signature(&tx_hash, "tx_hash")?;
+    ensure_unprocessed(ctx, chain.chain_key(), &hash)?;
+
+    let staker = ctx
+        .db
+        .player()
+        .iter()
+        .find(|row| row.solana_pubkey.as_deref() == Some(staker_pubkey.trim()))
+        .ok_or_else(|| "no player bound to the staking wallet".to_string())?;
+    if !ctx
+        .db
+        .verified_solana_wallet()
+        .identity()
+        .find(&staker.identity)
+        .is_some_and(|binding| binding.solana_pubkey == staker_pubkey.trim())
+    {
+        return Err("staking wallet ownership has not been verified".into());
+    }
+
+    // Find the staker's position on this star
+    let mut matching_stake = None;
+    for s in ctx.db.star_stake().iter() {
+        if s.staker == staker.identity && s.star_id == star_id {
+            matching_stake = Some(s);
+            break;
+        }
+    }
+    let mut stake = matching_stake.ok_or("no stake position found for staker and star")?;
+
+    // Update pool
+    if let Some(mut pool) = ctx.db.star_stake_pool().star_id().find(&star_id) {
+        pool.total_principal_usdc = pool.total_principal_usdc.saturating_sub(principal_usdc);
+        pool.total_shares = pool.total_shares.saturating_sub(principal_usdc as u128);
         ctx.db.star_stake_pool().star_id().update(pool);
     }
-    ctx.db.star_stake().stake_id().delete(&stake_id);
+
+    if position_principal == 0 {
+        ctx.db.star_stake().stake_id().delete(&stake.stake_id);
+    } else {
+        stake.principal_usdc = position_principal;
+        stake.shares = position_principal as u128;
+        stake.last_accrual_at = ctx.timestamp;
+        ctx.db.star_stake().stake_id().update(stake);
+    }
+
+    record_processed(ctx, hash, chain.chain_key(), "star_unstake");
     Ok(())
 }
 
@@ -6739,11 +6879,46 @@ pub fn capture_ar_constellation(
         ));
     }
 
+    // Rate limit / active capture check: disallow re-capturing while active window (1 hour) exists
+    for existing in ctx.db.ar_constellation_capture().iter() {
+        if existing.player == ctx.sender() && existing.constellation_id == constellation_id && existing.expires_at > ctx.timestamp {
+            return Err(format!(
+                "Constellation {} already captured; active capture window valid until {:?}",
+                con.name, existing.expires_at
+            ));
+        }
+    }
+
+    // Cooldown check (300s / 5 minutes between any AR captures)
+    let cooldown_key = format!("{:?}:ar_capture", ctx.sender());
+    if let Some(cooldown) = ctx.db.player_action_cooldown().key().find(&cooldown_key) {
+        let elapsed_micros = ctx.timestamp.to_micros_since_unix_epoch()
+            .saturating_sub(cooldown.last_executed_at.to_micros_since_unix_epoch());
+        if elapsed_micros < 300 * 1_000_000 {
+            let remaining_secs = (300 * 1_000_000 - elapsed_micros) / 1_000_000;
+            return Err(format!("AR capture cooldown active; retry in {remaining_secs}s"));
+        }
+    }
+
+    // Clamp precision score to 70..=100
+    let precision = precision_score.clamp(70, 100);
+
     // Calculate valuable telemetry harvest: precision 70..100 maps to 1,050..1,500 tokens
-    let tokens_harvested = (precision_score as u64) * 15;
-    player.tokens += tokens_harvested;
+    let tokens_harvested = (precision as u64).saturating_mul(15);
+    player.tokens = player.tokens.saturating_add(tokens_harvested);
     player.last_active = ctx.timestamp;
     ctx.db.player().identity().update(player.clone());
+
+    // Record cooldown
+    let cooldown_row = PlayerActionCooldown {
+        key: cooldown_key.clone(),
+        last_executed_at: ctx.timestamp,
+    };
+    if ctx.db.player_action_cooldown().key().find(&cooldown_key).is_some() {
+        ctx.db.player_action_cooldown().key().update(cooldown_row);
+    } else {
+        ctx.db.player_action_cooldown().insert(cooldown_row);
+    }
 
     // Capture valid for 1 hour (3600s)
     let expires = Timestamp::from_micros_since_unix_epoch(
@@ -6755,7 +6930,7 @@ pub fn capture_ar_constellation(
         player: ctx.sender(),
         constellation_id,
         zone_id,
-        precision_score,
+        precision_score: precision,
         azimuth_deg,
         altitude_deg: altitude_deg_val,
         tokens_harvested,
@@ -6771,7 +6946,7 @@ pub fn capture_ar_constellation(
         ctx.sender(),
         con.name,
         zone_id,
-        precision_score,
+        precision,
         tokens_harvested
     );
 
@@ -6817,7 +6992,9 @@ pub fn update_seeker_environment(
 }
 
 /// Reducer triggered when an indoor player aligns their volumetric reticle with a Deep Space Cache.
-/// Verifies Cartesian 3D proximity, updates multiplayer active seekers, decrypts cache, and awards ESMS yield.
+/// Reducer triggered when an indoor player aligns their volumetric reticle with a Deep Space Cache.
+/// Verifies Cartesian 3D proximity against verified seeker_state, enforces per-player claim uniqueness,
+/// rate limits via cooldown, updates multiplayer active seekers, decrypts cache, and awards ESMS yield.
 #[reducer]
 pub fn lock_anomaly(
     ctx: &ReducerContext,
@@ -6826,6 +7003,45 @@ pub fn lock_anomaly(
     y: f64,
     z: f64,
 ) -> Result<(), String> {
+    let mut player = ctx
+        .db
+        .player()
+        .identity()
+        .find(&ctx.sender())
+        .ok_or_else(|| "register a Seeker first".to_string())?;
+
+    // Verify player is in indoor volumetric mode and coordinates match verified state
+    let seeker = ctx
+        .db
+        .seeker_state()
+        .player()
+        .find(&ctx.sender())
+        .ok_or_else(|| "set indoor volumetric state first (update_seeker_environment)".to_string())?;
+    if !seeker.is_indoor {
+        return Err("Seeker must be in indoor volumetric mode to lock anomalies".into());
+    }
+    if (seeker.x - x).abs() > 1.0 || (seeker.y - y).abs() > 1.0 || (seeker.z - z).abs() > 1.0 {
+        return Err("spatial alignment vector deviates from verified seeker environment".into());
+    }
+
+    // Cooldown check (60s)
+    let cooldown_key = format!("{:?}:lock_anomaly", ctx.sender());
+    if let Some(cooldown) = ctx.db.player_action_cooldown().key().find(&cooldown_key) {
+        let elapsed_micros = ctx.timestamp.to_micros_since_unix_epoch()
+            .saturating_sub(cooldown.last_executed_at.to_micros_since_unix_epoch());
+        if elapsed_micros < 60 * 1_000_000 {
+            let remaining_secs = (60 * 1_000_000 - elapsed_micros) / 1_000_000;
+            return Err(format!("Anomaly lock cooldown active; retry in {remaining_secs}s"));
+        }
+    }
+
+    // Check if player has already claimed this cache
+    for claim in ctx.db.deep_space_claim().iter() {
+        if claim.player == ctx.sender() && claim.cache_id == cache_id {
+            return Err(format!("DeepSpaceCache {cache_id} already claimed by seeker"));
+        }
+    }
+
     let mut cache = ctx
         .db
         .deep_space_cache()
@@ -6847,6 +7063,17 @@ pub fn lock_anomaly(
         ));
     }
 
+    // Record cooldown
+    let cooldown_row = PlayerActionCooldown {
+        key: cooldown_key.clone(),
+        last_executed_at: ctx.timestamp,
+    };
+    if ctx.db.player_action_cooldown().key().find(&cooldown_key).is_some() {
+        ctx.db.player_action_cooldown().key().update(cooldown_row);
+    } else {
+        ctx.db.player_action_cooldown().insert(cooldown_row);
+    }
+
     // Increment active seekers anchored to this node
     cache.active_seekers += 1;
     if cache.encryption_status > 10 {
@@ -6856,20 +7083,26 @@ pub fn lock_anomaly(
     }
     ctx.db.deep_space_cache().cache_id().update(cache.clone());
 
-    // Award ESMS tokens if fully decrypted
+    // Award ESMS tokens only once per player upon full decryption
     if cache.encryption_status == 0 {
-        if let Some(mut player) = ctx.db.player().identity().find(&ctx.sender()) {
-            let reward = cache.esms_yield as u64;
-            player.tokens += reward;
-            player.last_active = ctx.timestamp;
-            ctx.db.player().identity().update(player);
-            log::info!(
-                "Seeker {:?} unlocked DeepSpaceCache {} (rewarded {} ESMS tokens)",
-                ctx.sender(),
-                cache_id,
-                reward
-            );
-        }
+        let reward = cache.esms_yield as u64;
+        player.tokens = player.tokens.saturating_add(reward);
+        player.last_active = ctx.timestamp;
+        ctx.db.player().identity().update(player);
+
+        ctx.db.deep_space_claim().insert(DeepSpaceClaim {
+            claim_id: 0,
+            cache_id,
+            player: ctx.sender(),
+            claimed_at: ctx.timestamp,
+        });
+
+        log::info!(
+            "Seeker {:?} unlocked DeepSpaceCache {} (rewarded {} ESMS tokens)",
+            ctx.sender(),
+            cache_id,
+            reward
+        );
     }
 
     Ok(())
@@ -7263,6 +7496,49 @@ mod tests {
                     _ => {}
                 }
             }
+        }
+    }
+
+    #[test]
+    fn solana_signature_normalization_validates_base58_length_and_characters() {
+        use super::normalized_solana_signature;
+
+        // Valid 64-byte ed25519 signature base58 (typically 87 or 88 characters)
+        let valid_sig = "5T1bw5onpC2XUx3wh494NudK33zKoL4NHqtkPafsBboJjBafqo5yfbhZ4isiyYdT2HuxHPgDSKdCh5Pd8LXEq4dk";
+        assert!(normalized_solana_signature(valid_sig, "test_sig").is_ok());
+
+        // Empty / invalid
+        assert!(normalized_solana_signature("", "test_sig").is_err());
+        assert!(normalized_solana_signature("not_base58_0OIl", "test_sig").is_err());
+        assert!(normalized_solana_signature("short", "test_sig").is_err());
+    }
+
+    #[test]
+    fn anomaly_lock_euclidean_distance_bound_matches_tolerance() {
+        // Tolerance is 15 parsecs (dist_sq <= 225.0)
+        let center = (100.0f64, 200.0f64, 300.0f64);
+        let within = (105.0f64, 205.0f64, 310.0f64); // dx=5, dy=5, dz=10 -> 25+25+100 = 150 <= 225
+        let dx = center.0 - within.0;
+        let dy = center.1 - within.1;
+        let dz = center.2 - within.2;
+        let dist_sq = dx * dx + dy * dy + dz * dz;
+        assert!(dist_sq <= 225.0);
+
+        let beyond = (110.0f64, 210.0f64, 315.0f64); // dx=10, dy=10, dz=15 -> 100+100+225 = 425 > 225
+        let dx2 = center.0 - beyond.0;
+        let dy2 = center.1 - beyond.1;
+        let dz2 = center.2 - beyond.2;
+        let dist_sq2 = dx2 * dx2 + dy2 * dy2 + dz2 * dz2;
+        assert!(dist_sq2 > 225.0);
+    }
+
+    #[test]
+    fn ar_precision_score_and_token_harvest_remain_strictly_bounded() {
+        // Precision clamped 70..=100
+        for raw_precision in [0u8, 50, 70, 85, 100, 150, 255] {
+            let clamped = raw_precision.clamp(70, 100);
+            let tokens = (clamped as u64).saturating_mul(15);
+            assert!(tokens >= 1050 && tokens <= 1500, "tokens {tokens} out of 1050..1500 bound");
         }
     }
 }

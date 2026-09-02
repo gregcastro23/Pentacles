@@ -44,7 +44,7 @@
 // HEALTH_INTERVAL_MS, WTEN_BACKEND_URL, and PLANETARY_AGENTS_BACKEND_URL (via
 // brain.ts) for the health loop.
 
-import { cliCall } from "./spacetime-cli";
+import { cliCall, resolveFeederEnv } from "./spacetime-cli";
 import { BRAIN_PRIMARY_URL as PA_URL } from "./brain";
 
 interface Service {
@@ -146,9 +146,7 @@ function supervise(svc: Service): void {
 
 // ── Health probes + heartbeat ────────────────────────────────────────────────
 
-const DB = process.env.SPACETIMEDB_DB ?? "cookingwithcastrollc";
-const SPACETIMEDB_URI = (process.env.SPACETIMEDB_URI ?? "https://maincloud.spacetimedb.com").replace(/\/+$/, "");
-const SPACETIME_TOKEN = process.env.SPACETIME_TOKEN || "";
+const { db: DB, uri: SPACETIMEDB_URI, token: SPACETIME_TOKEN } = resolveFeederEnv();
 const WTEN_URL = (
   process.env.WTEN_BACKEND_URL ?? "https://whattoeatnext-production.up.railway.app"
 ).replace(/\/+$/, "");

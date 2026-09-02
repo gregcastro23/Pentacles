@@ -17,18 +17,10 @@
 //   RESWEEP_MS (default: 300000) unanswered-row re-sweep period
 
 import { startFeed } from "./stdb-feed";
-import { cliCall } from "./spacetime-cli";
+import { cliCall, resolveFeederEnv } from "./spacetime-cli";
 import { brainCall, BRAIN_PRIMARY_URL, BRAIN_FALLBACK_URL } from "./brain";
 
-const DB = process.env.SPACETIMEDB_DB ?? "cookingwithcastrollc";
-
-// Reads arrive over the WebSocket feed (stdb-feed.ts) already normalized to
-// snake_case rows — long string columns like the candidates JSON array come
-// through intact, unlike the CLI's wrapped ASCII tables of old. Writes go over
-// HTTP POST /call with the bearer token, falling back to `spacetime call`
-// (owner-gated) when the token is blank.
-const SPACETIMEDB_URI = (process.env.SPACETIMEDB_URI ?? "https://maincloud.spacetimedb.com").replace(/\/+$/, "");
-const SPACETIME_TOKEN = process.env.SPACETIME_TOKEN || "";
+const { db: DB, uri: SPACETIMEDB_URI, token: SPACETIME_TOKEN } = resolveFeederEnv();
 
 // Push a move back through the owner-gated reducer.
 async function answerDuel(
