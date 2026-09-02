@@ -169,8 +169,10 @@ body {
    INTERACTIVE CELESTIAL MAP
    ============================================================ */
 .map-container {
-  width: 600px;
-  height: 600px;
+  width: min(600px, 92vw, 68vh);
+  height: min(600px, 92vw, 68vh);
+  max-width: 100%;
+  aspect-ratio: 1 / 1;
   position: relative;
   z-index: 3;
   transform-style: preserve-3d;
@@ -1167,16 +1169,23 @@ body {
   z-index: 2;
   width: 500px;
   max-width: 92vw;
+  max-height: 90dvh;
+  overflow-y: auto;
   background: rgba(14, 18, 34, 0.92);
   backdrop-filter: blur(24px);
   border: 1px solid rgba(216, 180, 106, 0.25);
   border-radius: 12px;
-  padding: 32px 36px;
+  padding: 26px 30px;
   display: flex;
   flex-direction: column;
-  gap: 22px;
+  gap: 18px;
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.85), 0 0 32px rgba(216, 180, 106, 0.1);
-  overflow: hidden;
+}
+@media (max-width: 480px) {
+  .onboarding-window {
+    padding: 18px 16px;
+    gap: 14px;
+  }
 }
 
 .ob-card-accent {
@@ -1450,43 +1459,171 @@ body {
   to { transform: rotate(360deg); }
 }
 
-/* Responsive adjustment */
-@media (max-width: 1100px) {
+/* Mobile Navigation Bar */
+.mobile-nav-bar {
+  display: none;
+}
+
+/* Responsive adjustment for tablets & phones */
+@media (max-width: 1024px) {
   .app-shell {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto 1fr auto;
-    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    width: 100vw;
+    overflow: hidden;
+    position: relative;
+    padding-bottom: 56px; /* space for mobile nav bar */
   }
+
+  /* Default mobile view: show map */
   .sidebar {
-    height: auto;
-    border-right: none;
-    border-bottom: 1px solid var(--line);
+    display: none;
+    width: 100%;
+    height: 100%;
+    border: none;
+    overflow-y: auto;
+    padding-bottom: 70px;
   }
   .sidebar.right {
-    border-left: none;
-    border-top: 1px solid var(--line);
+    display: none;
+    width: 100%;
+    height: 100%;
+    border: none;
+    overflow-y: auto;
+    padding-bottom: 70px;
   }
   .viewport-center {
-    height: 600px;
+    display: flex;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    padding-bottom: 20px;
   }
-  /* HUD control row: wrap + compact so all launchers (Alchm Chart, ⚔ Faction War)
-     stay reachable and tappable on phones instead of overflowing one flat row. */
+
+  /* Active view tab modifiers */
+  .app-shell:not([data-mobile-view]) .viewport-center,
+  .app-shell[data-mobile-view="map"] .viewport-center {
+    display: flex;
+  }
+  .app-shell:not([data-mobile-view]) .sidebar,
+  .app-shell[data-mobile-view="map"] .sidebar {
+    display: none;
+  }
+  .app-shell:not([data-mobile-view]) .sidebar.right,
+  .app-shell[data-mobile-view="map"] .sidebar.right {
+    display: none;
+  }
+
+  .app-shell[data-mobile-view="hand"] .viewport-center {
+    display: none;
+  }
+  .app-shell[data-mobile-view="hand"] .sidebar {
+    display: none;
+  }
+  .app-shell[data-mobile-view="hand"] .sidebar.right {
+    display: flex;
+  }
+
+  .app-shell[data-mobile-view="dashboard"] .viewport-center {
+    display: none;
+  }
+  .app-shell[data-mobile-view="dashboard"] .sidebar {
+    display: flex;
+  }
+  .app-shell[data-mobile-view="dashboard"] .sidebar.right {
+    display: none;
+  }
+
+  /* Mobile Navigation Bar */
+  .mobile-nav-bar {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 52px;
+    background: rgba(8, 10, 18, 0.95);
+    border-top: 1px solid var(--line);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    z-index: 95;
+    justify-content: space-around;
+    align-items: center;
+    padding: 0 8px;
+  }
+  .mobile-nav-btn {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    background: transparent;
+    border: none;
+    color: var(--dim);
+    font-family: var(--ui);
+    font-size: 10px;
+    font-weight: 600;
+    padding: 4px 0;
+    cursor: pointer;
+    transition: color 0.15s;
+  }
+  .mobile-nav-btn .mob-nav-icon {
+    font-size: 16px;
+    line-height: 1;
+  }
+  .mobile-nav-btn.active {
+    color: var(--gold-bright);
+  }
+  .mobile-nav-btn.active .mob-nav-icon {
+    filter: drop-shadow(0 0 6px rgba(241, 219, 161, 0.6));
+  }
+
+  /* Compact HUD on mobile */
   .hud-bar {
-    flex-wrap: wrap;
-    gap: 8px;
-    top: 10px;
-    left: 10px;
-    right: 10px;
+    top: 6px;
+    left: 6px;
+    right: 6px;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
   }
   .hud-btn-group {
-    gap: 8px;
-    width: 100%;
-    justify-content: flex-end;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 4px;
+    justify-content: center;
+  }
+  .hud-nav-primary, .hud-nav-utility {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    justify-content: center;
+  }
+  .hud-nav-divider {
+    display: none;
   }
   .hud-btn-group .btn {
-    padding: 9px 12px;
+    padding: 4px 8px;
+    font-size: 9.5px;
+    min-height: 30px;
+    border-radius: 4px;
+  }
+  #player-banner {
     font-size: 11px;
-    min-height: 40px; /* comfortable touch target */
+    text-align: center;
+    align-items: center;
+  }
+  #sky-status {
+    font-size: 9px;
+    text-align: center;
+  }
+
+  /* Hide floating legal footer on small screens so it doesn't block mobile navigation */
+  #pentacles-legal-footer {
+    display: none !important;
   }
 }
 

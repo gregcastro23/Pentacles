@@ -384,6 +384,18 @@ export class FactionWarInstance {
       host.appendChild(h("div", { class: "aw-dim aw-detail-empty", text: "No active War Table mustering at this zone." }));
     }
 
+    // Instant Practice Skirmish Melee button — unblocks offline and instant play
+    host.appendChild(h("button", {
+      class: "aw-practice-btn",
+      title: "Play a 12-trick Melee match immediately with AI champions",
+      onClick: () => {
+        const practiceTable = this._createPracticeTable(zoneId, m);
+        if (practiceTable) {
+          this.showMeleeTable(practiceTable);
+        }
+      },
+    }, ["⚔ Play Practice Melee (12-Trick Skirmish)"]));
+
     // Join Queue button & Access Refusal Logic
     const myF = this.myFaction;
     const queueRows = this.data.queue || [];
@@ -677,6 +689,19 @@ export class FactionWarInstance {
       myHand: practiceHand,
       hooks: {
         onClose: () => this.closeAgentProfile(),
+        onFastForward: (t, mtInstance) => {
+          if (this.hooks.onFastForward) {
+            this.hooks.onFastForward(t, mtInstance);
+            return;
+          }
+          if (table.isPractice) {
+            this._handlePracticeFastForward(table, mtInstance);
+            return;
+          }
+          if (typeof window !== "undefined" && window.toast) {
+            window.toast("Fast-forwarding Melee table...", { type: "info" });
+          }
+        },
         onPlayCard: (tableId, cardId) => {
           if (this.hooks.onPlayCard) {
             this.hooks.onPlayCard(tableId, cardId);
@@ -702,7 +727,7 @@ export class FactionWarInstance {
     this._meleeView = { instance: mt, tableId: table.tableId };
   }
 
-  _handlePracticeCardPlay(table, cardId, mt) {
+  _handlePracticeCardPlay(table, cardId, mt, opts = {}) {
     const Engine = (typeof globalThis !== "undefined" && globalThis.ArcanaTrickEngine) || (typeof window !== "undefined" && window.ArcanaTrickEngine) || null;
     const humanSeat = table.seats.find((s) => s.isHuman) || table.seats[0];
     const unspentHuman = (humanSeat.hand || []).filter((c) => !c.played);
@@ -722,7 +747,7 @@ export class FactionWarInstance {
         const legalMoves = Engine.getLegalMoves(unspentHuman, ledSuit, table.trumpSuit, currentTrickPlays, table.ladder);
         const isLegal = legalMoves.some((m) => m.legal && Number(m.card.card_id) === Number(playedCard.card_id));
         if (!isLegal && legalMoves.some((m) => m.legal)) {
-          if (typeof window !== "undefined" && window.toast) {
+          if (!opts.silent && typeof window !== "undefined" && window.toast) {
             window.toast("That play is not legal under Arcana trick rules.", { type: "warn" });
           }
           return;
@@ -798,17 +823,18 @@ export class FactionWarInstance {
     winningSeat.counters = (winningSeat.counters || 0) + harvestedCounters;
     winningSeat.score = (winningSeat.score || 0) + (harvestedCounters > 0 ? harvestedCounters : 10);
 
-    if (typeof window !== "undefined" && window.toast) {
-      window.toast(`Played ${playedCard.title} · ${winningSeat.handle} took trick ${table.currentTrick} (+${harvestedCounters} counters)`, { type: "success" });
+    if (!opts.silent && typeof window !== "undefined" && window.toast) {
+      window.toast(`Played ${playedCard.title || playedCard.rank} · ${winningSeat.handle} took trick ${table.currentTrick} (+${harvestedCounters} counters)`, { type: "success" });
     }
 
     table.currentTrick = Math.min(12, (table.currentTrick || 1) + 1);
     table.turnSeat = winningSeat.seatId;
     table.trickPlays = [];
 
-    if (table.currentTrick === 12 && humanSeat.handRemaining === 0) {
+    const isFinished = (humanSeat.handRemaining === 0) || (table.currentTrick >= 12 && table.seats.every((s) => (s.hand || []).every((c) => c.played)));
+    if (isFinished) {
       table.state = "Resolved";
-      if (typeof window !== "undefined" && window.toast) {
+      if (!opts.silent && typeof window !== "undefined" && window.toast) {
         window.toast(`12-Trick Melee Complete! Final score: ${humanSeat.score} pts`, { type: "success", title: "Match Resolved" });
       }
     }
@@ -821,6 +847,98 @@ export class FactionWarInstance {
       myIdentity: table.isPractice ? (this.myIdentity || table.practiceIdentity || "0xplayer") : this.myIdentity,
       myFaction: table.isPractice ? (this.myFaction ?? table.practiceFaction ?? 0) : this.myFaction,
     });
+  }
+
+  _handlePracticeFastForward(table, mt) {
+    if (!table) return;
+    const Engine = (typeof globalThis !== "undefined" && globalThis.ArcanaTrickEngine) || (typeof window !== "undefined" && window.ArcanaTrickEngine) || null;
+    if (!Engine) {
+      if (typeof window !== "undefined" && window.toast) window.toast("Arcana engine not available", { type: "warn" });
+      return;
+    }
+
+    if (mt.isFastForwarding) {
+      mt.stopFastForward();
+      if (typeof window !== "undefined" && window.toast) window.toast("Fast-forward paused.", { type: "info" });
+      return;
+    }
+
+    const humanSeat = table.seats.find((s) => s.isHuman) || table.seats[0];
+    const unspentInitial = (humanSeat.hand || []).filter((c) => !c.played);
+
+    if (table.state === "Resolved" || !unspentInitial.length) {
+      if (typeof window !== "undefined" && window.toast) window.toast("Melee match already resolved.", { type: "info" });
+      return;
+    }
+
+    mt.isFastForwarding = true;
+    mt.paint();
+    if (typeof window !== "undefined" && window.toast) {
+      window.toast("⏩ Fast-forwarding Melee trick rounds...", { type: "info" });
+    }
+
+    const stepTrick = () => {
+      if (!mt.isFastForwarding) return;
+      const unspent = (humanSeat.hand || []).filter((c) => !c.played);
+
+      if (!unspent.length || table.state === "Resolved") {
+        table.state = "Resolved";
+        mt.stopFastForward();
+        mt.setData({
+          table,
+          seats: table.seats,
+          plays: table.plays,
+          myHand: [],
+          myIdentity: table.isPractice ? (this.myIdentity || table.practiceIdentity || "0xplayer") : this.myIdentity,
+          myFaction: table.isPractice ? (this.myFaction ?? table.practiceFaction ?? 0) : this.myFaction,
+        });
+        if (typeof window !== "undefined" && window.toast) {
+          window.toast(`Melee Complete! Final score: ${humanSeat.score} pts`, { type: "success", title: "Match Resolved" });
+        }
+        return;
+      }
+
+      // Pick legal card for human
+      const pot = table.trickPlays || [];
+      const currentTrickPlays = pot.map((p) => ({
+        player: p.seatId,
+        card: { card_id: p.cardId, suit: p.suit, rank: p.rank, is_major: p.isMajor },
+      }));
+      const ledSuit = currentTrickPlays.length && !currentTrickPlays[0].card.is_major ? currentTrickPlays[0].card.suit : null;
+      let cardToPlay = null;
+
+      if (typeof Engine.getLegalMoves === "function") {
+        try {
+          const legalMoves = Engine.getLegalMoves(unspent, ledSuit, table.trumpSuit, currentTrickPlays, table.ladder);
+          const legal = legalMoves.filter((m) => m.legal);
+          if (legal.length) cardToPlay = legal[0].card;
+        } catch {}
+      }
+      if (!cardToPlay) cardToPlay = unspent[0];
+
+      this._handlePracticeCardPlay(table, cardToPlay.card_id, mt, { silent: true });
+
+      const remaining = (humanSeat.hand || []).filter((c) => !c.played).length;
+      if (remaining === 0 || table.state === "Resolved") {
+        table.state = "Resolved";
+        mt.stopFastForward();
+        mt.setData({
+          table,
+          seats: table.seats,
+          plays: table.plays,
+          myHand: [],
+          myIdentity: table.isPractice ? (this.myIdentity || table.practiceIdentity || "0xplayer") : this.myIdentity,
+          myFaction: table.isPractice ? (this.myFaction ?? table.practiceFaction ?? 0) : this.myFaction,
+        });
+        if (typeof window !== "undefined" && window.toast) {
+          window.toast(`Melee Complete! Final score: ${humanSeat.score} pts`, { type: "success", title: "Match Resolved" });
+        }
+      } else {
+        mt._ffTimer = setTimeout(stepTrick, 220);
+      }
+    };
+
+    stepTrick();
   }
 
   /** Push the latest rows for the open melee modal, if there is one. */

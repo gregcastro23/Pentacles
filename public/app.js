@@ -2188,9 +2188,72 @@
     };
 
     window.closeRitualOverlay = function() {
+      if (activeMeleeFFTimer) {
+        clearTimeout(activeMeleeFFTimer);
+        activeMeleeFFTimer = null;
+      }
       const overlay = document.getElementById("ritual-hud-overlay");
       if (overlay) overlay.style.display = "none";
       window.activeRitualTarget = null;
+    };
+
+    let activeMeleeFFTimer = null;
+    window.fastForwardActiveMelee = function() {
+      if (!window.activeRitualTarget) return;
+      const { type, id } = window.activeRitualTarget;
+      const key = `${type}_${id}`;
+      const ritual = state.rituals && state.rituals[key];
+      if (!ritual || !ritual.melee) return;
+      const melee = ritual.melee;
+      if (melee.status === "completed") {
+        if (typeof toast === "function") toast("Melee already completed!", { type: "info" });
+        return;
+      }
+      const Engine = window.ArcanaTrickEngine || globalThis.ArcanaTrickEngine;
+      if (!Engine) return;
+
+      if (activeMeleeFFTimer) {
+        clearTimeout(activeMeleeFFTimer);
+        activeMeleeFFTimer = null;
+        if (typeof toast === "function") toast("Fast-forward paused.", { type: "info" });
+        return;
+      }
+
+      if (typeof toast === "function") toast("⏩ Fast-forwarding Melee tricks rounds...", { type: "info" });
+
+      const stepTrick = () => {
+        if (melee.status === "completed" || !melee.playerHand.length) {
+          activeMeleeFFTimer = null;
+          updateActiveRitualPanel(type, id);
+          return;
+        }
+
+        const playerLegalMoves = Engine.getLegalMoves(
+          melee.playerHand,
+          melee.ledSuit,
+          melee.trumpSuit,
+          melee.currentTrick,
+          melee.arcanaLadder
+        );
+        const legal = playerLegalMoves.filter(m => m.legal);
+        const cardToPlay = legal.length ? legal[0].card : melee.playerHand[0];
+
+        if (cardToPlay) {
+          state.playCardIntoMelee(cardToPlay.card_id, type, id);
+          renderActiveHand();
+          updateActiveRitualPanel(type, id);
+        }
+
+        if (melee.status !== "completed" && melee.playerHand.length > 0) {
+          activeMeleeFFTimer = setTimeout(stepTrick, 220);
+        } else {
+          activeMeleeFFTimer = null;
+          updateActiveRitualPanel(type, id);
+          if (typeof toast === "function") toast("Melee Match Resolved!", { type: "success" });
+        }
+      };
+
+      stepTrick();
     };
 
     window.updateActiveRitualPanel = function(targetType, targetId) {
@@ -2461,6 +2524,7 @@
               ${trumpArt ? `<img src="${trumpArt}" style="width:14px; height:14px; object-fit:contain;" />` : trumpGlyph}
               <span>TRUMP: ${trumpSuitCap}</span>
             </span>
+            <button class="btn btn-reset-ritual" onclick="fastForwardActiveMelee()" title="Fast forward through remaining melee tricks rounds" style="color:#22d3ee; border-color:rgba(34,211,238,0.4); background:rgba(34,211,238,0.15); font-weight:600;">⏩ Fast Forward</button>
             <button class="btn btn-reset-ritual" onclick="toggleRitualLadder()" title="View live 22 Major Arcana Potency Ladder">⚡ Ladder</button>
             <button class="btn btn-reset-ritual" onclick="resetActiveRitual()" title="Reset the Melee table">↺</button>
             <button class="btn btn-reset-ritual" onclick="closeRitualOverlay()" title="Minimize table and return to interactive Star Map" style="border-color:var(--gold); color:var(--gold-bright);">⭐ Sky Map</button>
@@ -2670,3 +2734,21 @@ window.openMeleeManifold = function(zoneId = null) {
   selectZone(z);
   showRitualOverlay("zone", z);
 };
+
+window.switchMobileView = function(view) {
+  const shell = document.querySelector(".app-shell");
+  if (shell) {
+    shell.setAttribute("data-mobile-view", view);
+  }
+  document.querySelectorAll(".mobile-nav-btn").forEach(btn => {
+    btn.classList.toggle("active", btn.id === `mob-nav-${view}`);
+  });
+  if (view === "hand") {
+    if (typeof renderActiveHand === "function") renderActiveHand();
+    if (typeof renderPoolsPanel === "function") renderPoolsPanel();
+  } else if (view === "dashboard") {
+    if (typeof renderLeaderboard === "function") renderLeaderboard();
+    if (typeof renderZonesList === "function") renderZonesList();
+  }
+};
+

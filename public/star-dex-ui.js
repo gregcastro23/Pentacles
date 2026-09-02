@@ -95,6 +95,7 @@
     if (global.HologramCamera) global.HologramCamera.autoRotate = false;
 
     ov.style.display = "flex";
+    document.body.classList.add("alchm-open");
     renderOverlayHtml();
 
     escHandler = (e) => {
@@ -110,6 +111,7 @@
   }
 
   function closeStarDex() {
+    document.body.classList.remove("alchm-open");
     const ov = getOverlayEl();
     if (ov) {
       ov.style.display = "none";
