@@ -64,6 +64,13 @@ function isCardinalSign(sign) {
   return [0, 3, 6, 9].includes(sign % 12);
 }
 
+// ---- DECAN ROUNDS (10 DAYS / 10° ZODIAC BATTLES) ----
+// Each round lasts 10 days (10° of the zodiac) mapped directly to its Minor Tarot Card (2–10).
+// Suit by triplicity (sign % 4): Fire = Wands, Earth = Pentacles, Air = Swords, Water = Cups
+const DECAN_SUITS = ["Wands", "Pentacles", "Swords", "Cups"];
+// Chaldean sub-rulers: Mars (4), Sun (0), Venus (3), Mercury (2), Moon (1), Saturn (6), Jupiter (5)
+const DECAN_CHALDEAN_RULERS = [4, 0, 3, 2, 1, 6, 5];
+
 function decan(degree) {
   return Math.min(2, Math.floor(degree / 10));
 }
@@ -71,6 +78,45 @@ function decan(degree) {
 function pipRank(sign, degree) {
   const base = isCardinalSign(sign) ? 2 : (isFixedSign(sign) ? 5 : 8);
   return base + decan(degree);
+}
+
+function getDecanInfo(seasonDegree) {
+  const totalDeg = ((Number(seasonDegree) % 360) + 360) % 360;
+  const signIndex = Math.floor(totalDeg / 30) % 12;
+  const degInSign = totalDeg % 30;
+  const decanIndex = decan(degInSign);
+  const absDecan = signIndex * 3 + decanIndex;
+
+  const suit = DECAN_SUITS[signIndex % 4];
+  const rank = pipRank(signIndex, degInSign);
+  const card = `${rank} of ${suit}`;
+  const rulerFaction = DECAN_CHALDEAN_RULERS[absDecan % 7];
+
+  const startDeg = decanIndex * 10;
+  const endDeg = (decanIndex + 1) * 10;
+  const degInDecan = degInSign - startDeg;
+  const progressPct = Math.min(100, Math.max(0, (degInDecan / 10) * 100));
+
+  return {
+    absDecan,
+    signIndex,
+    signName: SIGN_NAMES[signIndex],
+    signGlyph: SIGN_GLYPHS[signIndex],
+    decanIndex,
+    decanNumeral: decanIndex === 0 ? "I" : (decanIndex === 1 ? "II" : "III"),
+    rank,
+    suit,
+    card,
+    startDeg,
+    endDeg,
+    degInSign: Number(degInSign.toFixed(1)),
+    degInDecan: Number(degInDecan.toFixed(1)),
+    progressPct: Number(progressPct.toFixed(1)),
+    rulerFaction,
+    rulerName: PLANET_NAMES[rulerFaction],
+    rulerGlyph: PLANET_GLYPHS[rulerFaction],
+    label: `${card} (${startDeg}°–${endDeg}° ${SIGN_NAMES[signIndex]})`
+  };
 }
 
 function courtRank(dignity) {
@@ -479,6 +525,12 @@ class GameState {
     this.jingPool = null;
     this.jingDuels = {};
     this.rituals = {};
+    this.roundResults = []; // recent multi-seat zone melee round outcomes
+    this.factionRoundPoints = new Array(10).fill(0); // accumulated round performance per faction in active decan
+    this.roundIndex = 1;
+    this.currentDecanId = null; // active 10° decan battle bounds (0..35)
+    this.decanHistory = []; // archived decan battle outcomes
+    this.decanVictories = new Array(10).fill(0); // decan battle season victories won per faction
 
     // The real sky. `holdings` (hip → faction) is the persistent capture state;
     // `sky` is the computed view of every catalogue star currently above the
@@ -648,6 +700,12 @@ class GameState {
           this.jingDuels = data.jingDuels || {};
           this.holdings = data.holdings || {};
           this.observer = data.observer || { lat: 40.7128, lon: -74.0060 };
+          this.roundResults = data.roundResults || [];
+          this.factionRoundPoints = data.factionRoundPoints || new Array(10).fill(0);
+          this.roundIndex = data.roundIndex || 1;
+          this.currentDecanId = data.currentDecanId !== undefined ? data.currentDecanId : null;
+          this.decanHistory = data.decanHistory || [];
+          this.decanVictories = data.decanVictories || new Array(10).fill(0);
           // Lettered Arcana migration: older saves predate letters/tokens.
           if (this.player) {
             if (typeof this.player.tokens !== "number") this.player.tokens = 0;
@@ -691,7 +749,13 @@ class GameState {
       jingDuels: this.jingDuels,
       holdings: this.holdings,
       observer: this.observer,
-      rituals: this.rituals || {}
+      rituals: this.rituals || {},
+      roundResults: this.roundResults || [],
+      factionRoundPoints: this.factionRoundPoints || new Array(10).fill(0),
+      roundIndex: this.roundIndex || 1,
+      currentDecanId: this.currentDecanId,
+      decanHistory: this.decanHistory || [],
+      decanVictories: this.decanVictories || new Array(10).fill(0)
     };
     
     if (localStorage.getItem("pentacles_storage_consent") === "denied") {
@@ -769,18 +833,36 @@ class GameState {
   }
 
   initDefaultMap() {
-    // Inits the 11 zones — pure control records. The stars themselves come from
-    // the shared catalogue and are grouped into zones live (recomputeSky).
+    // Inits the 11 zones — 5 Houses, 5 Spires, 1 Crown.
+    // Houses 0..4 start with natural planetary domiciles as established footholds:
+    // House 0 (Aries): Mars (4), House 1 (Taurus): Venus (3), House 2 (Gemini): Mercury (2),
+    // House 3 (Cancer): Moon (1), House 4 (Leo): Sun (0).
+    // Spires 5..9 and Crown Zenith 10 begin as contested frontiers.
     this.map = [];
     const kinds = ["house", "house", "house", "house", "house", "spire", "spire", "spire", "spire", "spire", "crown"];
+    const initialOwners = [4, 3, 2, 1, 0, null, null, null, null, null, null];
+    const initialControl = [250, 250, 250, 250, 250, 0, 0, 0, 0, 0, 0];
+
     for (let i = 0; i < 11; i++) {
       this.map.push({
         zone_id: i,
         kind: kinds[i],
-        owner: null, // neutral
-        control: 0   // -1000..1000 tug of war meter
+        owner: initialOwners[i],
+        control: initialControl[i]
       });
     }
+
+    if (!this.roundResults) this.roundResults = [];
+    if (!this.factionRoundPoints) this.factionRoundPoints = new Array(10).fill(0);
+    if (!this.roundIndex) this.roundIndex = 1;
+
+    // Run baseline simulation rounds if fresh so historical agents immediately populate round history & points
+    if (this.roundResults.length === 0) {
+      for (let z = 0; z < 5; z++) {
+        this.runAutonomousZoneRound(z);
+      }
+    }
+
     this.rituals = {};
     this.initRituals();
     this.recalculateLeaderboard();
@@ -1128,16 +1210,384 @@ class GameState {
     return result;
   }
 
-  recalculateLeaderboard() {
-    const factionScores = new Array(10).fill(0);
-    this.map.forEach(zone => {
-      if (zone.owner !== null) {
-        const weight = zone.kind === "house" ? 100 : (zone.kind === "spire" ? 200 : 400);
-        factionScores[zone.owner] += weight;
+  syncDecanLedger(payload) {
+    if (!payload) return;
+    if (Array.isArray(payload.factionRoundPoints) && payload.factionRoundPoints.length === 10) {
+      this.factionRoundPoints = [...payload.factionRoundPoints];
+    }
+    if (Array.isArray(payload.decanVictories) && payload.decanVictories.length === 10) {
+      this.decanVictories = [...payload.decanVictories];
+    }
+    if (Array.isArray(payload.decanHistory)) {
+      this.decanHistory = [...payload.decanHistory];
+    }
+    if (Array.isArray(payload.recentRounds) && payload.recentRounds.length > 0) {
+      this.roundResults = [...payload.recentRounds];
+    }
+    if (payload.activeDecan && typeof payload.activeDecan.absDecan === "number") {
+      this.currentDecanId = payload.activeDecan.absDecan;
+    }
+    this.recalculateLeaderboard();
+    this.save();
+  }
+
+  recordRoundResult(roundData) {
+    if (!roundData) return null;
+    if (!this.roundResults) this.roundResults = [];
+    if (!this.factionRoundPoints) this.factionRoundPoints = new Array(10).fill(0);
+
+    const record = {
+      roundId: roundData.roundId || this.roundIndex++,
+      zoneId: roundData.zoneId,
+      zoneName: roundData.zoneName || (roundData.zoneId === 10 ? "Crown Zenith" : `${roundData.zoneId < 5 ? "House" : "Spire"} ${roundData.zoneId}`),
+      timestamp: roundData.timestamp || Date.now(),
+      winnerFaction: roundData.winnerFaction,
+      winnerName: roundData.winnerName,
+      winningScore: roundData.winningScore || 0,
+      seats: roundData.seats || [],
+      controlDelta: roundData.controlDelta || 0,
+      capturedZone: !!roundData.capturedZone
+    };
+
+    this.roundResults.unshift(record);
+    if (this.roundResults.length > 50) this.roundResults.length = 50;
+
+    // Credit round performance to each participating faction
+    if (Array.isArray(roundData.seats)) {
+      roundData.seats.forEach(s => {
+        let f = s.faction;
+        if (typeof f === "string") f = PLANET_NAMES.indexOf(f);
+        if (f !== null && f !== undefined && f >= 0 && f < 10) {
+          const pts = Math.max(0, Number(s.score) || 0);
+          this.factionRoundPoints[f] = (this.factionRoundPoints[f] || 0) + pts;
+        }
+      });
+    }
+
+    // Award bonus points for capturing a zone
+    if (roundData.capturedZone && roundData.winnerFaction != null && roundData.winnerFaction >= 0 && roundData.winnerFaction < 10) {
+      this.factionRoundPoints[roundData.winnerFaction] = (this.factionRoundPoints[roundData.winnerFaction] || 0) + 50;
+    }
+
+    this.recalculateLeaderboard();
+    return record;
+  }
+
+  runAutonomousZoneRound(targetZoneId) {
+    const Engine = (typeof window !== "undefined" && window.ArcanaTrickEngine) || (typeof globalThis !== "undefined" && globalThis.ArcanaTrickEngine);
+
+    // 1. Pick zone if not specified
+    let zoneId = targetZoneId;
+    if (zoneId === undefined || zoneId === null) {
+      const zoneOwners = (this.map || []).map(z => z.owner);
+      const candidates = [];
+      for (let z = 0; z < 11; z++) {
+        let accessible = false;
+        if (z < 5) {
+          accessible = true;
+        } else if (z < 10) {
+          const spireIdx = z - 5;
+          const a = spireIdx, b = (spireIdx + 4) % 5;
+          accessible = zoneOwners[a] !== null || zoneOwners[b] !== null;
+        } else {
+          const heldSpires = [5, 6, 7, 8, 9].filter(s => zoneOwners[s] !== null).length;
+          accessible = heldSpires >= 2;
+        }
+        if (accessible) candidates.push(z);
+      }
+      zoneId = candidates.length > 0 ? candidates[Math.floor(Math.random() * candidates.length)] : Math.floor(Math.random() * 5);
+    }
+
+    const zone = (this.map && this.map[zoneId]) || { zone_id: zoneId, kind: zoneId === 10 ? "crown" : (zoneId >= 5 ? "spire" : "house"), owner: null, control: 0 };
+    const suits = ["wands", "pentacles", "swords", "cups"];
+    const trumpSuit = (SIGN_SUITS[zoneId % 12] || "wands").toLowerCase();
+
+    // 2. Select 3 to 5 agent champions across different factions
+    const AGENT_CHAMPIONS = [
+      { name: "Nicolas Flamel", faction: 0, glyph: "☉", tactic: "Solar Transmutation" },
+      { name: "Galileo Galilei", faction: 1, glyph: "☽", tactic: "Tidal Geometry" },
+      { name: "Hypatia", faction: 2, glyph: "☿", tactic: "Hermetic Analytics" },
+      { name: "John Dee", faction: 3, glyph: "♀", tactic: "Enochian Harmony" },
+      { name: "Paracelsus", faction: 4, glyph: "♂", tactic: "Martian Elementals" },
+      { name: "Carl Jung", faction: 5, glyph: "♃", tactic: "Archetypal Synthesis" },
+      { name: "Isaac Newton", faction: 6, glyph: "♄", tactic: "Gravitational Hoard" },
+      { name: "Ada Lovelace", faction: 7, glyph: "♅", tactic: "Algorithmic Prism" },
+      { name: "Mary Shelley", faction: 8, glyph: "♆", tactic: "Mystic Galvanism" },
+      { name: "Dante Alighieri", faction: 9, glyph: "♇", tactic: "Chthonic Descent" }
+    ];
+
+    const shuffledAgents = [...AGENT_CHAMPIONS].sort(() => Math.random() - 0.5);
+    const contestants = [];
+    if (zone.owner !== null && zone.owner >= 0 && zone.owner < 10) {
+      const ownerAgent = AGENT_CHAMPIONS[zone.owner];
+      if (ownerAgent) contestants.push(ownerAgent);
+    }
+    for (const ag of shuffledAgents) {
+      if (contestants.length >= 4) break;
+      if (!contestants.some(c => c.faction === ag.faction)) {
+        contestants.push(ag);
+      }
+    }
+
+    // 3. Deal hands & calculate trick play
+    const majorDeck = [0, 1, 21, 13, 20, 16, 10, 2, 19, 5, 14, 7, 4, 8, 9, 11, 12, 15, 17, 18];
+    const seats = contestants.map((c, idx) => {
+      const hand = [];
+      let mCount = 0;
+      for (let i = 0; i < 12; i++) {
+        const isMajor = (i >= 9) && (mCount < 3);
+        if (isMajor) mCount++;
+        const rank = isMajor ? majorDeck[(idx * 3 + i) % majorDeck.length] : [1, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4][i];
+        const suit = isMajor ? trumpSuit : suits[(i + idx) % 4];
+        hand.push({
+          card_id: (idx + 1) * 1000 + i,
+          rank,
+          suit,
+          is_major: isMajor,
+          played: false
+        });
+      }
+      return {
+        seatId: idx,
+        handle: c.name,
+        name: c.name,
+        faction: c.faction,
+        glyph: c.glyph,
+        hand,
+        score: 0,
+        counters: 0,
+        meldsValue: 0,
+        tricksWon: 0,
+        isHuman: false
+      };
+    });
+
+    // Decan Battle Bounds: current decan of the Sun sign
+    const currentDecan = this.getCurrentDecan();
+
+    // Detect melds & apply Chaldean Decan Lord Dignity
+    const ladder = {};
+    for (let i = 0; i < 22; i++) ladder[i] = 100 - i * 4;
+    seats.forEach(s => {
+      const melds = Engine && typeof Engine.detectMelds === "function" ? Engine.detectMelds(s.hand, trumpSuit, ladder) : [];
+      s.meldsValue = melds.reduce((sum, m) => sum + (m.value || 0), 0);
+      s.score = s.meldsValue;
+      // Astrological Decan Rulership: Contenders belonging to the Decan Lord faction gain Chaldean Dignity bonus
+      if (s.faction === currentDecan.rulerFaction) {
+        const dignityBonus = 25;
+        s.meldsValue += dignityBonus;
+        s.score += dignityBonus;
+        s.hasDecanDignity = true;
       }
     });
 
-    const board = factionScores.map((score, idx) => ({ id: idx, score }));
+    // 12-Trick Play
+    let currentTrickLeader = 0;
+    for (let trickNo = 1; trickNo <= 12; trickNo++) {
+      const trickPlays = [];
+      for (let step = 0; step < seats.length; step++) {
+        const seatIdx = (currentTrickLeader + step) % seats.length;
+        const seat = seats[seatIdx];
+        const unspent = seat.hand.filter(c => !c.played);
+        const card = unspent[Math.floor(Math.random() * unspent.length)] || unspent[0];
+        if (card) {
+          card.played = true;
+          trickPlays.push({ player: seat.faction, seatIdx, card });
+        }
+      }
+
+      let winnerSeatIdx = currentTrickLeader;
+      let trickCounters = 10;
+      if (Engine && typeof Engine.evaluateTrick === "function") {
+        try {
+          const evalRes = Engine.evaluateTrick(trickPlays.map(p => ({ player: p.player, card: p.card })), trumpSuit, ladder, trickNo);
+          const found = trickPlays.find(p => p.player === evalRes.winner);
+          if (found) winnerSeatIdx = found.seatIdx;
+          trickCounters = evalRes.counters || 10;
+        } catch {
+          trickCounters = 10;
+        }
+      }
+      const winningSeat = seats[winnerSeatIdx];
+      winningSeat.tricksWon++;
+      winningSeat.counters += trickCounters;
+      winningSeat.score += trickCounters;
+      currentTrickLeader = winnerSeatIdx;
+    }
+
+    // Final-trick bonus
+    seats[currentTrickLeader].score += 10;
+
+    // 4. Find winning seat
+    let winner = seats[0];
+    for (const s of seats) {
+      if (s.score > winner.score) winner = s;
+    }
+
+    // 5. Shift zone control and check capture
+    const controlShift = Math.max(120, Math.min(260, winner.score * 3));
+    let capturedZone = false;
+    if (zone.owner === winner.faction) {
+      zone.control = Math.min(1000, zone.control + controlShift);
+    } else {
+      zone.control -= controlShift;
+      if (zone.control <= 0) {
+        zone.owner = winner.faction;
+        zone.control = Math.min(1000, Math.abs(zone.control) + 150);
+        capturedZone = true;
+      }
+    }
+    if (zone.control >= 250 && zone.owner !== winner.faction) {
+      zone.owner = winner.faction;
+      capturedZone = true;
+    }
+
+    // Claim stars overhead in that zone
+    if (Array.isArray(this.sky)) {
+      const zoneStars = this.sky.filter(s => s.zone === zoneId);
+      if (zoneStars.length > 0) {
+        const starToClaim = zoneStars[Math.floor(Math.random() * zoneStars.length)];
+        this.holdings[starToClaim.hip_id] = winner.faction;
+        starToClaim.held_by = winner.faction;
+      }
+    }
+
+    // 6. Record round result & credit faction score points
+    const zoneName = zone.kind === "crown" ? "Crown Zenith" : `${zone.kind === "house" ? "House" : "Spire"} ${zone.zone_id}`;
+    return this.recordRoundResult({
+      roundId: this.roundIndex++,
+      zoneId,
+      zoneName,
+      decanId: currentDecan.absDecan,
+      card: currentDecan.card,
+      rank: currentDecan.rank,
+      suit: currentDecan.suit,
+      decanLabel: currentDecan.label,
+      sunDegree: currentDecan.degInSign,
+      degInDecan: currentDecan.degInDecan,
+      decanRuler: currentDecan.rulerFaction,
+      winnerFaction: winner.faction,
+      winnerName: winner.name,
+      winningScore: winner.score,
+      seats: seats.map(s => ({
+        seatId: s.seatId,
+        name: s.name,
+        faction: s.faction,
+        score: s.score,
+        counters: s.counters,
+        meldsValue: s.meldsValue,
+        tricksWon: s.tricksWon,
+        hasDecanDignity: !!s.hasDecanDignity,
+        isHuman: false
+      })),
+      controlDelta: controlShift,
+      capturedZone
+    });
+  }
+
+  getCurrentDecan() {
+    let sunLon = this.seasonDegree;
+    if (this.planets && this.planets[0] && typeof this.planets[0].eclLon === "number") {
+      sunLon = this.planets[0].eclLon;
+    }
+    return getDecanInfo(sunLon);
+  }
+
+  concludeDecanBattle(completedDecanId, nextDecan) {
+    const completedInfo = getDecanInfo(completedDecanId * 10);
+    const winner = (this.leaderboard && this.leaderboard[0]) ? this.leaderboard[0] : { id: 0, score: 0 };
+
+    if (!this.decanHistory) this.decanHistory = [];
+    this.decanHistory.unshift({
+      decanId: completedDecanId,
+      card: completedInfo.card,
+      rank: completedInfo.rank,
+      suit: completedInfo.suit,
+      signName: completedInfo.signName,
+      range: [completedInfo.startDeg, completedInfo.endDeg],
+      rulerFaction: completedInfo.rulerFaction,
+      rulerName: completedInfo.rulerName,
+      winnerFaction: winner.id,
+      winnerName: PLANET_NAMES[winner.id],
+      winnerScore: winner.score,
+      finalStandings: [...(this.leaderboard || [])],
+      completedAt: Date.now()
+    });
+    if (this.decanHistory.length > 36) this.decanHistory.length = 36;
+
+    if (!this.decanVictories) this.decanVictories = new Array(10).fill(0);
+    this.decanVictories[winner.id] = (this.decanVictories[winner.id] || 0) + 1;
+
+    // Reset scores for each faction at the decan boundary
+    this.factionRoundPoints = new Array(10).fill(0);
+
+    // Reset zone control to baseline footholds for the new decan battle
+    if (Array.isArray(this.map)) {
+      this.map.forEach(zone => {
+        if (zone.kind === "house") {
+          zone.control = 250;
+        } else {
+          zone.control = 0;
+          zone.owner = null;
+        }
+      });
+    }
+
+    this.recalculateLeaderboard();
+    this.save();
+
+    if (typeof window !== "undefined") {
+      if (typeof window.toast === "function") {
+        window.toast(`✦ Round Concluded: ${PLANET_NAMES[winner.id]} won the ${completedInfo.card} (${completedInfo.startDeg}°–${completedInfo.endDeg}° ${completedInfo.signName}) with ${winner.score} pts! Scores reset for ${nextDecan ? nextDecan.card : 'next round'}.`, { type: "success", title: "Decan Round Reset" });
+      }
+      if (typeof window.renderLeaderboard === "function") window.renderLeaderboard();
+      if (typeof window.renderZonesList === "function") window.renderZonesList();
+    }
+  }
+
+  recalculateLeaderboard() {
+    const factionScores = new Array(10).fill(0);
+
+    // 1. Zone Holdings Weight & Positive Control
+    (this.map || []).forEach(zone => {
+      if (zone.owner !== null && zone.owner !== undefined && zone.owner >= 0 && zone.owner < 10) {
+        const weight = zone.kind === "house" ? 100 : (zone.kind === "spire" ? 200 : 400);
+        factionScores[zone.owner] += weight;
+        if (zone.control > 0) {
+          factionScores[zone.owner] += Math.floor(zone.control / 10);
+        }
+      }
+    });
+
+    // 2. Stars held in celestial holdings (5 pts per star)
+    if (this.holdings) {
+      Object.values(this.holdings).forEach(ownerFaction => {
+        if (ownerFaction !== null && ownerFaction !== undefined && ownerFaction >= 0 && ownerFaction < 10) {
+          factionScores[ownerFaction] += 5;
+        }
+      });
+    }
+
+    // 3. Accumulated Round Points in Active Decan Battle
+    if (this.factionRoundPoints) {
+      for (let i = 0; i < 10; i++) {
+        factionScores[i] += Math.max(0, Number(this.factionRoundPoints[i]) || 0);
+      }
+    }
+
+    // 4. Past Decan Triumphs (50 pts per Decan Crown won)
+    if (this.decanVictories) {
+      for (let i = 0; i < 10; i++) {
+        factionScores[i] += (Number(this.decanVictories[i]) || 0) * 50;
+      }
+    }
+
+    const board = factionScores.map((score, idx) => ({
+      id: idx,
+      score,
+      decanWins: (this.decanVictories && this.decanVictories[idx]) || 0,
+      roundPoints: (this.factionRoundPoints && this.factionRoundPoints[idx]) || 0
+    }));
     board.sort((a, b) => b.score - a.score);
     this.leaderboard = board;
   }
@@ -1150,44 +1600,31 @@ class GameState {
     // the pentacle zones, and set at the western edge.
     this.recomputeSky();
 
-    // Simulate passive decay in uncontrolled zones
-    this.map.forEach(zone => {
-      if (zone.control !== 0) {
-        const decayRate = zone.kind === "crown" ? 15 : 8;
+    // Decan Battle Bounds: check if zodiac degrees have crossed a 10° decan boundary
+    const decanNow = this.getCurrentDecan();
+    if (this.currentDecanId === null) {
+      this.currentDecanId = decanNow.absDecan;
+    } else if (this.currentDecanId !== decanNow.absDecan) {
+      this.concludeDecanBattle(this.currentDecanId, decanNow);
+      this.currentDecanId = decanNow.absDecan;
+    }
+
+    // Gentle decay in neutral / uncontrolled zones
+    (this.map || []).forEach(zone => {
+      if (zone.owner === null && zone.control !== 0) {
+        const decayRate = 5;
         if (zone.control > 0) {
           zone.control = Math.max(0, zone.control - decayRate);
         } else {
           zone.control = Math.min(0, zone.control + decayRate);
         }
-
-        // If control drops back to 0, ownership becomes neutral
-        if (zone.control === 0) {
-          zone.owner = null;
-        }
       }
     });
 
-    // Simulate occasional bot attacks (keeps map alive): a bot faction grabs a
-    // random star currently overhead and swings that star's zone.
-    if (Math.random() < 0.2 && this.sky.length > 0) {
-      const botFaction = Math.floor(Math.random() * 10);
-      const randomStar = this.sky[Math.floor(Math.random() * this.sky.length)];
-      this.holdings[randomStar.hip_id] = botFaction;
-      randomStar.held_by = botFaction;
-      const randomZone = this.map[randomStar.zone];
-
-      // Shift zone control meter by the star's brightness weight
-      const swing = starControlDelta(randomStar.magnitude, 0);
-      const delta = (botFaction === this.player?.faction) ? swing : -swing;
-      randomZone.control = Math.max(-1000, Math.min(1000, randomZone.control + delta));
-
-      // Update zone ownership if crosses threshold (+600 for player's faction, -600 for bots)
-      if (randomZone.control >= 600) {
-        randomZone.owner = this.player?.faction;
-      } else if (randomZone.control <= -600) {
-        randomZone.owner = botFaction;
-      }
-    }
+    // Autonomous Agent Melee: historical agents actively contest zones,
+    // push control meters, capture zones, and score points for their factions.
+    this.runAutonomousZoneRound();
+    this.recalculateLeaderboard();
 
     // Stars that set below the horizon release their transient garrisons.
     const visible = new Set(this.sky.map(s => s.hip_id));
@@ -1306,12 +1743,12 @@ class GameState {
     const arcanaLadder = Engine ? Engine.buildArcanaLadder(skyContext.planets, skyContext.signVector) : {};
 
     const CONTENDER_ROSTER = [
-      { seatId: 0, name: "You (Seeker)", faction: (this.player ? PLANET_NAMES[this.player.faction] : "Moon"), glyph: (this.player ? PLANET_GLYPHS[this.player.faction] : "✦"), isHuman: true, avatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuBG3IAfFZPaUazfdV6k6Qpy2XXyRE0FbSCQ5FEXOoUhIHdG2b_lNO1h5ujd3rJVNpfOTJ2nBXUS6NhW3XcuIPMnNCWCBcADuNZkPZeoAlD9OMyoSUyjRcZu40R1dKmhq5jRQ5NLE381NcDGvCMl0EhzPj8wNXdKIwE_RuyZuoS-CSsOb3gNiCGIgNB3E6jNf3CLAIbNtqylYNd5Q-pDVFBenFS-gXuvy_UtW6FtNYC0fc2H46GjfkEGNQ", color: "#f6cf83" },
-      { seatId: 1, name: "Hypatia", faction: "Mercury", glyph: "☿", isHuman: false, avatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuDod_RQk1s-pcUaa-qc40uOsRtn61ngd04V5qXM6Ex2F7kivkTgZhkN4JTSIjVi0BtpKEjR-DH5siPgH1lFZnmLsNR0EB9sZQCGmWwOr69MRbPfrZiO8vXigjazd_2PsKykpB7EScCcCtJNJb-XQ9Rwe24Gabmm4WuSZmwk5Lmvi3lJhnxNgEmfv_XmPqo7OPzMNB-SCp8VgipZYy1r0IrHb5uniB5Kl4Q8veL44utAQcMAwE2YxLGGtA", color: "#00daf3" },
-      { seatId: 2, name: "John Dee", faction: "Venus", glyph: "♀", isHuman: false, avatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuBSS0Qwt4OiYfm878WS18Er6DN6E7TPjvsx0a0ik5klB0VCaXrxnhCtbHflb0JLZdsbh4i5CZ6iyKXIOWcXxSJAL2FhW1LE0Ve6Q0JqUmr-Uj5DfnwPl6rPSKMAguScZAXg6PyKrYQjHiwA8hSKyEjRQXSUS9DmpXdZp4blV2Q36gEECcqRoT1ZiM4uzXfrpwnVDysOUuJbn4dKGE4L_hPkAUejJXotzApacy8_Qrz7ZpqlmMLi4IdY0Q", color: "#f6cf83" },
-      { seatId: 3, name: "Paracelsus", faction: "Earth", glyph: "🛡", isHuman: false, avatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuA8aZ6mtOWpAAw3nNO31GhPCaOuwUWWga9VWzqtzgWL6rhyf45mpUVv7asKDC4upHrgW-U9ulUkFqSUImyG1zRxk7c7giftZrW6XOwJ3z55_yKbKGsbmVFI9rLk47BVK5cZmsXCaqY2S0esR0oVG76pPs-JcPDTsCLl8S5KyO957dPXqs35R5OZb0XlQgge7W5Sla5rCwpml59iiVHJNTB6pkQED2Y-7am2mhpYmS2o5KIzoEAsKnQMZg", color: "#8bc34a" },
-      { seatId: 4, name: "Nicolas Flamel", faction: "Sun", glyph: "☉", isHuman: false, avatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuBzOCPGicqORqFCpmJ4s4uHGeow4_P-ONOVpraZX4G9DBh0eTF4_WhzRhCqqb8LXQzYWIXZG_AaiP5v8PzzvJe0X3KgR005RAH5kn658ksyaP9p-tuv0pjY-UdMv1G85pXJmsnITo6nGrIPXoZnZrng3IRqo81tvpB8ghSTOW8QX703Na8Bkd445cKG5sM1YelTEWHdvA66HwflxVF7O6lXeno2uH6mDvgSpg14CyY-bEcAcGt3le1QJQ", color: "#ff5722" },
-      { seatId: 5, name: "Isaac Newton", faction: "Saturn", glyph: "♄", isHuman: false, avatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuDod_RQk1s-pcUaa-qc40uOsRtn61ngd04V5qXM6Ex2F7kivkTgZhkN4JTSIjVi0BtpKEjR-DH5siPgH1lFZnmLsNR0EB9sZQCGmWwOr69MRbPfrZiO8vXigjazd_2PsKykpB7EScCcCtJNJb-XQ9Rwe24Gabmm4WuSZmwk5Lmvi3lJhnxNgEmfv_XmPqo7OPzMNB-SCp8VgipZYy1r0IrHb5uniB5Kl4Q8veL44utAQcMAwE2YxLGGtA", color: "#cd7f32" }
+      { seatId: 0, name: "You (Seeker)", faction: (this.player ? PLANET_NAMES[this.player.faction] : "Moon"), factionId: (this.player ? this.player.faction : 1), glyph: (this.player ? PLANET_GLYPHS[this.player.faction] : "✦"), isHuman: true, avatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuBG3IAfFZPaUazfdV6k6Qpy2XXyRE0FbSCQ5FEXOoUhIHdG2b_lNO1h5ujd3rJVNpfOTJ2nBXUS6NhW3XcuIPMnNCWCBcADuNZkPZeoAlD9OMyoSUyjRcZu40R1dKmhq5jRQ5NLE381NcDGvCMl0EhzPj8wNXdKIwE_RuyZuoS-CSsOb3gNiCGIgNB3E6jNf3CLAIbNtqylYNd5Q-pDVFBenFS-gXuvy_UtW6FtNYC0fc2H46GjfkEGNQ", color: "#f6cf83" },
+      { seatId: 1, name: "Hypatia", faction: "Mercury", factionId: 2, glyph: "☿", isHuman: false, avatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuDod_RQk1s-pcUaa-qc40uOsRtn61ngd04V5qXM6Ex2F7kivkTgZhkN4JTSIjVi0BtpKEjR-DH5siPgH1lFZnmLsNR0EB9sZQCGmWwOr69MRbPfrZiO8vXigjazd_2PsKykpB7EScCcCtJNJb-XQ9Rwe24Gabmm4WuSZmwk5Lmvi3lJhnxNgEmfv_XmPqo7OPzMNB-SCp8VgipZYy1r0IrHb5uniB5Kl4Q8veL44utAQcMAwE2YxLGGtA", color: "#00daf3" },
+      { seatId: 2, name: "John Dee", faction: "Venus", factionId: 3, glyph: "♀", isHuman: false, avatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuBSS0Qwt4OiYfm878WS18Er6DN6E7TPjvsx0a0ik5klB0VCaXrxnhCtbHflb0JLZdsbh4i5CZ6iyKXIOWcXxSJAL2FhW1LE0Ve6Q0JqUmr-Uj5DfnwPl6rPSKMAguScZAXg6PyKrYQjHiwA8hSKyEjRQXSUS9DmpXdZp4blV2Q36gEECcqRoT1ZiM4uzXfrpwnVDysOUuJbn4dKGE4L_hPkAUejJXotzApacy8_Qrz7ZpqlmMLi4IdY0Q", color: "#f6cf83" },
+      { seatId: 3, name: "Paracelsus", faction: "Mars", factionId: 4, glyph: "♂", isHuman: false, avatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuA8aZ6mtOWpAAw3nNO31GhPCaOuwUWWga9VWzqtzgWL6rhyf45mpUVv7asKDC4upHrgW-U9ulUkFqSUImyG1zRxk7c7giftZrW6XOwJ3z55_yKbKGsbmVFI9rLk47BVK5cZmsXCaqY2S0esR0oVG76pPs-JcPDTsCLl8S5KyO957dPXqs35R5OZb0XlQgge7W5Sla5rCwpml59iiVHJNTB6pkQED2Y-7am2mhpYmS2o5KIzoEAsKnQMZg", color: "#8bc34a" },
+      { seatId: 4, name: "Nicolas Flamel", faction: "Sun", factionId: 0, glyph: "☉", isHuman: false, avatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuBzOCPGicqORqFCpmJ4s4uHGeow4_P-ONOVpraZX4G9DBh0eTF4_WhzRhCqqb8LXQzYWIXZG_AaiP5v8PzzvJe0X3KgR005RAH5kn658ksyaP9p-tuv0pjY-UdMv1G85pXJmsnITo6nGrIPXoZnZrng3IRqo81tvpB8ghSTOW8QX703Na8Bkd445cKG5sM1YelTEWHdvA66HwflxVF7O6lXeno2uH6mDvgSpg14CyY-bEcAcGt3le1QJQ", color: "#ff5722" },
+      { seatId: 5, name: "Isaac Newton", faction: "Saturn", factionId: 6, glyph: "♄", isHuman: false, avatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuDod_RQk1s-pcUaa-qc40uOsRtn61ngd04V5qXM6Ex2F7kivkTgZhkN4JTSIjVi0BtpKEjR-DH5siPgH1lFZnmLsNR0EB9sZQCGmWwOr69MRbPfrZiO8vXigjazd_2PsKykpB7EScCcCtJNJb-XQ9Rwe24Gabmm4WuSZmwk5Lmvi3lJhnxNgEmfv_XmPqo7OPzMNB-SCp8VgipZYy1r0IrHb5uniB5Kl4Q8veL44utAQcMAwE2YxLGGtA", color: "#cd7f32" }
     ];
 
     const HANDICAPS = [0, 0, 0, 0, 0, 20, 20, 20, 20, 20, 40];
@@ -1388,6 +1825,7 @@ class GameState {
         ledSuit: null,
         currentTrick: [],
         seats: seats,
+        contenders: seats.slice(1),
         playerHand: playerSeat.hand,
         guardianHand: guardianSeat.hand,
         playerMelds: playerSeat.melds,
@@ -1708,25 +2146,106 @@ class GameState {
     // Check if round finished (12 tricks played or hands empty)
     if (melee.trickNumber >= 12 || melee.playerHand.length === 0) {
       melee.status = "completed";
-      const victory = melee.playerScore >= melee.guardianScore;
-      melee.outcome = victory ? "player_win" : "contender_win";
       completed = true;
 
-      if (victory) {
-        let targetZoneId = targetId;
-        if (targetType === 'planet') {
-          const p = this.planets[targetId] || this.chiron;
-          if (p) targetZoneId = p.zone;
-        }
+      let targetZoneId = targetId;
+      if (targetType === 'planet') {
+        const p = this.planets[targetId] || this.chiron;
+        if (p) targetZoneId = p.zone;
+      }
+      const zone = this.map[targetZoneId];
 
-        const zone = this.map[targetZoneId];
-        if (zone) {
-          zone.control = Math.min(1000, zone.control + 500);
-          if (zone.control >= 600) {
-            zone.owner = this.player.faction;
+      // Determine overall winner across player and all historical agent contenders
+      let winnerSeat = {
+        seatId: 0,
+        name: "You (Seeker)",
+        faction: (this.player ? this.player.faction : 1),
+        score: melee.playerScore,
+        isHuman: true
+      };
+
+      if (Array.isArray(melee.contenders)) {
+        melee.contenders.forEach(c => {
+          const cScore = Number(c.score) || 0;
+          if (cScore > winnerSeat.score) {
+            let f = c.factionId !== undefined ? c.factionId : c.faction;
+            if (typeof f === "string") f = PLANET_NAMES.indexOf(f);
+            if (f === -1) f = 4; // fallback
+            winnerSeat = {
+              seatId: c.seatId,
+              name: c.name,
+              faction: f,
+              score: cScore,
+              isHuman: false
+            };
+          }
+        });
+      }
+
+      const victory = winnerSeat.isHuman;
+      melee.outcome = victory ? "player_win" : "contender_win";
+
+      const controlShift = Math.max(150, Math.min(500, winnerSeat.score * 3));
+      let capturedZone = false;
+      if (zone) {
+        if (zone.owner === winnerSeat.faction) {
+          zone.control = Math.min(1000, zone.control + controlShift);
+        } else {
+          zone.control -= controlShift;
+          if (zone.control <= 0) {
+            zone.owner = winnerSeat.faction;
+            zone.control = Math.min(1000, Math.abs(zone.control) + 150);
+            capturedZone = true;
           }
         }
+        if (zone.control >= 250 && zone.owner !== winnerSeat.faction) {
+          zone.owner = winnerSeat.faction;
+          capturedZone = true;
+        }
+      }
 
+      // Record full round result with all participant seats
+      const seatsData = [
+        {
+          seatId: 0,
+          name: "You (Seeker)",
+          faction: this.player ? this.player.faction : 1,
+          score: melee.playerScore,
+          counters: melee.playerScore,
+          meldsValue: 0,
+          tricksWon: melee.playerTricksWon || 0,
+          isHuman: true
+        },
+        ...(melee.contenders || []).map(c => {
+          let f = c.factionId !== undefined ? c.factionId : c.faction;
+          if (typeof f === "string") f = PLANET_NAMES.indexOf(f);
+          if (f === -1) f = 4;
+          return {
+            seatId: c.seatId,
+            name: c.name,
+            faction: f,
+            score: c.score || 0,
+            counters: c.score || 0,
+            meldsValue: c.meldScore || 0,
+            tricksWon: c.tricksWon || 0,
+            isHuman: false
+          };
+        })
+      ];
+
+      this.recordRoundResult({
+        roundId: this.roundIndex++,
+        zoneId: targetZoneId,
+        zoneName: zone ? (zone.kind === "crown" ? "Crown Zenith" : `${zone.kind === "house" ? "House" : "Spire"} ${zone.zone_id}`) : `Zone ${targetZoneId}`,
+        winnerFaction: winnerSeat.faction,
+        winnerName: winnerSeat.name,
+        winningScore: winnerSeat.score,
+        seats: seatsData,
+        controlDelta: controlShift,
+        capturedZone
+      });
+
+      if (victory) {
         const baseTokens = 500;
         this.player.tokens = (this.player.tokens || 0) + baseTokens;
 
@@ -1757,9 +2276,24 @@ class GameState {
           card: addedCards[0] || null,
           playerScore: melee.playerScore,
           guardianScore: melee.guardianScore,
+          winnerName: winnerSeat.name,
+          winnerFaction: winnerSeat.faction,
+          zoneName: zone ? (zone.kind === "crown" ? "Crown Zenith" : `${zone.kind === "house" ? "House" : "Spire"} ${zone.zone_id}`) : "Unknown"
+        };
+      } else {
+        completionReward = {
+          tokens: 0,
+          pentaclesYield: 0,
+          cards: [],
+          card: null,
+          playerScore: melee.playerScore,
+          guardianScore: melee.guardianScore,
+          winnerName: winnerSeat.name,
+          winnerFaction: winnerSeat.faction,
           zoneName: zone ? (zone.kind === "crown" ? "Crown Zenith" : `${zone.kind === "house" ? "House" : "Spire"} ${zone.zone_id}`) : "Unknown"
         };
       }
+      this.recalculateLeaderboard();
     } else {
       melee.trickNumber++;
     }
@@ -1789,6 +2323,9 @@ const state = new GameState();
 // Bridge for the ES-module layer (src/), whose modules can't see this classic
 // top-level `const`. Phases 3–5 read window.state for live pool/faction/zone data.
 window.state = state;
+window.getDecanInfo = getDecanInfo;
+window.DECAN_SUITS = DECAN_SUITS;
+window.DECAN_CHALDEAN_RULERS = DECAN_CHALDEAN_RULERS;
 
 // ---- AUTO-SIEGE COMBAT RESOLVER ----
 // ---- MULTI-FACTION BATTLE HELPERS & RESOLVER ----

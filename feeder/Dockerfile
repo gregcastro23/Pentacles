@@ -20,10 +20,9 @@ RUN bun install --production
 COPY feeder/package.json ./feeder/
 RUN cd feeder && bun install --production
 
-# The only source the services need: generated bindings, the WS row
-# normalizer, and the feeder code itself.
-COPY src/module_bindings ./src/module_bindings
-COPY src/net/ws-normalize.js ./src/net/ws-normalize.js
+# Source needed by companion services (alchm-chart, web3, net, arcana trick engine)
+COPY src ./src
+COPY public ./public
 COPY feeder ./feeder
 
 ENV NODE_ENV=production

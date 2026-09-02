@@ -913,19 +913,52 @@
       synth.playClick();
     }
 
-    // Render Faction Leaderboard
+    // Render Faction Leaderboard & Decan Battle Bounds
     function renderLeaderboard() {
+      // 1. Render Decan Battle Bounds Banner
+      const banner = document.getElementById("decan-status-banner");
+      if (banner && typeof state.getCurrentDecan === "function") {
+        const decan = state.getCurrentDecan();
+        const rulerCol = PLANET_COLORS[decan.rulerFaction] || "var(--gold)";
+        banner.innerHTML = `
+          <div style="background: rgba(216,180,106,0.08); border: 1px solid rgba(216,180,106,0.25); border-radius: 8px; padding: 8px 10px; margin-bottom: 12px; font-size: 11px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 4px;">
+              <span style="font-weight: bold; color: var(--gold-bright); font-size: 12px;">🎴 ${decan.card}</span>
+              <span style="font-family: var(--font-mono); color: #ffd700; font-size: 11px; font-weight: bold;">☉ ${decan.degInSign}° ${decan.signGlyph}</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; color: var(--dim); font-size: 10px; margin-bottom: 6px;">
+              <span>${decan.startDeg}°–${decan.endDeg}° ${decan.signName} (10-day round)</span>
+              <span style="color: ${rulerCol}; font-weight: 600;">Ruler: ${decan.rulerGlyph} ${decan.rulerName}</span>
+            </div>
+            <div style="width: 100%; height: 5px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden;">
+              <div style="width: ${decan.progressPct}%; height: 100%; background: linear-gradient(90deg, #d8b46a, #ffd700); border-radius: 3px; transition: width 0.3s ease;"></div>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size: 9.5px; color: var(--dim); margin-top: 4px;">
+              <span>Bounds: ${decan.startDeg}°</span>
+              <span style="color: #fff; font-weight: 500;">${decan.degInDecan}° / 10° (${decan.progressPct}%)</span>
+              <span>${decan.endDeg}°</span>
+            </div>
+          </div>
+        `;
+      }
+
+      // 2. Render Faction Standings
       const container = document.getElementById("leaderboard-container");
+      if (!container) return;
       container.innerHTML = "";
 
       state.leaderboard.forEach((item, index) => {
         const name = PLANET_NAMES[item.id];
         const glyph = PLANET_GLYPHS[item.id];
         const isMe = state.player && state.player.faction === item.id;
+        const decanWins = (state.decanVictories && state.decanVictories[item.id]) || 0;
         
         container.innerHTML += `
           <div class="standings-item ${isMe ? 'me' : ''}">
-            <span>#${index + 1} &nbsp; ${glyph} ${name}</span>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span>#${index + 1} &nbsp; ${glyph} ${name}</span>
+              ${decanWins > 0 ? `<span style="font-size:9.5px; color:#ffd700; background:rgba(255,215,0,0.15); padding:1px 5px; border-radius:10px; border:1px solid rgba(255,215,0,0.3);" title="${decanWins} Decan Victories">👑 ${decanWins}</span>` : ''}
+            </div>
             <span>${item.score} pts</span>
           </div>
         `;
@@ -2100,19 +2133,13 @@
         renderStarsNodes();
       }
 
-      // Periodically trigger state tick updates every 15s (sky drift, decay & bot raids)
+      // Periodically trigger state tick updates every 15s (sky drift, agent battles, zone captures)
       setInterval(() => {
-        if (state.player) {
-          state.tick();
-          renderLeaderboard();
-          renderZonesList();
-          renderStarsNodes();
-          renderPoolsPanel();
-        } else {
-          state.recomputeSky();
-          renderStarsNodes();
-          renderPoolsPanel();
-        }
+        state.tick();
+        renderLeaderboard();
+        renderZonesList();
+        renderStarsNodes();
+        renderPoolsPanel();
       }, 15000);
     });
 
@@ -2404,9 +2431,13 @@
 
             ${isWin ? `
               <div style="background:rgba(216,180,106,0.1); border:1px solid rgba(216,180,106,0.3); border-radius:8px; padding:8px; font-size:11px; color:var(--gold-bright); margin-bottom:10px;">
-                ✦ Yielded <b>+500 Tokens</b> · Zone Control <b>+500</b> · Synthesized Spoils in Deck
+                ✦ Yielded <b>+500 Tokens</b> · Zone Control <b>+500</b> · All contender scores contributed to Faction Standings!
               </div>
-            ` : ''}
+            ` : `
+              <div style="background:rgba(0,218,243,0.08); border:1px solid rgba(0,218,243,0.25); border-radius:8px; padding:8px; font-size:11px; color:#00daf3; margin-bottom:10px;">
+                ✦ Contenders captured zone control and contributed points to their Faction Standings!
+              </div>
+            `}
 
             <div style="display:flex; justify-content:center; gap:8px;">
               <button class="btn btn-primary" style="padding:6px 18px; font-size:11.5px; font-weight:bold;" onclick="resetActiveRitual()">

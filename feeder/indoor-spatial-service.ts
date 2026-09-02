@@ -7,8 +7,9 @@
  */
 
 import { sqlOneShot, cliCall } from "./spacetime-cli";
+import { warLedger } from "./war-ledger";
 
-const PORT = parseInt(process.env.SPATIAL_PORT || "8089", 10);
+const PORT = parseInt(process.env.PORT || process.env.SPATIAL_PORT || "8080", 10);
 const SERVICE_NAME = "indoor-spatial";
 
 // Conversion formula: RA (rad), Dec (rad), Distance (parsecs) -> Cartesian 3D (X, Y, Z)
@@ -67,6 +68,7 @@ function checkRateLimit(clientId: string): boolean {
 
 // Bun REST Server Implementation
 const server = Bun.serve({
+  hostname: "0.0.0.0",
   port: PORT,
   async fetch(req) {
     const url = new URL(req.url);
@@ -91,6 +93,30 @@ const server = Bun.serve({
     }
 
     try {
+      // 0. Railway Health Check
+      if (url.pathname === "/health" || url.pathname === "/") {
+        return Response.json(
+          { status: "ok", service: "pentacles-feeders", timestamp: Date.now() },
+          { headers: corsHeaders }
+        );
+      }
+
+      // 0b. War Decan Ledger Summary
+      if (url.pathname === "/api/v1/war/decan-ledger" && req.method === "GET") {
+        return Response.json(
+          { success: true, ...warLedger.getSummary() },
+          { headers: corsHeaders }
+        );
+      }
+
+      // 0c. War Rounds History
+      if (url.pathname === "/api/v1/war/rounds" && req.method === "GET") {
+        return Response.json(
+          { success: true, rounds: warLedger.state.roundResults },
+          { headers: corsHeaders }
+        );
+      }
+
       // 1. Layer 1: Local Ephemeris Endpoint
       if (url.pathname === "/api/v1/ephemeris/local" && req.method === "GET") {
         const lat = parseFloat(url.searchParams.get("lat") || "37.7749");

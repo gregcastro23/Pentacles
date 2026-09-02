@@ -834,8 +834,69 @@ export class FactionWarInstance {
     const isFinished = (humanSeat.handRemaining === 0) || (table.currentTrick >= 12 && table.seats.every((s) => (s.hand || []).every((c) => c.played)));
     if (isFinished) {
       table.state = "Resolved";
+      let overallWinner = table.seats[0];
+      for (const s of table.seats) {
+        if ((s.score || 0) > (overallWinner.score || 0)) {
+          overallWinner = s;
+        }
+      }
+
+      const zoneId = table.zoneId;
+      const winnerFaction = overallWinner.faction;
+      const controlShift = Math.max(120, Math.min(300, (overallWinner.score || 50) * 3));
+      let capturedZone = false;
+
+      if (typeof window !== "undefined" && window.state) {
+        if (Array.isArray(window.state.map) && window.state.map[zoneId]) {
+          const zone = window.state.map[zoneId];
+          if (zone.owner === winnerFaction) {
+            zone.control = Math.min(1000, zone.control + controlShift);
+          } else {
+            zone.control -= controlShift;
+            if (zone.control <= 0) {
+              zone.owner = winnerFaction;
+              zone.control = Math.min(1000, Math.abs(zone.control) + 150);
+              capturedZone = true;
+            }
+          }
+          if (zone.control >= 250 && zone.owner !== winnerFaction) {
+            zone.owner = winnerFaction;
+            capturedZone = true;
+          }
+        }
+
+        if (typeof window.state.recordRoundResult === "function") {
+          window.state.recordRoundResult({
+            roundId: table.roundIndex || table.tableId || 1,
+            zoneId,
+            zoneName: `Zone ${zoneId}`,
+            winnerFaction,
+            winnerName: overallWinner.handle || `Faction ${winnerFaction}`,
+            winningScore: overallWinner.score || 0,
+            seats: table.seats.map(s => ({
+              seatId: s.seatId,
+              name: s.handle,
+              faction: s.faction,
+              score: s.score || 0,
+              counters: s.counters || 0,
+              meldsValue: s.meldsValue || 0,
+              tricksWon: s.tricksWon || 0,
+              isHuman: !!s.isHuman
+            })),
+            controlDelta: controlShift,
+            capturedZone
+          });
+        } else if (typeof window.state.recalculateLeaderboard === "function") {
+          window.state.recalculateLeaderboard();
+        }
+
+        if (typeof window.renderLeaderboard === "function") window.renderLeaderboard();
+        if (typeof window.renderZonesList === "function") window.renderZonesList();
+      }
+
       if (!opts.silent && typeof window !== "undefined" && window.toast) {
-        window.toast(`12-Trick Melee Complete! Final score: ${humanSeat.score} pts`, { type: "success", title: "Match Resolved" });
+        const title = overallWinner.isHuman ? "Victory!" : `${overallWinner.handle} Won!`;
+        window.toast(`12-Trick Melee Complete! ${overallWinner.handle} won with ${overallWinner.score} pts. Zone ${zoneId} control shifted +${controlShift} to ${this.PN[winnerFaction]}.`, { type: "success", title });
       }
     }
 
