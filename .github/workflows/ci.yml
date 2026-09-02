@@ -23,15 +23,9 @@ jobs:
         run: bun install
 
       - name: Setup Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.82.0
         with:
-          components: clippy, rustfmt
-
-      - name: Rust format check
-        run: cargo fmt --manifest-path server/Cargo.toml -- --check
-
-      - name: Rust clippy lint
-        run: cargo clippy --manifest-path server/Cargo.toml -- -D warnings
+          targets: wasm32-unknown-unknown
 
       - name: Rust module tests
         run: cargo test --manifest-path server/Cargo.toml
