@@ -36,7 +36,7 @@ const SWEEP_MS = 760;
 /** Where seat `idx` of `n` sits on the ring, in percent of the arena box. */
 function seatPoint(idx, n) {
   const angle = (2 * Math.PI * idx) / n - Math.PI / 2;
-  const r = n >= 5 ? 39 : 42;
+  const r = n >= 5 ? 35 : 37;
   return { x: 50 + r * Math.cos(angle), y: 50 + r * Math.sin(angle) };
 }
 
@@ -52,6 +52,8 @@ export class MeleeTableInstance {
     this.myHand = Array.isArray(this.opts.myHand) ? this.opts.myHand : [];
     this.hooks = this.opts.hooks || {};
     this.showLadder = false;
+    this.showSettlement = false;
+    this._settlementDismissed = false;
     this.dom = {};
     this._clockTimer = null;
     this._animFrame = null;
@@ -81,11 +83,13 @@ export class MeleeTableInstance {
     d.arena = h("div", { class: "mt-arena" });
     d.ladder = h("div", { class: "mt-ladder", hidden: true });
     d.playerArea = h("div", { class: "mt-player-area" });
+    d.settlement = h("div", { class: "mt-settlement-view", hidden: true });
 
     this.el.appendChild(d.header);
     this.el.appendChild(d.arena);
     this.el.appendChild(d.ladder);
     this.el.appendChild(d.playerArea);
+    this.el.appendChild(d.settlement);
 
     this.paint();
     this._startClock();
@@ -211,6 +215,7 @@ export class MeleeTableInstance {
     this._renderArena();
     this._renderLadder();
     this._renderPlayerArea();
+    this._renderSettlement();
   }
 
   _renderHeader() {
@@ -221,13 +226,18 @@ export class MeleeTableInstance {
     const trump = (t.trumpSuit || "wands").toLowerCase();
     const trumpCap = suitCap(trump);
     const trumpGlyph = SUIT_GLYPHS[trumpCap] || "✦";
+    const trickNo = (t && t.currentTrick) || 1;
 
     const left = h("div", { class: "mt-head-left" }, [
       h("span", { class: "mt-title-mark", text: "⚔" }),
       h("div", {}, [
         h("div", { class: "mt-title", text: `${zoneName(t.zoneId)} Melee` }),
-        h("div", { class: "mt-sub aw-dim", text: `Table #${t.tableId} · Round #${t.roundIndex} · ${t.seatCount || this.seats.length} Seats` }),
+        h("div", { class: "mt-sub aw-dim", text: `Zone ${t.zoneId} · Table #${t.tableId} · Round #${t.roundIndex} · ${t.seatCount || this.seats.length} Seats` }),
       ]),
+    ]);
+
+    const trickPill = h("div", { class: "mt-trick-pill" }, [
+      h("span", { class: "mt-trick-count", text: `TRICK ${Math.min(12, trickNo)} / 12` }),
     ]);
 
     const clockPill = h("span", {
@@ -236,7 +246,7 @@ export class MeleeTableInstance {
     });
     this.dom.clockPill = clockPill;
 
-    const trumpBadge = h("div", { class: "mt-trump-badge" }, [
+    const trumpBadge = h("div", { class: `mt-trump-badge is-${trump}` }, [
       SUIT_ART[trumpCap]
         ? h("img", { class: "mt-trump-art", src: SUIT_ART[trumpCap], alt: trumpCap })
         : h("span", { class: "mt-trump-glyph", text: trumpGlyph }),
@@ -261,14 +271,26 @@ export class MeleeTableInstance {
       },
     }, [h("span", { text: "⚡ Arcana Ladder" })]);
 
+    const settlementBtn = h("button", {
+      class: "mt-btn mt-btn-settlement"
+        + (this.showSettlement ? " is-active" : "")
+        + (t.state === "Resolved" ? " is-resolved-pulse" : ""),
+      title: "View Victory Spoils & Match Settlement",
+      onClick: () => {
+        this.showSettlement = !this.showSettlement;
+        this.paint();
+      },
+    }, [h("span", { text: "🏆 Spoils" })]);
+
     const closeBtn = h("button", {
       class: "mt-btn-close",
       "aria-label": "Close",
       onClick: () => this.hooks.onClose && this.hooks.onClose(),
     }, ["✕"]);
 
-    const right = h("div", { class: "mt-head-right" }, [trumpBadge, clockPill, ffBtn, ladderBtn, closeBtn]);
+    const right = h("div", { class: "mt-head-right" }, [trumpBadge, clockPill, ffBtn, ladderBtn, settlementBtn, closeBtn]);
     host.appendChild(left);
+    host.appendChild(trickPill);
     host.appendChild(right);
   }
 
@@ -277,12 +299,40 @@ export class MeleeTableInstance {
     clear(host);
 
     const arenaRing = h("div", { class: "mt-ring" });
+
+    // Gyroscopic Astrolabe Background SVG
+    const astrolabe = h("svg", {
+      class: "mt-astrolabe-bg",
+      viewBox: "0 0 1000 1000",
+      preserveAspectRatio: "xMidYMid slice",
+    }, [
+      h("circle", { cx: "500", cy: "500", r: "480", fill: "none", stroke: "rgba(246, 207, 131, 0.12)", "stroke-width": "1" }),
+      h("circle", { cx: "500", cy: "500", r: "420", fill: "none", stroke: "rgba(246, 207, 131, 0.08)", "stroke-width": "1", "stroke-dasharray": "6 4" }),
+      h("circle", { cx: "500", cy: "500", r: "340", fill: "none", stroke: "rgba(246, 207, 131, 0.1)", "stroke-width": "1" }),
+      h("circle", { cx: "500", cy: "500", r: "260", fill: "none", stroke: "rgba(246, 207, 131, 0.08)", "stroke-width": "1", "stroke-dasharray": "4 4" }),
+      h("line", { x1: "500", y1: "20", x2: "500", y2: "980", stroke: "rgba(246, 207, 131, 0.08)", "stroke-width": "1" }),
+      h("line", { x1: "20", y1: "500", x2: "980", y2: "500", stroke: "rgba(246, 207, 131, 0.08)", "stroke-width": "1" }),
+      h("line", { x1: "160", y1: "160", x2: "840", y2: "840", stroke: "rgba(246, 207, 131, 0.05)", "stroke-width": "1" }),
+      h("line", { x1: "160", y1: "840", x2: "840", y2: "160", stroke: "rgba(246, 207, 131, 0.05)", "stroke-width": "1" }),
+    ]);
+    arenaRing.appendChild(astrolabe);
+
+    // Singularity Core with Rotating Celestial Rings
     const core = h("div", { class: "mt-core" });
+    const rings = h("div", { class: "mt-core-celestial-rings" }, [
+      h("svg", { class: "mt-core-outer-ring", viewBox: "0 0 100 100" }, [
+        h("circle", { cx: "50", cy: "50", r: "47", fill: "none", stroke: "rgba(246, 207, 131, 0.45)", "stroke-width": "1", "stroke-dasharray": "6 4" }),
+        h("circle", { cx: "50", cy: "50", r: "43", fill: "none", stroke: "rgba(246, 207, 131, 0.2)", "stroke-width": "0.6" }),
+      ]),
+      h("svg", { class: "mt-core-inner-ring", viewBox: "0 0 100 100" }, [
+        h("circle", { cx: "50", cy: "50", r: "40", fill: "none", stroke: "rgba(246, 207, 131, 0.35)", "stroke-width": "0.8", "stroke-dasharray": "3 4" }),
+      ]),
+    ]);
+    core.appendChild(rings);
+
     const canvas = h("canvas", { class: "mt-singularity-canvas" });
     core.appendChild(canvas);
 
-    // The trick number is the module's, read off resolved `melee_trick` rows —
-    // never inferred from how many cards happen to be on the table.
     const trickNo = (this.table && this.table.currentTrick) || 1;
     const coreBadge = h("div", { class: "mt-core-badge" }, [
       h("div", { class: "mt-core-trick", text: `TRICK ${Math.min(12, trickNo)} / 12` }),
@@ -300,12 +350,32 @@ export class MeleeTableInstance {
     const pot = this._sweep ? this._sweep.plays : this._pot();
     const seatAt = {};
 
+    // Radial SVG Lines connecting seats to core
+    const radialLinesSvg = h("svg", {
+      class: "mt-radial-lines",
+      viewBox: "0 0 100 100",
+      preserveAspectRatio: "none",
+    });
+    seatList.forEach((s, idx) => {
+      const { x, y } = seatPoint(idx, N);
+      radialLinesSvg.appendChild(h("line", {
+        x1: x.toFixed(1),
+        y1: y.toFixed(1),
+        x2: "50",
+        y2: "50",
+        stroke: "rgba(246, 207, 131, 0.15)",
+        "stroke-width": "0.4",
+        "stroke-dasharray": "1 1.5",
+      }));
+    });
+    arenaRing.appendChild(radialLinesSvg);
+
     seatList.forEach((s, idx) => {
       const { x, y } = seatPoint(idx, N);
       seatAt[s.seatId] = { x, y };
 
       const fIdx = s.faction != null ? s.faction : idx;
-      const col = PLANET_COLORS[fIdx] || "var(--ac-gold)";
+      const col = PLANET_COLORS[fIdx] || "var(--primary)";
       const glyph = PLANET_GLYPHS[fIdx] || "✦";
       const fName = PLANET_NAMES[fIdx] || "Faction";
       const isMe = this.myIdentity && s.occupant === this.myIdentity;
@@ -313,6 +383,17 @@ export class MeleeTableInstance {
       const archName = s.archetype || (s.isHuman ? "Human Ally" : "Champion");
       const archTactic = s.tactic || (s.isHuman ? "Live Seeker player" : "Astrological combat archetype");
       const left = s.handRemaining;
+
+      const avatarWrap = h("div", { class: "mt-seat-avatar-wrap" }, [
+        h("svg", { class: "mt-seat-dial", viewBox: "0 0 36 36" }, [
+          h("circle", { cx: "18", cy: "18", r: "15.5", class: "mt-seat-dial-bg" }),
+          h("circle", {
+            cx: "18", cy: "18", r: "15.5", class: "mt-seat-dial-prog",
+            style: { stroke: col, strokeDashoffset: `${Math.max(0, 100 - (s.score || 0) * 1.5)}` },
+          }),
+        ]),
+        h("span", { class: "mt-seat-glyph", style: { color: col }, text: glyph }),
+      ]);
 
       const station = h("div", {
         class: "mt-seat-station"
@@ -323,7 +404,7 @@ export class MeleeTableInstance {
         title: `${s.handle} (${fName}) — ${archTactic}`,
       }, [
         h("div", { class: "mt-seat-head" }, [
-          h("span", { class: "mt-seat-glyph", style: { color: col, borderColor: col }, text: glyph }),
+          avatarWrap,
           h("div", { class: "mt-seat-meta" }, [
             h("div", { class: "mt-seat-name", text: s.handle || fName }),
             h("div", { class: "mt-seat-tag aw-dim", text: isMe ? "You (Ally)" : s.isHuman ? "Human Ally" : `AI · ${archName}` }),
@@ -396,9 +477,9 @@ export class MeleeTableInstance {
     const cap = suitCap(suit);
     const glyph = SUIT_GLYPHS[cap] || "✦";
     const glyphName = SUIT_GLYPH_NAMES[cap] || cap;
-    const col = SUIT_COLORS[cap] || "var(--ac-gold)";
+    const col = SUIT_COLORS[cap] || "var(--primary)";
     const trump = (this.table && this.table.trumpSuit) || "";
-    const isTrump = !isMaj && suit === trump;
+    const isTrump = !isMaj && suit.toLowerCase() === trump.toLowerCase();
     const titleText = isMaj ? (ARCANA_NAMES[play.rank] || "Major Arcana") : `${rankName(play.rank)} of ${cap}`;
 
     return h("div", {
@@ -410,11 +491,14 @@ export class MeleeTableInstance {
       "aria-label": titleText,
     }, [
       h("span", { class: "mt-card-pip top-left", "aria-hidden": "true", text: rank }),
+      h("span", { class: "mt-card-pip top-right", "aria-hidden": "true", text: isMaj ? "✦" : glyph }),
+      h("div", { class: "mt-card-art", "aria-hidden": "true" }, [
+        SUIT_ART[cap] && !isMaj
+          ? h("img", { class: "mt-card-suit-art", src: SUIT_ART[cap], alt: "" })
+          : h("span", { class: "mt-card-glyph", style: { color: col }, text: isMaj ? "✦" : glyph }),
+      ]),
+      h("div", { class: "mt-card-name", text: titleText }),
       h("span", { class: "mt-card-pip bottom-right", "aria-hidden": "true", text: rank }),
-      SUIT_ART[cap] && !isMaj
-        ? h("img", { class: "mt-card-suit-art", src: SUIT_ART[cap], alt: "", "aria-hidden": "true" })
-        : h("span", { class: "mt-card-glyph", style: { color: col }, "aria-hidden": "true", text: isMaj ? "✦" : glyph }),
-      h("span", { class: "mt-card-rank", "aria-hidden": "true", text: rank }),
       h("span", { class: "ac-sr-only", text: isMaj ? titleText : `${titleText} (${glyphName})` }),
     ]);
   }
@@ -482,14 +566,18 @@ export class MeleeTableInstance {
       text: label,
     }));
 
+    const fanContainer = h("div", { class: "mt-hand-fan-container" });
     const handStrip = h("div", { class: "mt-hand-strip" + (isMyTurn ? " is-active" : "") });
+    fanContainer.appendChild(handStrip);
+
     if (!cards.length) {
       handStrip.appendChild(h("div", {
         class: "aw-dim mt-hand-empty",
         text: seat.hasDeal ? "Hand spent — every card is on the table." : "Dealing…",
       }));
     } else {
-      for (const c of cards) {
+      const numCards = cards.length;
+      cards.forEach((c, idx) => {
         // `legal === null` means the engine could not be consulted, so nothing is
         // greyed out; the server refusal is still the backstop either way.
         const playable = isMyTurn && (legal === null || legal.has(c.card_id));
@@ -501,11 +589,24 @@ export class MeleeTableInstance {
           ? (ARCANA_NAMES[c.rank] || "Major Arcana")
           : `${rankName(c.rank)} of ${cap}`;
 
+        // Gentle 3D fan curvature
+        const mid = (numCards - 1) / 2;
+        const rot = (idx - mid) * 2.5;
+        const ty = Math.abs(idx - mid) * 2;
+        const style = {
+          "--card-rot": `${rot.toFixed(1)}deg`,
+          "--card-ty": `${ty.toFixed(1)}px`,
+        };
+
+        const atk = c.attack != null ? c.attack : (c.is_major ? 20 + c.rank : (typeof c.rank === "number" ? c.rank * 2 : 15));
+        const def = c.defense != null ? c.defense : (c.is_major ? 15 + c.rank : (typeof c.rank === "number" ? c.rank : 10));
+
         handStrip.appendChild(h("div", {
           class: `mt-hand-card aw-card--${c.suit || "wands"}`
             + (c.is_major ? " aw-card--major" : "")
             + (playable ? " is-playable" : " is-locked")
             + (c.inverted ? " is-inverted" : ""),
+          style,
           role: "button",
           tabindex: playable ? "0" : "-1",
           "aria-disabled": playable ? "false" : "true",
@@ -532,23 +633,172 @@ export class MeleeTableInstance {
           h("div", { class: "mt-hand-art", "aria-hidden": "true" }, [
             SUIT_ART[cap] && !c.is_major
               ? h("img", { class: "mt-hand-suit-art", src: SUIT_ART[cap], alt: "" })
-              : h("span", { class: "mt-hand-glyph", text: glyph })
+              : h("span", { class: "mt-hand-glyph", text: glyph }),
           ]),
           h("div", {
             class: "mt-hand-title",
             text: cardTitle,
           }),
+          h("div", { class: "mt-hand-stats" }, [
+            h("span", { text: `ATK ${atk}` }),
+            h("span", { text: `DEF ${def}` }),
+          ]),
           h("span", { class: "ac-sr-only", text: `${cardTitle} ${glyphName}` }),
         ]));
-      }
+      });
     }
-    host.appendChild(handStrip);
+    host.appendChild(fanContainer);
 
     if (seat.meldsValue > 0) {
       host.appendChild(h("div", { class: "mt-meld-bar aw-dim" }, [
         h("span", { text: `✦ Melds declared at the deal: +${seat.meldsValue} pts` }),
       ]));
     }
+  }
+
+  _renderSettlement() {
+    const host = this.dom.settlement;
+    if (!host) return;
+    clear(host);
+
+    const t = this.table || {};
+    const isResolved = t.state === "Resolved";
+    const shouldShow = this.showSettlement || (isResolved && !this._settlementDismissed);
+
+    if (!shouldShow) {
+      host.hidden = true;
+      return;
+    }
+    host.hidden = false;
+
+    const seatList = this.seats && this.seats.length ? this.seats : [];
+    // Sort seats by score descending to find winner
+    const ranked = seatList.slice().sort((a, b) => (b.score || 0) - (a.score || 0));
+    const winner = ranked[0] || { handle: "Victor", faction: 1, score: 0 };
+    const winFactionName = PLANET_NAMES[winner.faction] || winner.handle || "Dominant";
+    const mySeat = this._mySeat();
+
+    // 1. Header
+    const header = h("div", { class: "mt-settlement-header" }, [
+      h("div", { class: "mt-triumph-title" }, [
+        h("span", { text: `✦ Faction ${winFactionName} Triumphs in ${zoneName(t.zoneId)} ✦` }),
+      ]),
+      h("div", { class: "mt-triumph-sub" }, [
+        h("span", { text: `Post-Match Settlement · Table #${t.tableId || 0} · Sol-Net Sync Complete` }),
+      ]),
+    ]);
+
+    // 2. Grid (Left: Score Table & Zone Control Shift, Right: Spoils Drawer)
+    const grid = h("div", { class: "mt-settlement-grid" });
+
+    // Left Panel
+    const leftPanel = h("div", { class: "mt-settlement-panel" });
+    leftPanel.appendChild(h("div", { class: "mt-panel-title", text: "Match Settlement Ledger" }));
+
+    const tableEl = h("table", { class: "mt-score-table" }, [
+      h("thead", {}, [
+        h("tr", {}, [
+          h("th", { text: "Seat" }),
+          h("th", { text: "Counters" }),
+          h("th", { text: "Melds" }),
+          h("th", { text: "Last Trick" }),
+          h("th", { text: "Total Score" }),
+        ]),
+      ]),
+    ]);
+
+    const lastTrick = (t.tricks && t.tricks.length) ? t.tricks[t.tricks.length - 1] : null;
+    const lastTrickWinner = lastTrick ? (lastTrick.winnerSeat ?? lastTrick.winner_seat) : null;
+
+    const tbody = h("tbody");
+    ranked.forEach((s, idx) => {
+      const isWinner = idx === 0;
+      const isPlayer = mySeat && s.seatId === mySeat.seatId;
+      const tookLast = s.seatId === lastTrickWinner;
+      const lastTrickBonus = tookLast ? "+20" : "—";
+      const fName = PLANET_NAMES[s.faction] || "Faction";
+      tbody.appendChild(h("tr", {
+        class: (isWinner ? "is-winner " : "") + (isPlayer ? "is-player-row" : ""),
+      }, [
+        h("td", { text: `${isPlayer ? "★ You (" + (s.handle || fName) + ")" : (s.handle || fName)}` }),
+        h("td", { text: `${s.counters || 0}` }),
+        h("td", { text: `+${s.meldsValue || 0}` }),
+        h("td", { text: lastTrickBonus }),
+        h("td", { style: { fontWeight: "700", color: isWinner ? "var(--primary)" : "inherit" }, text: `${s.score || 0} pts` }),
+      ]));
+    });
+    tableEl.appendChild(tbody);
+    leftPanel.appendChild(tableEl);
+
+    // Zone Control Shift Box
+    const shiftBox = h("div", { class: "mt-control-shift-box" }, [
+      h("div", { style: { display: "flex", justifyContent: "space-between", fontSize: "12px", fontFamily: "JetBrains Mono, monospace" } }, [
+        h("span", { style: { color: "var(--primary)" }, text: `Faction ${winFactionName} (+85 Influence)` }),
+        h("span", { style: { color: "var(--on-surface-variant)" }, text: "Zone Dominance Shift" }),
+      ]),
+      h("div", { class: "mt-control-bar-track" }, [
+        h("div", { class: "mt-control-bar-fill-sun", style: { width: "68%" } }),
+        h("div", { class: "mt-control-bar-fill-moon", style: { width: "32%" }, text: "32%" }),
+      ]),
+      h("div", { style: { fontSize: "11px", color: "var(--on-surface-variant)", opacity: "0.8" }, text: "Dominance swing recorded to chain state. Alchemical resonance stabilized." }),
+    ]);
+    leftPanel.appendChild(shiftBox);
+    grid.appendChild(leftPanel);
+
+    // Right Panel: Spoils Drawer
+    const rightPanel = h("div", { class: "mt-settlement-panel" });
+    rightPanel.appendChild(h("div", { class: "mt-panel-title", text: "Spoils & StarVault Verification" }));
+
+    const spoilsDrawer = h("div", { class: "mt-spoils-drawer" });
+    const spoilsCard = h("div", { class: "mt-spoils-card" }, [
+      h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, [
+        h("span", { style: { fontFamily: "JetBrains Mono", fontSize: "11px", color: "var(--primary)", fontWeight: "700" }, text: "MAJOR XXI" }),
+        h("span", { style: { color: "var(--primary)" }, text: "✦" }),
+      ]),
+      h("div", { style: { textAlign: "center", margin: "14px 0" } }, [
+        h("div", { style: { fontSize: "32px", color: "var(--primary)", textShadow: "0 0 12px rgba(246, 207, 131, 0.6)" }, text: "☉" }),
+        h("div", { style: { fontFamily: "Noto Serif", fontSize: "14px", fontWeight: "700", color: "var(--on-surface)", marginTop: "6px" }, text: "The World" }),
+        h("div", { style: { fontSize: "10px", color: "var(--on-surface-variant)", textTransform: "uppercase" }, text: "Solar Singularity" }),
+      ]),
+      h("div", { style: { display: "flex", justifyContent: "space-between", fontSize: "11px", fontFamily: "JetBrains Mono", borderTop: "1px solid rgba(246,207,131,0.2)", paddingTop: "8px" } }, [
+        h("span", { text: "ATK 42" }),
+        h("span", { text: "DEF 38" }),
+      ]),
+    ]);
+    spoilsDrawer.appendChild(spoilsCard);
+
+    const hashChip = h("div", { class: "mt-spoils-chip" }, [
+      h("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", marginBottom: "4px" } }, [
+        h("span", { class: "mt-spoils-chip-beacon" }),
+        h("span", { style: { fontFamily: "Space Grotesk", fontSize: "11px", fontWeight: "600", color: "var(--f-venus)" }, text: "Sol-Net StarVault Synchronized" }),
+      ]),
+      h("div", { style: { fontFamily: "JetBrains Mono", fontSize: "10px", color: "var(--on-surface-variant)", letterSpacing: "0.05em" }, text: "Hash: 0x7f2a9b4c...8e1d2c" }),
+    ]);
+    spoilsDrawer.appendChild(hashChip);
+    rightPanel.appendChild(spoilsDrawer);
+    grid.appendChild(rightPanel);
+
+    // 3. Actions
+    const actions = h("div", { class: "mt-settlement-actions" }, [
+      h("button", {
+        class: "mt-action-btn-primary",
+        onClick: () => {
+          if (this.hooks.onClose) this.hooks.onClose();
+        },
+      }, [h("span", { text: "✦ Return to Sky War Room" })]),
+      h("button", {
+        class: "mt-action-btn-secondary",
+        onClick: () => {
+          this._settlementDismissed = true;
+          this.showSettlement = false;
+          this.paint();
+        },
+      }, [h("span", { text: "Inspect Table / Arena" })]),
+    ]);
+
+    host.appendChild(header);
+    host.appendChild(grid);
+    host.appendChild(actions);
   }
 
   _initShader(canvas) {
