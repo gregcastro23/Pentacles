@@ -1,8 +1,11 @@
-//! ADR-014 Universal Astrological Faucet Engine for Pentacles.
+//! ADR-015 Untethered Synastry Resonance Faucet Engine for Pentacles.
 //!
-//! Authoritative server-side implementation of the Chart-Ratio Discriminant
-//! Faucet and Reconciled Elemental Sinks. Guarantees exact mathematical
-//! conservation across the four canonical ESMS tokens:
+//! Authoritative server-side implementation of the Self-Normalised Synastry
+//! Resonance Faucet and Floored Elemental Sinks.
+//!   - Dynamic daily yield band: [6.0000, 48.0000] ESMS (centre 24.0000, z in [0.25, 2.00])
+//!   - Hard operational gas floor: 0.5000 ESMS per axis (2.0000 total floor)
+//!   - Self-normalised chart baseline S̄(N) ensuring annual emission neutrality (INV-3, INV-5)
+//! Across the four canonical ESMS tokens:
 //!   - SPIRIT    (🝇 / 🜂 / [SPRT]) - Fire   / kinetic gas & action
 //!   - ESSENCE   (🝑 / 🜄 / [ESNC]) - Water  / emotional liquidity & oracles
 //!   - MATTER    (🝙 / 🜃 / [MATR]) - Earth  / material staking & territorial anchor
@@ -11,9 +14,19 @@
 use crate::tables::NatalChart;
 use crate::types::Planet;
 
-/// Universal daily sign-in faucet budget in canonical tokens.
-/// Conserved strictly at 24.0000 across all registered players with zero premium multipliers.
-pub const DAILY_FAUCET_BUDGET: f64 = 24.0;
+/// ADR-015 Protocol Band Calibration for Pentacles:
+/// Total daily grant band: [6.0000, 48.0000] ESMS (centered at 24.0000, z in [0.25, 2.00])
+pub const PROTOCOL_BAND_MIN: f64 = 6.0;
+pub const PROTOCOL_BAND_MAX: f64 = 48.0;
+pub const PROTOCOL_BAND_CENTRE: f64 = 24.0;
+
+/// Operational Gas Floor: guaranteed 0.5000 ESMS per axis (2.0000 ESMS total).
+/// Ensures players always receive combat strike / trick gas (SPIRIT) even on zero-Fire sky days.
+pub const AXIS_GAS_FLOOR: f64 = 0.5000;
+pub const TOTAL_GAS_FLOOR: f64 = 2.0000;
+
+/// Universal daily sign-in faucet budget baseline (24.0000 ESMS).
+pub const DAILY_FAUCET_BUDGET: f64 = PROTOCOL_BAND_CENTRE;
 
 /// Authoritative counter-cyclical damping parameter for MATTER (37.51% network supply glut).
 pub const CURRENT_MATTER_DAMPING: f64 = 0.750;
@@ -48,6 +61,7 @@ pub struct FaucetAllocation {
     pub matter: f64,
     pub substance: f64,
     pub total: f64,
+    pub resonance_factor: f64,
 }
 
 impl FaucetAllocation {
@@ -92,11 +106,6 @@ pub fn compute_anti_glut_damping(supply_shares: Option<&[u64]>) -> [f64; 4] {
 /// Derives normalized natal chart ratios [r_Spirit, r_Essence, r_Matter, r_Substance].
 /// Uses Sun/Moon lights 3x weight, standard planets 1x, and Ascendant 3x if timed.
 pub fn natal_elemental_ratios(chart: &NatalChart) -> [f64; 4] {
-    // ESMS index mapping:
-    // Fire (sign % 4 == 0)  -> 0: Spirit
-    // Water (sign % 4 == 3) -> 1: Essence
-    // Earth (sign % 4 == 1) -> 2: Matter
-    // Air (sign % 4 == 2)   -> 3: Substance
     let sign_to_esms = |sign: u8| -> usize {
         match sign % 4 {
             0 => 0, // Fire -> Spirit
@@ -151,8 +160,45 @@ pub fn transit_sky_weights(weights: Option<&[f64; 4]>) -> [f64; 4] {
     }
 }
 
-/// ADR-014 Proportional Allocation Formula with exact 10^4 residual conservation pass.
-pub fn allocate_conserved_yield(
+/// Computes the chart's self-normalisation baseline S̄(N) under equinoctial / neutral sky (0.25 per axis).
+/// Cancels chart-shape min-maxing (INV-5), guaranteeing annual emission neutrality (INV-3).
+pub fn calculate_chart_baseline(natal_ratios: &[f64; 4], damping: Option<&[f64; 4]>) -> f64 {
+    let default_damping = [1.0, 1.0, CURRENT_MATTER_DAMPING, 1.0];
+    let omega = damping.unwrap_or(&default_damping);
+    let mut baseline = 0.0f64;
+    for i in 0..4 {
+        baseline += natal_ratios[i] * 0.25 * omega[i];
+    }
+    if baseline > 0.0 {
+        baseline
+    } else {
+        0.25
+    }
+}
+
+/// Computes the instantaneous synastry resonance S(N, t), baseline S̄(N), and multiplier z.
+pub fn compute_synastry_resonance(
+    natal_ratios: &[f64; 4],
+    transit_weights: &[f64; 4],
+    damping: Option<&[f64; 4]>,
+) -> (f64, f64, f64) {
+    let default_damping = [1.0, 1.0, CURRENT_MATTER_DAMPING, 1.0];
+    let omega = damping.unwrap_or(&default_damping);
+    let mut synastry = 0.0f64;
+    for i in 0..4 {
+        synastry += natal_ratios[i] * transit_weights[i] * omega[i];
+    }
+    let baseline = calculate_chart_baseline(natal_ratios, Some(omega));
+    let z = if baseline > 0.0 { synastry / baseline } else { 1.0 };
+    (synastry, baseline, z)
+}
+
+/// ADR-015 Floored Elemental Allocation Formula with operational gas floors and exact 10^4 residual pass.
+/// Guarantees that:
+/// 1. Every axis receives AT LEAST AXIS_GAS_FLOOR (0.5000 ESMS).
+/// 2. Discretionary pool (total_yield - 2.0000) is distributed via r_i * w_i * omega_i.
+/// 3. Sum of all four axes is EXACTLY equal to total_yield (residual added to dominant axis).
+pub fn allocate_floored_yield(
     total_yield: f64,
     natal_ratios: &[f64; 4],
     transit_weights: &[f64; 4],
@@ -163,31 +209,31 @@ pub fn allocate_conserved_yield(
     let default_damping = [1.0, 1.0, CURRENT_MATTER_DAMPING, 1.0];
     let omega = damping.unwrap_or(&default_damping);
 
+    let effective_total = total_yield.max(TOTAL_GAS_FLOOR);
+    let discretionary = (effective_total - TOTAL_GAS_FLOOR).max(0.0);
+
     let mut unnormalized = [0.0f64; 4];
     for i in 0..4 {
         unnormalized[i] = r[i] * w[i] * omega[i];
     }
     let total_weight: f64 = unnormalized.iter().sum();
 
-    if total_weight <= 0.0 {
-        let per_axis = ((total_yield / 4.0) * 10_000.0).round() / 10_000.0;
-        return FaucetAllocation {
-            spirit: per_axis,
-            essence: per_axis,
-            matter: per_axis,
-            substance: per_axis,
-            total: total_yield,
-        };
-    }
-
-    let mut quantized = [0.0f64; 4];
-    for i in 0..4 {
-        let exact = (total_yield * unnormalized[i]) / total_weight;
-        quantized[i] = (exact * 10_000.0).floor() / 10_000.0;
+    let mut quantized = [AXIS_GAS_FLOOR; 4];
+    if total_weight > 0.0 && discretionary > 0.0 {
+        for i in 0..4 {
+            let share = (discretionary * unnormalized[i]) / total_weight;
+            let axis_raw = AXIS_GAS_FLOOR + share;
+            quantized[i] = (axis_raw * 10_000.0).floor() / 10_000.0;
+        }
+    } else if discretionary > 0.0 {
+        let per_axis_disc = (discretionary / 4.0 * 10_000.0).floor() / 10_000.0;
+        for i in 0..4 {
+            quantized[i] = AXIS_GAS_FLOOR + per_axis_disc;
+        }
     }
 
     let subtotal: f64 = quantized.iter().sum();
-    let diff = ((total_yield - subtotal) * 10_000.0).round() / 10_000.0;
+    let diff = ((effective_total - subtotal) * 10_000.0).round() / 10_000.0;
 
     // Assign residual micro-fraction to dominant axis
     let mut dominant_idx = 0;
@@ -204,10 +250,22 @@ pub fn allocate_conserved_yield(
         matter: quantized[2],
         substance: quantized[3],
         total: ((quantized[0] + quantized[1] + quantized[2] + quantized[3]) * 10_000.0).round() / 10_000.0,
+        resonance_factor: 1.0,
     }
 }
 
-/// Computes the Universal 24.0000 Daily Sign-In Faucet yield for a player.
+/// Backwards-compatible alias for allocate_floored_yield
+pub fn allocate_conserved_yield(
+    total_yield: f64,
+    natal_ratios: &[f64; 4],
+    transit_weights: &[f64; 4],
+    damping: Option<&[f64; 4]>,
+) -> FaucetAllocation {
+    allocate_floored_yield(total_yield, natal_ratios, transit_weights, damping)
+}
+
+/// Computes the ADR-015 Untethered Daily Sign-In Faucet yield for a player.
+/// Dynamically scales total grant in [6.0000, 48.0000] based on self-normalised synastry resonance z.
 pub fn compute_daily_sign_in_yield(
     chart: &NatalChart,
     sky_weights: Option<&[f64; 4]>,
@@ -216,7 +274,15 @@ pub fn compute_daily_sign_in_yield(
     let r = natal_elemental_ratios(chart);
     let w = transit_sky_weights(sky_weights);
     let omega = compute_anti_glut_damping(supply_shares);
-    allocate_conserved_yield(DAILY_FAUCET_BUDGET, &r, &w, Some(&omega))
+
+    let (_s, _base, z) = compute_synastry_resonance(&r, &w, Some(&omega));
+    let untethered_raw = PROTOCOL_BAND_CENTRE * z;
+    let clamped_total = untethered_raw.clamp(PROTOCOL_BAND_MIN, PROTOCOL_BAND_MAX);
+    let quantized_total = (clamped_total * 10_000.0).round() / 10_000.0;
+
+    let mut alloc = allocate_floored_yield(quantized_total, &r, &w, Some(&omega));
+    alloc.resonance_factor = (z * 10_000.0).round() / 10_000.0;
+    alloc
 }
 
 /// Computes War Table melee round win payout based on score and performance.
@@ -248,7 +314,7 @@ pub fn compute_melee_round_yield(
 
     let r = natal_elemental_ratios(chart);
     let w = transit_sky_weights(sky_weights);
-    allocate_conserved_yield(total_yield, &r, &w, None)
+    allocate_floored_yield(total_yield, &r, &w, None)
 }
 
 /// Computes the bounty for capturing a contested zone upon flipping the control meter.

@@ -7269,8 +7269,27 @@ pub fn claim_daily_faucet(ctx: &ReducerContext) -> Result<(), String> {
         },
     };
 
-    // Calculate conserved 24.0000 ADR-014 allocation
+    // Calculate ADR-015 untethered synastry allocation
     let allocation = faucet::compute_daily_sign_in_yield(&chart, None, None);
+
+    // Defense-in-depth ledger clamps (ADR-015 Section 5)
+    if allocation.total.is_nan() || allocation.total.is_infinite() {
+        return Err("Faucet invariant breach: non-finite allocation total".to_string());
+    }
+    if allocation.total < faucet::PROTOCOL_BAND_MIN || allocation.total > faucet::PROTOCOL_BAND_MAX {
+        return Err(format!(
+            "Faucet invariant breach: total {} out of band [{}, {}]",
+            allocation.total, faucet::PROTOCOL_BAND_MIN, faucet::PROTOCOL_BAND_MAX
+        ));
+    }
+    if allocation.spirit < faucet::AXIS_GAS_FLOOR
+        || allocation.essence < faucet::AXIS_GAS_FLOOR
+        || allocation.matter < faucet::AXIS_GAS_FLOOR
+        || allocation.substance < faucet::AXIS_GAS_FLOOR
+    {
+        return Err("Faucet invariant breach: axis dropped below operational gas floor".to_string());
+    }
+
     let fixed_points = allocation.to_fixed_points();
     faucet_state.last_daily_claim_at = ctx.timestamp;
     faucet_state.last_claim_yield = fixed_points.to_vec();
