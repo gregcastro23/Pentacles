@@ -32,6 +32,12 @@ import MyPentacles, { MyCodex } from './alchm-chart/my-pentacles.js'
 import AdminTelemetry from './alchm-chart/admin-telemetry.js'
 import { initSingularityShaderCanvas, cleanupSingularityShaderCanvas } from './alchm-chart/singularity-shader.js'
 import { isAdmin, verifyOwnerIdentity, ensureAdmin, sameIdentity } from './net/admin-gate.js'
+import {
+  openFaucetModal,
+  closeFaucetModal,
+  checkAndNotifyDailyLoginReward,
+  notifyDailySignInReward,
+} from './faucet/index.js'
 import './alchm-chart/alchm-chart.css'
 
 const Pentacles = (window.Pentacles = window.Pentacles || {})
@@ -393,6 +399,16 @@ window.openMyCodex = openMyPentacles
 window.closeMyCodex = closeMyPentacles
 Pentacles.openCodex = openMyPentacles
 
+// ADR-014 Universal Astrological Faucet & Daily Login Notification
+window.checkAndNotifyDailyLoginReward = checkAndNotifyDailyLoginReward
+window.notifyDailySignInReward = notifyDailySignInReward
+Pentacles.checkAndNotifyDailyLoginReward = checkAndNotifyDailyLoginReward
+Pentacles.notifyDailySignInReward = notifyDailySignInReward
+window.openFaucetModal = openFaucetModal
+window.closeFaucetModal = closeFaucetModal
+Pentacles.openFaucetModal = openFaucetModal
+Pentacles.closeFaucetModal = closeFaucetModal
+
 // Global hotkeys (when not in input/textarea)
 document.addEventListener('keydown', (e) => {
   if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)) return
@@ -475,7 +491,10 @@ function boot() {
       // If a shared Google session exists, adopt it and carry the anonymous
       // profile over (link/claim) BEFORE restore, then continue with whichever
       // identity we end up on. Best-effort: stays anonymous if anything fails.
-      try { await initAuth() } catch (e) { console.warn('[Pentacles] Auth init failed', e) }
+      try {
+        await initAuth()
+        checkAndNotifyDailyLoginReward().catch(() => {})
+      } catch (e) { console.warn('[Pentacles] Auth init failed', e) }
       const live = spacetime.isLive
       if (live && window.state) {
         import('./net/restore.js')
@@ -486,6 +505,10 @@ function boot() {
       if (live) verifyOwnerIdentity().catch(() => {})
     })
     .catch(() => {})
+
+  // ADR-014 Daily Login ESMS Notification System:
+  // Automatically rewards and notifies players when they boot or sign in
+  checkAndNotifyDailyLoginReward().catch((e) => console.debug('[Pentacles] Daily login reward check:', e))
 
   // ESMS balance HUD (live balanceOfBatch when a wallet is on Base Sepolia, else
   // labeled simulation). Silent reconnect if the user connected before.

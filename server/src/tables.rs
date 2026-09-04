@@ -1131,3 +1131,50 @@ pub struct BridgeTransfer {
     pub created_at: Timestamp,
     pub updated_at: Timestamp,
 }
+
+// ── ADR-014 Universal Astrological Faucet Tables ─────────────────────────────
+
+/// Per-player daily sign-in faucet state and streak tracking.
+#[spacetimedb::table(accessor = player_faucet_state, public)]
+#[derive(Clone)]
+pub struct PlayerFaucetState {
+    #[primary_key]
+    pub identity: Identity,
+    pub last_daily_claim_at: Timestamp,
+    pub lifetime_claims: u32,
+    pub current_streak_days: u32,
+    pub last_claim_yield: Vec<u32>, // 4 canonical elements in 10^4 fixed point (e.g. 60000 = 6.0000)
+}
+
+/// 10-day decan cycle zone control payouts and sovereign champion distributions.
+#[spacetimedb::table(accessor = decan_yield_distribution, public)]
+#[derive(Clone)]
+pub struct DecanYieldDistribution {
+    #[primary_key]
+    #[auto_inc]
+    pub distribution_id: u64,
+    pub decan_id: u16,               // 0..35
+    pub sign_index: u8,              // 0..11
+    pub winner_faction: Planet,
+    pub total_esms_distributed: u64, // 10^4 fixed point
+    pub settled_at: Timestamp,
+}
+
+/// Immutable audit log for all faucet, melee, zone capture, and decan mints.
+#[spacetimedb::table(accessor = faucet_transaction, public)]
+#[derive(Clone)]
+pub struct FaucetTransaction {
+    #[primary_key]
+    #[auto_inc]
+    pub tx_id: u64,
+    #[index(btree)]
+    pub recipient: Identity,
+    pub source: String, // "daily_sign_in" | "melee_round_win" | "zone_capture" | "decan_retention" | "decan_champion"
+    pub spirit: u32,    // 10^4 fixed point
+    pub essence: u32,
+    pub matter: u32,
+    pub substance: u32,
+    pub total: u32,
+    pub created_at: Timestamp,
+}
+

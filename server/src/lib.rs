@@ -14,6 +14,7 @@
 
 mod catalog;
 mod chart;
+pub mod faucet;
 mod melee;
 mod combat;
 mod constellations;

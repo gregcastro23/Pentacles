@@ -68,11 +68,14 @@ function sanitize(html) {
   const s = String(html)
   if (!/[<&]/.test(s)) return s.replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]))
   const tmpl = document.createElement('template')
-  tmpl.innerHTML = s
-  const ALLOWED = new Set(['B', 'STRONG', 'EM', 'I', 'BR'])
+  if (!tmpl.content || !tmpl.content.querySelectorAll) return s
+  const ALLOWED = new Set(['B', 'STRONG', 'EM', 'I', 'BR', 'SPAN', 'SMALL'])
   tmpl.content.querySelectorAll('*').forEach((node) => {
     if (!ALLOWED.has(node.tagName)) node.replaceWith(...node.childNodes)
-    else [...node.attributes].forEach((a) => node.removeAttribute(a.name))
+    else [...node.attributes].forEach((a) => {
+      // Preserve style attribute for elemental colors
+      if (a.name !== 'style') node.removeAttribute(a.name)
+    })
   })
   return tmpl.innerHTML
 }
