@@ -7,6 +7,12 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import {
+  computeMeleeRoundWinYield,
+  computeZoneCaptureYield,
+  computeDecanRetentionDividend,
+  DECAN_CHAMPION_SOVEREIGN_TREASURY,
+} from "../src/faucet/discriminant-faucet.js";
 
 export const PLANET_NAMES = ["Sun", "Moon", "Mercury", "Venus", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune", "Pluto"];
 export const PLANET_GLYPHS = ["☉", "☽", "☿", "♀", "♂", "♃", "♄", "♅", "♆", "♇"];
@@ -37,6 +43,14 @@ export interface DecanInfo {
   rulerName: string;
   rulerGlyph: string;
   label: string;
+}
+
+export interface EsmsYieldSummary {
+  total: number;
+  spirit: number;
+  essence: number;
+  matter: number;
+  substance: number;
 }
 
 export function getDecanInfo(seasonDegree: number): DecanInfo {
@@ -97,6 +111,7 @@ export interface RoundRecord {
   winningScore: number;
   controlDelta: number;
   capturedZone: boolean;
+  esmsYield?: EsmsYieldSummary;
 }
 
 export interface DecanHistoryItem {
@@ -112,6 +127,10 @@ export interface DecanHistoryItem {
   winnerName: string;
   winnerScore: number;
   completedAt: number;
+  esmsReward?: {
+    sovereignTreasury: number;
+    distribution: EsmsYieldSummary;
+  };
 }
 
 export interface DecanLedgerState {
@@ -201,13 +220,44 @@ export class WarLedger {
       }
     }
 
-    // 2. Add to rolling round results (capped at 500)
+    // 2. Calculate ADR-014 ESMS Yield
+    if (fullRecord.winningScore > 0) {
+      const isCleanSweep = fullRecord.winningScore >= 120;
+      const meleeYield = computeMeleeRoundWinYield(
+        fullRecord.winningScore,
+        isCleanSweep,
+        true,
+        true,
+        null,
+      );
+
+      let captureYield = { spirit: 0, essence: 0, matter: 0, substance: 0, total: 0 };
+      if (fullRecord.capturedZone) {
+        captureYield = computeZoneCaptureYield(
+          fullRecord.zoneId,
+          false,
+          false,
+          50,
+          null,
+        );
+      }
+
+      fullRecord.esmsYield = {
+        total: Number((meleeYield.total + captureYield.total).toFixed(4)),
+        spirit: Number((meleeYield.spirit + captureYield.spirit).toFixed(4)),
+        essence: Number((meleeYield.essence + captureYield.essence).toFixed(4)),
+        matter: Number((meleeYield.matter + captureYield.matter).toFixed(4)),
+        substance: Number((meleeYield.substance + captureYield.substance).toFixed(4)),
+      };
+    }
+
+    // 3. Add to rolling round results (capped at 500)
     this.state.roundResults.unshift(fullRecord);
     if (this.state.roundResults.length > 500) {
       this.state.roundResults.length = 500;
     }
 
-    // 3. Check for 10° decan boundary crossing
+    // 4. Check for 10° decan boundary crossing
     this.checkDecanBoundary(round.sunDegree);
 
     this.save();
@@ -249,6 +299,16 @@ export class WarLedger {
       }
     }
 
+    // ADR-014 Decan Sovereign Champion Treasury (500 ESMS pool)
+    const treasuryMult = DECAN_CHAMPION_SOVEREIGN_TREASURY / 4.0;
+    const sovereignDistribution: EsmsYieldSummary = {
+      total: DECAN_CHAMPION_SOVEREIGN_TREASURY,
+      spirit: Number((treasuryMult).toFixed(4)),
+      essence: Number((treasuryMult).toFixed(4)),
+      matter: Number((treasuryMult).toFixed(4)),
+      substance: Number((treasuryMult).toFixed(4)),
+    };
+
     // Archive completed Minor Tarot Card decan round
     const triumph: DecanHistoryItem = {
       decanId: completedDecanId,
@@ -262,7 +322,11 @@ export class WarLedger {
       winnerFaction: winnerId,
       winnerName: PLANET_NAMES[winnerId],
       winnerScore: maxScore > 0 ? maxScore : 0,
-      completedAt: Date.now()
+      completedAt: Date.now(),
+      esmsReward: {
+        sovereignTreasury: DECAN_CHAMPION_SOVEREIGN_TREASURY,
+        distribution: sovereignDistribution,
+      },
     };
 
     this.state.decanHistory.unshift(triumph);
@@ -273,7 +337,7 @@ export class WarLedger {
     // Award Decan Crown
     this.state.decanVictories[winnerId] = (this.state.decanVictories[winnerId] || 0) + 1;
 
-    console.log(`[war-ledger] ✦ Decan Round Concluded! ${PLANET_NAMES[winnerId]} won the ${completedInfo.card} (${completedInfo.startDeg}°–${completedInfo.endDeg}° ${completedInfo.signName}) with ${maxScore} pts! Scores reset for ${nextDecan.card}.`);
+    console.log(`[war-ledger] ✦ Decan Round Concluded! ${PLANET_NAMES[winnerId]} won the ${completedInfo.card} (${completedInfo.startDeg}°–${completedInfo.endDeg}° ${completedInfo.signName}) with ${maxScore} pts! Sovereign Treasury of ${DECAN_CHAMPION_SOVEREIGN_TREASURY.toFixed(4)} ESMS unlocked!`);
 
     // Reset scores for the new 10-day decan round
     this.state.factionRoundPoints = new Array(10).fill(0);

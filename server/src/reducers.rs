@@ -3,7 +3,7 @@
 
 use crate::tables::*;
 use crate::types::*;
-use crate::{catalog, chart, combat, melee, words};
+use crate::{catalog, chart, combat, faucet, melee, words};
 use spacetimedb::{reducer, Identity, ReducerContext, ScheduleAt, Table, Timestamp};
 use std::time::Duration;
 
@@ -2697,7 +2697,42 @@ fn apply_control(ctx: &ReducerContext, zone_id: u8, attacker: Planet, delta: i32
                 z.control -= effective_delta;
                 if z.control <= 0 {
                     z.owner = Some(attacker);
-                    z.control = (-z.control).clamp(0, FLIP_THRESHOLD);
+                    let overshoot = -z.control;
+                    z.control = overshoot.clamp(0, FLIP_THRESHOLD);
+
+                    // ADR-014 Zone Capture Bounty
+                    let conqueror_id = ctx.sender();
+                    if let Some(chart) = ctx.db.natal_chart().identity().find(&conqueror_id) {
+                        let is_ingress = zone_id == (((chart.ascendant / 1800) % 11) as u8);
+                        let bounty = faucet::compute_zone_capture_yield(
+                            zone_id,
+                            z.in_flux,
+                            is_ingress,
+                            overshoot,
+                            &chart,
+                            None,
+                        );
+                        let fp = bounty.to_fixed_points();
+                        if let Some(mut jing) = ctx.db.jing_pool().identity().find(&conqueror_id) {
+                            if jing.esms.len() < 4 { jing.esms.resize(4, 0); }
+                            for i in 0..4 {
+                                jing.esms[i] = jing.esms[i].saturating_add((fp[i] / 1000) as u16);
+                            }
+                            jing.updated_at = ctx.timestamp;
+                            ctx.db.jing_pool().identity().update(jing);
+                        }
+                        ctx.db.faucet_transaction().insert(FaucetTransaction {
+                            tx_id: 0,
+                            recipient: conqueror_id,
+                            source: "zone_capture".to_string(),
+                            spirit: fp[0],
+                            essence: fp[1],
+                            matter: fp[2],
+                            substance: fp[3],
+                            total: (bounty.total * 10_000.0).round() as u32,
+                            created_at: ctx.timestamp,
+                        });
+                    }
                 }
             }
         }
@@ -3421,17 +3456,60 @@ fn melee_settle(ctx: &ReducerContext, table_id: u64) {
     }
     let mut seats = melee_seats(ctx, table_id);
     let mut scores: Vec<u16> = Vec::with_capacity(seats.len());
-    for seat in seats.iter_mut() {
+    let mut winning_seat_idx = 0;
+    let mut max_score = 0u16;
+    for (i, seat) in seats.iter_mut().enumerate() {
         // The climax ten is already banked inside the last trick's counters, so
         // `took_final_trick` is false here — passing it again would pay it twice.
         seat.score = seat_score(seat.counters, seat.melds_value, false);
         scores.push(seat.score);
+        if seat.score > max_score {
+            max_score = seat.score;
+            winning_seat_idx = i;
+        }
         ctx.db.melee_seat().seat_id().update(seat.clone());
     }
 
     for (seat, delta) in seats.iter().zip(melee_control_deltas(&scores, ZONE_SWING)) {
         if delta != 0 {
             apply_control(ctx, table.zone_id, seat.faction, delta);
+        }
+    }
+
+    // ADR-014 Melee Round Winner ESMS Yield Distribution
+    if !seats.is_empty() {
+        let winner = &seats[winning_seat_idx];
+        if let Some(chart) = ctx.db.natal_chart().identity().find(&winner.occupant) {
+            let is_clean_sweep = winner.counters >= 120;
+            let oudler_climax = winner.took_final_trick;
+            let round_yield = faucet::compute_melee_round_yield(
+                winner.score,
+                is_clean_sweep,
+                Some(true),
+                oudler_climax,
+                &chart,
+                None,
+            );
+            let fp = round_yield.to_fixed_points();
+            if let Some(mut jing) = ctx.db.jing_pool().identity().find(&winner.occupant) {
+                if jing.esms.len() < 4 { jing.esms.resize(4, 0); }
+                for i in 0..4 {
+                    jing.esms[i] = jing.esms[i].saturating_add((fp[i] / 1000) as u16);
+                }
+                jing.updated_at = ctx.timestamp;
+                ctx.db.jing_pool().identity().update(jing);
+            }
+            ctx.db.faucet_transaction().insert(FaucetTransaction {
+                tx_id: 0,
+                recipient: winner.occupant,
+                source: "melee_round_win".to_string(),
+                spirit: fp[0],
+                essence: fp[1],
+                matter: fp[2],
+                substance: fp[3],
+                total: (round_yield.total * 10_000.0).round() as u32,
+                created_at: ctx.timestamp,
+            });
         }
     }
 
@@ -5741,9 +5819,18 @@ fn daily_rate_per_usdc(
         None => return BASE_DAILY_RATE, // default rate if no natal chart found
     };
     let chart_affinity = chart_affinity_for(&chart, stake.element);
+    // ADR-014 §5.3 Continuous Staking Accrual with Ascendant Burst
+    let asc_orb = (chart.ascendant as f64 - (star_sign as f64 * 1800.0)).abs() / 60.0;
+    let adr_accrual = faucet::compute_star_staking_accrual_rate(
+        stake.element,
+        true, // above horizon
+        asc_orb,
+        &chart,
+        None,
+    );
     // `element` is frozen at stake time from `esms_id_for_star` (always 0..3);
     // `.min(3)` just guards the table lookup.
-    BASE_DAILY_RATE * zone_dom[(stake.element as usize).min(3)] * chart_affinity * sign_dignity[star_sign]
+    (BASE_DAILY_RATE + adr_accrual) * zone_dom[(stake.element as usize).min(3)] * chart_affinity * sign_dignity[star_sign]
 }
 
 // ── Round Tracking & Yield Distribution Reducer Helpers ──────────────────────
@@ -7139,7 +7226,144 @@ pub fn lock_anomaly(
     Ok(())
 }
 
+// ── ADR-014 Universal Astrological Faucet Reducers ───────────────────────────
 
+/// Universal 24.0000 daily ESMS sign-in faucet claim for all registered players with a birth chart.
+/// Zero premium multipliers, strictly conserved 10^4 quantization across SPIRIT, ESSENCE, MATTER, SUBSTANCE.
+#[reducer]
+pub fn claim_daily_faucet(ctx: &ReducerContext) -> Result<(), String> {
+    let player_id = ctx.sender();
+    let _player = ctx.db.player().identity().find(&player_id)
+        .ok_or("player not registered")?;
+
+    let chart = ctx.db.natal_chart().identity().find(&player_id)
+        .ok_or("natal chart required to claim ESMS daily faucet")?;
+
+    // Check daily cooldown (86,400 seconds)
+    const DAILY_COOLDOWN_MICROS: i64 = 86_400 * 1_000_000;
+    let now_micros = ctx.timestamp.to_micros_since_unix_epoch();
+
+    let mut faucet_state = match ctx.db.player_faucet_state().identity().find(&player_id) {
+        Some(state) => {
+            let last_claim_micros = state.last_daily_claim_at.to_micros_since_unix_epoch();
+            if now_micros - last_claim_micros < DAILY_COOLDOWN_MICROS {
+                let remaining_secs = (DAILY_COOLDOWN_MICROS - (now_micros - last_claim_micros)) / 1_000_000;
+                return Err(format!("Daily faucet already claimed. Next claim available in {} seconds", remaining_secs));
+            }
+
+            let mut updated = state;
+            if now_micros - last_claim_micros <= (DAILY_COOLDOWN_MICROS * 2) {
+                updated.current_streak_days += 1;
+            } else {
+                updated.current_streak_days = 1;
+            }
+            updated.lifetime_claims += 1;
+            updated
+        }
+        None => PlayerFaucetState {
+            identity: player_id,
+            last_daily_claim_at: ctx.timestamp,
+            lifetime_claims: 1,
+            current_streak_days: 1,
+            last_claim_yield: Vec::new(),
+        },
+    };
+
+    // Calculate conserved 24.0000 ADR-014 allocation
+    let allocation = faucet::compute_daily_sign_in_yield(&chart, None, None);
+    let fixed_points = allocation.to_fixed_points();
+    faucet_state.last_daily_claim_at = ctx.timestamp;
+    faucet_state.last_claim_yield = fixed_points.to_vec();
+
+    if ctx.db.player_faucet_state().identity().find(&player_id).is_some() {
+        ctx.db.player_faucet_state().identity().update(faucet_state);
+    } else {
+        ctx.db.player_faucet_state().insert(faucet_state);
+    }
+
+    // Credit player's JingPool ESMS balances
+    let mut jing = match ctx.db.jing_pool().identity().find(&player_id) {
+        Some(j) => j,
+        None => JingPool {
+            identity: player_id,
+            sacred7: vec![100, 100, 100, 100, 100, 100, 100],
+            esms: vec![0, 0, 0, 0],
+            updated_at: ctx.timestamp,
+        },
+    };
+    if jing.esms.len() < 4 {
+        jing.esms.resize(4, 0);
+    }
+    for i in 0..4 {
+        jing.esms[i] = jing.esms[i].saturating_add((fixed_points[i] / 1000) as u16);
+    }
+    jing.updated_at = ctx.timestamp;
+    if ctx.db.jing_pool().identity().find(&player_id).is_some() {
+        ctx.db.jing_pool().identity().update(jing);
+    } else {
+        ctx.db.jing_pool().insert(jing);
+    }
+
+    // Log immutable audit transaction
+    ctx.db.faucet_transaction().insert(FaucetTransaction {
+        tx_id: 0,
+        recipient: player_id,
+        source: "daily_sign_in".to_string(),
+        spirit: fixed_points[0],
+        essence: fixed_points[1],
+        matter: fixed_points[2],
+        substance: fixed_points[3],
+        total: (allocation.total * 10_000.0).round() as u32,
+        created_at: ctx.timestamp,
+    });
+
+    Ok(())
+}
+
+/// Settles 10-day decan cycle zone retention dividends and crowns the sovereign champion faction.
+#[reducer]
+pub fn settle_decan_boundary(
+    ctx: &ReducerContext,
+    decan_id: u16,
+    sign_index: u8,
+    winner_faction: Planet,
+) -> Result<(), String> {
+    let cfg = ctx.db.game_config().id().find(&0).ok_or("not initialised")?;
+    if ctx.sender() != cfg.owner {
+        return Err("admin or feeder only".into());
+    }
+
+    let mut total_distributed = 0u64;
+
+    for zone in ctx.db.zone().iter() {
+        if let Some(_owner_faction) = zone.owner {
+            if zone.control > 0 {
+                let dividend_base = match zone.zone_id {
+                    0..=4 => faucet::DECAN_RETENTION_HOUSE,
+                    5..=9 => faucet::DECAN_RETENTION_SPIRE,
+                    _ => faucet::DECAN_RETENTION_CROWN,
+                };
+                let control_mult = (zone.control as f64 / 500.0).clamp(0.20, 2.00);
+                let payout = ((dividend_base * control_mult) * 10_000.0) as u64;
+                total_distributed += payout;
+            }
+        }
+    }
+
+    // Sovereign champion treasury (500 ESMS)
+    total_distributed += (faucet::DECAN_CHAMPION_SOVEREIGN_TREASURY * 10_000.0) as u64;
+
+    ctx.db.decan_yield_distribution().insert(DecanYieldDistribution {
+        distribution_id: 0,
+        decan_id,
+        sign_index,
+        winner_faction,
+        total_esms_distributed: total_distributed,
+        settled_at: ctx.timestamp,
+    });
+
+    Ok(())
+}
 
 #[cfg(test)]
 

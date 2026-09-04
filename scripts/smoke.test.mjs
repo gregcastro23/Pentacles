@@ -88,6 +88,7 @@ globalThis.document = globalThis.document || {
       setAttribute: () => {},
       getAttribute: () => null,
       appendChild: (c) => c,
+      append: (...c) => c.forEach((x) => el.appendChild(x)),
       addEventListener: () => {},
       removeEventListener: () => {},
       querySelector: () => null,
@@ -139,10 +140,13 @@ if (typeof globalThis.window.openFactionWar !== 'function') {
 if (typeof globalThis.window.openAlchmChart !== 'function') {
   throw new Error('window.openAlchmChart was not registered on window!')
 }
+if (typeof globalThis.window.checkAndNotifyDailyLoginReward !== 'function') {
+  throw new Error('window.checkAndNotifyDailyLoginReward was not registered on window!')
+}
 if (typeof globalThis.window.toast !== 'function') {
   throw new Error('window.toast was not registered on window!')
 }
-console.log('  ✓ window.openMyPentacles, openFactionWar, openAlchmChart, and toast successfully registered')
+console.log('  ✓ window.openMyPentacles, openFactionWar, openAlchmChart, checkAndNotifyDailyLoginReward, and toast successfully registered')
 
 console.log('\nALL production smoke tests passed with 100% success!')
 process.exit(0)

@@ -6,12 +6,64 @@ import { readSolanaEsmsBalances } from './solana.js'
 
 export const ESMS_DECIMALS = 4 // Solana Token-2022 ASOL mints
 
-// The four elements — matches client.js ESMS_NAMES/GLYPHS/COLORS exactly.
+// Canonical ADR-014 ESMS Token Definitions
 export const ESMS = [
-  { id: 0, name: 'Spirit', glyph: '🜂', color: '#e0a23a' },
-  { id: 1, name: 'Essence', glyph: '🜄', color: '#4aa3d8' },
-  { id: 2, name: 'Matter', glyph: '🜃', color: '#5fb37a' },
-  { id: 3, name: 'Substance', glyph: '🜁', color: '#b98cd6' },
+  {
+    id: 0,
+    key: 'spirit',
+    name: 'SPIRIT',
+    ticker: 'SPRT',
+    symbol: '[SPRT]',
+    glyph: '🝇',
+    glyphTriangular: '🜂',
+    glyphGeometric: '△',
+    element: 'Fire',
+    suit: 'Wands',
+    color: '#e0a23a',
+    description: 'Kinetic Gas, Combat Actions, Chat & Transmutation Power',
+  },
+  {
+    id: 1,
+    key: 'essence',
+    name: 'ESSENCE',
+    ticker: 'ESNC',
+    symbol: '[ESNC]',
+    glyph: '🝑',
+    glyphTriangular: '🜄',
+    glyphGeometric: '▽',
+    element: 'Water',
+    suit: 'Cups',
+    color: '#4aa3d8',
+    description: 'Emotional Liquidity, Oracle Inquiries & Alchemical Reaction Energy',
+  },
+  {
+    id: 2,
+    key: 'matter',
+    name: 'MATTER',
+    ticker: 'MATR',
+    symbol: '[MATR]',
+    glyph: '🝙',
+    glyphTriangular: '🜃',
+    glyphGeometric: '⯛',
+    element: 'Earth',
+    suit: 'Pentacles',
+    color: '#5fb37a',
+    description: 'Physical Manifestation, Star Staking & Territorial Anchor',
+  },
+  {
+    id: 3,
+    key: 'substance',
+    name: 'SUBSTANCE',
+    ticker: 'SUBS',
+    symbol: '[SUBS]',
+    glyph: '🝉',
+    glyphTriangular: '🜁',
+    glyphGeometric: '⯙',
+    element: 'Air',
+    suit: 'Swords',
+    color: '#b98cd6',
+    description: 'Mental Velocity, Word Duels & Elemental Reactivity',
+  },
 ]
 
 /** Read the wallet's four ESMS balances from Solana Token-2022 mints. Returns formatted strings. */
