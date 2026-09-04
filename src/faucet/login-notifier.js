@@ -64,7 +64,8 @@ export async function checkAndNotifyDailyLoginReward(playerChart = null, skyWeig
       new CustomEvent('pentacles:esms-reward', {
         detail: {
           type: 'daily_sign_in',
-          total: DAILY_FAUCET_BUDGET,
+          total: allocation.total,
+          resonanceMultiplier: allocation.resonanceMultiplier || 1.0,
           allocation,
           timestamp: now,
         },
@@ -76,14 +77,18 @@ export async function checkAndNotifyDailyLoginReward(playerChart = null, skyWeig
 }
 
 /**
- * Triggers a rich, formatted toast notifying the user of their daily ESMS reward.
+ * Triggers a rich, formatted toast notifying the user of their dynamic daily ESMS reward.
+ * Displays the untethered total, elemental breakdown, and celestial resonance multiplier.
  *
  * @param {Object} allocation - Result from computeDailySignInYield
  */
 export function notifyDailySignInReward(allocation) {
+  const formattedTotal = Number(allocation.total || 24.0).toFixed(4)
+  const mult = allocation.resonanceMultiplier ? `${allocation.resonanceMultiplier.toFixed(2)}x` : '1.00x'
+
   if (typeof window.toast !== 'function') {
     console.log(
-      `[Pentacles] ✦ Daily Sign-In Reward: +24.0000 ESMS (${allocation.spirit} SPRT, ${allocation.essence} ESNC, ${allocation.matter} MATR, ${allocation.substance} SUBS)`
+      `[Pentacles] ✦ Daily Sign-In Reward: +${formattedTotal} ESMS [${mult} Resonance] (${allocation.spirit} SPRT, ${allocation.essence} ESNC, ${allocation.matter} MATR, ${allocation.substance} SUBS)`
     )
     return
   }
@@ -94,9 +99,9 @@ export function notifyDailySignInReward(allocation) {
   const sub = allocation.substance.toFixed(2)
 
   const message =
-    `<b>+24.0000 ESMS</b> earned for logging in today!<br>` +
+    `<b>+${formattedTotal} ESMS</b> earned today! <span style="font-size:0.85em; opacity:0.85; padding-left:4px;">(${mult} Celestial Resonance)</span><br>` +
     `<span style="font-size:0.85em; opacity:0.95; display:inline-block; margin-top:3px;">` +
-    `<span style="color:#e0a23a">🝇 ${s} SPRT</span> · ` +
+    `<span style="color:#e0a23a" title="Combat Gas Secured">🝇 ${s} SPRT</span> · ` +
     `<span style="color:#4aa3d8">🝑 ${e} ESNC</span> · ` +
     `<span style="color:#5fb37a">🝙 ${m} MATR</span> · ` +
     `<span style="color:#b98cd6">🝉 ${sub} SUBS</span>` +
@@ -104,7 +109,7 @@ export function notifyDailySignInReward(allocation) {
 
   window.toast(message, {
     type: 'success',
-    title: '✦ Daily Celestial Sign-In Reward',
+    title: '✦ Daily Celestial Sign-In Grant',
     sticky: false,
   })
 }

@@ -77,15 +77,28 @@ export const CANONICAL_TOKENS = Object.freeze([
 export const TOKEN_NAMES = CANONICAL_TOKENS.map((t) => t.name);
 export const TOKEN_KEYS = CANONICAL_TOKENS.map((t) => t.key);
 
-/** Daily baseline yield budget: strictly 24.0000 ESMS (zero premium tiers). */
-export const DAILY_FAUCET_BUDGET = 24.0;
+/** ADR-015 Protocol Band Calibration for Pentacles: [6.0000, 48.0000] ESMS (centre 24.0000, z in [0.25, 2.00]) */
+export const PROTOCOL_BAND = Object.freeze({
+  Y_MIN: 6.0,
+  Y_MAX: 48.0,
+  CENTRE: 24.0,
+  AXIS_FLOOR: 0.5000,
+  TOTAL_FLOOR: 2.0000,
+});
+
+/** Daily baseline yield budget: 24.0000 ESMS. */
+export const DAILY_FAUCET_BUDGET = PROTOCOL_BAND.CENTRE;
+
+/** Operational Gas Floor: guaranteed 0.5000 ESMS per axis (2.0000 ESMS total floor). */
+export const AXIS_GAS_FLOOR = PROTOCOL_BAND.AXIS_FLOOR;
+export const TOTAL_GAS_FLOOR = PROTOCOL_BAND.TOTAL_FLOOR;
 
 /** Counter-cyclical anti-glut damping parameters (ADR-014 §3.3). */
 export const ANTI_GLUT_THRESHOLD = 0.3; // 30% healthy supply ceiling
 export const ANTI_GLUT_MIN_DAMPING = 0.65;
 export const CURRENT_MATTER_DAMPING = 0.75; // authoritatively calibrated for 37.51% MATTER supply
 
-// ── 1. Pure ADR-014 Mathematical Core ──────────────────────────────────────
+// ── 1. Pure ADR-015 Mathematical Core ──────────────────────────────────────
 
 /**
  * Computes the Counter-Cyclical Anti-Glut Damping Factor (Ω_i).
@@ -192,36 +205,75 @@ export function normalizeTransitWeights(rawWeights) {
 }
 
 /**
- * Conserved ADR-014 Proportional Allocation Formula with exact residual pass.
- * Guarantees that sum(allocation) is EXACTLY equal to totalYield.
+ * Computes the chart's self-normalisation baseline S̄(N) under equinoctial / neutral sky (0.25 per axis).
+ * Cancels chart-shape min-maxing (INV-5), ensuring annual emission neutrality (INV-3).
+ *
+ * @param {Array<number>} natalRatios - Normalized 4-element natal ratios
+ * @param {Array<number>} [damping] - Optional 4-element damping factors
+ * @returns {number} S̄(N) baseline
  */
-export function allocateConservedYield(totalYield, natalRatios, transitWeights, damping) {
+export function calculateChartBaseline(natalRatios, damping) {
+  const omega = damping || [1.0, 1.0, CURRENT_MATTER_DAMPING, 1.0];
+  let baseline = 0;
+  for (let i = 0; i < 4; i++) {
+    baseline += natalRatios[i] * 0.25 * omega[i];
+  }
+  return baseline > 0 ? baseline : 0.25;
+}
+
+/**
+ * Computes instantaneous synastry resonance S(N, t), baseline S̄(N), and resonance factor z.
+ *
+ * @param {Array<number>} natalRatios - Normalized 4-element natal ratios
+ * @param {Array<number>} transitWeights - Normalized 4-element transit weights
+ * @param {Array<number>} [damping] - Optional 4-element damping factors
+ * @returns {{ synastry: number, baseline: number, z: number }}
+ */
+export function computeSynastryResonance(natalRatios, transitWeights, damping) {
+  const omega = damping || [1.0, 1.0, CURRENT_MATTER_DAMPING, 1.0];
+  let synastry = 0;
+  for (let i = 0; i < 4; i++) {
+    synastry += natalRatios[i] * transitWeights[i] * omega[i];
+  }
+  const baseline = calculateChartBaseline(natalRatios, omega);
+  const z = baseline > 0 ? synastry / baseline : 1.0;
+  return { synastry, baseline, z };
+}
+
+/**
+ * ADR-015 Floored Elemental Allocation Formula with operational gas floors and exact 10^4 residual pass.
+ * Guarantees that:
+ * 1. Every axis receives AT LEAST AXIS_GAS_FLOOR (0.5000 ESMS).
+ * 2. Discretionary pool (totalYield - 2.0000) is distributed via r_i * w_i * omega_i.
+ * 3. Sum of all four axes is EXACTLY equal to totalYield (residual added to dominant axis).
+ */
+export function allocateFlooredYield(totalYield, natalRatios, transitWeights, damping) {
   const r = natalRatios;
   const w = transitWeights;
   const omega = damping || [1.0, 1.0, CURRENT_MATTER_DAMPING, 1.0];
 
+  const effectiveTotal = Math.max(TOTAL_GAS_FLOOR, totalYield);
+  const discretionary = Math.max(0, effectiveTotal - TOTAL_GAS_FLOOR);
+
   const unnormalizedWeights = [0, 1, 2, 3].map((i) => r[i] * w[i] * omega[i]);
   const totalWeight = unnormalizedWeights.reduce((a, b) => a + b, 0);
 
-  if (totalWeight <= 0) {
-    const perAxis = Number((totalYield / 4).toFixed(4));
-    return {
-      spirit: perAxis,
-      essence: perAxis,
-      matter: perAxis,
-      substance: perAxis,
-      total: totalYield,
-    };
+  const quantized = [AXIS_GAS_FLOOR, AXIS_GAS_FLOOR, AXIS_GAS_FLOOR, AXIS_GAS_FLOOR];
+
+  if (totalWeight > 0 && discretionary > 0) {
+    for (let i = 0; i < 4; i++) {
+      const share = (discretionary * unnormalizedWeights[i]) / totalWeight;
+      quantized[i] = Math.floor((AXIS_GAS_FLOOR + share) * 10000) / 10000;
+    }
+  } else if (discretionary > 0) {
+    const perAxisDisc = Math.floor((discretionary / 4) * 10000) / 10000;
+    for (let i = 0; i < 4; i++) {
+      quantized[i] = AXIS_GAS_FLOOR + perAxisDisc;
+    }
   }
 
-  // Quantize to 10^4 (4 decimal places)
-  const quantized = unnormalizedWeights.map((w_i) => {
-    const exact = (totalYield * w_i) / totalWeight;
-    return Math.floor(exact * 10000) / 10000;
-  });
-
   const subtotal = quantized.reduce((a, b) => a + b, 0);
-  const diff = Number((totalYield - subtotal).toFixed(4));
+  const diff = Number((effectiveTotal - subtotal).toFixed(4));
 
   // Residual conservation pass: assign rounding difference to dominant axis
   let dominantIdx = 0;
@@ -248,17 +300,34 @@ export function allocateConservedYield(totalYield, natalRatios, transitWeights, 
   };
 }
 
+/** Backwards-compatible alias for allocateFlooredYield */
+export function allocateConservedYield(totalYield, natalRatios, transitWeights, damping) {
+  return allocateFlooredYield(totalYield, natalRatios, transitWeights, damping);
+}
+
 // ── 2. Tier 1: Baseline Sign-In Daily Faucet ───────────────────────────────
 
 /**
- * Computes the universal baseline sign-in reward (strictly 24.0000 ESMS).
+ * Computes the ADR-015 untethered daily sign-in reward.
+ * Dynamically scales total grant in [6.0000, 48.0000] based on self-normalised synastry resonance z.
  */
 export function computeDailySignInYield(natalChart, liveTransitSky, supplyState) {
   const r = deriveNatalRatios(natalChart);
   const w = normalizeTransitWeights(liveTransitSky);
   const omega = computeAntiGlutDamping(supplyState);
 
-  return allocateConservedYield(DAILY_FAUCET_BUDGET, r, w, omega);
+  const { synastry, baseline, z } = computeSynastryResonance(r, w, omega);
+  const rawYield = PROTOCOL_BAND.CENTRE * z;
+  const clampedYield = Math.min(PROTOCOL_BAND.Y_MAX, Math.max(PROTOCOL_BAND.Y_MIN, rawYield));
+  const totalYield = Number(clampedYield.toFixed(4));
+
+  const allocation = allocateFlooredYield(totalYield, r, w, omega);
+  return {
+    ...allocation,
+    resonanceMultiplier: Number(z.toFixed(4)),
+    baseline: Number(baseline.toFixed(4)),
+    synastry: Number(synastry.toFixed(4)),
+  };
 }
 
 // ── 3. Tier 2: Gameplay Faucet Calculations ────────────────────────────────
@@ -273,7 +342,22 @@ export function computeDailySignInYield(natalChart, liveTransitSky, supplyState)
  * + Zone Favored Suit Alignment: +35% (1.35x) / -25% (0.75x)
  * + Oudler Climax (12th trick win with Fool/Magician/World): +1.5000 ESMS flat
  */
-export function computeMeleeRoundWinYield(params) {
+export function computeMeleeRoundWinYield(params, ...rest) {
+  let opts = {};
+  if (typeof params === 'number') {
+    opts = {
+      winningScore: params,
+      cleanSweep: Boolean(rest[0]),
+      favoredSuitMatch: Boolean(rest[1]),
+      oudlerClimax: Boolean(rest[2]),
+      natalChart: rest[3] || null,
+      liveTransitSky: rest[4] || null,
+      supplyState: rest[5] || null,
+    };
+  } else {
+    opts = params || {};
+  }
+
   const {
     winningScore = 100,
     tricksWon = 7,
@@ -284,7 +368,7 @@ export function computeMeleeRoundWinYield(params) {
     natalChart = null,
     liveTransitSky = null,
     supplyState = null,
-  } = params;
+  } = opts;
 
   let baseAmount = 5.0;
   const scoreMult = 1.0 + Math.min(2.5, winningScore / 100.0);
@@ -302,7 +386,7 @@ export function computeMeleeRoundWinYield(params) {
   const w = normalizeTransitWeights(liveTransitSky);
   const omega = computeAntiGlutDamping(supplyState);
 
-  const allocation = allocateConservedYield(totalYield, r, w, omega);
+  const allocation = allocateFlooredYield(totalYield, r, w, omega);
   return {
     ...allocation,
     breakdown: {
@@ -330,7 +414,22 @@ export function computeMeleeRoundWinYield(params) {
  *   Ingress Zone:                2.0x multiplier
  *   Control Margin Overshoot:    +1.5 ESMS per 100 overshoot (capped at +15.0)
  */
-export function computeZoneCaptureYield(params) {
+export function computeZoneCaptureYield(params, ...rest) {
+  let opts = {};
+  if (typeof params === 'number') {
+    opts = {
+      zoneId: params,
+      inFlux: Boolean(rest[0]),
+      isIngress: Boolean(rest[1]),
+      overshootControl: typeof rest[2] === 'number' ? rest[2] : 100,
+      natalChart: rest[3] || null,
+      liveTransitSky: rest[4] || null,
+      supplyState: rest[5] || null,
+    };
+  } else {
+    opts = params || {};
+  }
+
   const {
     zoneId = 0,
     inFlux = false,
@@ -339,7 +438,7 @@ export function computeZoneCaptureYield(params) {
     natalChart = null,
     liveTransitSky = null,
     supplyState = null,
-  } = params;
+  } = opts;
 
   // Base by topography
   let baseBounty = 25.0; // Houses 0..4
@@ -361,7 +460,7 @@ export function computeZoneCaptureYield(params) {
   const w = normalizeTransitWeights(liveTransitSky);
   const omega = computeAntiGlutDamping(supplyState);
 
-  const allocation = allocateConservedYield(totalYield, r, w, omega);
+  const allocation = allocateFlooredYield(totalYield, r, w, omega);
   return {
     ...allocation,
     zoneId,
@@ -387,13 +486,25 @@ export function computeZoneCaptureYield(params) {
  * Control Scaling: control / 500 (1000 max control = 2.0x base dividend)
  * Zodiac Seal:     +15% dividend for contiguous sector hold
  */
-export function computeDecanRetentionDividend(params) {
+export function computeDecanRetentionDividend(params, ...rest) {
+  let opts = {};
+  if (typeof params === 'number') {
+    opts = {
+      zoneId: params,
+      control: typeof rest[0] === 'number' ? rest[0] : 500,
+      hasZodiacSeal: Boolean(rest[1]),
+      decanSuitMatch: Boolean(rest[2]),
+    };
+  } else {
+    opts = params || {};
+  }
+
   const {
     zoneId = 0,
     control = 500,
     hasZodiacSeal = false,
     decanSuitMatch = false,
-  } = params;
+  } = opts;
 
   let baseDividend = 100.0;
   if (zoneId === 10) baseDividend = 250.0;
@@ -455,12 +566,18 @@ export default {
   CANONICAL_TOKENS,
   TOKEN_NAMES,
   TOKEN_KEYS,
+  PROTOCOL_BAND,
   DAILY_FAUCET_BUDGET,
+  AXIS_GAS_FLOOR,
+  TOTAL_GAS_FLOOR,
   CURRENT_MATTER_DAMPING,
   DECAN_CHAMPION_SOVEREIGN_TREASURY,
   computeAntiGlutDamping,
   deriveNatalRatios,
   normalizeTransitWeights,
+  calculateChartBaseline,
+  computeSynastryResonance,
+  allocateFlooredYield,
   allocateConservedYield,
   computeDailySignInYield,
   computeMeleeRoundWinYield,
