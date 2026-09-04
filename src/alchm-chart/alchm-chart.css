@@ -50,7 +50,9 @@
 }
 
 /* Screen-reader-only — accessible fallback text for alchemical glyphs (scoped) */
-.alchm-chart .ac-sr-only {
+.alchm-chart .ac-sr-only,
+.alchm-melee-table .ac-sr-only,
+.ac-sr-only {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -1392,373 +1394,1288 @@ body.alchm-open #pentacles-net { display: none; }
    The War Table — Multi-Seat Melee UI (.alchm-melee-table)
    ============================================================ */
 .alchm-melee-table {
-  display: flex; flex-direction: column; gap: 14px; width: 100%; height: 100%;
-  color: var(--ac-text); font-family: "Space Grotesk", system-ui, sans-serif;
+  --void-bg: #05060c;
+  --surface-dim: #0f1321;
+  --surface-container-lowest: #0a0e1b;
+  --surface-container-low: #171b29;
+  --surface-container: #1b1f2e;
+  --surface-container-high: #262939;
+  --surface-container-highest: #303444;
+  --surface-bright: #353948;
+  --primary: #f6cf83;
+  --primary-container: #d8b46a;
+  --surface-tint: #e7c276;
+  --on-surface: #dfe1f6;
+  --on-surface-variant: #d0c5b4;
+  --outline: #998f80;
+  --outline-variant: #4d4639;
+  --air-swords: #00e5ff;
+  --fire-wands: #ff5722;
+  --water-cups: #2979ff;
+  --earth-pentacles: #8bc34a;
+  --f-jupiter: #304ffe;
+  --f-mars: #d50000;
+  --f-venus: #00bfa5;
+  --f-mercury: #7c4dff;
+  --f-saturn: #9e8a58;
+
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  height: 100%;
+  color: var(--on-surface);
+  font-family: "Space Grotesk", system-ui, sans-serif;
+  position: relative;
+  overflow: hidden;
 }
+
+/* ── Top Celestial HUD Bar ─────────────────────────────────────────────── */
 .alchm-melee-table .mt-header {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
-  padding-bottom: 12px; border-bottom: 1px solid var(--ac-line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: rgba(15, 19, 33, 0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(246, 207, 131, 0.25);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(246, 207, 131, 0.15);
+  position: relative;
+  z-index: 30;
 }
-.alchm-melee-table .mt-head-left { display: flex; align-items: center; gap: 12px; }
-.alchm-melee-table .mt-title-mark { font-size: 24px; color: var(--ac-gold-bright); text-shadow: 0 0 12px rgba(246,207,131,0.4); }
-.alchm-melee-table .mt-title { font-family: "Cormorant Garamond", Georgia, serif; font-size: 22px; color: var(--ac-gold-bright); line-height: 1; }
-.alchm-melee-table .mt-head-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+.alchm-melee-table .mt-head-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.alchm-melee-table .mt-title-mark {
+  font-size: 24px;
+  color: var(--primary);
+  text-shadow: 0 0 12px rgba(246, 207, 131, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  background: radial-gradient(circle, rgba(246, 207, 131, 0.15) 0%, rgba(10, 14, 27, 0.4) 100%);
+  border: 1px solid rgba(246, 207, 131, 0.3);
+}
+
+.alchm-melee-table .mt-title {
+  font-family: "Noto Serif", "Cormorant Garamond", Georgia, serif;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--primary);
+  text-shadow: 0 0 10px rgba(246, 207, 131, 0.45);
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.alchm-melee-table .mt-sub {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--on-surface-variant);
+  margin-top: 2px;
+  text-transform: uppercase;
+}
+
+.alchm-melee-table .mt-head-center {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.alchm-melee-table .mt-trick-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  border-radius: 999px;
+  background: rgba(10, 14, 27, 0.85);
+  border: 1px solid rgba(246, 207, 131, 0.4);
+  color: var(--primary);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  box-shadow: 0 0 14px rgba(216, 180, 106, 0.18), inset 0 0 8px rgba(246, 207, 131, 0.1);
+}
+
+.alchm-melee-table .mt-head-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Trump Suit Badges */
 .alchm-melee-table .mt-trump-badge {
-  display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700;
-  letter-spacing: 0.08em; padding: 5px 11px; border-radius: 6px; border: 1px solid var(--ac-line);
-  background: rgba(216,180,106,0.12); color: var(--ac-gold-bright);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 5px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(246, 207, 131, 0.35);
+  background: rgba(26, 31, 46, 0.7);
+  color: var(--primary);
+  box-shadow: 0 0 10px rgba(216, 180, 106, 0.12);
+  transition: all 0.2s ease;
 }
-.alchm-melee-table .mt-trump-glyph { font-size: 14px; }
+
+.alchm-melee-table .mt-trump-badge.is-wands {
+  border-color: rgba(255, 87, 34, 0.6);
+  background: rgba(255, 87, 34, 0.12);
+  color: var(--fire-wands);
+  box-shadow: 0 0 12px rgba(255, 87, 34, 0.25);
+}
+
+.alchm-melee-table .mt-trump-badge.is-swords {
+  border-color: rgba(0, 229, 255, 0.6);
+  background: rgba(0, 229, 255, 0.12);
+  color: var(--air-swords);
+  box-shadow: 0 0 12px rgba(0, 229, 255, 0.25);
+}
+
+.alchm-melee-table .mt-trump-badge.is-cups {
+  border-color: rgba(41, 121, 255, 0.6);
+  background: rgba(41, 121, 255, 0.12);
+  color: var(--water-cups);
+  box-shadow: 0 0 12px rgba(41, 121, 255, 0.25);
+}
+
+.alchm-melee-table .mt-trump-badge.is-pentacles {
+  border-color: rgba(139, 195, 74, 0.6);
+  background: rgba(139, 195, 74, 0.12);
+  color: var(--earth-pentacles);
+  box-shadow: 0 0 12px rgba(139, 195, 74, 0.25);
+}
+
+.alchm-melee-table .mt-trump-glyph {
+  font-size: 15px;
+  line-height: 1;
+}
+
+/* Button Upgrades */
 .alchm-melee-table .mt-btn {
-  background: rgba(24,27,39,0.7); border: 1px solid var(--ac-line); color: var(--ac-dim);
-  border-radius: 6px; padding: 6px 12px; font-size: 11px; font-weight: 600; cursor: pointer;
-  transition: color 0.15s, border-color 0.15s, background 0.15s; font-family: inherit;
+  background: rgba(23, 27, 41, 0.8);
+  border: 1px solid rgba(216, 180, 106, 0.25);
+  color: var(--on-surface-variant);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
-.alchm-melee-table .mt-btn:hover { color: var(--ac-gold-bright); border-color: var(--ac-gold); background: rgba(216,180,106,0.1); }
-.alchm-melee-table .mt-btn.is-active { color: #1a1406; background: var(--ac-gold); font-weight: 700; }
+
+.alchm-melee-table .mt-btn:hover {
+  color: var(--primary);
+  border-color: var(--primary);
+  background: rgba(246, 207, 131, 0.12);
+  box-shadow: 0 0 12px rgba(246, 207, 131, 0.2);
+  transform: translateY(-1px);
+}
+
+.alchm-melee-table .mt-btn.is-active {
+  color: #1a1406;
+  background: var(--primary);
+  border-color: var(--primary);
+  font-weight: 700;
+  box-shadow: 0 0 14px rgba(246, 207, 131, 0.5);
+}
+
 .alchm-melee-table .mt-btn-fastforward {
-  color: #22d3ee; border-color: rgba(34,211,238,0.4); background: rgba(34,211,238,0.1);
+  color: var(--air-swords);
+  border-color: rgba(0, 229, 255, 0.4);
+  background: rgba(0, 229, 255, 0.08);
 }
+
 .alchm-melee-table .mt-btn-fastforward:hover {
-  color: #67e8f9; border-color: #22d3ee; background: rgba(34,211,238,0.2);
+  color: #fff;
+  border-color: var(--air-swords);
+  background: rgba(0, 229, 255, 0.22);
+  box-shadow: 0 0 14px rgba(0, 229, 255, 0.4);
 }
+
 .alchm-melee-table .mt-btn-fastforward.is-active {
-  color: #05060c; background: #22d3ee; border-color: #22d3ee; font-weight: 700; animation: mt-ff-pulse 1s infinite alternate;
+  color: #05060c;
+  background: var(--air-swords);
+  border-color: var(--air-swords);
+  font-weight: 700;
+  animation: mt-ff-pulse 1.2s infinite alternate;
 }
-@keyframes mt-ff-pulse {
-  from { box-shadow: 0 0 8px rgba(34,211,238,0.4); }
-  to { box-shadow: 0 0 18px rgba(34,211,238,0.8); }
+
+.alchm-melee-table .mt-btn-settlement {
+  color: var(--primary);
+  border-color: rgba(246, 207, 131, 0.4);
+  background: rgba(246, 207, 131, 0.1);
 }
+
+.alchm-melee-table .mt-btn-settlement:hover {
+  background: rgba(246, 207, 131, 0.25);
+  box-shadow: 0 0 16px rgba(246, 207, 131, 0.35);
+}
+
+.alchm-melee-table .mt-btn-settlement.is-resolved-pulse {
+  animation: mt-settlement-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes mt-settlement-pulse {
+  0%, 100% { box-shadow: 0 0 8px rgba(246, 207, 131, 0.3); border-color: rgba(246, 207, 131, 0.5); }
+  50% { box-shadow: 0 0 20px rgba(246, 207, 131, 0.8), inset 0 0 8px rgba(246, 207, 131, 0.3); border-color: var(--primary); }
+}
+
 .alchm-melee-table .mt-btn-close {
-  width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--ac-line);
-  background: rgba(0,0,0,0.3); color: var(--ac-dim); cursor: pointer; display: flex;
-  align-items: center; justify-content: center; font-size: 13px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid rgba(246, 207, 131, 0.3);
+  background: rgba(10, 14, 27, 0.6);
+  color: var(--on-surface-variant);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  transition: all 0.2s ease;
 }
-.alchm-melee-table .mt-btn-close:hover { color: var(--ac-gold-bright); border-color: var(--ac-gold-bright); }
+
+.alchm-melee-table .mt-btn-close:hover {
+  color: var(--primary);
+  border-color: var(--primary);
+  background: rgba(246, 207, 131, 0.15);
+  transform: rotate(90deg);
+}
 
 /* Round Clock Pills */
 .mt-clock-pill {
-  display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px;
-  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
-  font-variant-numeric: tabular-nums; border: 1px solid;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+  border: 1px solid;
 }
-.mt-clock--muster { color: var(--ac-essence); border-color: rgba(74,163,216,0.4); background: rgba(74,163,216,0.12); }
-.mt-clock--seating { color: var(--ac-gold-bright); border-color: rgba(241,219,161,0.4); background: rgba(241,219,161,0.12); }
-.mt-clock--play { color: var(--ac-ok); border-color: rgba(95,179,122,0.4); background: rgba(95,179,122,0.14); }
-.mt-clock--resolve { color: var(--ac-warn); border-color: rgba(224,162,58,0.4); background: rgba(224,162,58,0.14); }
-.mt-clock--resolved { color: var(--ac-dim); border-color: var(--ac-line); background: rgba(0,0,0,0.3); }
+.mt-clock--muster { color: var(--air-swords); border-color: rgba(0,229,255,0.4); background: rgba(0,229,255,0.1); }
+.mt-clock--seating { color: var(--primary); border-color: rgba(246,207,131,0.4); background: rgba(246,207,131,0.12); }
+.mt-clock--play { color: var(--earth-pentacles); border-color: rgba(139,195,74,0.4); background: rgba(139,195,74,0.14); box-shadow: 0 0 10px rgba(139,195,74,0.2); }
+.mt-clock--resolve { color: #ffb74d; border-color: rgba(255,183,77,0.4); background: rgba(255,183,77,0.14); }
+.mt-clock--resolved { color: var(--primary); border-color: rgba(246,207,131,0.5); background: rgba(246,207,131,0.15); }
 
-/* Arena & Radial Orbital Seats */
+/* ── Arena & Sacred Geometry Astrolabe ──────────────────────────────────── */
 .alchm-melee-table .mt-arena {
-  position: relative; flex: 1; min-height: 380px; display: flex; align-items: center; justify-content: center;
-  overflow: hidden; background: radial-gradient(circle at center, rgba(16,19,31,0.9), rgba(6,8,15,0.96));
-  border-radius: 14px; border: 1px solid var(--ac-line);
+  position: relative;
+  flex: 1;
+  min-height: 380px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 16px;
+  background-color: var(--void-bg);
+  background-image: 
+    radial-gradient(circle at 50% 50%, rgba(246, 207, 131, 0.08) 0%, transparent 60%),
+    radial-gradient(circle at 10% 10%, rgba(48, 79, 254, 0.06) 0%, transparent 40%),
+    radial-gradient(circle at 90% 90%, rgba(0, 191, 165, 0.05) 0%, transparent 40%),
+    linear-gradient(rgba(246, 207, 131, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(246, 207, 131, 0.04) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 100% 100%, 28px 28px, 28px 28px;
+  border: 1px solid rgba(216, 180, 106, 0.3);
+  box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.8), 0 8px 30px rgba(0, 0, 0, 0.5);
 }
-.alchm-melee-table .mt-ring {
-  position: relative; width: min(440px, 85vw); height: min(440px, 85vw);
-}
-.alchm-melee-table .mt-core {
-  position: absolute; inset: 50% auto auto 50%; transform: translate(-50%, -50%);
-  width: 150px; height: 150px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
-}
-.alchm-melee-table .mt-singularity-canvas {
-  width: 100%; height: 100%; border-radius: 50%; display: block;
-}
-.alchm-melee-table .mt-core-badge {
-  position: absolute; text-align: center; pointer-events: none; text-shadow: 0 0 10px rgba(0,0,0,0.9);
-}
-.alchm-melee-table .mt-core-trick { font-size: 13px; font-weight: 700; color: var(--ac-gold-bright); letter-spacing: 0.08em; }
-.alchm-melee-table .mt-core-sub { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.1em; }
 
-/* Seat stations */
+/* Gyroscopic Astrolabe Background SVG */
+.alchm-melee-table .mt-astrolabe-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  opacity: 0.35;
+}
+
+/* SVG Connection Lines between Seats and Core */
+.alchm-melee-table .mt-radial-lines {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.alchm-melee-table .mt-ring {
+  position: relative;
+  width: min(480px, 86vw);
+  height: min(480px, 86vw);
+  z-index: 10;
+}
+
+/* Singularity Core with Celestial Rings */
+.alchm-melee-table .mt-core {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  transform: translate(-50%, -50%);
+  width: 164px;
+  height: 164px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 12;
+}
+
+.alchm-melee-table .mt-core-celestial-rings {
+  position: absolute;
+  inset: -28px;
+  pointer-events: none;
+  z-index: 11;
+}
+
+.alchm-melee-table .mt-core-outer-ring {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  animation: spin 28s linear infinite;
+}
+
+.alchm-melee-table .mt-core-inner-ring {
+  position: absolute;
+  inset: 8px;
+  width: calc(100% - 16px);
+  height: calc(100% - 16px);
+  animation: spin 18s linear infinite reverse;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.alchm-melee-table .mt-singularity-canvas {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  display: block;
+  border: 1.5px solid rgba(246, 207, 131, 0.45);
+  box-shadow: 0 0 35px rgba(216, 180, 106, 0.35), inset 0 0 20px rgba(0, 0, 0, 0.8);
+}
+
+.alchm-melee-table .mt-core-badge {
+  position: absolute;
+  text-align: center;
+  pointer-events: none;
+  background: rgba(10, 14, 27, 0.75);
+  backdrop-filter: blur(8px);
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(246, 207, 131, 0.35);
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.8);
+  z-index: 15;
+}
+
+.alchm-melee-table .mt-core-trick {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--primary);
+  letter-spacing: 0.1em;
+  text-shadow: 0 0 8px rgba(246, 207, 131, 0.6);
+}
+
+.alchm-melee-table .mt-core-sub {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--on-surface-variant);
+  opacity: 0.85;
+}
+
+/* ── Deluxe Orbital Seat Stations ───────────────────────────────────────── */
 .alchm-melee-table .mt-seat-station {
-  position: absolute; transform: translate(-50%, -50%); min-width: 110px; max-width: 130px;
-  background: rgba(14,17,28,0.88); border: 1px solid var(--ac-line); border-radius: 10px;
-  padding: 7px 9px; display: flex; flex-direction: column; gap: 4px; backdrop-filter: blur(8px);
-  box-shadow: 0 4px 18px rgba(0,0,0,0.5); transition: border-color 0.2s, transform 0.2s;
+  position: absolute;
+  transform: translate(-50%, -50%);
+  min-width: 120px;
+  max-width: 146px;
+  background: rgba(15, 19, 33, 0.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(246, 207, 131, 0.3);
+  border-radius: 12px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.6), 0 0 12px rgba(216, 180, 106, 0.08);
+  transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+  z-index: 20;
 }
-.alchm-melee-table .mt-seat-station:hover { border-color: rgba(241,219,161,0.5); transform: translate(-50%, -50%) scale(1.04); }
-.alchm-melee-table .mt-seat-station.is-me { border-color: var(--ac-gold-bright); box-shadow: 0 0 14px rgba(241,219,161,0.3); }
-.alchm-melee-table .mt-seat-head { display: flex; align-items: center; gap: 6px; }
+
+.alchm-melee-table .mt-seat-station:hover {
+  border-color: var(--primary);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.7), 0 0 20px rgba(246, 207, 131, 0.3);
+  transform: translate(-50%, -50%) scale(1.05);
+  z-index: 25;
+}
+
+.alchm-melee-table .mt-seat-station.is-me {
+  border-color: var(--primary);
+  background: linear-gradient(135deg, rgba(246, 207, 131, 0.12) 0%, rgba(15, 19, 33, 0.9) 100%);
+  box-shadow: 0 0 20px rgba(246, 207, 131, 0.35), 0 6px 22px rgba(0, 0, 0, 0.6);
+}
+
+.alchm-melee-table .mt-seat-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Medallion Avatar */
+.alchm-melee-table .mt-seat-avatar-wrap {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .alchm-melee-table .mt-seat-glyph {
-  width: 22px; height: 22px; border-radius: 50%; border: 1px solid; display: flex;
-  align-items: center; justify-content: center; font-size: 12px; background: rgba(0,0,0,0.4); flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--seat-color, var(--primary));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  background: radial-gradient(circle, rgba(0, 0, 0, 0.6) 0%, rgba(10, 14, 27, 0.9) 100%);
+  box-shadow: 0 0 10px var(--seat-color, rgba(246, 207, 131, 0.4));
 }
-.alchm-melee-table .mt-seat-meta { min-width: 0; flex: 1; }
-.alchm-melee-table .mt-seat-name { font-size: 11px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ac-text); }
-.alchm-melee-table .mt-seat-tag { font-size: 8.5px; text-transform: uppercase; letter-spacing: 0.06em; }
-.alchm-melee-table .mt-seat-scores { display: flex; gap: 6px; font-size: 9.5px; font-variant-numeric: tabular-nums; }
-.alchm-melee-table .mt-score-pts { font-weight: 700; color: var(--ac-gold-bright); }
-.alchm-melee-table .mt-score-counters { color: #ffd700; font-weight: 600; }
-.alchm-melee-table .mt-score-cards { color: var(--ac-dim); font-variant-numeric: tabular-nums; }
-/* A card in the pot is the thing the eye should land on — it is the play. Give
-   it a real face rather than the inline chip the old per-seat slot used. */
+
+.alchm-melee-table .mt-seat-meta {
+  min-width: 0;
+  flex: 1;
+}
+
+.alchm-melee-table .mt-seat-name {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--on-surface);
+  line-height: 1.2;
+}
+
+.alchm-melee-table .mt-seat-station.is-me .mt-seat-name {
+  color: var(--primary);
+  text-shadow: 0 0 8px rgba(246, 207, 131, 0.5);
+}
+
+.alchm-melee-table .mt-seat-tag {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--on-surface-variant);
+  opacity: 0.85;
+}
+
+.alchm-melee-table .mt-seat-scores {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  padding-top: 4px;
+  border-top: 1px solid rgba(216, 180, 106, 0.15);
+}
+
+.alchm-melee-table .mt-score-pts {
+  font-weight: 700;
+  color: var(--primary);
+  text-shadow: 0 0 6px rgba(246, 207, 131, 0.3);
+}
+
+.alchm-melee-table .mt-score-counters {
+  color: #ffd700;
+  font-weight: 600;
+}
+
+.alchm-melee-table .mt-score-melds {
+  color: #8bc34a;
+  font-size: 9px;
+}
+
+.alchm-melee-table .mt-score-cards {
+  color: var(--on-surface-variant);
+  opacity: 0.8;
+}
+
+/* Turn Glow Aura */
+.alchm-melee-table .mt-seat-station.is-turn {
+  border-color: var(--seat-color, var(--primary));
+  animation: mt-turn-pulse 1.8s ease-in-out infinite;
+}
+
+.alchm-melee-table .mt-turn-flag {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-align: center;
+  color: #05060c;
+  background: var(--seat-color, var(--primary));
+  border-radius: 4px;
+  padding: 2px 4px;
+  text-transform: uppercase;
+  box-shadow: 0 0 8px var(--seat-color, rgba(246, 207, 131, 0.6));
+  margin-top: 2px;
+}
+
+@keyframes mt-turn-pulse {
+  0%, 100% {
+    box-shadow: 0 6px 22px rgba(0, 0, 0, 0.6), 0 0 0 0 rgba(246, 207, 131, 0.5);
+  }
+  50% {
+    box-shadow: 0 6px 22px rgba(0, 0, 0, 0.6), 0 0 0 8px rgba(246, 207, 131, 0);
+  }
+}
+
+/* ── The Pot & Played Cards ─────────────────────────────────────────────── */
 .alchm-melee-table .mt-played-card {
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
-  width: 40px; height: 54px; border-radius: 5px; padding: 2px; position: relative; overflow: hidden;
-  background: linear-gradient(160deg, rgba(24,28,44,0.98), rgba(10,12,20,0.98));
-  border: 1px solid rgba(241,219,161,0.32); font-size: 10px; font-weight: 700;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  width: 50px;
+  height: 72px;
+  border-radius: 8px;
+  padding: 3px 4px;
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(160deg, rgba(27, 31, 46, 0.95), rgba(10, 14, 27, 0.98));
+  border: 1px solid rgba(216, 180, 106, 0.35);
+  font-size: 10px;
+  font-weight: 700;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
+
+.alchm-melee-table .mt-played-card::before {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  border: 0.5px solid rgba(246, 207, 131, 0.2);
+  border-radius: 5px;
+  pointer-events: none;
+}
+
 .alchm-melee-table .mt-played-card.is-trump {
-  border-color: rgba(241,219,161,0.75); box-shadow: 0 0 9px rgba(241,219,161,0.28), inset 0 1px 0 rgba(255,255,255,0.08);
+  border-color: var(--primary);
+  background: linear-gradient(160deg, rgba(38, 42, 60, 0.95), rgba(20, 16, 10, 0.98));
+  box-shadow: 0 0 16px rgba(246, 207, 131, 0.4), inset 0 0 8px rgba(246, 207, 131, 0.2);
 }
+
 .alchm-melee-table .mt-played-card.aw-card--major {
-  border-color: rgba(190,150,235,0.75); box-shadow: 0 0 11px rgba(170,130,225,0.35);
-  background: linear-gradient(160deg, rgba(36,26,54,0.98), rgba(14,10,24,0.98));
+  border-color: rgba(198, 212, 255, 0.8);
+  background: linear-gradient(160deg, rgba(35, 25, 55, 0.98), rgba(10, 14, 30, 0.98));
+  box-shadow: 0 0 18px rgba(124, 77, 255, 0.45);
 }
+
 .alchm-melee-table .mt-card-pip {
   position: absolute;
-  font-family: var(--ac-card-font-glyph);
-  font-size: 8px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 9px;
   font-weight: 700;
   line-height: 1;
-  color: var(--ac-dim);
+  color: var(--on-surface-variant);
   pointer-events: none;
   z-index: 2;
 }
-.alchm-melee-table .mt-played-card .mt-card-pip.top-left { top: 2px; left: 3px; }
-.alchm-melee-table .mt-played-card .mt-card-pip.bottom-right { bottom: 2px; right: 3px; transform: rotate(180deg); }
-.alchm-melee-table .mt-played-card.aw-card--major .mt-card-pip { color: var(--ac-gold-bright); }
-.alchm-melee-table .mt-played-card.is-trump .mt-card-pip { color: var(--ac-gold); }
 
-.alchm-melee-table .mt-card-suit-art { width: 16px; height: 16px; object-fit: contain; }
-.alchm-melee-table .mt-card-glyph { font-size: 14px; line-height: 1; }
-.alchm-melee-table .mt-card-rank { font-size: 9px; letter-spacing: 0.02em; color: var(--ac-text); margin-top: 1px; }
+.alchm-melee-table .mt-played-card .mt-card-pip.top-left { top: 4px; left: 5px; }
+.alchm-melee-table .mt-played-card .mt-card-pip.bottom-right { bottom: 4px; right: 5px; transform: rotate(180deg); }
+.alchm-melee-table .mt-played-card.aw-card--major .mt-card-pip { color: var(--primary); text-shadow: 0 0 6px rgba(246, 207, 131, 0.6); }
+.alchm-melee-table .mt-played-card.is-trump .mt-card-pip { color: var(--primary); }
 
-/* ── The pot, and the two motions that make a trick legible ────────────────
-   Cards do not appear and disappear: one flies in from the seat that played it
-   (`is-thrown`), and when the trick closes the whole pot sweeps to whoever took
-   it (`is-sweeping`). Both run off CSS custom properties the renderer sets per
-   card — `--from-x/--from-y` is the offset back to its own seat, `--to-x/--to-y`
-   the offset forward to the winner's — so the geometry stays in melee-table.js
-   with the seat maths and the stylesheet only says how it moves.
+.alchm-melee-table .mt-card-suit-art {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.6));
+}
 
-   `mt-sweep` MUST stay in step with SWEEP_MS in melee-table.js: the renderer
-   holds the outgoing pot on screen for exactly that long. */
-.alchm-melee-table .mt-pot { position: absolute; inset: 0; pointer-events: none; }
+.alchm-melee-table .mt-card-glyph {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.alchm-melee-table .mt-card-rank {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--on-surface);
+  text-align: center;
+}
+
+/* Pot Motions */
+.alchm-melee-table .mt-pot {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 16;
+}
+
 .alchm-melee-table .mt-pot-card {
-  position: absolute; transform: translate(-50%, -50%);
-  filter: drop-shadow(0 3px 10px rgba(0,0,0,0.65));
+  position: absolute;
+  transform: translate(-50%, -50%);
+  filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.75));
 }
-.alchm-melee-table .mt-pot-card.is-thrown { animation: mt-throw 340ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
-.alchm-melee-table .mt-pot.is-sweeping .mt-pot-card { animation: mt-sweep 760ms cubic-bezier(0.5, 0, 0.75, 0) both; }
-/* The taking card leads the sweep and stays lit a beat longer. */
+
+.alchm-melee-table .mt-pot-card.is-thrown {
+  animation: mt-throw 340ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
+
+.alchm-melee-table .mt-pot.is-sweeping .mt-pot-card {
+  animation: mt-sweep 760ms cubic-bezier(0.5, 0, 0.75, 0) both;
+}
+
 .alchm-melee-table .mt-pot.is-sweeping .mt-pot-card.is-taker {
-  animation-duration: 700ms; animation-delay: 60ms; z-index: 2;
-  filter: drop-shadow(0 0 12px rgba(255,215,0,0.85));
+  animation-duration: 700ms;
+  animation-delay: 60ms;
+  z-index: 2;
+  filter: drop-shadow(0 0 16px rgba(246, 207, 131, 0.85));
 }
+
 .alchm-melee-table .mt-sweep-tally {
-  position: absolute; transform: translate(-50%, -50%);
-  font-size: 13px; font-weight: 700; color: #ffd700; text-shadow: 0 0 10px rgba(255,215,0,0.7);
-  pointer-events: none; animation: mt-tally 760ms ease-out both;
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 14px;
+  font-weight: 700;
+  color: #ffd700;
+  text-shadow: 0 0 12px rgba(255, 215, 0, 0.8);
+  pointer-events: none;
+  animation: mt-tally 760ms ease-out both;
+  z-index: 35;
 }
 
 @keyframes mt-throw {
   from { transform: translate(calc(-50% + var(--from-x, 0%)), calc(-50% + var(--from-y, 0%))) scale(0.55); opacity: 0; }
   to   { transform: translate(-50%, -50%) scale(1); opacity: 1; }
 }
+
 @keyframes mt-sweep {
   from { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-  to   { transform: translate(calc(-50% + var(--to-x, 0%)), calc(-50% + var(--to-y, 0%))) scale(0.5); opacity: 0; }
+  to   { transform: translate(calc(-50% + var(--to-x, 0%)), calc(-50% + var(--to-y, 0%))) scale(0.45); opacity: 0; }
 }
+
 @keyframes mt-tally {
   0%   { transform: translate(-50%, -50%) scale(0.6); opacity: 0; }
-  35%  { transform: translate(-50%, -140%) scale(1.15); opacity: 1; }
+  35%  { transform: translate(-50%, -140%) scale(1.2); opacity: 1; }
   100% { transform: translate(-50%, -240%) scale(1); opacity: 0; }
 }
 
-/* The seat on turn. A ring that breathes reads at a glance from across the
-   arena, where a colour change alone does not. */
-.alchm-melee-table .mt-seat-station.is-turn {
-  border-color: var(--seat-color, var(--ac-gold-bright));
-  animation: mt-turn-pulse 1.6s ease-in-out infinite;
-}
-.alchm-melee-table .mt-turn-flag {
-  font-size: 8.5px; font-weight: 700; letter-spacing: 0.09em; text-align: center;
-  color: var(--seat-color, var(--ac-gold-bright)); text-transform: uppercase;
-}
-@keyframes mt-turn-pulse {
-  0%, 100% { box-shadow: 0 4px 18px rgba(0,0,0,0.5), 0 0 0 0 rgba(241,219,161,0.42); }
-  50%      { box-shadow: 0 4px 18px rgba(0,0,0,0.5), 0 0 0 7px rgba(241,219,161,0); }
-}
-
-/* Motion here is decoration over state that is already legible in text — the
-   turn flag, the score, the hand count. Honour a reduced-motion preference by
-   dropping all of it rather than by slowing it down. */
-@media (prefers-reduced-motion: reduce) {
-  .alchm-melee-table .mt-pot-card.is-thrown,
-  .alchm-melee-table .mt-pot.is-sweeping .mt-pot-card,
-  .alchm-melee-table .mt-sweep-tally,
-  .alchm-melee-table .mt-seat-station.is-turn,
-  .alchm-melee-table .mt-hand-card.is-playable { animation: none; }
-  .alchm-melee-table .mt-sweep-tally { opacity: 1; }
-}
-
-/* Arcana Ladder Drawer */
+/* ── Arcana Potency Ladder Drawer ───────────────────────────────────────── */
 .alchm-melee-table .mt-ladder {
-  background: rgba(12,15,26,0.92); border: 1px solid var(--ac-line); border-radius: 10px;
-  padding: 12px 14px; display: flex; flex-direction: column; gap: 8px;
+  background: rgba(10, 14, 28, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(216, 180, 106, 0.35);
+  border-radius: 12px;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+  z-index: 25;
 }
-.alchm-melee-table .mt-ladder[hidden] { display: none; }
-.alchm-melee-table .mt-ladder-head { display: flex; justify-content: space-between; align-items: baseline; }
-.alchm-melee-table .mt-ladder-title { font-size: 12px; font-weight: 700; color: var(--ac-gold-bright); }
-.alchm-melee-table .mt-ladder-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 6px; }
-.alchm-melee-table .mt-ladder-row {
-  display: flex; justify-content: space-between; align-items: center; padding: 3px 6px;
-  background: rgba(0,0,0,0.3); border: 1px solid rgba(216,180,106,0.15); border-radius: 4px; font-size: 10.5px;
-}
-.alchm-melee-table .mt-ladder-numeral { font-weight: 600; color: var(--ac-dim); }
-.alchm-melee-table .mt-ladder-val { font-weight: 700; color: var(--ac-gold-bright); font-variant-numeric: tabular-nums; }
 
-/* Player Action Area */
-.alchm-melee-table .mt-player-area { display: flex; flex-direction: column; gap: 8px; }
-.alchm-melee-table .mt-spectator-bar { text-align: center; padding: 8px; font-size: 11.5px; font-style: italic; }
-.alchm-melee-table .mt-hand-strip { display: flex; gap: 8px; overflow-x: auto; padding: 6px 2px; }
+.alchm-melee-table .mt-ladder[hidden] { display: none; }
+
+.alchm-melee-table .mt-ladder-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  border-bottom: 1px solid rgba(216, 180, 106, 0.2);
+  padding-bottom: 8px;
+}
+
+.alchm-melee-table .mt-ladder-title {
+  font-family: "Noto Serif", serif;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--primary);
+  text-shadow: 0 0 8px rgba(246, 207, 131, 0.4);
+}
+
+.alchm-melee-table .mt-ladder-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  gap: 8px;
+  max-height: 180px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.alchm-melee-table .mt-ladder-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 8px;
+  background: rgba(23, 27, 41, 0.65);
+  border: 1px solid rgba(216, 180, 106, 0.15);
+  border-radius: 6px;
+  font-size: 11px;
+  transition: border-color 0.2s;
+}
+
+.alchm-melee-table .mt-ladder-row:hover {
+  border-color: var(--primary);
+  background: rgba(246, 207, 131, 0.1);
+}
+
+.alchm-melee-table .mt-ladder-numeral {
+  font-family: "JetBrains Mono", monospace;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.alchm-melee-table .mt-ladder-val {
+  font-family: "JetBrains Mono", monospace;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+/* ── Player Hand Action Area (3D Perspective Fan) ───────────────────────── */
+.alchm-melee-table .mt-player-area {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 22;
+}
+
+.alchm-melee-table .mt-hand-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4px;
+}
+
+.alchm-melee-table .mt-spectator-bar {
+  text-align: center;
+  padding: 10px;
+  font-size: 12px;
+  color: var(--on-surface-variant);
+  background: rgba(15, 19, 33, 0.6);
+  border-radius: 8px;
+  border: 1px solid rgba(216, 180, 106, 0.2);
+}
+
+.alchm-melee-table .aw-section-label {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--on-surface-variant);
+}
+
+.alchm-melee-table .aw-section-label.is-live {
+  color: var(--primary);
+  font-weight: 700;
+  text-shadow: 0 0 10px rgba(246, 207, 131, 0.6);
+}
+
+/* Hand Fan Container with 3D perspective */
+.alchm-melee-table .mt-hand-fan-container {
+  perspective: 1000px;
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.alchm-melee-table .mt-hand-strip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 18px 12px 10px;
+  align-items: flex-end;
+  justify-content: center;
+  width: 100%;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(216, 180, 106, 0.3) transparent;
+}
+
 .alchm-melee-table .mt-hand-card {
-  flex: 0 0 auto; width: 100px; padding: 18px 6px 8px; border-radius: 8px; background: rgba(14,17,28,0.92);
-  border: 1px solid var(--ac-line); display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer;
-  position: relative; overflow: hidden;
-  transition: transform 0.2s cubic-bezier(0.25, 0.8, 0.25, 1), border-color 0.2s, box-shadow 0.2s;
+  flex: 0 0 auto;
+  width: 100px;
+  height: 154px;
+  padding: 8px 6px 6px;
+  border-radius: 10px;
+  background: linear-gradient(170deg, rgba(27, 31, 46, 0.95), rgba(10, 14, 27, 0.98));
+  border: 1px solid rgba(216, 180, 106, 0.3);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transition: transform 0.24s cubic-bezier(0.2, 0.8, 0.2, 1), border-color 0.24s, box-shadow 0.24s;
 }
+
+/* Sacred geometry inner frame for cards */
+.alchm-melee-table .mt-hand-card::before {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border: 0.5px solid rgba(246, 207, 131, 0.18);
+  border-radius: 7px;
+  pointer-events: none;
+}
+
 .alchm-melee-table .mt-hand-card .mt-card-pip {
-  font-size: 9.5px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  font-weight: 700;
 }
-.alchm-melee-table .mt-hand-card .mt-card-pip.top-left { top: 4px; left: 6px; }
-.alchm-melee-table .mt-hand-card .mt-card-pip.top-right { top: 4px; right: 6px; }
+
+.alchm-melee-table .mt-hand-card .mt-card-pip.top-left { top: 6px; left: 8px; }
+.alchm-melee-table .mt-hand-card .mt-card-pip.top-right { top: 6px; right: 8px; }
+
+.alchm-melee-table .mt-hand-art {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 48px;
+  margin: 4px 0;
+  position: relative;
+}
+
+.alchm-melee-table .mt-hand-suit-art {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.7));
+}
+
+.alchm-melee-table .mt-hand-glyph {
+  font-size: 26px;
+  line-height: 1;
+  color: var(--primary);
+  text-shadow: 0 0 10px rgba(246, 207, 131, 0.5);
+}
+
+.alchm-melee-table .mt-hand-title {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.15;
+  color: var(--on-surface);
+  text-align: center;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0 4px;
+}
+
+.alchm-melee-table .mt-hand-stats {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 9px;
+  color: var(--on-surface-variant);
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0 4px;
+  opacity: 0.85;
+}
+
+/* Playable Card Highlights & Shimmer */
+.alchm-melee-table .mt-hand-card.is-playable {
+  border-color: rgba(246, 207, 131, 0.6);
+  box-shadow: 0 0 14px rgba(246, 207, 131, 0.25);
+  animation: mt-playable-pulse 2.2s ease-in-out infinite;
+}
 
 .alchm-melee-table .mt-hand-card.is-playable:hover,
 .alchm-melee-table .mt-hand-card.is-playable:focus-visible {
-  transform: translateY(-6px);
-  border-color: var(--ac-gold-bright);
-  box-shadow: 0 8px 18px rgba(0,0,0,0.5), 0 0 14px rgba(241,219,161,0.35);
+  transform: translateY(-20px) scale(1.08) !important;
+  border-color: var(--primary);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.8), 0 0 25px rgba(246, 207, 131, 0.55);
+  z-index: 50;
+}
+
+/* Shimmer Effect on active card */
+.alchm-melee-table .mt-hand-card.is-playable::after {
+  content: '';
+  position: absolute;
+  top: -50%; left: -50%; right: -50%; bottom: -50%;
+  background: linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(246,207,131,0.08) 50%, rgba(255,255,255,0) 100%);
+  transform: rotate(45deg) translateY(-100%);
+  animation: shimmer 4s infinite linear;
+  pointer-events: none;
   z-index: 10;
 }
-/* Legality is shown, not hidden: a card you may not play stays readable and
-   keeps its tooltip explaining why, so the rule teaches itself. */
-.alchm-melee-table .mt-hand-card.is-playable {
-  border-color: rgba(241,219,161,0.55);
-  box-shadow: 0 0 10px rgba(241,219,161,0.16);
-  animation: mt-playable-pulse 2s ease-in-out infinite;
-}
-.alchm-melee-table .mt-hand-card.is-locked { opacity: 0.42; cursor: not-allowed; filter: saturate(0.5); }
-.alchm-melee-table .mt-hand-card.is-inverted .mt-hand-art { transform: rotate(180deg); }
-.alchm-melee-table .mt-hand-card.face-down {
-  background: var(--ac-card-back-svg);
-  background-size: 48px 48px;
-  border-color: var(--ac-gold);
-}
-.alchm-melee-table .mt-hand-card.face-down > * {
-  visibility: hidden;
-}
-.alchm-melee-table .mt-hand-strip.is-active { padding-top: 10px; }
-.alchm-melee-table .aw-section-label.is-live { color: var(--ac-gold-bright); font-weight: 700; }
-.alchm-melee-table .mt-meld-bar { font-size: 10.5px; padding: 2px 2px 0; }
 
-.alchm-melee-table .mt-hand-art {
-  display: flex; align-items: center; justify-content: center;
-  width: 100%; height: 32px; margin: 2px 0;
+@keyframes shimmer {
+  0% { transform: rotate(45deg) translateY(-100%); }
+  100% { transform: rotate(45deg) translateY(100%); }
 }
-.alchm-melee-table .mt-hand-suit-art {
-  width: 28px;
-  height: 28px;
-  object-fit: contain;
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+
+.alchm-melee-table .mt-hand-card.is-locked {
+  opacity: 0.4;
+  cursor: not-allowed;
+  filter: saturate(0.4);
 }
-.alchm-melee-table .mt-hand-glyph {
-  font-size: 20px; line-height: 1;
-  color: var(--ac-gold);
+
+.alchm-melee-table .mt-hand-card.is-inverted .mt-hand-art {
+  transform: rotate(180deg);
 }
-.alchm-melee-table .mt-hand-card.aw-card--major .mt-hand-glyph {
-  color: var(--ac-gold-bright);
-  text-shadow: 0 0 8px rgba(241,219,161,0.5);
-}
-.alchm-melee-table .mt-hand-title {
-  font-size: 10.5px; font-weight: 600; line-height: 1.15; color: var(--ac-text);
-  text-align: center; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+
+.alchm-melee-table .mt-meld-bar {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  color: #8bc34a;
+  text-shadow: 0 0 8px rgba(139, 195, 74, 0.4);
+  padding: 4px 8px;
+  background: rgba(139, 195, 74, 0.08);
+  border: 1px solid rgba(139, 195, 74, 0.25);
+  border-radius: 6px;
 }
 
 @keyframes mt-playable-pulse {
   0%, 100% {
-    box-shadow: 0 0 8px rgba(241, 219, 161, 0.2);
-    border-color: rgba(241, 219, 161, 0.45);
+    box-shadow: 0 0 10px rgba(246, 207, 131, 0.2);
+    border-color: rgba(246, 207, 131, 0.45);
   }
   50% {
-    box-shadow: 0 0 16px rgba(241, 219, 161, 0.45), 0 0 4px rgba(255, 255, 255, 0.2);
-    border-color: rgba(241, 219, 161, 0.85);
+    box-shadow: 0 0 20px rgba(246, 207, 131, 0.5), 0 0 6px rgba(255, 255, 255, 0.3);
+    border-color: rgba(246, 207, 131, 0.9);
   }
 }
 
-/* Faction War Sky Board Table Badges & Zone Detail additions */
-.alchm-war .aw-zone-table-badge {
-  display: flex; align-items: center; gap: 5px; font-size: 9.5px; font-weight: 600;
-  color: var(--ac-gold-bright); background: rgba(216,180,106,0.12); padding: 2px 6px;
-  border-radius: 4px; border: 1px solid rgba(216,180,106,0.25); margin-top: 2px;
+/* ── Victory Spoils & Match Settlement View ─────────────────────────────── */
+.alchm-melee-table .mt-settlement-view {
+  position: absolute;
+  inset: 0;
+  background: rgba(5, 6, 12, 0.94);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+  overflow-y: auto;
+  z-index: 60;
+  animation: mt-fade-in 0.3s ease-out both;
 }
-.alchm-war .aw-table-dot {
-  width: 6px; height: 6px; border-radius: 50%; background: #5fb37a; box-shadow: 0 0 6px #5fb37a;
+
+.alchm-melee-table .mt-settlement-view[hidden] {
+  display: none !important;
 }
-.alchm-war .aw-zone-detail-head {
-  display: flex; flex-direction: column; gap: 8px; border-bottom: 1px solid var(--ac-line); padding-bottom: 12px;
+
+@keyframes mt-fade-in {
+  from { opacity: 0; transform: scale(0.98); }
+  to   { opacity: 1; transform: scale(1); }
 }
-.alchm-war .aw-back-btn {
-  align-self: flex-start; background: none; border: none; color: var(--ac-gold); font-size: 11px;
-  font-weight: 600; cursor: pointer; padding: 0; font-family: inherit;
+
+.alchm-melee-table .mt-settlement-header {
+  text-align: center;
+  margin-bottom: 24px;
+  position: relative;
 }
-.alchm-war .aw-back-btn:hover { text-decoration: underline; color: var(--ac-gold-bright); }
-.alchm-war .aw-zone-detail-title { display: flex; align-items: center; gap: 12px; }
-.alchm-war .aw-table-status-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-.alchm-war .aw-seat-list { display: flex; flex-direction: column; gap: 6px; max-height: 190px; overflow-y: auto; }
-.alchm-war .aw-seat-row { display: flex; align-items: center; gap: 10px; padding: 5px 6px; background: rgba(0,0,0,0.25); border-radius: 6px; }
-.alchm-war .aw-seat-glyph { width: 24px; height: 24px; border-radius: 50%; border: 1px solid; display: flex; align-items: center; justify-content: center; font-size: 13px; }
-.alchm-war .aw-seat-id { flex: 1; min-width: 0; }
-.alchm-war .aw-seat-name { font-size: 12px; font-weight: 600; }
-.alchm-war .aw-seat-tag { font-size: 10px; }
-.alchm-war .aw-seat-score { font-size: 11px; font-weight: 700; color: var(--ac-gold-bright); }
-.alchm-war .aw-watch-btn {
-  margin-top: 8px; padding: 9px; border-radius: 8px; border: 1px solid var(--ac-line);
-  background: rgba(24,27,39,0.8); color: var(--ac-gold-bright); font: inherit; font-size: 11.5px;
-  font-weight: 600; cursor: pointer; text-align: center; transition: background 0.15s;
+
+.alchm-melee-table .mt-triumph-title {
+  font-family: "Noto Serif", serif;
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--primary);
+  text-shadow: 0 0 15px rgba(246, 207, 131, 0.6);
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
-.alchm-war .aw-watch-btn:hover { background: rgba(216,180,106,0.18); border-color: var(--ac-gold); }
-.alchm-war .aw-queue-btn {
-  margin-top: 8px; padding: 11px; border-radius: 9px; border: 1px solid var(--ac-gold);
-  background: linear-gradient(135deg, rgba(246,207,131,0.14), rgba(224,162,58,0.20));
-  color: var(--ac-gold-bright); font: inherit; font-size: 12px; font-weight: 700; text-transform: uppercase;
-  letter-spacing: 0.08em; cursor: pointer; transition: box-shadow 0.2s, filter 0.2s;
+
+.alchm-melee-table .mt-triumph-sub {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px;
+  letter-spacing: 0.15em;
+  color: var(--on-surface-variant);
+  text-transform: uppercase;
+  margin-top: 6px;
 }
-.alchm-war .aw-queue-btn:hover:not(:disabled) { box-shadow: 0 0 16px rgba(224,162,58,0.35); filter: brightness(1.08); }
-.alchm-war .aw-queue-btn.is-locked { opacity: 0.55; cursor: not-allowed; border-color: var(--ac-line); background: rgba(0,0,0,0.3); color: var(--ac-dim); font-size: 10.5px; text-transform: none; }
-.alchm-war .aw-queue-btn.is-queued { background: rgba(95,179,122,0.18); border-color: var(--ac-ok); color: var(--ac-ok); }
-.alchm-war .aw-queue-badge.is-seated { padding: 9px; border-radius: 8px; background: rgba(241,219,161,0.15); border: 1px solid var(--ac-gold); color: var(--ac-gold-bright); font-size: 12px; text-align: center; font-weight: 700; }
-.alchm-war .aw-practice-btn {
-  margin-top: 8px; padding: 11px; border-radius: 9px; border: 1px solid var(--ac-gold-bright);
-  background: linear-gradient(135deg, rgba(224,162,58,0.25), rgba(246,207,131,0.12));
-  color: var(--ac-gold-bright); font: inherit; font-size: 12px; font-weight: 700; text-transform: uppercase;
-  letter-spacing: 0.08em; cursor: pointer; transition: box-shadow 0.2s, filter 0.2s; text-align: center;
+
+.alchm-melee-table .mt-settlement-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 20px;
+  flex: 1;
 }
-.alchm-war .aw-practice-btn:hover {
-  box-shadow: 0 0 16px rgba(246,207,131,0.4); filter: brightness(1.1);
+
+.alchm-melee-table .mt-settlement-panel {
+  background: rgba(15, 19, 33, 0.75);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(246, 207, 131, 0.3);
+  border-radius: 14px;
+  padding: 18px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
+
+.alchm-melee-table .mt-panel-title {
+  font-family: "Noto Serif", serif;
+  font-size: 18px;
+  color: var(--on-surface);
+  border-bottom: 1px solid rgba(246, 207, 131, 0.2);
+  padding-bottom: 8px;
+}
+
+/* Match Settlement Table */
+.alchm-melee-table .mt-score-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.alchm-melee-table .mt-score-table th {
+  padding: 8px 12px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--on-surface-variant);
+  border-bottom: 1px solid rgba(246, 207, 131, 0.25);
+}
+
+.alchm-melee-table .mt-score-table td {
+  padding: 10px 12px;
+  font-size: 13px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.alchm-melee-table .mt-score-table tr.is-winner {
+  background: rgba(246, 207, 131, 0.08);
+}
+
+.alchm-melee-table .mt-score-table tr.is-player-row {
+  background: rgba(246, 207, 131, 0.12);
+  border-left: 3px solid var(--primary);
+  font-weight: 600;
+}
+
+.alchm-melee-table .mt-score-table tr.is-player-row td {
+  color: var(--primary);
+}
+
+/* Zone Control Shift Progress Bar */
+.alchm-melee-table .mt-control-shift-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.alchm-melee-table .mt-control-bar-track {
+  width: 100%;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--surface-container-lowest);
+  overflow: hidden;
+  display: flex;
+  position: relative;
+  border: 1px solid rgba(246, 207, 131, 0.3);
+}
+
+.alchm-melee-table .mt-control-bar-fill-sun {
+  height: 100%;
+  background: linear-gradient(90deg, #d8b46a, #f6cf83);
+  transition: width 1s ease-in-out;
+}
+
+.alchm-melee-table .mt-control-bar-fill-moon {
+  height: 100%;
+  background: linear-gradient(90deg, #4aa3d8, #a6b8eb);
+  transition: width 1s ease-in-out;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 8px;
+}
+
+/* Spoils Drawer */
+.alchm-melee-table .mt-spoils-drawer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.alchm-melee-table .mt-spoils-card {
+  width: 160px;
+  height: 240px;
+  border-radius: 12px;
+  border: 2px solid rgba(246, 207, 131, 0.7);
+  background: var(--surface-container-low);
+  box-shadow: 0 0 30px rgba(216, 180, 106, 0.35);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 12px;
+  overflow: hidden;
+}
+
+.alchm-melee-table .mt-spoils-chip {
+  width: 100%;
+  background: rgba(15, 19, 33, 0.85);
+  border: 1px solid rgba(246, 207, 131, 0.3);
+  border-radius: 8px;
+  padding: 8px 12px;
+  text-align: center;
+}
+
+.alchm-melee-table .mt-spoils-chip-beacon {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--f-venus);
+  box-shadow: 0 0 8px var(--f-venus);
+  display: inline-block;
+  margin-right: 6px;
+}
+
+.alchm-melee-table .mt-settlement-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+  justify-content: center;
+}
+
+.alchm-melee-table .mt-action-btn-primary {
+  padding: 12px 24px;
+  border-radius: 10px;
+  background: rgba(15, 19, 33, 0.8);
+  border: 1px solid var(--primary);
+  color: var(--primary);
+  font-family: "Noto Serif", serif;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 0 15px rgba(246, 207, 131, 0.25);
+  transition: all 0.25s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.alchm-melee-table .mt-action-btn-primary:hover {
+  background: rgba(246, 207, 131, 0.2);
+  box-shadow: 0 0 25px rgba(246, 207, 131, 0.55);
+  transform: translateY(-2px);
+}
+
+.alchm-melee-table .mt-action-btn-secondary {
+  padding: 12px 20px;
+  border-radius: 10px;
+  background: transparent;
+  border: 1px solid rgba(216, 180, 106, 0.35);
+  color: var(--on-surface-variant);
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.alchm-melee-table .mt-action-btn-secondary:hover {
+  color: var(--primary);
+  border-color: var(--primary);
+  background: rgba(246, 207, 131, 0.1);
+}
+
+/* ── Container Wrap Enhancements ────────────────────────────────────────── */
 .alchm-war .aw-pop-table-wrap {
-  width: min(880px, 96vw);
-  height: min(720px, 92vh);
-  background: rgba(13,16,28,0.96);
-  border: 1px solid var(--ac-line);
-  border-radius: 16px;
-  padding: 16px;
-  box-shadow: 0 24px 80px rgba(0,0,0,0.7);
+  width: min(1040px, 98vw);
+  height: min(840px, 95vh);
+  background: radial-gradient(circle at 50% 0%, rgba(246, 207, 131, 0.08) 0%, transparent 60%),
+              radial-gradient(circle at 100% 100%, rgba(48, 79, 254, 0.05) 0%, transparent 60%),
+              rgba(10, 14, 27, 0.95);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(216, 180, 106, 0.35);
+  border-radius: 18px;
+  padding: 16px 20px;
+  box-shadow: 0 0 35px rgba(216, 180, 106, 0.15), 0 30px 90px rgba(0,0,0,0.85);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  position: relative;
 }
+
+@media (max-width: 768px) {
+  .alchm-melee-table .mt-settlement-grid {
+    grid-template-columns: 1fr;
+  }
+  .alchm-melee-table .mt-ring {
+    width: min(340px, 92vw);
+    height: min(340px, 92vw);
+  }
+  .alchm-melee-table .mt-seat-station {
+    min-width: 95px;
+    max-width: 115px;
+    padding: 6px;
+  }
+  .alchm-melee-table .mt-hand-card {
+    width: 82px;
+    height: 120px;
+  }
+}
+
 @media (max-width: 640px) {
   .alchm-war .aw-pop-table-wrap {
     width: 100vw;
     height: 100dvh;
     border-radius: 0;
     border: 0;
-    padding: 10px 6px;
+    padding: 10px 8px;
   }
 }
 
