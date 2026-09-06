@@ -1,0 +1,69 @@
+{
+  "id": "cups-13",
+  "slug": "queen-of-cups",
+  "name": "Queen of Cups",
+  "arcana": "minor",
+  "numeral": "Q",
+  "rank": 13,
+  "suit": "cups",
+  "symbolism": {
+    "goldenDawnTitle": "Queen of the Thrones of the Waters",
+    "element": "Water",
+    "esms": 1,
+    "planetaryBody": null,
+    "planetIndex": null,
+    "zodiacSign": null,
+    "signIndex": null,
+    "decan": null,
+    "decanRange": null,
+    "chaldeanRuler": null,
+    "chaldeanRulerIndex": null,
+    "triplicitySign": null,
+    "triplicityRuler": null,
+    "triplicityRulerIndex": null,
+    "hebrewLetter": null,
+    "treeOfLifePath": null
+  },
+  "styling": {
+    "glyph": "🜄",
+    "suitGlyph": "🜄",
+    "primaryColor": "#5f93d8",
+    "accentColor": "#dce2f0",
+    "frameStyle": "cups-court",
+    "artAsset": "/assets/cards/minor/cups/13-queen.jpg",
+    "fallbackArt": "/assets/suits/cups.jpg",
+    "audioFrequencyHz": 552
+  },
+  "sacredStats": {
+    "power": 24,
+    "resonance": 60,
+    "wisdom": 39,
+    "charisma": 52,
+    "intuition": 59,
+    "adaptability": 24,
+    "vitality": 24
+  },
+  "scrabbleLetter": "Q",
+  "trickEngine": {
+    "trickPower": 11,
+    "counterValue": 0,
+    "isHonour": false,
+    "family": "minor",
+    "biasedSuit": "Cups",
+    "eligibleMelds": [
+      "marriage",
+      "royal-court"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Queen",
+      "Water",
+      "Court Archetype",
+      "Herald"
+    ],
+    "upright": "Mature embodiment of Queen wielding Water consciousness.",
+    "reversed": "Misdirection of Queen's temperament; emotional or tactical friction.",
+    "description": "Queen of the Thrones of the Waters. Embodies the royal governance of Water."
+  }
+}

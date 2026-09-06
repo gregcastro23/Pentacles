@@ -1,0 +1,72 @@
+{
+  "id": "cups-06",
+  "slug": "six-of-cups",
+  "name": "Six of Cups",
+  "arcana": "minor",
+  "numeral": "6",
+  "rank": 6,
+  "suit": "cups",
+  "symbolism": {
+    "goldenDawnTitle": "Lord of Pleasure",
+    "element": "Water",
+    "esms": 1,
+    "planetaryBody": "Sun",
+    "planetIndex": 0,
+    "zodiacSign": "Scorpio",
+    "signIndex": 7,
+    "decan": 1,
+    "decanRange": [
+      10,
+      20
+    ],
+    "chaldeanRuler": "Sun",
+    "chaldeanRulerIndex": 0,
+    "triplicitySign": "Pisces",
+    "triplicityRuler": "Jupiter & Neptune",
+    "triplicityRulerIndex": 5,
+    "hebrewLetter": null,
+    "treeOfLifePath": null
+  },
+  "styling": {
+    "glyph": "🜄",
+    "suitGlyph": "🜄",
+    "primaryColor": "#5f93d8",
+    "accentColor": "#dce2f0",
+    "frameStyle": "cups-pip",
+    "artAsset": "/assets/cards/minor/cups/06-six.jpg",
+    "fallbackArt": "/assets/suits/cups.jpg",
+    "audioFrequencyHz": 468
+  },
+  "sacredStats": {
+    "power": 32,
+    "resonance": 57,
+    "wisdom": 52,
+    "charisma": 52,
+    "intuition": 57,
+    "adaptability": 31,
+    "vitality": 28
+  },
+  "scrabbleLetter": "S",
+  "trickEngine": {
+    "trickPower": 5,
+    "counterValue": 0,
+    "isHonour": false,
+    "family": "minor",
+    "biasedSuit": "Cups",
+    "eligibleMelds": [
+      "run",
+      "flush"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Pleasure",
+      "Scorpio",
+      "Jupiter & Neptune",
+      "Decan 2"
+    ],
+    "upright": "Pleasure expressed through Water, attuned to Jupiter & Neptune in Pisces.",
+    "reversed": "Imbalance in Pleasure; tension between Jupiter & Neptune and Scorpio.",
+    "description": "The 6 of Cups governs the 2 decan of Scorpio (10°–20°), ruled by Jupiter & Neptune."
+  }
+}

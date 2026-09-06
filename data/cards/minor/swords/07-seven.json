@@ -1,0 +1,72 @@
+{
+  "id": "swords-07",
+  "slug": "seven-of-swords",
+  "name": "Seven of Swords",
+  "arcana": "minor",
+  "numeral": "7",
+  "rank": 7,
+  "suit": "swords",
+  "symbolism": {
+    "goldenDawnTitle": "Lord of Unstable Effort",
+    "element": "Air",
+    "esms": 3,
+    "planetaryBody": "Moon",
+    "planetIndex": 1,
+    "zodiacSign": "Aquarius",
+    "signIndex": 10,
+    "decan": 2,
+    "decanRange": [
+      20,
+      30
+    ],
+    "chaldeanRuler": "Moon",
+    "chaldeanRulerIndex": 1,
+    "triplicitySign": "Libra",
+    "triplicityRuler": "Venus",
+    "triplicityRulerIndex": 3,
+    "hebrewLetter": null,
+    "treeOfLifePath": null
+  },
+  "styling": {
+    "glyph": "🜁",
+    "suitGlyph": "🜁",
+    "primaryColor": "#aebbd6",
+    "accentColor": "#82bbf2",
+    "frameStyle": "swords-pip",
+    "artAsset": "/assets/cards/minor/swords/07-seven.jpg",
+    "fallbackArt": "/assets/suits/swords.jpg",
+    "audioFrequencyHz": 612
+  },
+  "sacredStats": {
+    "power": 29,
+    "resonance": 45,
+    "wisdom": 45,
+    "charisma": 40,
+    "intuition": 44,
+    "adaptability": 38,
+    "vitality": 35
+  },
+  "scrabbleLetter": "V",
+  "trickEngine": {
+    "trickPower": 6,
+    "counterValue": 0,
+    "isHonour": false,
+    "family": "minor",
+    "biasedSuit": "Swords",
+    "eligibleMelds": [
+      "run",
+      "flush"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Unstable Effort",
+      "Aquarius",
+      "Venus",
+      "Decan 3"
+    ],
+    "upright": "Unstable Effort expressed through Air, attuned to Venus in Libra.",
+    "reversed": "Imbalance in Unstable Effort; tension between Venus and Aquarius.",
+    "description": "The 7 of Swords governs the 3 decan of Aquarius (20°–30°), ruled by Venus."
+  }
+}

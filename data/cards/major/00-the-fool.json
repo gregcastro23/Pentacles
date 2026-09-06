@@ -1,0 +1,71 @@
+{
+  "id": "major-00",
+  "slug": "the-fool",
+  "name": "The Fool",
+  "arcana": "major",
+  "numeral": "0",
+  "rank": 0,
+  "suit": "major",
+  "symbolism": {
+    "goldenDawnTitle": "The Spirit of Aether",
+    "element": "Air",
+    "esms": 3,
+    "planetaryBody": "Uranus",
+    "planetIndex": 7,
+    "zodiacSign": null,
+    "signIndex": null,
+    "decan": null,
+    "decanRange": null,
+    "chaldeanRuler": null,
+    "chaldeanRulerIndex": null,
+    "triplicitySign": null,
+    "triplicityRuler": "Uranus",
+    "triplicityRulerIndex": 7,
+    "hebrewLetter": "Aleph (א)",
+    "treeOfLifePath": "11th Path (Kether to Chokmah)"
+  },
+  "styling": {
+    "glyph": "♅",
+    "suitGlyph": "✦",
+    "primaryColor": "#66d9e8",
+    "accentColor": "#f1dba1",
+    "frameStyle": "celestial-aether",
+    "artAsset": "/assets/cards/major/00-the-fool.jpg",
+    "fallbackArt": "/assets/suits/swords.jpg",
+    "audioFrequencyHz": 432
+  },
+  "sacredStats": {
+    "power": 38,
+    "resonance": 52,
+    "wisdom": 49,
+    "charisma": 42,
+    "intuition": 68,
+    "adaptability": 47,
+    "vitality": 52
+  },
+  "scrabbleLetter": "O",
+  "trickEngine": {
+    "trickPower": 1000,
+    "counterValue": 10,
+    "isHonour": true,
+    "family": "planetary",
+    "biasedSuit": "Swords",
+    "eligibleMelds": [
+      "grand-cross",
+      "the-trio",
+      "celestial-honours"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Beginnings",
+      "Innocence",
+      "Spontaneity",
+      "Free Spirit",
+      "The Leap"
+    ],
+    "upright": "Infinite potential, trusting the journey, stepping off the cliff into pure cosmic manifestation.",
+    "reversed": "Recklessness, fear of taking a risk, hesitation, erratic impulses.",
+    "description": "The zero point of the cosmos; the pilgrim carrying the bundle of memory, poised at the edge of the boundless abyss."
+  }
+}

@@ -1,0 +1,69 @@
+{
+  "id": "major-07",
+  "slug": "the-chariot",
+  "name": "The Chariot",
+  "arcana": "major",
+  "numeral": "VII",
+  "rank": 7,
+  "suit": "major",
+  "symbolism": {
+    "goldenDawnTitle": "The Child of the Powers of the Waters; The Lord of the Triumph of Light",
+    "element": "Water",
+    "esms": 1,
+    "planetaryBody": null,
+    "planetIndex": null,
+    "zodiacSign": "Cancer",
+    "signIndex": 3,
+    "decan": null,
+    "decanRange": null,
+    "chaldeanRuler": null,
+    "chaldeanRulerIndex": null,
+    "triplicitySign": "Cancer",
+    "triplicityRuler": "Moon",
+    "triplicityRulerIndex": 1,
+    "hebrewLetter": "Cheth (ח)",
+    "treeOfLifePath": "18th Path (Binah to Geburah)"
+  },
+  "styling": {
+    "glyph": "♋",
+    "suitGlyph": "✦",
+    "primaryColor": "#5f93d8",
+    "accentColor": "#cbd0db",
+    "frameStyle": "star-canopy",
+    "artAsset": "/assets/cards/major/07-the-chariot.jpg",
+    "fallbackArt": "/assets/suits/cups.jpg",
+    "audioFrequencyHz": 466
+  },
+  "sacredStats": {
+    "power": 34,
+    "resonance": 58,
+    "wisdom": 38,
+    "charisma": 42,
+    "intuition": 65,
+    "adaptability": 24,
+    "vitality": 40
+  },
+  "scrabbleLetter": "C",
+  "trickEngine": {
+    "trickPower": 1070,
+    "counterValue": 0,
+    "isHonour": false,
+    "family": "sign",
+    "biasedSuit": "Cups",
+    "eligibleMelds": [
+      "celestial-triumph"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Triumph",
+      "Direction",
+      "Will",
+      "Momentum",
+      "Self-Mastery"
+    ],
+    "upright": "Steering opposing forces through unwavering internal discipline, driving forward toward victory.",
+    "reversed": "Loss of control, derailment, reckless aggression, being swept away by emotional tides.",
+    "description": "The armored prince under a starry azure baldachin, reigning in black and white sphinxes with the mind alone."
+  }
+}

@@ -1,0 +1,71 @@
+{
+  "id": "major-01",
+  "slug": "the-magician",
+  "name": "The Magician",
+  "arcana": "major",
+  "numeral": "I",
+  "rank": 1,
+  "suit": "major",
+  "symbolism": {
+    "goldenDawnTitle": "The Magus of Power",
+    "element": "Air",
+    "esms": 3,
+    "planetaryBody": "Mercury",
+    "planetIndex": 2,
+    "zodiacSign": null,
+    "signIndex": null,
+    "decan": null,
+    "decanRange": null,
+    "chaldeanRuler": null,
+    "chaldeanRulerIndex": null,
+    "triplicitySign": null,
+    "triplicityRuler": "Mercury",
+    "triplicityRulerIndex": 2,
+    "hebrewLetter": "Beth (ב)",
+    "treeOfLifePath": "12th Path (Kether to Binah)"
+  },
+  "styling": {
+    "glyph": "☿",
+    "suitGlyph": "✦",
+    "primaryColor": "#82bbf2",
+    "accentColor": "#f6cf83",
+    "frameStyle": "hermetic-gold",
+    "artAsset": "/assets/cards/major/01-the-magician.jpg",
+    "fallbackArt": "/assets/suits/swords.jpg",
+    "audioFrequencyHz": 528
+  },
+  "sacredStats": {
+    "power": 47,
+    "resonance": 42,
+    "wisdom": 65,
+    "charisma": 47,
+    "intuition": 45,
+    "adaptability": 83,
+    "vitality": 42
+  },
+  "scrabbleLetter": "M",
+  "trickEngine": {
+    "trickPower": 1010,
+    "counterValue": 10,
+    "isHonour": true,
+    "family": "planetary",
+    "biasedSuit": "Swords",
+    "eligibleMelds": [
+      "grand-cross",
+      "the-trio",
+      "celestial-honours"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Willpower",
+      "Creation",
+      "Manifestation",
+      "Alchemy",
+      "Mastery"
+    ],
+    "upright": "As above, so below. Conscious direction of celestial currents into the four material elements.",
+    "reversed": "Trickery, illusion, latent capability, fragmented focus, manipulation.",
+    "description": "The conduit standing at the altar of the four hallows: wand, cup, sword, and pentacle."
+  }
+}

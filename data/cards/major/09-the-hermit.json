@@ -1,0 +1,69 @@
+{
+  "id": "major-09",
+  "slug": "the-hermit",
+  "name": "The Hermit",
+  "arcana": "major",
+  "numeral": "IX",
+  "rank": 9,
+  "suit": "major",
+  "symbolism": {
+    "goldenDawnTitle": "The Magus of the Voice of Power, The Prophet of the Gods",
+    "element": "Earth",
+    "esms": 2,
+    "planetaryBody": null,
+    "planetIndex": null,
+    "zodiacSign": "Virgo",
+    "signIndex": 5,
+    "decan": null,
+    "decanRange": null,
+    "chaldeanRuler": null,
+    "chaldeanRulerIndex": null,
+    "triplicitySign": "Virgo",
+    "triplicityRuler": "Mercury",
+    "triplicityRulerIndex": 2,
+    "hebrewLetter": "Yod (י)",
+    "treeOfLifePath": "20th Path (Chesed to Tiphereth)"
+  },
+  "styling": {
+    "glyph": "♍",
+    "suitGlyph": "✦",
+    "primaryColor": "#74ab6c",
+    "accentColor": "#9aa7c4",
+    "frameStyle": "cloistered-lantern",
+    "artAsset": "/assets/cards/major/09-the-hermit.jpg",
+    "fallbackArt": "/assets/suits/pentacles.jpg",
+    "audioFrequencyHz": 405
+  },
+  "sacredStats": {
+    "power": 42,
+    "resonance": 33,
+    "wisdom": 41,
+    "charisma": 35,
+    "intuition": 33,
+    "adaptability": 55,
+    "vitality": 47
+  },
+  "scrabbleLetter": "I",
+  "trickEngine": {
+    "trickPower": 1090,
+    "counterValue": 0,
+    "isHonour": false,
+    "family": "sign",
+    "biasedSuit": "Pentacles",
+    "eligibleMelds": [
+      "celestial-triumph"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Introspection",
+      "Solitude",
+      "Wisdom",
+      "The Lantern",
+      "Guidance"
+    ],
+    "upright": "Retreating to solitary heights to discern truth; carrying the lantern of cosmic illumination.",
+    "reversed": "Isolation, loneliness, withdrawal from community, arrogance of hidden knowledge.",
+    "description": "The hooded sage atop the icy peak, lifting high the six-pointed star of wisdom to guide seekers below."
+  }
+}

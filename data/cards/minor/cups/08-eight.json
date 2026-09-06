@@ -1,0 +1,72 @@
+{
+  "id": "cups-08",
+  "slug": "eight-of-cups",
+  "name": "Eight of Cups",
+  "arcana": "minor",
+  "numeral": "8",
+  "rank": 8,
+  "suit": "cups",
+  "symbolism": {
+    "goldenDawnTitle": "Lord of Abandoned Success",
+    "element": "Water",
+    "esms": 1,
+    "planetaryBody": "Saturn",
+    "planetIndex": 6,
+    "zodiacSign": "Pisces",
+    "signIndex": 11,
+    "decan": 0,
+    "decanRange": [
+      0,
+      10
+    ],
+    "chaldeanRuler": "Saturn",
+    "chaldeanRulerIndex": 6,
+    "triplicitySign": "Pisces",
+    "triplicityRuler": "Jupiter & Neptune",
+    "triplicityRulerIndex": 5,
+    "hebrewLetter": null,
+    "treeOfLifePath": null
+  },
+  "styling": {
+    "glyph": "🜄",
+    "suitGlyph": "🜄",
+    "primaryColor": "#5f93d8",
+    "accentColor": "#dce2f0",
+    "frameStyle": "cups-pip",
+    "artAsset": "/assets/cards/minor/cups/08-eight.jpg",
+    "fallbackArt": "/assets/suits/cups.jpg",
+    "audioFrequencyHz": 492
+  },
+  "sacredStats": {
+    "power": 33,
+    "resonance": 58,
+    "wisdom": 51,
+    "charisma": 55,
+    "intuition": 63,
+    "adaptability": 38,
+    "vitality": 28
+  },
+  "scrabbleLetter": "Y",
+  "trickEngine": {
+    "trickPower": 7,
+    "counterValue": 0,
+    "isHonour": false,
+    "family": "minor",
+    "biasedSuit": "Cups",
+    "eligibleMelds": [
+      "run",
+      "flush"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Abandoned Success",
+      "Pisces",
+      "Jupiter & Neptune",
+      "Decan 1"
+    ],
+    "upright": "Abandoned Success expressed through Water, attuned to Jupiter & Neptune in Pisces.",
+    "reversed": "Imbalance in Abandoned Success; tension between Jupiter & Neptune and Pisces.",
+    "description": "The 8 of Cups governs the 1 decan of Pisces (0°–10°), ruled by Jupiter & Neptune."
+  }
+}

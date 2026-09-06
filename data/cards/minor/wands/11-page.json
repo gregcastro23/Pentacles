@@ -1,0 +1,69 @@
+{
+  "id": "wands-11",
+  "slug": "page-of-wands",
+  "name": "Page of Wands",
+  "arcana": "minor",
+  "numeral": "P",
+  "rank": 11,
+  "suit": "wands",
+  "symbolism": {
+    "goldenDawnTitle": "Princess of the Shining Flame; The Rose of the Palace of Fire",
+    "element": "Fire",
+    "esms": 0,
+    "planetaryBody": null,
+    "planetIndex": null,
+    "zodiacSign": null,
+    "signIndex": null,
+    "decan": null,
+    "decanRange": null,
+    "chaldeanRuler": null,
+    "chaldeanRulerIndex": null,
+    "triplicitySign": null,
+    "triplicityRuler": null,
+    "triplicityRulerIndex": null,
+    "hebrewLetter": null,
+    "treeOfLifePath": null
+  },
+  "styling": {
+    "glyph": "🜂",
+    "suitGlyph": "🜂",
+    "primaryColor": "#db7a47",
+    "accentColor": "#f6cf83",
+    "frameStyle": "wands-court",
+    "artAsset": "/assets/cards/minor/wands/11-page.jpg",
+    "fallbackArt": "/assets/suits/wands.jpg",
+    "audioFrequencyHz": 564
+  },
+  "sacredStats": {
+    "power": 42,
+    "resonance": 39,
+    "wisdom": 24,
+    "charisma": 35,
+    "intuition": 32,
+    "adaptability": 28,
+    "vitality": 46
+  },
+  "scrabbleLetter": "P",
+  "trickEngine": {
+    "trickPower": 9,
+    "counterValue": 0,
+    "isHonour": false,
+    "family": "minor",
+    "biasedSuit": "Wands",
+    "eligibleMelds": [
+      "marriage",
+      "royal-court"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Page",
+      "Fire",
+      "Court Archetype",
+      "Herald"
+    ],
+    "upright": "Mature embodiment of Page wielding Fire consciousness.",
+    "reversed": "Misdirection of Page's temperament; emotional or tactical friction.",
+    "description": "Princess of the Shining Flame; The Rose of the Palace of Fire. Embodies the royal governance of Fire."
+  }
+}

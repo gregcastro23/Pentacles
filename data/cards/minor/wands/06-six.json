@@ -1,0 +1,72 @@
+{
+  "id": "wands-06",
+  "slug": "six-of-wands",
+  "name": "Six of Wands",
+  "arcana": "minor",
+  "numeral": "6",
+  "rank": 6,
+  "suit": "wands",
+  "symbolism": {
+    "goldenDawnTitle": "Lord of Victory",
+    "element": "Fire",
+    "esms": 0,
+    "planetaryBody": "Jupiter",
+    "planetIndex": 5,
+    "zodiacSign": "Leo",
+    "signIndex": 4,
+    "decan": 1,
+    "decanRange": [
+      10,
+      20
+    ],
+    "chaldeanRuler": "Jupiter",
+    "chaldeanRulerIndex": 5,
+    "triplicitySign": "Sagittarius",
+    "triplicityRuler": "Jupiter",
+    "triplicityRulerIndex": 5,
+    "hebrewLetter": null,
+    "treeOfLifePath": null
+  },
+  "styling": {
+    "glyph": "🜂",
+    "suitGlyph": "🜂",
+    "primaryColor": "#db7a47",
+    "accentColor": "#f6cf83",
+    "frameStyle": "wands-pip",
+    "artAsset": "/assets/cards/minor/wands/06-six.jpg",
+    "fallbackArt": "/assets/suits/wands.jpg",
+    "audioFrequencyHz": 504
+  },
+  "sacredStats": {
+    "power": 49,
+    "resonance": 56,
+    "wisdom": 40,
+    "charisma": 59,
+    "intuition": 37,
+    "adaptability": 32,
+    "vitality": 41
+  },
+  "scrabbleLetter": "S",
+  "trickEngine": {
+    "trickPower": 5,
+    "counterValue": 0,
+    "isHonour": false,
+    "family": "minor",
+    "biasedSuit": "Wands",
+    "eligibleMelds": [
+      "run",
+      "flush"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Victory",
+      "Leo",
+      "Jupiter",
+      "Decan 2"
+    ],
+    "upright": "Victory expressed through Fire, attuned to Jupiter in Sagittarius.",
+    "reversed": "Imbalance in Victory; tension between Jupiter and Leo.",
+    "description": "The 6 of Wands governs the 2 decan of Leo (10°–20°), ruled by Jupiter."
+  }
+}

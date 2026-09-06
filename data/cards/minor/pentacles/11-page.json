@@ -1,0 +1,69 @@
+{
+  "id": "pentacles-11",
+  "slug": "page-of-pentacles",
+  "name": "Page of Pentacles",
+  "arcana": "minor",
+  "numeral": "P",
+  "rank": 11,
+  "suit": "pentacles",
+  "symbolism": {
+    "goldenDawnTitle": "Princess of the Echoing Hills; The Rose of the Palace of Earth",
+    "element": "Earth",
+    "esms": 2,
+    "planetaryBody": null,
+    "planetIndex": null,
+    "zodiacSign": null,
+    "signIndex": null,
+    "decan": null,
+    "decanRange": null,
+    "chaldeanRuler": null,
+    "chaldeanRulerIndex": null,
+    "triplicitySign": null,
+    "triplicityRuler": null,
+    "triplicityRulerIndex": null,
+    "hebrewLetter": null,
+    "treeOfLifePath": null
+  },
+  "styling": {
+    "glyph": "🜃",
+    "suitGlyph": "🜃",
+    "primaryColor": "#74ab6c",
+    "accentColor": "#f0a95e",
+    "frameStyle": "pentacles-court",
+    "artAsset": "/assets/cards/minor/pentacles/11-page.jpg",
+    "fallbackArt": "/assets/suits/pentacles.jpg",
+    "audioFrequencyHz": 473
+  },
+  "sacredStats": {
+    "power": 37,
+    "resonance": 29,
+    "wisdom": 24,
+    "charisma": 24,
+    "intuition": 32,
+    "adaptability": 24,
+    "vitality": 51
+  },
+  "scrabbleLetter": "P",
+  "trickEngine": {
+    "trickPower": 9,
+    "counterValue": 0,
+    "isHonour": false,
+    "family": "minor",
+    "biasedSuit": "Pentacles",
+    "eligibleMelds": [
+      "marriage",
+      "royal-court"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Page",
+      "Earth",
+      "Court Archetype",
+      "Herald"
+    ],
+    "upright": "Mature embodiment of Page wielding Earth consciousness.",
+    "reversed": "Misdirection of Page's temperament; emotional or tactical friction.",
+    "description": "Princess of the Echoing Hills; The Rose of the Palace of Earth. Embodies the royal governance of Earth."
+  }
+}

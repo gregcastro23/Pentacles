@@ -1,0 +1,69 @@
+{
+  "id": "major-17",
+  "slug": "the-star",
+  "name": "The Star",
+  "arcana": "major",
+  "numeral": "XVII",
+  "rank": 17,
+  "suit": "major",
+  "symbolism": {
+    "goldenDawnTitle": "The Daughter of the Firmament; The Dweller between the Waters",
+    "element": "Air",
+    "esms": 3,
+    "planetaryBody": null,
+    "planetIndex": null,
+    "zodiacSign": "Aquarius",
+    "signIndex": 10,
+    "decan": null,
+    "decanRange": null,
+    "chaldeanRuler": null,
+    "chaldeanRulerIndex": null,
+    "triplicitySign": "Aquarius",
+    "triplicityRuler": "Uranus",
+    "triplicityRulerIndex": 7,
+    "hebrewLetter": "Tzaddi (צ)",
+    "treeOfLifePath": "28th Path (Netzach to Yesod)"
+  },
+  "styling": {
+    "glyph": "♒",
+    "suitGlyph": "✦",
+    "primaryColor": "#66d9e8",
+    "accentColor": "#dce2f0",
+    "frameStyle": "astral-dew",
+    "artAsset": "/assets/cards/major/17-the-star.jpg",
+    "fallbackArt": "/assets/suits/swords.jpg",
+    "audioFrequencyHz": 672
+  },
+  "sacredStats": {
+    "power": 31,
+    "resonance": 41,
+    "wisdom": 46,
+    "charisma": 33,
+    "intuition": 52,
+    "adaptability": 47,
+    "vitality": 38
+  },
+  "scrabbleLetter": "A",
+  "trickEngine": {
+    "trickPower": 1170,
+    "counterValue": 0,
+    "isHonour": false,
+    "family": "sign",
+    "biasedSuit": "Swords",
+    "eligibleMelds": [
+      "celestial-triumph"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Hope",
+      "Inspiration",
+      "Serenity",
+      "Faith",
+      "Cosmic Blessing"
+    ],
+    "upright": "Unclouded hope and divine inspiration after the storm; pouring pure stellar vitality back into the earth.",
+    "reversed": "Despair, loss of faith, discouragement, cynicism, disconnection from hope.",
+    "description": "The maiden under the great eight-pointed star, pouring celestial waters upon pool and fertile soil."
+  }
+}

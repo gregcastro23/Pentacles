@@ -1,0 +1,72 @@
+{
+  "id": "wands-05",
+  "slug": "five-of-wands",
+  "name": "Five of Wands",
+  "arcana": "minor",
+  "numeral": "5",
+  "rank": 5,
+  "suit": "wands",
+  "symbolism": {
+    "goldenDawnTitle": "Lord of Strife",
+    "element": "Fire",
+    "esms": 0,
+    "planetaryBody": "Saturn",
+    "planetIndex": 6,
+    "zodiacSign": "Leo",
+    "signIndex": 4,
+    "decan": 0,
+    "decanRange": [
+      0,
+      10
+    ],
+    "chaldeanRuler": "Saturn",
+    "chaldeanRulerIndex": 6,
+    "triplicitySign": "Leo",
+    "triplicityRuler": "Sun",
+    "triplicityRulerIndex": 0,
+    "hebrewLetter": null,
+    "treeOfLifePath": null
+  },
+  "styling": {
+    "glyph": "🜂",
+    "suitGlyph": "🜂",
+    "primaryColor": "#db7a47",
+    "accentColor": "#f6cf83",
+    "frameStyle": "wands-pip",
+    "artAsset": "/assets/cards/minor/wands/05-five.jpg",
+    "fallbackArt": "/assets/suits/wands.jpg",
+    "audioFrequencyHz": 492
+  },
+  "sacredStats": {
+    "power": 54,
+    "resonance": 46,
+    "wisdom": 27,
+    "charisma": 56,
+    "intuition": 24,
+    "adaptability": 33,
+    "vitality": 51
+  },
+  "scrabbleLetter": "P",
+  "trickEngine": {
+    "trickPower": 4,
+    "counterValue": 0,
+    "isHonour": false,
+    "family": "minor",
+    "biasedSuit": "Wands",
+    "eligibleMelds": [
+      "run",
+      "flush"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Strife",
+      "Leo",
+      "Sun",
+      "Decan 1"
+    ],
+    "upright": "Strife expressed through Fire, attuned to Sun in Leo.",
+    "reversed": "Imbalance in Strife; tension between Sun and Leo.",
+    "description": "The 5 of Wands governs the 1 decan of Leo (0°–10°), ruled by Sun."
+  }
+}

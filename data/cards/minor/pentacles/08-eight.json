@@ -1,0 +1,72 @@
+{
+  "id": "pentacles-08",
+  "slug": "eight-of-pentacles",
+  "name": "Eight of Pentacles",
+  "arcana": "minor",
+  "numeral": "8",
+  "rank": 8,
+  "suit": "pentacles",
+  "symbolism": {
+    "goldenDawnTitle": "Lord of Prudence",
+    "element": "Earth",
+    "esms": 2,
+    "planetaryBody": "Sun",
+    "planetIndex": 0,
+    "zodiacSign": "Virgo",
+    "signIndex": 5,
+    "decan": 0,
+    "decanRange": [
+      0,
+      10
+    ],
+    "chaldeanRuler": "Sun",
+    "chaldeanRulerIndex": 0,
+    "triplicitySign": "Virgo",
+    "triplicityRuler": "Mercury",
+    "triplicityRulerIndex": 2,
+    "hebrewLetter": null,
+    "treeOfLifePath": null
+  },
+  "styling": {
+    "glyph": "🜃",
+    "suitGlyph": "🜃",
+    "primaryColor": "#74ab6c",
+    "accentColor": "#f0a95e",
+    "frameStyle": "pentacles-pip",
+    "artAsset": "/assets/cards/minor/pentacles/08-eight.jpg",
+    "fallbackArt": "/assets/suits/pentacles.jpg",
+    "audioFrequencyHz": 437
+  },
+  "sacredStats": {
+    "power": 44,
+    "resonance": 34,
+    "wisdom": 43,
+    "charisma": 37,
+    "intuition": 34,
+    "adaptability": 58,
+    "vitality": 48
+  },
+  "scrabbleLetter": "Y",
+  "trickEngine": {
+    "trickPower": 7,
+    "counterValue": 0,
+    "isHonour": false,
+    "family": "minor",
+    "biasedSuit": "Pentacles",
+    "eligibleMelds": [
+      "run",
+      "flush"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Prudence",
+      "Virgo",
+      "Mercury",
+      "Decan 1"
+    ],
+    "upright": "Prudence expressed through Earth, attuned to Mercury in Virgo.",
+    "reversed": "Imbalance in Prudence; tension between Mercury and Virgo.",
+    "description": "The 8 of Pentacles governs the 1 decan of Virgo (0°–10°), ruled by Mercury."
+  }
+}

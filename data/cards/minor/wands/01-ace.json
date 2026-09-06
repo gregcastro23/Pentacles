@@ -1,0 +1,68 @@
+{
+  "id": "wands-01",
+  "slug": "ace-of-wands",
+  "name": "Ace of Wands",
+  "arcana": "minor",
+  "numeral": "A",
+  "rank": 1,
+  "suit": "wands",
+  "symbolism": {
+    "goldenDawnTitle": "The Root of the Powers of Fire",
+    "element": "Fire",
+    "esms": 0,
+    "planetaryBody": "Sun",
+    "planetIndex": 0,
+    "zodiacSign": null,
+    "signIndex": null,
+    "decan": null,
+    "decanRange": null,
+    "chaldeanRuler": null,
+    "chaldeanRulerIndex": null,
+    "triplicitySign": null,
+    "triplicityRuler": "Sun",
+    "triplicityRulerIndex": 0,
+    "hebrewLetter": null,
+    "treeOfLifePath": null
+  },
+  "styling": {
+    "glyph": "🜂",
+    "suitGlyph": "🜂",
+    "primaryColor": "#db7a47",
+    "accentColor": "#f6cf83",
+    "frameStyle": "wands-pip",
+    "artAsset": "/assets/cards/minor/wands/01-ace.jpg",
+    "fallbackArt": "/assets/suits/wands.jpg",
+    "audioFrequencyHz": 444
+  },
+  "sacredStats": {
+    "power": 53,
+    "resonance": 42,
+    "wisdom": 24,
+    "charisma": 55,
+    "intuition": 24,
+    "adaptability": 33,
+    "vitality": 50
+  },
+  "scrabbleLetter": "A",
+  "trickEngine": {
+    "trickPower": 14,
+    "counterValue": 10,
+    "isHonour": false,
+    "family": "minor",
+    "biasedSuit": "Wands",
+    "eligibleMelds": [
+      "royal-ace"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Origin",
+      "Seed of Power",
+      "Pure Potential",
+      "Elemental Emergence"
+    ],
+    "upright": "The pristine primal spark of Fire; the root of elemental consciousness.",
+    "reversed": "Blocked inspiration, wasted potential, ungrounded creative force.",
+    "description": "A celestial hand emerges from the clouds bearing the living emblem of Fire."
+  }
+}

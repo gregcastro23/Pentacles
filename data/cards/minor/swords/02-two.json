@@ -1,0 +1,72 @@
+{
+  "id": "swords-02",
+  "slug": "two-of-swords",
+  "name": "Two of Swords",
+  "arcana": "minor",
+  "numeral": "2",
+  "rank": 2,
+  "suit": "swords",
+  "symbolism": {
+    "goldenDawnTitle": "Lord of Peace Restored",
+    "element": "Air",
+    "esms": 3,
+    "planetaryBody": "Moon",
+    "planetIndex": 1,
+    "zodiacSign": "Libra",
+    "signIndex": 6,
+    "decan": 0,
+    "decanRange": [
+      0,
+      10
+    ],
+    "chaldeanRuler": "Moon",
+    "chaldeanRulerIndex": 1,
+    "triplicitySign": "Libra",
+    "triplicityRuler": "Venus",
+    "triplicityRulerIndex": 3,
+    "hebrewLetter": null,
+    "treeOfLifePath": null
+  },
+  "styling": {
+    "glyph": "🜁",
+    "suitGlyph": "🜁",
+    "primaryColor": "#aebbd6",
+    "accentColor": "#82bbf2",
+    "frameStyle": "swords-pip",
+    "artAsset": "/assets/cards/minor/swords/02-two.jpg",
+    "fallbackArt": "/assets/suits/swords.jpg",
+    "audioFrequencyHz": 552
+  },
+  "sacredStats": {
+    "power": 35,
+    "resonance": 44,
+    "wisdom": 43,
+    "charisma": 42,
+    "intuition": 48,
+    "adaptability": 38,
+    "vitality": 41
+  },
+  "scrabbleLetter": "G",
+  "trickEngine": {
+    "trickPower": 1,
+    "counterValue": 0,
+    "isHonour": false,
+    "family": "minor",
+    "biasedSuit": "Swords",
+    "eligibleMelds": [
+      "run",
+      "flush"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Peace Restored",
+      "Libra",
+      "Venus",
+      "Decan 1"
+    ],
+    "upright": "Peace Restored expressed through Air, attuned to Venus in Libra.",
+    "reversed": "Imbalance in Peace Restored; tension between Venus and Libra.",
+    "description": "The 2 of Swords governs the 1 decan of Libra (0°–10°), ruled by Venus."
+  }
+}

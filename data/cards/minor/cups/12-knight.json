@@ -1,0 +1,69 @@
+{
+  "id": "cups-12",
+  "slug": "knight-of-cups",
+  "name": "Knight of Cups",
+  "arcana": "minor",
+  "numeral": "Kn",
+  "rank": 12,
+  "suit": "cups",
+  "symbolism": {
+    "goldenDawnTitle": "Prince of the Chariot of the Waters",
+    "element": "Water",
+    "esms": 1,
+    "planetaryBody": null,
+    "planetIndex": null,
+    "zodiacSign": null,
+    "signIndex": null,
+    "decan": null,
+    "decanRange": null,
+    "chaldeanRuler": null,
+    "chaldeanRulerIndex": null,
+    "triplicitySign": null,
+    "triplicityRuler": null,
+    "triplicityRulerIndex": null,
+    "hebrewLetter": null,
+    "treeOfLifePath": null
+  },
+  "styling": {
+    "glyph": "🜄",
+    "suitGlyph": "🜄",
+    "primaryColor": "#5f93d8",
+    "accentColor": "#dce2f0",
+    "frameStyle": "cups-court",
+    "artAsset": "/assets/cards/minor/cups/12-knight.jpg",
+    "fallbackArt": "/assets/suits/cups.jpg",
+    "audioFrequencyHz": 540
+  },
+  "sacredStats": {
+    "power": 44,
+    "resonance": 47,
+    "wisdom": 31,
+    "charisma": 45,
+    "intuition": 40,
+    "adaptability": 28,
+    "vitality": 39
+  },
+  "scrabbleLetter": "N",
+  "trickEngine": {
+    "trickPower": 10,
+    "counterValue": 0,
+    "isHonour": false,
+    "family": "minor",
+    "biasedSuit": "Cups",
+    "eligibleMelds": [
+      "marriage",
+      "royal-court"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Knight",
+      "Water",
+      "Court Archetype",
+      "Herald"
+    ],
+    "upright": "Mature embodiment of Knight wielding Water consciousness.",
+    "reversed": "Misdirection of Knight's temperament; emotional or tactical friction.",
+    "description": "Prince of the Chariot of the Waters. Embodies the royal governance of Water."
+  }
+}

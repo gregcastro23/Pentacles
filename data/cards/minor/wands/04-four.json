@@ -1,0 +1,72 @@
+{
+  "id": "wands-04",
+  "slug": "four-of-wands",
+  "name": "Four of Wands",
+  "arcana": "minor",
+  "numeral": "4",
+  "rank": 4,
+  "suit": "wands",
+  "symbolism": {
+    "goldenDawnTitle": "Lord of Perfected Work",
+    "element": "Fire",
+    "esms": 0,
+    "planetaryBody": "Venus",
+    "planetIndex": 3,
+    "zodiacSign": "Aries",
+    "signIndex": 0,
+    "decan": 2,
+    "decanRange": [
+      20,
+      30
+    ],
+    "chaldeanRuler": "Venus",
+    "chaldeanRulerIndex": 3,
+    "triplicitySign": "Sagittarius",
+    "triplicityRuler": "Jupiter",
+    "triplicityRulerIndex": 5,
+    "hebrewLetter": null,
+    "treeOfLifePath": null
+  },
+  "styling": {
+    "glyph": "🜂",
+    "suitGlyph": "🜂",
+    "primaryColor": "#db7a47",
+    "accentColor": "#f6cf83",
+    "frameStyle": "wands-pip",
+    "artAsset": "/assets/cards/minor/wands/04-four.jpg",
+    "fallbackArt": "/assets/suits/wands.jpg",
+    "audioFrequencyHz": 480
+  },
+  "sacredStats": {
+    "power": 52,
+    "resonance": 53,
+    "wisdom": 37,
+    "charisma": 59,
+    "intuition": 37,
+    "adaptability": 32,
+    "vitality": 43
+  },
+  "scrabbleLetter": "M",
+  "trickEngine": {
+    "trickPower": 3,
+    "counterValue": 0,
+    "isHonour": false,
+    "family": "minor",
+    "biasedSuit": "Wands",
+    "eligibleMelds": [
+      "run",
+      "flush"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Perfected Work",
+      "Aries",
+      "Jupiter",
+      "Decan 3"
+    ],
+    "upright": "Perfected Work expressed through Fire, attuned to Jupiter in Sagittarius.",
+    "reversed": "Imbalance in Perfected Work; tension between Jupiter and Aries.",
+    "description": "The 4 of Wands governs the 3 decan of Aries (20°–30°), ruled by Jupiter."
+  }
+}
