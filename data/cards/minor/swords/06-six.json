@@ -1,0 +1,72 @@
+{
+  "id": "swords-06",
+  "slug": "six-of-swords",
+  "name": "Six of Swords",
+  "arcana": "minor",
+  "numeral": "6",
+  "rank": 6,
+  "suit": "swords",
+  "symbolism": {
+    "goldenDawnTitle": "Lord of Earned Success",
+    "element": "Air",
+    "esms": 3,
+    "planetaryBody": "Mercury",
+    "planetIndex": 2,
+    "zodiacSign": "Aquarius",
+    "signIndex": 10,
+    "decan": 1,
+    "decanRange": [
+      10,
+      20
+    ],
+    "chaldeanRuler": "Mercury",
+    "chaldeanRulerIndex": 2,
+    "triplicitySign": "Gemini",
+    "triplicityRuler": "Mercury",
+    "triplicityRulerIndex": 2,
+    "hebrewLetter": null,
+    "treeOfLifePath": null
+  },
+  "styling": {
+    "glyph": "🜁",
+    "suitGlyph": "🜁",
+    "primaryColor": "#aebbd6",
+    "accentColor": "#82bbf2",
+    "frameStyle": "swords-pip",
+    "artAsset": "/assets/cards/minor/swords/06-six.jpg",
+    "fallbackArt": "/assets/suits/swords.jpg",
+    "audioFrequencyHz": 600
+  },
+  "sacredStats": {
+    "power": 33,
+    "resonance": 35,
+    "wisdom": 55,
+    "charisma": 33,
+    "intuition": 37,
+    "adaptability": 62,
+    "vitality": 31
+  },
+  "scrabbleLetter": "S",
+  "trickEngine": {
+    "trickPower": 5,
+    "counterValue": 0,
+    "isHonour": false,
+    "family": "minor",
+    "biasedSuit": "Swords",
+    "eligibleMelds": [
+      "run",
+      "flush"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Earned Success",
+      "Aquarius",
+      "Mercury",
+      "Decan 2"
+    ],
+    "upright": "Earned Success expressed through Air, attuned to Mercury in Gemini.",
+    "reversed": "Imbalance in Earned Success; tension between Mercury and Aquarius.",
+    "description": "The 6 of Swords governs the 2 decan of Aquarius (10°–20°), ruled by Mercury."
+  }
+}

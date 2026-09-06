@@ -1,0 +1,69 @@
+{
+  "id": "swords-13",
+  "slug": "queen-of-swords",
+  "name": "Queen of Swords",
+  "arcana": "minor",
+  "numeral": "Q",
+  "rank": 13,
+  "suit": "swords",
+  "symbolism": {
+    "goldenDawnTitle": "Queen of the Thrones of Air",
+    "element": "Air",
+    "esms": 3,
+    "planetaryBody": null,
+    "planetIndex": null,
+    "zodiacSign": null,
+    "signIndex": null,
+    "decan": null,
+    "decanRange": null,
+    "chaldeanRuler": null,
+    "chaldeanRulerIndex": null,
+    "triplicitySign": null,
+    "triplicityRuler": null,
+    "triplicityRulerIndex": null,
+    "hebrewLetter": null,
+    "treeOfLifePath": null
+  },
+  "styling": {
+    "glyph": "🜁",
+    "suitGlyph": "🜁",
+    "primaryColor": "#aebbd6",
+    "accentColor": "#82bbf2",
+    "frameStyle": "swords-court",
+    "artAsset": "/assets/cards/minor/swords/13-queen.jpg",
+    "fallbackArt": "/assets/suits/swords.jpg",
+    "audioFrequencyHz": 684
+  },
+  "sacredStats": {
+    "power": 24,
+    "resonance": 46,
+    "wisdom": 43,
+    "charisma": 43,
+    "intuition": 50,
+    "adaptability": 38,
+    "vitality": 24
+  },
+  "scrabbleLetter": "Q",
+  "trickEngine": {
+    "trickPower": 11,
+    "counterValue": 0,
+    "isHonour": false,
+    "family": "minor",
+    "biasedSuit": "Swords",
+    "eligibleMelds": [
+      "marriage",
+      "royal-court"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Queen",
+      "Air",
+      "Court Archetype",
+      "Herald"
+    ],
+    "upright": "Mature embodiment of Queen wielding Air consciousness.",
+    "reversed": "Misdirection of Queen's temperament; emotional or tactical friction.",
+    "description": "Queen of the Thrones of Air. Embodies the royal governance of Air."
+  }
+}

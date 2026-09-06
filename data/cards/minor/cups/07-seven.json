@@ -1,0 +1,72 @@
+{
+  "id": "cups-07",
+  "slug": "seven-of-cups",
+  "name": "Seven of Cups",
+  "arcana": "minor",
+  "numeral": "7",
+  "rank": 7,
+  "suit": "cups",
+  "symbolism": {
+    "goldenDawnTitle": "Lord of Illusionary Success",
+    "element": "Water",
+    "esms": 1,
+    "planetaryBody": "Venus",
+    "planetIndex": 3,
+    "zodiacSign": "Scorpio",
+    "signIndex": 7,
+    "decan": 2,
+    "decanRange": [
+      20,
+      30
+    ],
+    "chaldeanRuler": "Venus",
+    "chaldeanRulerIndex": 3,
+    "triplicitySign": "Cancer",
+    "triplicityRuler": "Moon",
+    "triplicityRulerIndex": 1,
+    "hebrewLetter": null,
+    "treeOfLifePath": null
+  },
+  "styling": {
+    "glyph": "🜄",
+    "suitGlyph": "🜄",
+    "primaryColor": "#5f93d8",
+    "accentColor": "#dce2f0",
+    "frameStyle": "cups-pip",
+    "artAsset": "/assets/cards/minor/cups/07-seven.jpg",
+    "fallbackArt": "/assets/suits/cups.jpg",
+    "audioFrequencyHz": 480
+  },
+  "sacredStats": {
+    "power": 28,
+    "resonance": 55,
+    "wisdom": 38,
+    "charisma": 38,
+    "intuition": 58,
+    "adaptability": 24,
+    "vitality": 32
+  },
+  "scrabbleLetter": "V",
+  "trickEngine": {
+    "trickPower": 6,
+    "counterValue": 0,
+    "isHonour": false,
+    "family": "minor",
+    "biasedSuit": "Cups",
+    "eligibleMelds": [
+      "run",
+      "flush"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Illusionary Success",
+      "Scorpio",
+      "Moon",
+      "Decan 3"
+    ],
+    "upright": "Illusionary Success expressed through Water, attuned to Moon in Cancer.",
+    "reversed": "Imbalance in Illusionary Success; tension between Moon and Scorpio.",
+    "description": "The 7 of Cups governs the 3 decan of Scorpio (20°–30°), ruled by Moon."
+  }
+}

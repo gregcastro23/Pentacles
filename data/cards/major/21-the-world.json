@@ -1,0 +1,71 @@
+{
+  "id": "major-21",
+  "slug": "the-world",
+  "name": "The World",
+  "arcana": "major",
+  "numeral": "XXI",
+  "rank": 21,
+  "suit": "major",
+  "symbolism": {
+    "goldenDawnTitle": "The Great One of the Night of Time",
+    "element": "Earth",
+    "esms": 2,
+    "planetaryBody": "Saturn",
+    "planetIndex": 6,
+    "zodiacSign": null,
+    "signIndex": null,
+    "decan": null,
+    "decanRange": null,
+    "chaldeanRuler": null,
+    "chaldeanRulerIndex": null,
+    "triplicitySign": null,
+    "triplicityRuler": "Saturn",
+    "triplicityRulerIndex": 6,
+    "hebrewLetter": "Tav (ת)",
+    "treeOfLifePath": "32nd Path (Yesod to Malkuth)"
+  },
+  "styling": {
+    "glyph": "♄",
+    "suitGlyph": "✦",
+    "primaryColor": "#998ab0",
+    "accentColor": "#74ab6c",
+    "frameStyle": "ouroboric-wreath",
+    "artAsset": "/assets/cards/major/21-the-world.jpg",
+    "fallbackArt": "/assets/suits/pentacles.jpg",
+    "audioFrequencyHz": 741
+  },
+  "sacredStats": {
+    "power": 68,
+    "resonance": 42,
+    "wisdom": 32,
+    "charisma": 47,
+    "intuition": 24,
+    "adaptability": 29,
+    "vitality": 90
+  },
+  "scrabbleLetter": "Z",
+  "trickEngine": {
+    "trickPower": 1210,
+    "counterValue": 10,
+    "isHonour": true,
+    "family": "planetary",
+    "biasedSuit": "Pentacles",
+    "eligibleMelds": [
+      "grand-cross",
+      "the-trio",
+      "celestial-honours"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Completion",
+      "Wholeness",
+      "Integration",
+      "Cosmic Dance",
+      "Fulfillment"
+    ],
+    "upright": "Total integration of the four worlds and elements; triumphant completion of the Great Work.",
+    "reversed": "Unfinished journey, delays in closure, seeking shortcuts to mastery, hesitation at the finish line.",
+    "description": "The cosmic dancer dancing within the laurel wreath, surrounded by the four living creatures of the zodiac."
+  }
+}

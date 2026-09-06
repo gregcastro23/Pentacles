@@ -1,0 +1,69 @@
+{
+  "id": "major-14",
+  "slug": "temperance",
+  "name": "Temperance",
+  "arcana": "major",
+  "numeral": "XIV",
+  "rank": 14,
+  "suit": "major",
+  "symbolism": {
+    "goldenDawnTitle": "The Daughter of the Reconcilers; The Bringer-Forth of Life",
+    "element": "Fire",
+    "esms": 0,
+    "planetaryBody": null,
+    "planetIndex": null,
+    "zodiacSign": "Sagittarius",
+    "signIndex": 8,
+    "decan": null,
+    "decanRange": null,
+    "chaldeanRuler": null,
+    "chaldeanRulerIndex": null,
+    "triplicitySign": "Sagittarius",
+    "triplicityRuler": "Jupiter",
+    "triplicityRulerIndex": 5,
+    "hebrewLetter": "Samekh (ס)",
+    "treeOfLifePath": "25th Path (Tiphereth to Yesod)"
+  },
+  "styling": {
+    "glyph": "♐",
+    "suitGlyph": "✦",
+    "primaryColor": "#db7a47",
+    "accentColor": "#76e0a8",
+    "frameStyle": "angelic-synthesis",
+    "artAsset": "/assets/cards/major/14-temperance.jpg",
+    "fallbackArt": "/assets/suits/wands.jpg",
+    "audioFrequencyHz": 450
+  },
+  "sacredStats": {
+    "power": 50,
+    "resonance": 56,
+    "wisdom": 38,
+    "charisma": 62,
+    "intuition": 42,
+    "adaptability": 38,
+    "vitality": 42
+  },
+  "scrabbleLetter": "T",
+  "trickEngine": {
+    "trickPower": 1140,
+    "counterValue": 0,
+    "isHonour": false,
+    "family": "sign",
+    "biasedSuit": "Wands",
+    "eligibleMelds": [
+      "celestial-triumph"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Alchemy",
+      "Balance",
+      "Moderation",
+      "Integration",
+      "Patience"
+    ],
+    "upright": "Continuous blending of opposites; pouring the water of life between gold and silver vessels.",
+    "reversed": "Imbalance, excess, conflicting elements, haste, discordant combinations.",
+    "description": "The winged solar angel with one foot on water and one on land, pouring liquid light in an endless stream."
+  }
+}

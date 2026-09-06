@@ -1,0 +1,69 @@
+{
+  "id": "pentacles-14",
+  "slug": "king-of-pentacles",
+  "name": "King of Pentacles",
+  "arcana": "minor",
+  "numeral": "K",
+  "rank": 14,
+  "suit": "pentacles",
+  "symbolism": {
+    "goldenDawnTitle": "Lord of the Wide and Fertile Land; King of the Spirits of Earth",
+    "element": "Earth",
+    "esms": 2,
+    "planetaryBody": null,
+    "planetIndex": null,
+    "zodiacSign": null,
+    "signIndex": null,
+    "decan": null,
+    "decanRange": null,
+    "chaldeanRuler": null,
+    "chaldeanRulerIndex": null,
+    "triplicitySign": null,
+    "triplicityRuler": null,
+    "triplicityRulerIndex": null,
+    "hebrewLetter": null,
+    "treeOfLifePath": null
+  },
+  "styling": {
+    "glyph": "🜃",
+    "suitGlyph": "🜃",
+    "primaryColor": "#74ab6c",
+    "accentColor": "#f0a95e",
+    "frameStyle": "pentacles-court",
+    "artAsset": "/assets/cards/minor/pentacles/14-king.jpg",
+    "fallbackArt": "/assets/suits/pentacles.jpg",
+    "audioFrequencyHz": 509
+  },
+  "sacredStats": {
+    "power": 36,
+    "resonance": 24,
+    "wisdom": 39,
+    "charisma": 32,
+    "intuition": 33,
+    "adaptability": 42,
+    "vitality": 46
+  },
+  "scrabbleLetter": "K",
+  "trickEngine": {
+    "trickPower": 12,
+    "counterValue": 10,
+    "isHonour": false,
+    "family": "minor",
+    "biasedSuit": "Pentacles",
+    "eligibleMelds": [
+      "marriage",
+      "royal-court"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "King",
+      "Earth",
+      "Court Archetype",
+      "Herald"
+    ],
+    "upright": "Mature embodiment of King wielding Earth consciousness.",
+    "reversed": "Misdirection of King's temperament; emotional or tactical friction.",
+    "description": "Lord of the Wide and Fertile Land; King of the Spirits of Earth. Embodies the royal governance of Earth."
+  }
+}

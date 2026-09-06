@@ -1,0 +1,69 @@
+{
+  "id": "major-02",
+  "slug": "the-high-priestess",
+  "name": "The High Priestess",
+  "arcana": "major",
+  "numeral": "II",
+  "rank": 2,
+  "suit": "major",
+  "symbolism": {
+    "goldenDawnTitle": "The Priestess of the Silver Star",
+    "element": "Water",
+    "esms": 1,
+    "planetaryBody": "Moon",
+    "planetIndex": 1,
+    "zodiacSign": null,
+    "signIndex": null,
+    "decan": null,
+    "decanRange": null,
+    "chaldeanRuler": null,
+    "chaldeanRulerIndex": null,
+    "triplicitySign": null,
+    "triplicityRuler": "Moon",
+    "triplicityRulerIndex": 1,
+    "hebrewLetter": "Gimel (ג)",
+    "treeOfLifePath": "13th Path (Kether to Tiphereth)"
+  },
+  "styling": {
+    "glyph": "☽",
+    "suitGlyph": "✦",
+    "primaryColor": "#dce2f0",
+    "accentColor": "#5f93d8",
+    "frameStyle": "lunar-veil",
+    "artAsset": "/assets/cards/major/02-the-high-priestess.jpg",
+    "fallbackArt": "/assets/suits/cups.jpg",
+    "audioFrequencyHz": 416
+  },
+  "sacredStats": {
+    "power": 38,
+    "resonance": 72,
+    "wisdom": 45,
+    "charisma": 52,
+    "intuition": 81,
+    "adaptability": 24,
+    "vitality": 52
+  },
+  "scrabbleLetter": "P",
+  "trickEngine": {
+    "trickPower": 1020,
+    "counterValue": 0,
+    "isHonour": false,
+    "family": "planetary",
+    "biasedSuit": "Cups",
+    "eligibleMelds": [
+      "celestial-triumph"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Intuition",
+      "Mystery",
+      "Subconscious",
+      "The Veil",
+      "Inner Knowing"
+    ],
+    "upright": "Sitting between the pillars Boaz and Jachin, guarding the scrolls of hidden astrological wisdom.",
+    "reversed": "Secrets withheld, disconnect from intuition, superficiality, cognitive fog.",
+    "description": "The silent oracle seated before the pomegranate tapestry, bathed in perpetual lunar radiance."
+  }
+}

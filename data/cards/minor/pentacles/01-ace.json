@@ -1,0 +1,68 @@
+{
+  "id": "pentacles-01",
+  "slug": "ace-of-pentacles",
+  "name": "Ace of Pentacles",
+  "arcana": "minor",
+  "numeral": "A",
+  "rank": 1,
+  "suit": "pentacles",
+  "symbolism": {
+    "goldenDawnTitle": "The Root of the Powers of Earth",
+    "element": "Earth",
+    "esms": 2,
+    "planetaryBody": "Saturn",
+    "planetIndex": 6,
+    "zodiacSign": null,
+    "signIndex": null,
+    "decan": null,
+    "decanRange": null,
+    "chaldeanRuler": null,
+    "chaldeanRulerIndex": null,
+    "triplicitySign": null,
+    "triplicityRuler": "Saturn",
+    "triplicityRulerIndex": 6,
+    "hebrewLetter": null,
+    "treeOfLifePath": null
+  },
+  "styling": {
+    "glyph": "🜃",
+    "suitGlyph": "🜃",
+    "primaryColor": "#74ab6c",
+    "accentColor": "#f0a95e",
+    "frameStyle": "pentacles-pip",
+    "artAsset": "/assets/cards/minor/pentacles/01-ace.jpg",
+    "fallbackArt": "/assets/suits/pentacles.jpg",
+    "audioFrequencyHz": 353
+  },
+  "sacredStats": {
+    "power": 38,
+    "resonance": 24,
+    "wisdom": 32,
+    "charisma": 24,
+    "intuition": 24,
+    "adaptability": 20,
+    "vitality": 58
+  },
+  "scrabbleLetter": "A",
+  "trickEngine": {
+    "trickPower": 14,
+    "counterValue": 10,
+    "isHonour": false,
+    "family": "minor",
+    "biasedSuit": "Pentacles",
+    "eligibleMelds": [
+      "royal-ace"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Origin",
+      "Seed of Power",
+      "Pure Potential",
+      "Elemental Emergence"
+    ],
+    "upright": "The pristine primal spark of Earth; the root of elemental consciousness.",
+    "reversed": "Blocked inspiration, wasted potential, ungrounded creative force.",
+    "description": "A celestial hand emerges from the clouds bearing the living emblem of Earth."
+  }
+}

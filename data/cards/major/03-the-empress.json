@@ -1,0 +1,69 @@
+{
+  "id": "major-03",
+  "slug": "the-empress",
+  "name": "The Empress",
+  "arcana": "major",
+  "numeral": "III",
+  "rank": 3,
+  "suit": "major",
+  "symbolism": {
+    "goldenDawnTitle": "The Daughter of the Mighty Ones",
+    "element": "Water",
+    "esms": 1,
+    "planetaryBody": "Venus",
+    "planetIndex": 3,
+    "zodiacSign": null,
+    "signIndex": null,
+    "decan": null,
+    "decanRange": null,
+    "chaldeanRuler": null,
+    "chaldeanRulerIndex": null,
+    "triplicitySign": null,
+    "triplicityRuler": "Venus",
+    "triplicityRulerIndex": 3,
+    "hebrewLetter": "Daleth (ד)",
+    "treeOfLifePath": "14th Path (Chokmah to Binah)"
+  },
+  "styling": {
+    "glyph": "♀",
+    "suitGlyph": "✦",
+    "primaryColor": "#76e0a8",
+    "accentColor": "#f6cf83",
+    "frameStyle": "emerald-luxuria",
+    "artAsset": "/assets/cards/major/03-the-empress.jpg",
+    "fallbackArt": "/assets/suits/cups.jpg",
+    "audioFrequencyHz": 440
+  },
+  "sacredStats": {
+    "power": 38,
+    "resonance": 72,
+    "wisdom": 45,
+    "charisma": 60,
+    "intuition": 73,
+    "adaptability": 24,
+    "vitality": 52
+  },
+  "scrabbleLetter": "E",
+  "trickEngine": {
+    "trickPower": 1030,
+    "counterValue": 0,
+    "isHonour": false,
+    "family": "planetary",
+    "biasedSuit": "Cups",
+    "eligibleMelds": [
+      "celestial-triumph"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Fertility",
+      "Abundance",
+      "Nature",
+      "Nurture",
+      "Grace"
+    ],
+    "upright": "Rich organic proliferation, maternal cosmic grace, the living garden of creation in full bloom.",
+    "reversed": "Overindulgence, creative block, smothering control, depletion.",
+    "description": "Crowned with twelve stars, seated amid fields of ripe grain and flowing rivers of pure essence."
+  }
+}

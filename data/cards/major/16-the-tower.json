@@ -1,0 +1,69 @@
+{
+  "id": "major-16",
+  "slug": "the-tower",
+  "name": "The Tower",
+  "arcana": "major",
+  "numeral": "XVI",
+  "rank": 16,
+  "suit": "major",
+  "symbolism": {
+    "goldenDawnTitle": "The Lord of the Hosts of the Mighty",
+    "element": "Fire",
+    "esms": 0,
+    "planetaryBody": "Mars",
+    "planetIndex": 4,
+    "zodiacSign": null,
+    "signIndex": null,
+    "decan": null,
+    "decanRange": null,
+    "chaldeanRuler": null,
+    "chaldeanRulerIndex": null,
+    "triplicitySign": null,
+    "triplicityRuler": "Mars",
+    "triplicityRulerIndex": 4,
+    "hebrewLetter": "Peh (פ)",
+    "treeOfLifePath": "27th Path (Netzach to Hod)"
+  },
+  "styling": {
+    "glyph": "♂",
+    "suitGlyph": "✦",
+    "primaryColor": "#e26666",
+    "accentColor": "#f6cf83",
+    "frameStyle": "fulgurite-citadel",
+    "artAsset": "/assets/cards/major/16-the-tower.jpg",
+    "fallbackArt": "/assets/suits/wands.jpg",
+    "audioFrequencyHz": 588
+  },
+  "sacredStats": {
+    "power": 58,
+    "resonance": 61,
+    "wisdom": 38,
+    "charisma": 54,
+    "intuition": 56,
+    "adaptability": 28,
+    "vitality": 67
+  },
+  "scrabbleLetter": "K",
+  "trickEngine": {
+    "trickPower": 1160,
+    "counterValue": 0,
+    "isHonour": false,
+    "family": "planetary",
+    "biasedSuit": "Wands",
+    "eligibleMelds": [
+      "celestial-triumph"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Sudden Upheaval",
+      "Shattering Falsehood",
+      "Revelation",
+      "Catharsis",
+      "Awakening"
+    ],
+    "upright": "The sudden bolt of cosmic lightning that topples brittle falsehoods; instant radical liberation.",
+    "reversed": "Disaster narrowly avoided, delaying inevitable breakdown, fear of personal collapse.",
+    "description": "A stone crown struck by lightning from heaven, fire bursting from windows as false idols tumble into the dark."
+  }
+}

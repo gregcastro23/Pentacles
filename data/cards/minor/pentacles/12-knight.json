@@ -1,0 +1,69 @@
+{
+  "id": "pentacles-12",
+  "slug": "knight-of-pentacles",
+  "name": "Knight of Pentacles",
+  "arcana": "minor",
+  "numeral": "Kn",
+  "rank": 12,
+  "suit": "pentacles",
+  "symbolism": {
+    "goldenDawnTitle": "Prince of the Chariot of Earth",
+    "element": "Earth",
+    "esms": 2,
+    "planetaryBody": null,
+    "planetIndex": null,
+    "zodiacSign": null,
+    "signIndex": null,
+    "decan": null,
+    "decanRange": null,
+    "chaldeanRuler": null,
+    "chaldeanRulerIndex": null,
+    "triplicitySign": null,
+    "triplicityRuler": null,
+    "triplicityRulerIndex": null,
+    "hebrewLetter": null,
+    "treeOfLifePath": null
+  },
+  "styling": {
+    "glyph": "🜃",
+    "suitGlyph": "🜃",
+    "primaryColor": "#74ab6c",
+    "accentColor": "#f0a95e",
+    "frameStyle": "pentacles-court",
+    "artAsset": "/assets/cards/minor/pentacles/12-knight.jpg",
+    "fallbackArt": "/assets/suits/pentacles.jpg",
+    "audioFrequencyHz": 485
+  },
+  "sacredStats": {
+    "power": 51,
+    "resonance": 33,
+    "wisdom": 24,
+    "charisma": 36,
+    "intuition": 24,
+    "adaptability": 28,
+    "vitality": 53
+  },
+  "scrabbleLetter": "N",
+  "trickEngine": {
+    "trickPower": 10,
+    "counterValue": 0,
+    "isHonour": false,
+    "family": "minor",
+    "biasedSuit": "Pentacles",
+    "eligibleMelds": [
+      "marriage",
+      "royal-court"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Knight",
+      "Earth",
+      "Court Archetype",
+      "Herald"
+    ],
+    "upright": "Mature embodiment of Knight wielding Earth consciousness.",
+    "reversed": "Misdirection of Knight's temperament; emotional or tactical friction.",
+    "description": "Prince of the Chariot of Earth. Embodies the royal governance of Earth."
+  }
+}

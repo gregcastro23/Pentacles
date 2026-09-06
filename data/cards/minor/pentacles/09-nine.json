@@ -1,0 +1,72 @@
+{
+  "id": "pentacles-09",
+  "slug": "nine-of-pentacles",
+  "name": "Nine of Pentacles",
+  "arcana": "minor",
+  "numeral": "9",
+  "rank": 9,
+  "suit": "pentacles",
+  "symbolism": {
+    "goldenDawnTitle": "Lord of Material Gain",
+    "element": "Earth",
+    "esms": 2,
+    "planetaryBody": "Venus",
+    "planetIndex": 3,
+    "zodiacSign": "Virgo",
+    "signIndex": 5,
+    "decan": 1,
+    "decanRange": [
+      10,
+      20
+    ],
+    "chaldeanRuler": "Venus",
+    "chaldeanRulerIndex": 3,
+    "triplicitySign": "Capricorn",
+    "triplicityRuler": "Saturn",
+    "triplicityRulerIndex": 6,
+    "hebrewLetter": null,
+    "treeOfLifePath": null
+  },
+  "styling": {
+    "glyph": "🜃",
+    "suitGlyph": "🜃",
+    "primaryColor": "#74ab6c",
+    "accentColor": "#f0a95e",
+    "frameStyle": "pentacles-pip",
+    "artAsset": "/assets/cards/minor/pentacles/09-nine.jpg",
+    "fallbackArt": "/assets/suits/pentacles.jpg",
+    "audioFrequencyHz": 449
+  },
+  "sacredStats": {
+    "power": 46,
+    "resonance": 31,
+    "wisdom": 32,
+    "charisma": 33,
+    "intuition": 26,
+    "adaptability": 29,
+    "vitality": 63
+  },
+  "scrabbleLetter": "B",
+  "trickEngine": {
+    "trickPower": 8,
+    "counterValue": 0,
+    "isHonour": false,
+    "family": "minor",
+    "biasedSuit": "Pentacles",
+    "eligibleMelds": [
+      "run",
+      "flush"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Material Gain",
+      "Virgo",
+      "Saturn",
+      "Decan 2"
+    ],
+    "upright": "Material Gain expressed through Earth, attuned to Saturn in Capricorn.",
+    "reversed": "Imbalance in Material Gain; tension between Saturn and Virgo.",
+    "description": "The 9 of Pentacles governs the 2 decan of Virgo (10°–20°), ruled by Saturn."
+  }
+}

@@ -1,0 +1,72 @@
+{
+  "id": "wands-08",
+  "slug": "eight-of-wands",
+  "name": "Eight of Wands",
+  "arcana": "minor",
+  "numeral": "8",
+  "rank": 8,
+  "suit": "wands",
+  "symbolism": {
+    "goldenDawnTitle": "Lord of Swiftness",
+    "element": "Fire",
+    "esms": 0,
+    "planetaryBody": "Mercury",
+    "planetIndex": 2,
+    "zodiacSign": "Sagittarius",
+    "signIndex": 8,
+    "decan": 0,
+    "decanRange": [
+      0,
+      10
+    ],
+    "chaldeanRuler": "Mercury",
+    "chaldeanRulerIndex": 2,
+    "triplicitySign": "Sagittarius",
+    "triplicityRuler": "Jupiter",
+    "triplicityRulerIndex": 5,
+    "hebrewLetter": null,
+    "treeOfLifePath": null
+  },
+  "styling": {
+    "glyph": "🜂",
+    "suitGlyph": "🜂",
+    "primaryColor": "#db7a47",
+    "accentColor": "#f6cf83",
+    "frameStyle": "wands-pip",
+    "artAsset": "/assets/cards/minor/wands/08-eight.jpg",
+    "fallbackArt": "/assets/suits/wands.jpg",
+    "audioFrequencyHz": 528
+  },
+  "sacredStats": {
+    "power": 51,
+    "resonance": 58,
+    "wisdom": 38,
+    "charisma": 64,
+    "intuition": 43,
+    "adaptability": 38,
+    "vitality": 43
+  },
+  "scrabbleLetter": "Y",
+  "trickEngine": {
+    "trickPower": 7,
+    "counterValue": 0,
+    "isHonour": false,
+    "family": "minor",
+    "biasedSuit": "Wands",
+    "eligibleMelds": [
+      "run",
+      "flush"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Swiftness",
+      "Sagittarius",
+      "Jupiter",
+      "Decan 1"
+    ],
+    "upright": "Swiftness expressed through Fire, attuned to Jupiter in Sagittarius.",
+    "reversed": "Imbalance in Swiftness; tension between Jupiter and Sagittarius.",
+    "description": "The 8 of Wands governs the 1 decan of Sagittarius (0°–10°), ruled by Jupiter."
+  }
+}

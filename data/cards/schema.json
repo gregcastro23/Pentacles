@@ -1,0 +1,152 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "TarotCard",
+  "description": "Pentacles canonical Tarot card definition schema",
+  "type": "object",
+  "required": [
+    "id",
+    "slug",
+    "name",
+    "arcana",
+    "numeral",
+    "rank",
+    "suit",
+    "symbolism",
+    "styling",
+    "sacredStats",
+    "trickEngine",
+    "lore"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique card identifier (e.g. major-00, wands-01, cups-14)"
+    },
+    "slug": {
+      "type": "string",
+      "description": "URL-safe slug (e.g. the-fool, ace-of-wands, king-of-pentacles)"
+    },
+    "name": {
+      "type": "string",
+      "description": "Full display title of the card"
+    },
+    "arcana": {
+      "type": "string",
+      "enum": ["major", "minor"]
+    },
+    "numeral": {
+      "type": "string",
+      "description": "Roman numeral for Majors (0..XXI) or rank badge for Minors (A, 2..10, P, Kn, Q, K)"
+    },
+    "rank": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 21,
+      "description": "0..21 for Major Arcana, 1..14 for Minor Arcana"
+    },
+    "suit": {
+      "type": "string",
+      "enum": ["major", "wands", "cups", "swords", "pentacles"]
+    },
+    "symbolism": {
+      "type": "object",
+      "required": ["goldenDawnTitle", "element", "esms"],
+      "properties": {
+        "goldenDawnTitle": { "type": "string" },
+        "element": { "type": "string" },
+        "esms": { "type": "integer", "minimum": 0, "maximum": 3 },
+        "planetaryBody": { "type": ["string", "null"] },
+        "planetIndex": { "type": ["integer", "null"], "minimum": 0, "maximum": 9 },
+        "zodiacSign": { "type": ["string", "null"] },
+        "signIndex": { "type": ["integer", "null"], "minimum": 0, "maximum": 11 },
+        "decan": { "type": ["integer", "null"], "minimum": 0, "maximum": 2 },
+        "decanRange": {
+          "type": ["array", "null"],
+          "items": { "type": "integer" },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "chaldeanRuler": { "type": ["string", "null"] },
+        "chaldeanRulerIndex": { "type": ["integer", "null"], "minimum": 0, "maximum": 9 },
+        "triplicitySign": { "type": ["string", "null"] },
+        "triplicityRuler": { "type": ["string", "null"] },
+        "triplicityRulerIndex": { "type": ["integer", "null"], "minimum": 0, "maximum": 9 },
+        "hebrewLetter": { "type": ["string", "null"] },
+        "treeOfLifePath": { "type": ["string", "null"] }
+      }
+    },
+    "styling": {
+      "type": "object",
+      "required": [
+        "glyph",
+        "suitGlyph",
+        "primaryColor",
+        "accentColor",
+        "frameStyle",
+        "artAsset",
+        "audioFrequencyHz"
+      ],
+      "properties": {
+        "glyph": { "type": "string" },
+        "suitGlyph": { "type": "string" },
+        "primaryColor": { "type": "string" },
+        "accentColor": { "type": "string" },
+        "frameStyle": { "type": "string" },
+        "artAsset": { "type": "string" },
+        "fallbackArt": { "type": "string" },
+        "audioFrequencyHz": { "type": "number" }
+      }
+    },
+    "sacredStats": {
+      "type": "object",
+      "description": "Alchm Sacred 7 Consciousness and Energy parameters (0-100 scale)",
+      "required": [
+        "power",
+        "resonance",
+        "wisdom",
+        "charisma",
+        "intuition",
+        "adaptability",
+        "vitality"
+      ],
+      "properties": {
+        "power": { "type": "integer", "minimum": 0, "maximum": 100, "description": "Raw consciousness force (⚡)" },
+        "resonance": { "type": "integer", "minimum": 0, "maximum": 100, "description": "Harmonic cosmic attunement (🎵)" },
+        "wisdom": { "type": "integer", "minimum": 0, "maximum": 100, "description": "Accumulated insight and knowledge depth (📖)" },
+        "charisma": { "type": "integer", "minimum": 0, "maximum": 100, "description": "Magnetic influence and radiant presence (✨)" },
+        "intuition": { "type": "integer", "minimum": 0, "maximum": 100, "description": "Inner knowing and subconscious pattern recognition (🔮)" },
+        "adaptability": { "type": "integer", "minimum": 0, "maximum": 100, "description": "Change navigation and metamorphic flexibility (🌊)" },
+        "vitality": { "type": "integer", "minimum": 0, "maximum": 100, "description": "Life force energy and regenerative capacity (💚)" }
+      }
+    },
+    "scrabbleLetter": { "type": "string" },
+    "trickEngine": {
+      "type": "object",
+      "required": ["trickPower", "counterValue", "isHonour"],
+      "properties": {
+        "trickPower": { "type": "number" },
+        "counterValue": { "type": "integer", "enum": [0, 5, 10] },
+        "isHonour": { "type": "boolean" },
+        "family": { "type": ["string", "null"], "enum": ["planetary", "sign", "minor", null] },
+        "biasedSuit": { "type": ["string", "null"] },
+        "eligibleMelds": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "lore": {
+      "type": "object",
+      "required": ["keywords", "upright", "reversed", "description"],
+      "properties": {
+        "keywords": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "upright": { "type": "string" },
+        "reversed": { "type": "string" },
+        "description": { "type": "string" }
+      }
+    }
+  }
+}

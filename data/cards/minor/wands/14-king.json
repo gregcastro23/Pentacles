@@ -1,0 +1,69 @@
+{
+  "id": "wands-14",
+  "slug": "king-of-wands",
+  "name": "King of Wands",
+  "arcana": "minor",
+  "numeral": "K",
+  "rank": 14,
+  "suit": "wands",
+  "symbolism": {
+    "goldenDawnTitle": "Lord of the Flame and Lightning; King of the Spirits of Fire",
+    "element": "Fire",
+    "esms": 0,
+    "planetaryBody": null,
+    "planetIndex": null,
+    "zodiacSign": null,
+    "signIndex": null,
+    "decan": null,
+    "decanRange": null,
+    "chaldeanRuler": null,
+    "chaldeanRulerIndex": null,
+    "triplicitySign": null,
+    "triplicityRuler": null,
+    "triplicityRulerIndex": null,
+    "hebrewLetter": null,
+    "treeOfLifePath": null
+  },
+  "styling": {
+    "glyph": "🜂",
+    "suitGlyph": "🜂",
+    "primaryColor": "#db7a47",
+    "accentColor": "#f6cf83",
+    "frameStyle": "wands-court",
+    "artAsset": "/assets/cards/minor/wands/14-king.jpg",
+    "fallbackArt": "/assets/suits/wands.jpg",
+    "audioFrequencyHz": 600
+  },
+  "sacredStats": {
+    "power": 41,
+    "resonance": 33,
+    "wisdom": 39,
+    "charisma": 43,
+    "intuition": 33,
+    "adaptability": 46,
+    "vitality": 41
+  },
+  "scrabbleLetter": "K",
+  "trickEngine": {
+    "trickPower": 12,
+    "counterValue": 10,
+    "isHonour": false,
+    "family": "minor",
+    "biasedSuit": "Wands",
+    "eligibleMelds": [
+      "marriage",
+      "royal-court"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "King",
+      "Fire",
+      "Court Archetype",
+      "Herald"
+    ],
+    "upright": "Mature embodiment of King wielding Fire consciousness.",
+    "reversed": "Misdirection of King's temperament; emotional or tactical friction.",
+    "description": "Lord of the Flame and Lightning; King of the Spirits of Fire. Embodies the royal governance of Fire."
+  }
+}

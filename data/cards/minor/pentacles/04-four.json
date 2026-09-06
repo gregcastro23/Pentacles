@@ -1,0 +1,72 @@
+{
+  "id": "pentacles-04",
+  "slug": "four-of-pentacles",
+  "name": "Four of Pentacles",
+  "arcana": "minor",
+  "numeral": "4",
+  "rank": 4,
+  "suit": "pentacles",
+  "symbolism": {
+    "goldenDawnTitle": "Lord of Earthly Power",
+    "element": "Earth",
+    "esms": 2,
+    "planetaryBody": "Sun",
+    "planetIndex": 0,
+    "zodiacSign": "Capricorn",
+    "signIndex": 9,
+    "decan": 2,
+    "decanRange": [
+      20,
+      30
+    ],
+    "chaldeanRuler": "Sun",
+    "chaldeanRulerIndex": 0,
+    "triplicitySign": "Virgo",
+    "triplicityRuler": "Mercury",
+    "triplicityRulerIndex": 2,
+    "hebrewLetter": null,
+    "treeOfLifePath": null
+  },
+  "styling": {
+    "glyph": "🜃",
+    "suitGlyph": "🜃",
+    "primaryColor": "#74ab6c",
+    "accentColor": "#f0a95e",
+    "frameStyle": "pentacles-pip",
+    "artAsset": "/assets/cards/minor/pentacles/04-four.jpg",
+    "fallbackArt": "/assets/suits/pentacles.jpg",
+    "audioFrequencyHz": 389
+  },
+  "sacredStats": {
+    "power": 44,
+    "resonance": 31,
+    "wisdom": 39,
+    "charisma": 33,
+    "intuition": 29,
+    "adaptability": 48,
+    "vitality": 48
+  },
+  "scrabbleLetter": "M",
+  "trickEngine": {
+    "trickPower": 3,
+    "counterValue": 0,
+    "isHonour": false,
+    "family": "minor",
+    "biasedSuit": "Pentacles",
+    "eligibleMelds": [
+      "run",
+      "flush"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Earthly Power",
+      "Capricorn",
+      "Mercury",
+      "Decan 3"
+    ],
+    "upright": "Earthly Power expressed through Earth, attuned to Mercury in Virgo.",
+    "reversed": "Imbalance in Earthly Power; tension between Mercury and Capricorn.",
+    "description": "The 4 of Pentacles governs the 3 decan of Capricorn (20°–30°), ruled by Mercury."
+  }
+}

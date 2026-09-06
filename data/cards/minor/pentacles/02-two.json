@@ -1,0 +1,72 @@
+{
+  "id": "pentacles-02",
+  "slug": "two-of-pentacles",
+  "name": "Two of Pentacles",
+  "arcana": "minor",
+  "numeral": "2",
+  "rank": 2,
+  "suit": "pentacles",
+  "symbolism": {
+    "goldenDawnTitle": "Lord of Harmonious Change",
+    "element": "Earth",
+    "esms": 2,
+    "planetaryBody": "Jupiter",
+    "planetIndex": 5,
+    "zodiacSign": "Capricorn",
+    "signIndex": 9,
+    "decan": 0,
+    "decanRange": [
+      0,
+      10
+    ],
+    "chaldeanRuler": "Jupiter",
+    "chaldeanRulerIndex": 5,
+    "triplicitySign": "Capricorn",
+    "triplicityRuler": "Saturn",
+    "triplicityRulerIndex": 6,
+    "hebrewLetter": null,
+    "treeOfLifePath": null
+  },
+  "styling": {
+    "glyph": "🜃",
+    "suitGlyph": "🜃",
+    "primaryColor": "#74ab6c",
+    "accentColor": "#f0a95e",
+    "frameStyle": "pentacles-pip",
+    "artAsset": "/assets/cards/minor/pentacles/02-two.jpg",
+    "fallbackArt": "/assets/suits/pentacles.jpg",
+    "audioFrequencyHz": 365
+  },
+  "sacredStats": {
+    "power": 54,
+    "resonance": 33,
+    "wisdom": 32,
+    "charisma": 36,
+    "intuition": 24,
+    "adaptability": 25,
+    "vitality": 71
+  },
+  "scrabbleLetter": "G",
+  "trickEngine": {
+    "trickPower": 1,
+    "counterValue": 0,
+    "isHonour": false,
+    "family": "minor",
+    "biasedSuit": "Pentacles",
+    "eligibleMelds": [
+      "run",
+      "flush"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Harmonious Change",
+      "Capricorn",
+      "Saturn",
+      "Decan 1"
+    ],
+    "upright": "Harmonious Change expressed through Earth, attuned to Saturn in Capricorn.",
+    "reversed": "Imbalance in Harmonious Change; tension between Saturn and Capricorn.",
+    "description": "The 2 of Pentacles governs the 1 decan of Capricorn (0°–10°), ruled by Saturn."
+  }
+}

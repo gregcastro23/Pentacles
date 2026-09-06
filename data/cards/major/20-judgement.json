@@ -1,0 +1,69 @@
+{
+  "id": "major-20",
+  "slug": "judgement",
+  "name": "Judgement",
+  "arcana": "major",
+  "numeral": "XX",
+  "rank": 20,
+  "suit": "major",
+  "symbolism": {
+    "goldenDawnTitle": "The Spirit of the Primal Fire",
+    "element": "Fire",
+    "esms": 0,
+    "planetaryBody": "Pluto",
+    "planetIndex": 9,
+    "zodiacSign": null,
+    "signIndex": null,
+    "decan": null,
+    "decanRange": null,
+    "chaldeanRuler": null,
+    "chaldeanRulerIndex": null,
+    "triplicitySign": null,
+    "triplicityRuler": "Pluto",
+    "triplicityRulerIndex": 9,
+    "hebrewLetter": "Shin (ש)",
+    "treeOfLifePath": "31st Path (Hod to Malkuth)"
+  },
+  "styling": {
+    "glyph": "♇",
+    "suitGlyph": "✦",
+    "primaryColor": "#705988",
+    "accentColor": "#e26666",
+    "frameStyle": "apocalyptic-trumpet",
+    "artAsset": "/assets/cards/major/20-judgement.jpg",
+    "fallbackArt": "/assets/suits/swords.jpg",
+    "audioFrequencyHz": 639
+  },
+  "sacredStats": {
+    "power": 45,
+    "resonance": 52,
+    "wisdom": 55,
+    "charisma": 42,
+    "intuition": 63,
+    "adaptability": 38,
+    "vitality": 52
+  },
+  "scrabbleLetter": "Y",
+  "trickEngine": {
+    "trickPower": 1200,
+    "counterValue": 0,
+    "isHonour": false,
+    "family": "planetary",
+    "biasedSuit": "Swords",
+    "eligibleMelds": [
+      "celestial-triumph"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Awakening",
+      "Resurrection",
+      "Reckoning",
+      "Higher Calling",
+      "Absolution"
+    ],
+    "upright": "Hearing the celestial horn; stepping out of the tomb of past self into spiritual rebirth.",
+    "reversed": "Harsh self-criticism, ignoring the inner call, denial of past errors, spiritual paralysis.",
+    "description": "Archangel Gabriel sounding the great golden horn over mountains as souls rise with outstretched arms."
+  }
+}

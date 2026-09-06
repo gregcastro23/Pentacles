@@ -1,0 +1,69 @@
+{
+  "id": "major-12",
+  "slug": "the-hanged-man",
+  "name": "The Hanged Man",
+  "arcana": "major",
+  "numeral": "XII",
+  "rank": 12,
+  "suit": "major",
+  "symbolism": {
+    "goldenDawnTitle": "The Spirit of the Mighty Waters",
+    "element": "Water",
+    "esms": 1,
+    "planetaryBody": "Neptune",
+    "planetIndex": 8,
+    "zodiacSign": null,
+    "signIndex": null,
+    "decan": null,
+    "decanRange": null,
+    "chaldeanRuler": null,
+    "chaldeanRulerIndex": null,
+    "triplicitySign": null,
+    "triplicityRuler": "Neptune",
+    "triplicityRulerIndex": 8,
+    "hebrewLetter": "Mem (מ)",
+    "treeOfLifePath": "23rd Path (Geburah to Hod)"
+  },
+  "styling": {
+    "glyph": "♆",
+    "suitGlyph": "✦",
+    "primaryColor": "#4e7cd9",
+    "accentColor": "#82bbf2",
+    "frameStyle": "mystic-suspension",
+    "artAsset": "/assets/cards/major/12-the-hanged-man.jpg",
+    "fallbackArt": "/assets/suits/cups.jpg",
+    "audioFrequencyHz": 360
+  },
+  "sacredStats": {
+    "power": 24,
+    "resonance": 73,
+    "wisdom": 68,
+    "charisma": 52,
+    "intuition": 95,
+    "adaptability": 52,
+    "vitality": 24
+  },
+  "scrabbleLetter": "U",
+  "trickEngine": {
+    "trickPower": 1120,
+    "counterValue": 0,
+    "isHonour": false,
+    "family": "planetary",
+    "biasedSuit": "Cups",
+    "eligibleMelds": [
+      "celestial-triumph"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Surrender",
+      "New Perspective",
+      "Suspension",
+      "Enlightenment",
+      "Sacrifice"
+    ],
+    "upright": "Reversal of worldly perception; willful surrender producing profound spiritual illumination.",
+    "reversed": "Martyrdom complex, stalling, needless sacrifice, resistance to letting go.",
+    "description": "Suspended upside down from the living wood of the World Tree, a golden halo glowing around the serene head."
+  }
+}

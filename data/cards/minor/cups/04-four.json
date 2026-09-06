@@ -1,0 +1,72 @@
+{
+  "id": "cups-04",
+  "slug": "four-of-cups",
+  "name": "Four of Cups",
+  "arcana": "minor",
+  "numeral": "4",
+  "rank": 4,
+  "suit": "cups",
+  "symbolism": {
+    "goldenDawnTitle": "Lord of Blended Pleasure",
+    "element": "Water",
+    "esms": 1,
+    "planetaryBody": "Moon",
+    "planetIndex": 1,
+    "zodiacSign": "Cancer",
+    "signIndex": 3,
+    "decan": 2,
+    "decanRange": [
+      20,
+      30
+    ],
+    "chaldeanRuler": "Moon",
+    "chaldeanRulerIndex": 1,
+    "triplicitySign": "Pisces",
+    "triplicityRuler": "Jupiter & Neptune",
+    "triplicityRulerIndex": 5,
+    "hebrewLetter": null,
+    "treeOfLifePath": null
+  },
+  "styling": {
+    "glyph": "🜄",
+    "suitGlyph": "🜄",
+    "primaryColor": "#5f93d8",
+    "accentColor": "#dce2f0",
+    "frameStyle": "cups-pip",
+    "artAsset": "/assets/cards/minor/cups/04-four.jpg",
+    "fallbackArt": "/assets/suits/cups.jpg",
+    "audioFrequencyHz": 444
+  },
+  "sacredStats": {
+    "power": 37,
+    "resonance": 59,
+    "wisdom": 52,
+    "charisma": 56,
+    "intuition": 63,
+    "adaptability": 34,
+    "vitality": 31
+  },
+  "scrabbleLetter": "M",
+  "trickEngine": {
+    "trickPower": 3,
+    "counterValue": 0,
+    "isHonour": false,
+    "family": "minor",
+    "biasedSuit": "Cups",
+    "eligibleMelds": [
+      "run",
+      "flush"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Blended Pleasure",
+      "Cancer",
+      "Jupiter & Neptune",
+      "Decan 3"
+    ],
+    "upright": "Blended Pleasure expressed through Water, attuned to Jupiter & Neptune in Pisces.",
+    "reversed": "Imbalance in Blended Pleasure; tension between Jupiter & Neptune and Cancer.",
+    "description": "The 4 of Cups governs the 3 decan of Cancer (20°–30°), ruled by Jupiter & Neptune."
+  }
+}

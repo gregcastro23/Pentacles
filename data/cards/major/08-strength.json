@@ -1,0 +1,69 @@
+{
+  "id": "major-08",
+  "slug": "strength",
+  "name": "Strength",
+  "arcana": "major",
+  "numeral": "VIII",
+  "rank": 8,
+  "suit": "major",
+  "symbolism": {
+    "goldenDawnTitle": "The Daughter of the Flaming Sword",
+    "element": "Fire",
+    "esms": 0,
+    "planetaryBody": null,
+    "planetIndex": null,
+    "zodiacSign": "Leo",
+    "signIndex": 4,
+    "decan": null,
+    "decanRange": null,
+    "chaldeanRuler": null,
+    "chaldeanRulerIndex": null,
+    "triplicitySign": "Leo",
+    "triplicityRuler": "Sun",
+    "triplicityRulerIndex": 0,
+    "hebrewLetter": "Teth (ט)",
+    "treeOfLifePath": "19th Path (Chesed to Geburah)"
+  },
+  "styling": {
+    "glyph": "♌",
+    "suitGlyph": "✦",
+    "primaryColor": "#f0a95e",
+    "accentColor": "#db7a47",
+    "frameStyle": "solar-leonic",
+    "artAsset": "/assets/cards/major/08-strength.jpg",
+    "fallbackArt": "/assets/suits/wands.jpg",
+    "audioFrequencyHz": 540
+  },
+  "sacredStats": {
+    "power": 53,
+    "resonance": 46,
+    "wisdom": 27,
+    "charisma": 55,
+    "intuition": 24,
+    "adaptability": 33,
+    "vitality": 50
+  },
+  "scrabbleLetter": "S",
+  "trickEngine": {
+    "trickPower": 1080,
+    "counterValue": 0,
+    "isHonour": false,
+    "family": "sign",
+    "biasedSuit": "Wands",
+    "eligibleMelds": [
+      "celestial-triumph"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Courage",
+      "Gentle Force",
+      "Patience",
+      "Compassion",
+      "Taming the Beast"
+    ],
+    "upright": "Subtle mastery of primal passions; true power exerted through patience, grace, and inner calm.",
+    "reversed": "Self-doubt, brute force, weakness of spirit, unchecked anger, raw vulnerability.",
+    "description": "The maiden crowned with the lemniscate, gently closing the jaws of the fiery red lion."
+  }
+}

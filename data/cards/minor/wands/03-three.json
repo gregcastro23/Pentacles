@@ -1,0 +1,72 @@
+{
+  "id": "wands-03",
+  "slug": "three-of-wands",
+  "name": "Three of Wands",
+  "arcana": "minor",
+  "numeral": "3",
+  "rank": 3,
+  "suit": "wands",
+  "symbolism": {
+    "goldenDawnTitle": "Lord of Established Strength",
+    "element": "Fire",
+    "esms": 0,
+    "planetaryBody": "Sun",
+    "planetIndex": 0,
+    "zodiacSign": "Aries",
+    "signIndex": 0,
+    "decan": 1,
+    "decanRange": [
+      10,
+      20
+    ],
+    "chaldeanRuler": "Sun",
+    "chaldeanRulerIndex": 0,
+    "triplicitySign": "Leo",
+    "triplicityRuler": "Sun",
+    "triplicityRulerIndex": 0,
+    "hebrewLetter": null,
+    "treeOfLifePath": null
+  },
+  "styling": {
+    "glyph": "🜂",
+    "suitGlyph": "🜂",
+    "primaryColor": "#db7a47",
+    "accentColor": "#f6cf83",
+    "frameStyle": "wands-pip",
+    "artAsset": "/assets/cards/minor/wands/03-three.jpg",
+    "fallbackArt": "/assets/suits/wands.jpg",
+    "audioFrequencyHz": 468
+  },
+  "sacredStats": {
+    "power": 58,
+    "resonance": 44,
+    "wisdom": 24,
+    "charisma": 57,
+    "intuition": 24,
+    "adaptability": 34,
+    "vitality": 54
+  },
+  "scrabbleLetter": "J",
+  "trickEngine": {
+    "trickPower": 2,
+    "counterValue": 0,
+    "isHonour": false,
+    "family": "minor",
+    "biasedSuit": "Wands",
+    "eligibleMelds": [
+      "run",
+      "flush"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Established Strength",
+      "Aries",
+      "Sun",
+      "Decan 2"
+    ],
+    "upright": "Established Strength expressed through Fire, attuned to Sun in Leo.",
+    "reversed": "Imbalance in Established Strength; tension between Sun and Aries.",
+    "description": "The 3 of Wands governs the 2 decan of Aries (10°–20°), ruled by Sun."
+  }
+}
