@@ -35,13 +35,13 @@
     "audioFrequencyHz": 696
   },
   "sacredStats": {
-    "power": 29,
+    "power": 24,
     "resonance": 24,
-    "wisdom": 50,
-    "charisma": 32,
-    "intuition": 40,
-    "adaptability": 56,
-    "vitality": 32
+    "wisdom": 70,
+    "charisma": 24,
+    "intuition": 52,
+    "adaptability": 80,
+    "vitality": 24
   },
   "scrabbleLetter": "K",
   "trickEngine": {
@@ -60,10 +60,10 @@
       "King",
       "Air",
       "Court Archetype",
-      "Herald"
+      "Magnitude ++++"
     ],
-    "upright": "Mature embodiment of King wielding Air consciousness.",
-    "reversed": "Misdirection of King's temperament; emotional or tactical friction.",
-    "description": "Lord of the Wind and the Breezes; King of the Spirits of Air. Embodies the royal governance of Air."
+    "upright": "Mature embodiment of King wielding Air consciousness at magnitude ++++.",
+    "reversed": "Misdirection of King's ++++ temperament; emotional or tactical friction.",
+    "description": "Lord of the Wind and the Breezes; King of the Spirits of Air. Embodies the ++++ magnitude of royal Air governance."
   }
 }

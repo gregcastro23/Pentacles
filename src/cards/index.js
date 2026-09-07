@@ -2283,13 +2283,13 @@ export const ALL_CARDS = [
       "audioFrequencyHz": 564
     },
     "sacredStats": {
-      "power": 42,
-      "resonance": 39,
+      "power": 35,
+      "resonance": 33,
       "wisdom": 24,
       "charisma": 35,
-      "intuition": 32,
+      "intuition": 24,
       "adaptability": 28,
-      "vitality": 46
+      "vitality": 33
     },
     "scrabbleLetter": "P",
     "trickEngine": {
@@ -2308,11 +2308,11 @@ export const ALL_CARDS = [
         "Page",
         "Fire",
         "Court Archetype",
-        "Herald"
+        "Magnitude +"
       ],
-      "upright": "Mature embodiment of Page wielding Fire consciousness.",
-      "reversed": "Misdirection of Page's temperament; emotional or tactical friction.",
-      "description": "Princess of the Shining Flame; The Rose of the Palace of Fire. Embodies the royal governance of Fire."
+      "upright": "Mature embodiment of Page wielding Fire consciousness at magnitude +.",
+      "reversed": "Misdirection of Page's + temperament; emotional or tactical friction.",
+      "description": "Princess of the Shining Flame; The Rose of the Palace of Fire. Embodies the + magnitude of royal Fire governance."
     }
   },
   {
@@ -2352,13 +2352,13 @@ export const ALL_CARDS = [
       "audioFrequencyHz": 576
     },
     "sacredStats": {
-      "power": 56,
-      "resonance": 43,
+      "power": 47,
+      "resonance": 42,
       "wisdom": 24,
       "charisma": 47,
       "intuition": 24,
       "adaptability": 33,
-      "vitality": 49
+      "vitality": 42
     },
     "scrabbleLetter": "N",
     "trickEngine": {
@@ -2377,11 +2377,11 @@ export const ALL_CARDS = [
         "Knight",
         "Fire",
         "Court Archetype",
-        "Herald"
+        "Magnitude ++"
       ],
-      "upright": "Mature embodiment of Knight wielding Fire consciousness.",
-      "reversed": "Misdirection of Knight's temperament; emotional or tactical friction.",
-      "description": "Prince of the Chariot of Fire. Embodies the royal governance of Fire."
+      "upright": "Mature embodiment of Knight wielding Fire consciousness at magnitude ++.",
+      "reversed": "Misdirection of Knight's ++ temperament; emotional or tactical friction.",
+      "description": "Prince of the Chariot of Fire. Embodies the ++ magnitude of royal Fire governance."
     }
   },
   {
@@ -2421,13 +2421,13 @@ export const ALL_CARDS = [
       "audioFrequencyHz": 588
     },
     "sacredStats": {
-      "power": 35,
-      "resonance": 55,
-      "wisdom": 32,
-      "charisma": 54,
-      "intuition": 43,
-      "adaptability": 28,
-      "vitality": 33
+      "power": 59,
+      "resonance": 52,
+      "wisdom": 24,
+      "charisma": 59,
+      "intuition": 24,
+      "adaptability": 38,
+      "vitality": 52
     },
     "scrabbleLetter": "Q",
     "trickEngine": {
@@ -2446,11 +2446,11 @@ export const ALL_CARDS = [
         "Queen",
         "Fire",
         "Court Archetype",
-        "Herald"
+        "Magnitude +++"
       ],
-      "upright": "Mature embodiment of Queen wielding Fire consciousness.",
-      "reversed": "Misdirection of Queen's temperament; emotional or tactical friction.",
-      "description": "Queen of the Thrones of Flame. Embodies the royal governance of Fire."
+      "upright": "Mature embodiment of Queen wielding Fire consciousness at magnitude +++.",
+      "reversed": "Misdirection of Queen's +++ temperament; emotional or tactical friction.",
+      "description": "Queen of the Thrones of Flame. Embodies the +++ magnitude of royal Fire governance."
     }
   },
   {
@@ -2490,13 +2490,13 @@ export const ALL_CARDS = [
       "audioFrequencyHz": 600
     },
     "sacredStats": {
-      "power": 41,
-      "resonance": 33,
-      "wisdom": 39,
-      "charisma": 43,
-      "intuition": 33,
-      "adaptability": 46,
-      "vitality": 41
+      "power": 70,
+      "resonance": 61,
+      "wisdom": 24,
+      "charisma": 70,
+      "intuition": 24,
+      "adaptability": 42,
+      "vitality": 61
     },
     "scrabbleLetter": "K",
     "trickEngine": {
@@ -2515,11 +2515,11 @@ export const ALL_CARDS = [
         "King",
         "Fire",
         "Court Archetype",
-        "Herald"
+        "Magnitude ++++"
       ],
-      "upright": "Mature embodiment of King wielding Fire consciousness.",
-      "reversed": "Misdirection of King's temperament; emotional or tactical friction.",
-      "description": "Lord of the Flame and Lightning; King of the Spirits of Fire. Embodies the royal governance of Fire."
+      "upright": "Mature embodiment of King wielding Fire consciousness at magnitude ++++.",
+      "reversed": "Misdirection of King's ++++ temperament; emotional or tactical friction.",
+      "description": "Lord of the Flame and Lightning; King of the Spirits of Fire. Embodies the ++++ magnitude of royal Fire governance."
     }
   },
   {
@@ -3275,13 +3275,13 @@ export const ALL_CARDS = [
       "audioFrequencyHz": 528
     },
     "sacredStats": {
-      "power": 30,
-      "resonance": 43,
+      "power": 24,
+      "resonance": 38,
       "wisdom": 31,
       "charisma": 33,
-      "intuition": 48,
+      "intuition": 40,
       "adaptability": 24,
-      "vitality": 36
+      "vitality": 24
     },
     "scrabbleLetter": "P",
     "trickEngine": {
@@ -3300,11 +3300,11 @@ export const ALL_CARDS = [
         "Page",
         "Water",
         "Court Archetype",
-        "Herald"
+        "Magnitude +"
       ],
-      "upright": "Mature embodiment of Page wielding Water consciousness.",
-      "reversed": "Misdirection of Page's temperament; emotional or tactical friction.",
-      "description": "Princess of the Waters; The Lotus of the Palace of the Floods. Embodies the royal governance of Water."
+      "upright": "Mature embodiment of Page wielding Water consciousness at magnitude +.",
+      "reversed": "Misdirection of Page's + temperament; emotional or tactical friction.",
+      "description": "Princess of the Waters; The Lotus of the Palace of the Floods. Embodies the + magnitude of royal Water governance."
     }
   },
   {
@@ -3344,13 +3344,13 @@ export const ALL_CARDS = [
       "audioFrequencyHz": 540
     },
     "sacredStats": {
-      "power": 44,
-      "resonance": 47,
-      "wisdom": 31,
-      "charisma": 45,
-      "intuition": 40,
-      "adaptability": 28,
-      "vitality": 39
+      "power": 24,
+      "resonance": 52,
+      "wisdom": 38,
+      "charisma": 42,
+      "intuition": 56,
+      "adaptability": 24,
+      "vitality": 24
     },
     "scrabbleLetter": "N",
     "trickEngine": {
@@ -3369,11 +3369,11 @@ export const ALL_CARDS = [
         "Knight",
         "Water",
         "Court Archetype",
-        "Herald"
+        "Magnitude ++"
       ],
-      "upright": "Mature embodiment of Knight wielding Water consciousness.",
-      "reversed": "Misdirection of Knight's temperament; emotional or tactical friction.",
-      "description": "Prince of the Chariot of the Waters. Embodies the royal governance of Water."
+      "upright": "Mature embodiment of Knight wielding Water consciousness at magnitude ++.",
+      "reversed": "Misdirection of Knight's ++ temperament; emotional or tactical friction.",
+      "description": "Prince of the Chariot of the Waters. Embodies the ++ magnitude of royal Water governance."
     }
   },
   {
@@ -3414,10 +3414,10 @@ export const ALL_CARDS = [
     },
     "sacredStats": {
       "power": 24,
-      "resonance": 60,
-      "wisdom": 39,
+      "resonance": 66,
+      "wisdom": 45,
       "charisma": 52,
-      "intuition": 59,
+      "intuition": 73,
       "adaptability": 24,
       "vitality": 24
     },
@@ -3438,11 +3438,11 @@ export const ALL_CARDS = [
         "Queen",
         "Water",
         "Court Archetype",
-        "Herald"
+        "Magnitude +++"
       ],
-      "upright": "Mature embodiment of Queen wielding Water consciousness.",
-      "reversed": "Misdirection of Queen's temperament; emotional or tactical friction.",
-      "description": "Queen of the Thrones of the Waters. Embodies the royal governance of Water."
+      "upright": "Mature embodiment of Queen wielding Water consciousness at magnitude +++.",
+      "reversed": "Misdirection of Queen's +++ temperament; emotional or tactical friction.",
+      "description": "Queen of the Thrones of the Waters. Embodies the +++ magnitude of royal Water governance."
     }
   },
   {
@@ -3482,13 +3482,13 @@ export const ALL_CARDS = [
       "audioFrequencyHz": 564
     },
     "sacredStats": {
-      "power": 29,
-      "resonance": 38,
-      "wisdom": 46,
-      "charisma": 41,
-      "intuition": 49,
-      "adaptability": 42,
-      "vitality": 32
+      "power": 24,
+      "resonance": 80,
+      "wisdom": 52,
+      "charisma": 61,
+      "intuition": 89,
+      "adaptability": 24,
+      "vitality": 24
     },
     "scrabbleLetter": "K",
     "trickEngine": {
@@ -3507,11 +3507,11 @@ export const ALL_CARDS = [
         "King",
         "Water",
         "Court Archetype",
-        "Herald"
+        "Magnitude ++++"
       ],
-      "upright": "Mature embodiment of King wielding Water consciousness.",
-      "reversed": "Misdirection of King's temperament; emotional or tactical friction.",
-      "description": "Lord of the Waves and the Waters; King of the Hosts of the Sea. Embodies the royal governance of Water."
+      "upright": "Mature embodiment of King wielding Water consciousness at magnitude ++++.",
+      "reversed": "Misdirection of King's ++++ temperament; emotional or tactical friction.",
+      "description": "Lord of the Waves and the Waters; King of the Hosts of the Sea. Embodies the ++++ magnitude of royal Water governance."
     }
   },
   {
@@ -4267,13 +4267,13 @@ export const ALL_CARDS = [
       "audioFrequencyHz": 660
     },
     "sacredStats": {
-      "power": 30,
-      "resonance": 29,
+      "power": 24,
+      "resonance": 24,
       "wisdom": 35,
       "charisma": 24,
-      "intuition": 39,
+      "intuition": 31,
       "adaptability": 38,
-      "vitality": 36
+      "vitality": 24
     },
     "scrabbleLetter": "P",
     "trickEngine": {
@@ -4292,11 +4292,11 @@ export const ALL_CARDS = [
         "Page",
         "Air",
         "Court Archetype",
-        "Herald"
+        "Magnitude +"
       ],
-      "upright": "Mature embodiment of Page wielding Air consciousness.",
-      "reversed": "Misdirection of Page's temperament; emotional or tactical friction.",
-      "description": "Princess of the Rushing Winds; The Lotus of the Palace of Air. Embodies the royal governance of Air."
+      "upright": "Mature embodiment of Page wielding Air consciousness at magnitude +.",
+      "reversed": "Misdirection of Page's + temperament; emotional or tactical friction.",
+      "description": "Princess of the Rushing Winds; The Lotus of the Palace of Air. Embodies the + magnitude of royal Air governance."
     }
   },
   {
@@ -4336,13 +4336,13 @@ export const ALL_CARDS = [
       "audioFrequencyHz": 672
     },
     "sacredStats": {
-      "power": 44,
-      "resonance": 33,
-      "wisdom": 35,
-      "charisma": 36,
-      "intuition": 31,
-      "adaptability": 42,
-      "vitality": 39
+      "power": 24,
+      "resonance": 24,
+      "wisdom": 47,
+      "charisma": 24,
+      "intuition": 38,
+      "adaptability": 52,
+      "vitality": 24
     },
     "scrabbleLetter": "N",
     "trickEngine": {
@@ -4361,11 +4361,11 @@ export const ALL_CARDS = [
         "Knight",
         "Air",
         "Court Archetype",
-        "Herald"
+        "Magnitude ++"
       ],
-      "upright": "Mature embodiment of Knight wielding Air consciousness.",
-      "reversed": "Misdirection of Knight's temperament; emotional or tactical friction.",
-      "description": "Prince of the Chariot of the Winds. Embodies the royal governance of Air."
+      "upright": "Mature embodiment of Knight wielding Air consciousness at magnitude ++.",
+      "reversed": "Misdirection of Knight's ++ temperament; emotional or tactical friction.",
+      "description": "Prince of the Chariot of the Winds. Embodies the ++ magnitude of royal Air governance."
     }
   },
   {
@@ -4406,11 +4406,11 @@ export const ALL_CARDS = [
     },
     "sacredStats": {
       "power": 24,
-      "resonance": 46,
-      "wisdom": 43,
-      "charisma": 43,
-      "intuition": 50,
-      "adaptability": 38,
+      "resonance": 24,
+      "wisdom": 59,
+      "charisma": 24,
+      "intuition": 45,
+      "adaptability": 66,
       "vitality": 24
     },
     "scrabbleLetter": "Q",
@@ -4430,11 +4430,11 @@ export const ALL_CARDS = [
         "Queen",
         "Air",
         "Court Archetype",
-        "Herald"
+        "Magnitude +++"
       ],
-      "upright": "Mature embodiment of Queen wielding Air consciousness.",
-      "reversed": "Misdirection of Queen's temperament; emotional or tactical friction.",
-      "description": "Queen of the Thrones of Air. Embodies the royal governance of Air."
+      "upright": "Mature embodiment of Queen wielding Air consciousness at magnitude +++.",
+      "reversed": "Misdirection of Queen's +++ temperament; emotional or tactical friction.",
+      "description": "Queen of the Thrones of Air. Embodies the +++ magnitude of royal Air governance."
     }
   },
   {
@@ -4474,13 +4474,13 @@ export const ALL_CARDS = [
       "audioFrequencyHz": 696
     },
     "sacredStats": {
-      "power": 29,
+      "power": 24,
       "resonance": 24,
-      "wisdom": 50,
-      "charisma": 32,
-      "intuition": 40,
-      "adaptability": 56,
-      "vitality": 32
+      "wisdom": 70,
+      "charisma": 24,
+      "intuition": 52,
+      "adaptability": 80,
+      "vitality": 24
     },
     "scrabbleLetter": "K",
     "trickEngine": {
@@ -4499,11 +4499,11 @@ export const ALL_CARDS = [
         "King",
         "Air",
         "Court Archetype",
-        "Herald"
+        "Magnitude ++++"
       ],
-      "upright": "Mature embodiment of King wielding Air consciousness.",
-      "reversed": "Misdirection of King's temperament; emotional or tactical friction.",
-      "description": "Lord of the Wind and the Breezes; King of the Spirits of Air. Embodies the royal governance of Air."
+      "upright": "Mature embodiment of King wielding Air consciousness at magnitude ++++.",
+      "reversed": "Misdirection of King's ++++ temperament; emotional or tactical friction.",
+      "description": "Lord of the Wind and the Breezes; King of the Spirits of Air. Embodies the ++++ magnitude of royal Air governance."
     }
   },
   {
@@ -5259,13 +5259,13 @@ export const ALL_CARDS = [
       "audioFrequencyHz": 473
     },
     "sacredStats": {
-      "power": 37,
-      "resonance": 29,
+      "power": 31,
+      "resonance": 24,
       "wisdom": 24,
       "charisma": 24,
-      "intuition": 32,
+      "intuition": 24,
       "adaptability": 24,
-      "vitality": 51
+      "vitality": 38
     },
     "scrabbleLetter": "P",
     "trickEngine": {
@@ -5284,11 +5284,11 @@ export const ALL_CARDS = [
         "Page",
         "Earth",
         "Court Archetype",
-        "Herald"
+        "Magnitude +"
       ],
-      "upright": "Mature embodiment of Page wielding Earth consciousness.",
-      "reversed": "Misdirection of Page's temperament; emotional or tactical friction.",
-      "description": "Princess of the Echoing Hills; The Rose of the Palace of Earth. Embodies the royal governance of Earth."
+      "upright": "Mature embodiment of Page wielding Earth consciousness at magnitude +.",
+      "reversed": "Misdirection of Page's + temperament; emotional or tactical friction.",
+      "description": "Princess of the Echoing Hills; The Rose of the Palace of Earth. Embodies the + magnitude of royal Earth governance."
     }
   },
   {
@@ -5328,13 +5328,13 @@ export const ALL_CARDS = [
       "audioFrequencyHz": 485
     },
     "sacredStats": {
-      "power": 51,
-      "resonance": 33,
+      "power": 38,
+      "resonance": 24,
       "wisdom": 24,
-      "charisma": 36,
+      "charisma": 24,
       "intuition": 24,
-      "adaptability": 28,
-      "vitality": 53
+      "adaptability": 24,
+      "vitality": 52
     },
     "scrabbleLetter": "N",
     "trickEngine": {
@@ -5353,11 +5353,11 @@ export const ALL_CARDS = [
         "Knight",
         "Earth",
         "Court Archetype",
-        "Herald"
+        "Magnitude ++"
       ],
-      "upright": "Mature embodiment of Knight wielding Earth consciousness.",
-      "reversed": "Misdirection of Knight's temperament; emotional or tactical friction.",
-      "description": "Prince of the Chariot of Earth. Embodies the royal governance of Earth."
+      "upright": "Mature embodiment of Knight wielding Earth consciousness at magnitude ++.",
+      "reversed": "Misdirection of Knight's ++ temperament; emotional or tactical friction.",
+      "description": "Prince of the Chariot of Earth. Embodies the ++ magnitude of royal Earth governance."
     }
   },
   {
@@ -5397,13 +5397,13 @@ export const ALL_CARDS = [
       "audioFrequencyHz": 497
     },
     "sacredStats": {
-      "power": 31,
-      "resonance": 46,
-      "wisdom": 32,
-      "charisma": 43,
-      "intuition": 43,
+      "power": 45,
+      "resonance": 24,
+      "wisdom": 24,
+      "charisma": 24,
+      "intuition": 24,
       "adaptability": 24,
-      "vitality": 38
+      "vitality": 66
     },
     "scrabbleLetter": "Q",
     "trickEngine": {
@@ -5422,11 +5422,11 @@ export const ALL_CARDS = [
         "Queen",
         "Earth",
         "Court Archetype",
-        "Herald"
+        "Magnitude +++"
       ],
-      "upright": "Mature embodiment of Queen wielding Earth consciousness.",
-      "reversed": "Misdirection of Queen's temperament; emotional or tactical friction.",
-      "description": "Queen of the Thrones of Earth. Embodies the royal governance of Earth."
+      "upright": "Mature embodiment of Queen wielding Earth consciousness at magnitude +++.",
+      "reversed": "Misdirection of Queen's +++ temperament; emotional or tactical friction.",
+      "description": "Queen of the Thrones of Earth. Embodies the +++ magnitude of royal Earth governance."
     }
   },
   {
@@ -5466,13 +5466,13 @@ export const ALL_CARDS = [
       "audioFrequencyHz": 509
     },
     "sacredStats": {
-      "power": 36,
+      "power": 52,
       "resonance": 24,
-      "wisdom": 39,
-      "charisma": 32,
-      "intuition": 33,
-      "adaptability": 42,
-      "vitality": 46
+      "wisdom": 24,
+      "charisma": 24,
+      "intuition": 24,
+      "adaptability": 24,
+      "vitality": 80
     },
     "scrabbleLetter": "K",
     "trickEngine": {
@@ -5491,11 +5491,11 @@ export const ALL_CARDS = [
         "King",
         "Earth",
         "Court Archetype",
-        "Herald"
+        "Magnitude ++++"
       ],
-      "upright": "Mature embodiment of King wielding Earth consciousness.",
-      "reversed": "Misdirection of King's temperament; emotional or tactical friction.",
-      "description": "Lord of the Wide and Fertile Land; King of the Spirits of Earth. Embodies the royal governance of Earth."
+      "upright": "Mature embodiment of King wielding Earth consciousness at magnitude ++++.",
+      "reversed": "Misdirection of King's ++++ temperament; emotional or tactical friction.",
+      "description": "Lord of the Wide and Fertile Land; King of the Spirits of Earth. Embodies the ++++ magnitude of royal Earth governance."
     }
   }
 ];

@@ -35,13 +35,13 @@
     "audioFrequencyHz": 473
   },
   "sacredStats": {
-    "power": 37,
-    "resonance": 29,
+    "power": 31,
+    "resonance": 24,
     "wisdom": 24,
     "charisma": 24,
-    "intuition": 32,
+    "intuition": 24,
     "adaptability": 24,
-    "vitality": 51
+    "vitality": 38
   },
   "scrabbleLetter": "P",
   "trickEngine": {
@@ -60,10 +60,10 @@
       "Page",
       "Earth",
       "Court Archetype",
-      "Herald"
+      "Magnitude +"
     ],
-    "upright": "Mature embodiment of Page wielding Earth consciousness.",
-    "reversed": "Misdirection of Page's temperament; emotional or tactical friction.",
-    "description": "Princess of the Echoing Hills; The Rose of the Palace of Earth. Embodies the royal governance of Earth."
+    "upright": "Mature embodiment of Page wielding Earth consciousness at magnitude +.",
+    "reversed": "Misdirection of Page's + temperament; emotional or tactical friction.",
+    "description": "Princess of the Echoing Hills; The Rose of the Palace of Earth. Embodies the + magnitude of royal Earth governance."
   }
 }

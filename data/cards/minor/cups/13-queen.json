@@ -36,10 +36,10 @@
   },
   "sacredStats": {
     "power": 24,
-    "resonance": 60,
-    "wisdom": 39,
+    "resonance": 66,
+    "wisdom": 45,
     "charisma": 52,
-    "intuition": 59,
+    "intuition": 73,
     "adaptability": 24,
     "vitality": 24
   },
@@ -60,10 +60,10 @@
       "Queen",
       "Water",
       "Court Archetype",
-      "Herald"
+      "Magnitude +++"
     ],
-    "upright": "Mature embodiment of Queen wielding Water consciousness.",
-    "reversed": "Misdirection of Queen's temperament; emotional or tactical friction.",
-    "description": "Queen of the Thrones of the Waters. Embodies the royal governance of Water."
+    "upright": "Mature embodiment of Queen wielding Water consciousness at magnitude +++.",
+    "reversed": "Misdirection of Queen's +++ temperament; emotional or tactical friction.",
+    "description": "Queen of the Thrones of the Waters. Embodies the +++ magnitude of royal Water governance."
   }
 }

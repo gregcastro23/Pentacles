@@ -35,13 +35,13 @@
     "audioFrequencyHz": 588
   },
   "sacredStats": {
-    "power": 35,
-    "resonance": 55,
-    "wisdom": 32,
-    "charisma": 54,
-    "intuition": 43,
-    "adaptability": 28,
-    "vitality": 33
+    "power": 59,
+    "resonance": 52,
+    "wisdom": 24,
+    "charisma": 59,
+    "intuition": 24,
+    "adaptability": 38,
+    "vitality": 52
   },
   "scrabbleLetter": "Q",
   "trickEngine": {
@@ -60,10 +60,10 @@
       "Queen",
       "Fire",
       "Court Archetype",
-      "Herald"
+      "Magnitude +++"
     ],
-    "upright": "Mature embodiment of Queen wielding Fire consciousness.",
-    "reversed": "Misdirection of Queen's temperament; emotional or tactical friction.",
-    "description": "Queen of the Thrones of Flame. Embodies the royal governance of Fire."
+    "upright": "Mature embodiment of Queen wielding Fire consciousness at magnitude +++.",
+    "reversed": "Misdirection of Queen's +++ temperament; emotional or tactical friction.",
+    "description": "Queen of the Thrones of Flame. Embodies the +++ magnitude of royal Fire governance."
   }
 }

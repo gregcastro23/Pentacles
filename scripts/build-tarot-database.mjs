@@ -273,11 +273,11 @@ const SUIT_ESMS_VECTORS = {
   pentacles: { Spirit: 0, Essence: 0, Matter: 1, Substance: 0 }
 };
 
-const COURT_SUB_ELEMENTS = {
-  11: { element: "pentacles", stars: 1 }, // Page: Earth of Suit
-  12: { element: "wands",     stars: 2 }, // Knight: Fire of Suit
-  13: { element: "cups",      stars: 3 }, // Queen: Water of Suit
-  14: { element: "swords",    stars: 4 }  // King: Air of Suit
+const COURT_RANKS = {
+  11: { name: "Page",   magnitude: 1, badge: "+",    stars: 1 },
+  12: { name: "Knight", magnitude: 2, badge: "++",   stars: 2 },
+  13: { name: "Queen",  magnitude: 3, badge: "+++",  stars: 3 },
+  14: { name: "King",   magnitude: 4, badge: "++++", stars: 4 }
 };
 
 const COURT_TITLES = {
@@ -752,23 +752,18 @@ for (const suit of SUITS) {
         ruler: PLANET_NAMES[CHALDEAN_CYCLE[absDecan % 7]]
       };
     } else {
-      // Court cards 11..14
-      const courtMeta = COURT_SUB_ELEMENTS[rank];
-      const eSub = SUIT_ESMS_VECTORS[courtMeta.element];
-      const magnitude = 1.0 + 0.15 * courtMeta.stars;
+      // Court cards 11..14: Pure suit element with magnitude scaling (+, ++, +++, ++++)
+      const court = COURT_RANKS[rank];
+      const magnitude = court.magnitude; // Page: 1 (+), Knight: 2 (++), Queen: 3 (+++), King: 4 (++++)
 
       v = {
-        Spirit:    1.0 * eSuit.Spirit    + 0.8 * magnitude * eSub.Spirit,
-        Essence:   1.0 * eSuit.Essence   + 0.8 * magnitude * eSub.Essence,
-        Matter:    1.0 * eSuit.Matter    + 0.8 * magnitude * eSub.Matter,
-        Substance: 1.0 * eSuit.Substance + 0.8 * magnitude * eSub.Substance
+        Spirit:    magnitude * eSuit.Spirit,
+        Essence:   magnitude * eSuit.Essence,
+        Matter:    magnitude * eSuit.Matter,
+        Substance: magnitude * eSuit.Substance
       };
 
-      // Court archetypes
-      if (rank === 11) primaryPlanet = "Moon";      // Page / scout: receptive, intuitive
-      else if (rank === 12) primaryPlanet = "Mars"; // Knight / charge: dynamic impetus
-      else if (rank === 13) primaryPlanet = "Venus";// Queen / sovereign: magnetic coherence
-      else if (rank === 14) primaryPlanet = "Sun";  // King / authority: solar agency
+      primaryPlanet = null; // Pure suit expression; no sub-element or planetary blend
     }
 
     // Canonical matrix
@@ -941,11 +936,11 @@ for (const item of cardRawList) {
       description = `The ${rank} of ${suit.name} governs the ${decan + 1} decan of ${zodiacSign} (${decanRange[0]}°–${decanRange[1]}°), ruled by ${triplicityRuler}.`;
     } else {
       goldenDawnTitle = COURT_TITLES[suit.id][rank];
-      const courtName = rank === 11 ? "Page" : rank === 12 ? "Knight" : rank === 13 ? "Queen" : "King";
-      keywords = [courtName, suit.element, "Court Archetype", "Herald"];
-      upright = `Mature embodiment of ${courtName} wielding ${suit.element} consciousness.`;
-      reversed = `Misdirection of ${courtName}'s temperament; emotional or tactical friction.`;
-      description = `${goldenDawnTitle}. Embodies the royal governance of ${suit.element}.`;
+      const court = COURT_RANKS[rank];
+      keywords = [court.name, suit.element, "Court Archetype", `Magnitude ${court.badge}`];
+      upright = `Mature embodiment of ${court.name} wielding ${suit.element} consciousness at magnitude ${court.badge}.`;
+      reversed = `Misdirection of ${court.name}'s ${court.badge} temperament; emotional or tactical friction.`;
+      description = `${goldenDawnTitle}. Embodies the ${court.badge} magnitude of royal ${suit.element} governance.`;
     }
 
     const counterVal = COUNTER_VALUES[rank] || 0;

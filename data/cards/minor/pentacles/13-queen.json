@@ -35,13 +35,13 @@
     "audioFrequencyHz": 497
   },
   "sacredStats": {
-    "power": 31,
-    "resonance": 46,
-    "wisdom": 32,
-    "charisma": 43,
-    "intuition": 43,
+    "power": 45,
+    "resonance": 24,
+    "wisdom": 24,
+    "charisma": 24,
+    "intuition": 24,
     "adaptability": 24,
-    "vitality": 38
+    "vitality": 66
   },
   "scrabbleLetter": "Q",
   "trickEngine": {
@@ -60,10 +60,10 @@
       "Queen",
       "Earth",
       "Court Archetype",
-      "Herald"
+      "Magnitude +++"
     ],
-    "upright": "Mature embodiment of Queen wielding Earth consciousness.",
-    "reversed": "Misdirection of Queen's temperament; emotional or tactical friction.",
-    "description": "Queen of the Thrones of Earth. Embodies the royal governance of Earth."
+    "upright": "Mature embodiment of Queen wielding Earth consciousness at magnitude +++.",
+    "reversed": "Misdirection of Queen's +++ temperament; emotional or tactical friction.",
+    "description": "Queen of the Thrones of Earth. Embodies the +++ magnitude of royal Earth governance."
   }
 }

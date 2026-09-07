@@ -35,13 +35,13 @@
     "audioFrequencyHz": 564
   },
   "sacredStats": {
-    "power": 29,
-    "resonance": 38,
-    "wisdom": 46,
-    "charisma": 41,
-    "intuition": 49,
-    "adaptability": 42,
-    "vitality": 32
+    "power": 24,
+    "resonance": 80,
+    "wisdom": 52,
+    "charisma": 61,
+    "intuition": 89,
+    "adaptability": 24,
+    "vitality": 24
   },
   "scrabbleLetter": "K",
   "trickEngine": {
@@ -60,10 +60,10 @@
       "King",
       "Water",
       "Court Archetype",
-      "Herald"
+      "Magnitude ++++"
     ],
-    "upright": "Mature embodiment of King wielding Water consciousness.",
-    "reversed": "Misdirection of King's temperament; emotional or tactical friction.",
-    "description": "Lord of the Waves and the Waters; King of the Hosts of the Sea. Embodies the royal governance of Water."
+    "upright": "Mature embodiment of King wielding Water consciousness at magnitude ++++.",
+    "reversed": "Misdirection of King's ++++ temperament; emotional or tactical friction.",
+    "description": "Lord of the Waves and the Waters; King of the Hosts of the Sea. Embodies the ++++ magnitude of royal Water governance."
   }
 }

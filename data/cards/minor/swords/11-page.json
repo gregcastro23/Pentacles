@@ -35,13 +35,13 @@
     "audioFrequencyHz": 660
   },
   "sacredStats": {
-    "power": 30,
-    "resonance": 29,
+    "power": 24,
+    "resonance": 24,
     "wisdom": 35,
     "charisma": 24,
-    "intuition": 39,
+    "intuition": 31,
     "adaptability": 38,
-    "vitality": 36
+    "vitality": 24
   },
   "scrabbleLetter": "P",
   "trickEngine": {
@@ -60,10 +60,10 @@
       "Page",
       "Air",
       "Court Archetype",
-      "Herald"
+      "Magnitude +"
     ],
-    "upright": "Mature embodiment of Page wielding Air consciousness.",
-    "reversed": "Misdirection of Page's temperament; emotional or tactical friction.",
-    "description": "Princess of the Rushing Winds; The Lotus of the Palace of Air. Embodies the royal governance of Air."
+    "upright": "Mature embodiment of Page wielding Air consciousness at magnitude +.",
+    "reversed": "Misdirection of Page's + temperament; emotional or tactical friction.",
+    "description": "Princess of the Rushing Winds; The Lotus of the Palace of Air. Embodies the + magnitude of royal Air governance."
   }
 }

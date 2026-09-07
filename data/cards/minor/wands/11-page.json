@@ -35,13 +35,13 @@
     "audioFrequencyHz": 564
   },
   "sacredStats": {
-    "power": 42,
-    "resonance": 39,
+    "power": 35,
+    "resonance": 33,
     "wisdom": 24,
     "charisma": 35,
-    "intuition": 32,
+    "intuition": 24,
     "adaptability": 28,
-    "vitality": 46
+    "vitality": 33
   },
   "scrabbleLetter": "P",
   "trickEngine": {
@@ -60,10 +60,10 @@
       "Page",
       "Fire",
       "Court Archetype",
-      "Herald"
+      "Magnitude +"
     ],
-    "upright": "Mature embodiment of Page wielding Fire consciousness.",
-    "reversed": "Misdirection of Page's temperament; emotional or tactical friction.",
-    "description": "Princess of the Shining Flame; The Rose of the Palace of Fire. Embodies the royal governance of Fire."
+    "upright": "Mature embodiment of Page wielding Fire consciousness at magnitude +.",
+    "reversed": "Misdirection of Page's + temperament; emotional or tactical friction.",
+    "description": "Princess of the Shining Flame; The Rose of the Palace of Fire. Embodies the + magnitude of royal Fire governance."
   }
 }

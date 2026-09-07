@@ -35,13 +35,13 @@
     "audioFrequencyHz": 509
   },
   "sacredStats": {
-    "power": 36,
+    "power": 52,
     "resonance": 24,
-    "wisdom": 39,
-    "charisma": 32,
-    "intuition": 33,
-    "adaptability": 42,
-    "vitality": 46
+    "wisdom": 24,
+    "charisma": 24,
+    "intuition": 24,
+    "adaptability": 24,
+    "vitality": 80
   },
   "scrabbleLetter": "K",
   "trickEngine": {
@@ -60,10 +60,10 @@
       "King",
       "Earth",
       "Court Archetype",
-      "Herald"
+      "Magnitude ++++"
     ],
-    "upright": "Mature embodiment of King wielding Earth consciousness.",
-    "reversed": "Misdirection of King's temperament; emotional or tactical friction.",
-    "description": "Lord of the Wide and Fertile Land; King of the Spirits of Earth. Embodies the royal governance of Earth."
+    "upright": "Mature embodiment of King wielding Earth consciousness at magnitude ++++.",
+    "reversed": "Misdirection of King's ++++ temperament; emotional or tactical friction.",
+    "description": "Lord of the Wide and Fertile Land; King of the Spirits of Earth. Embodies the ++++ magnitude of royal Earth governance."
   }
 }

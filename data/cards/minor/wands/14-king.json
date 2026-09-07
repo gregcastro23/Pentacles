@@ -35,13 +35,13 @@
     "audioFrequencyHz": 600
   },
   "sacredStats": {
-    "power": 41,
-    "resonance": 33,
-    "wisdom": 39,
-    "charisma": 43,
-    "intuition": 33,
-    "adaptability": 46,
-    "vitality": 41
+    "power": 70,
+    "resonance": 61,
+    "wisdom": 24,
+    "charisma": 70,
+    "intuition": 24,
+    "adaptability": 42,
+    "vitality": 61
   },
   "scrabbleLetter": "K",
   "trickEngine": {
@@ -60,10 +60,10 @@
       "King",
       "Fire",
       "Court Archetype",
-      "Herald"
+      "Magnitude ++++"
     ],
-    "upright": "Mature embodiment of King wielding Fire consciousness.",
-    "reversed": "Misdirection of King's temperament; emotional or tactical friction.",
-    "description": "Lord of the Flame and Lightning; King of the Spirits of Fire. Embodies the royal governance of Fire."
+    "upright": "Mature embodiment of King wielding Fire consciousness at magnitude ++++.",
+    "reversed": "Misdirection of King's ++++ temperament; emotional or tactical friction.",
+    "description": "Lord of the Flame and Lightning; King of the Spirits of Fire. Embodies the ++++ magnitude of royal Fire governance."
   }
 }

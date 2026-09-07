@@ -35,13 +35,13 @@
     "audioFrequencyHz": 485
   },
   "sacredStats": {
-    "power": 51,
-    "resonance": 33,
+    "power": 38,
+    "resonance": 24,
     "wisdom": 24,
-    "charisma": 36,
+    "charisma": 24,
     "intuition": 24,
-    "adaptability": 28,
-    "vitality": 53
+    "adaptability": 24,
+    "vitality": 52
   },
   "scrabbleLetter": "N",
   "trickEngine": {
@@ -60,10 +60,10 @@
       "Knight",
       "Earth",
       "Court Archetype",
-      "Herald"
+      "Magnitude ++"
     ],
-    "upright": "Mature embodiment of Knight wielding Earth consciousness.",
-    "reversed": "Misdirection of Knight's temperament; emotional or tactical friction.",
-    "description": "Prince of the Chariot of Earth. Embodies the royal governance of Earth."
+    "upright": "Mature embodiment of Knight wielding Earth consciousness at magnitude ++.",
+    "reversed": "Misdirection of Knight's ++ temperament; emotional or tactical friction.",
+    "description": "Prince of the Chariot of Earth. Embodies the ++ magnitude of royal Earth governance."
   }
 }

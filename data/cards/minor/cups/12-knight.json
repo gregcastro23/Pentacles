@@ -35,13 +35,13 @@
     "audioFrequencyHz": 540
   },
   "sacredStats": {
-    "power": 44,
-    "resonance": 47,
-    "wisdom": 31,
-    "charisma": 45,
-    "intuition": 40,
-    "adaptability": 28,
-    "vitality": 39
+    "power": 24,
+    "resonance": 52,
+    "wisdom": 38,
+    "charisma": 42,
+    "intuition": 56,
+    "adaptability": 24,
+    "vitality": 24
   },
   "scrabbleLetter": "N",
   "trickEngine": {
@@ -60,10 +60,10 @@
       "Knight",
       "Water",
       "Court Archetype",
-      "Herald"
+      "Magnitude ++"
     ],
-    "upright": "Mature embodiment of Knight wielding Water consciousness.",
-    "reversed": "Misdirection of Knight's temperament; emotional or tactical friction.",
-    "description": "Prince of the Chariot of the Waters. Embodies the royal governance of Water."
+    "upright": "Mature embodiment of Knight wielding Water consciousness at magnitude ++.",
+    "reversed": "Misdirection of Knight's ++ temperament; emotional or tactical friction.",
+    "description": "Prince of the Chariot of the Waters. Embodies the ++ magnitude of royal Water governance."
   }
 }

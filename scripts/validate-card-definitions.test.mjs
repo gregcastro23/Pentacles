@@ -232,6 +232,61 @@ assert.equal(kingPentacles.trickEngine.counterValue, 10);
 assert.equal(kingPentacles.trickEngine.trickPower, 12);
 assert.ok(kingPentacles.sacredStats.vitality > 40);
 
-console.log("  ✓ Card registry lookups and helper functions operate seamlessly");
+console.log("▶ 7 · Validating Court Card Pure Suit & Magnitude Scaling (+, ++, +++, ++++)...");
+const COURT_EXPECTED_MAGNITUDES = {
+  11: { name: "Page", badge: "+" },
+  12: { name: "Knight", badge: "++" },
+  13: { name: "Queen", badge: "+++" },
+  14: { name: "King", badge: "++++" }
+};
+
+const SUIT_DOMINANT_STATS = {
+  wands: ["power", "resonance", "charisma", "adaptability", "vitality"],
+  cups: ["resonance", "wisdom", "charisma", "intuition"],
+  swords: ["wisdom", "intuition", "adaptability"],
+  pentacles: ["power", "vitality"]
+};
+
+for (const suit of ["wands", "cups", "swords", "pentacles"]) {
+  const page = getCard(suit, 11);
+  const knight = getCard(suit, 12);
+  const queen = getCard(suit, 13);
+  const king = getCard(suit, 14);
+  const courtCards = [page, knight, queen, king];
+
+  // 1. Validate pure suit element attribution
+  const expectedElement = suit === "wands" ? "Fire" : suit === "cups" ? "Water" : suit === "swords" ? "Air" : "Earth";
+  for (const c of courtCards) {
+    assert.equal(c.symbolism.element, expectedElement, `${c.name} element must strictly match its suit (${expectedElement})`);
+    assert.equal(c.symbolism.planetaryBody, null, `${c.name} must not have planetary attribution`);
+    assert.equal(c.symbolism.zodiacSign, null, `${c.name} must not have zodiac sign attribution`);
+  }
+
+  // 2. Validate lore magnitude tags
+  for (const rank of [11, 12, 13, 14]) {
+    const card = getCard(suit, rank);
+    const badge = COURT_EXPECTED_MAGNITUDES[rank].badge;
+    assert.ok(card.lore.keywords.includes(`Magnitude ${badge}`), `${card.name} keywords must include Magnitude ${badge}`);
+  }
+
+  // 3. Validate strict monotonic magnitude scaling (Page < Knight < Queen < King)
+  const activeStats = SUIT_DOMINANT_STATS[suit];
+  for (const stat of activeStats) {
+    assert.ok(
+      page.sacredStats[stat] < knight.sacredStats[stat],
+      `${suit} Knight (${knight.sacredStats[stat]}) must exceed Page (${page.sacredStats[stat]}) in ${stat}`
+    );
+    assert.ok(
+      knight.sacredStats[stat] < queen.sacredStats[stat],
+      `${suit} Queen (${queen.sacredStats[stat]}) must exceed Knight (${knight.sacredStats[stat]}) in ${stat}`
+    );
+    assert.ok(
+      queen.sacredStats[stat] < king.sacredStats[stat],
+      `${suit} King (${king.sacredStats[stat]}) must exceed Queen (${queen.sacredStats[stat]}) in ${stat}`
+    );
+  }
+}
+console.log("  ✓ Court card pure suit element and + / ++ / +++ / ++++ magnitude hierarchy verified across all suits");
 
 console.log("\nALL 78 Tarot Card Definition & Sacred 7 Registry tests passed with 100% success!\n");
+

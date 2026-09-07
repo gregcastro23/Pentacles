@@ -36,11 +36,11 @@
   },
   "sacredStats": {
     "power": 24,
-    "resonance": 46,
-    "wisdom": 43,
-    "charisma": 43,
-    "intuition": 50,
-    "adaptability": 38,
+    "resonance": 24,
+    "wisdom": 59,
+    "charisma": 24,
+    "intuition": 45,
+    "adaptability": 66,
     "vitality": 24
   },
   "scrabbleLetter": "Q",
@@ -60,10 +60,10 @@
       "Queen",
       "Air",
       "Court Archetype",
-      "Herald"
+      "Magnitude +++"
     ],
-    "upright": "Mature embodiment of Queen wielding Air consciousness.",
-    "reversed": "Misdirection of Queen's temperament; emotional or tactical friction.",
-    "description": "Queen of the Thrones of Air. Embodies the royal governance of Air."
+    "upright": "Mature embodiment of Queen wielding Air consciousness at magnitude +++.",
+    "reversed": "Misdirection of Queen's +++ temperament; emotional or tactical friction.",
+    "description": "Queen of the Thrones of Air. Embodies the +++ magnitude of royal Air governance."
   }
 }

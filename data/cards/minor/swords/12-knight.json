@@ -35,13 +35,13 @@
     "audioFrequencyHz": 672
   },
   "sacredStats": {
-    "power": 44,
-    "resonance": 33,
-    "wisdom": 35,
-    "charisma": 36,
-    "intuition": 31,
-    "adaptability": 42,
-    "vitality": 39
+    "power": 24,
+    "resonance": 24,
+    "wisdom": 47,
+    "charisma": 24,
+    "intuition": 38,
+    "adaptability": 52,
+    "vitality": 24
   },
   "scrabbleLetter": "N",
   "trickEngine": {
@@ -60,10 +60,10 @@
       "Knight",
       "Air",
       "Court Archetype",
-      "Herald"
+      "Magnitude ++"
     ],
-    "upright": "Mature embodiment of Knight wielding Air consciousness.",
-    "reversed": "Misdirection of Knight's temperament; emotional or tactical friction.",
-    "description": "Prince of the Chariot of the Winds. Embodies the royal governance of Air."
+    "upright": "Mature embodiment of Knight wielding Air consciousness at magnitude ++.",
+    "reversed": "Misdirection of Knight's ++ temperament; emotional or tactical friction.",
+    "description": "Prince of the Chariot of the Winds. Embodies the ++ magnitude of royal Air governance."
   }
 }

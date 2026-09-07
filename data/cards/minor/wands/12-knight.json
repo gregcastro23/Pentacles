@@ -35,13 +35,13 @@
     "audioFrequencyHz": 576
   },
   "sacredStats": {
-    "power": 56,
-    "resonance": 43,
+    "power": 47,
+    "resonance": 42,
     "wisdom": 24,
     "charisma": 47,
     "intuition": 24,
     "adaptability": 33,
-    "vitality": 49
+    "vitality": 42
   },
   "scrabbleLetter": "N",
   "trickEngine": {
@@ -60,10 +60,10 @@
       "Knight",
       "Fire",
       "Court Archetype",
-      "Herald"
+      "Magnitude ++"
     ],
-    "upright": "Mature embodiment of Knight wielding Fire consciousness.",
-    "reversed": "Misdirection of Knight's temperament; emotional or tactical friction.",
-    "description": "Prince of the Chariot of Fire. Embodies the royal governance of Fire."
+    "upright": "Mature embodiment of Knight wielding Fire consciousness at magnitude ++.",
+    "reversed": "Misdirection of Knight's ++ temperament; emotional or tactical friction.",
+    "description": "Prince of the Chariot of Fire. Embodies the ++ magnitude of royal Fire governance."
   }
 }
