@@ -2,6 +2,53 @@
 // Pentacles: My Pentacles & Star-Dex Unit Test Suite
 // ============================================================
 import assert from "node:assert";
+
+if (typeof globalThis.document === "undefined") {
+  globalThis.document = {
+    createElement: (tag) => {
+      const el = {
+        tagName: tag.toUpperCase(),
+        classList: {
+          _c: new Set(),
+          add(...c) { c.forEach(x => this._c.add(x)); this._sync(); },
+          remove(...c) { c.forEach(x => this._c.delete(x)); this._sync(); },
+          contains(c) { return this._c.has(c); },
+          _sync() { el.className = Array.from(this._c).join(" "); }
+        },
+        style: {},
+        dataset: {},
+        setAttribute(k, v) {
+          if (k === "class") {
+            this.className = String(v);
+            this.classList._c = new Set(String(v).split(/\s+/).filter(Boolean));
+          }
+        },
+        getAttribute(k) {
+          if (k === "class") return this.className;
+          return null;
+        },
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        appendChild(child) {
+          this.children.push(child);
+          this.childNodes.push(child);
+          return child;
+        },
+        replaceChildren(...nodes) {
+          this.children = [...nodes];
+          this.childNodes = [...nodes];
+        },
+        children: [],
+        childNodes: [],
+        className: "",
+        textContent: ""
+      };
+      return el;
+    },
+    createTextNode: (txt) => ({ textContent: String(txt) })
+  };
+}
+
 import MyPentacles, { MyPentaclesInstance, MyCodex, create } from "../src/alchm-chart/my-pentacles.js";
 
 console.log("▶ Testing Section 1: My Pentacles Instance & Factory");
@@ -81,5 +128,33 @@ inst._setCardLoadout(999, "active");
 const rejectedSlot = fakeState.deck.find(d => d.card_id === 999);
 assert.strictEqual(rejectedSlot.loadout, "bench", "Slot 999 should remain bench due to 8 card active cap");
 console.log("  ✓ Max 8 active card limit guard verified");
+
+console.log("▶ Testing Section 4: 3D Flippable Card Inspector (Front Art / Back Stats)");
+assert.strictEqual(inst.inspectorFlipped, false, "inspectorFlipped should default to false (front art side)");
+
+const modalEl = inst._cardInspectorModal(fakeState.collection[0], fakeState.deck, fakeState.collection);
+assert.strictEqual(modalEl.className, "mc-inspector-overlay", "Should return inspector overlay");
+assert.strictEqual(modalEl.children.length, 1, "Overlay should contain flipper container");
+
+const flipperContainer = modalEl.children[0];
+assert.strictEqual(flipperContainer.className, "mc-inspector-flipper-container", "Should contain flipper container");
+
+const flipper = flipperContainer.children[0];
+assert.ok(flipper.className.includes("mc-inspector-flipper"), "Should contain mc-inspector-flipper element");
+assert.ok(!flipper.className.includes("is-flipped"), "Default state should not have is-flipped class");
+
+// Test front and back sides
+assert.strictEqual(flipper.children.length, 2, "Flipper should contain exactly 2 sides (front and back)");
+const frontSide = flipper.children[0];
+const backSide = flipper.children[1];
+assert.ok(frontSide.className.includes("mc-inspector-side--front"), "First child must be front side");
+assert.ok(backSide.className.includes("mc-inspector-side--back"), "Second child must be back side");
+
+// Flip state
+inst.inspectorFlipped = true;
+const flippedModalEl = inst._cardInspectorModal(fakeState.collection[0], fakeState.deck, fakeState.collection);
+const flippedFlipper = flippedModalEl.children[0].children[0];
+assert.ok(flippedFlipper.className.includes("is-flipped"), "Flipped flipper must have is-flipped class");
+console.log("  ✓ 3D Card flipper front art and back stats verified");
 
 console.log("ALL My Pentacles tests passed with 100% success!");

@@ -1797,6 +1797,8 @@
         }
       }
     }
+    window.handleCollectionCardClick = handleCollectionCardClick;
+    window.autoPlaceCardInSiege = handleCollectionCardClick;
 
     function cancelFuse() {
       window.tempFuseCard = null;
