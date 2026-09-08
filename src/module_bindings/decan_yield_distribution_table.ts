@@ -9,18 +9,18 @@ import {
   type AlgebraicTypeType as __AlgebraicTypeType,
   type Infer as __Infer,
 } from "spacetimedb";
-
 import {
-  BridgeChain,
+  Planet,
 } from "./types";
 
-export default {
-  get chain() {
-    return BridgeChain;
+
+export default __t.row({
+  distributionId: __t.u64().primaryKey().name("distribution_id"),
+  decanId: __t.u16().name("decan_id"),
+  signIndex: __t.u8().name("sign_index"),
+  get winnerFaction() {
+    return Planet.name("winner_faction");
   },
-  txHash: __t.string(),
-  stakerPubkey: __t.string(),
-  starId: __t.u32(),
-  principalUsdc: __t.u64(),
-  positionPrincipal: __t.u64(),
-};
+  totalEsmsDistributed: __t.u64().name("total_esms_distributed"),
+  settledAt: __t.timestamp().name("settled_at"),
+});
