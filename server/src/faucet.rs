@@ -409,3 +409,64 @@ pub fn compute_star_staking_accrual_rate(
         base_rate
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use spacetimedb::Identity;
+    use crate::types::HouseSystem;
+
+    fn test_chart() -> NatalChart {
+        NatalChart {
+            identity: Identity::ZERO,
+            birth_unix: 0,
+            birth_lat: 0.0,
+            birth_lon: 0.0,
+            time_known: false,
+            placements: vec![],
+            ascendant: 0,
+            midheaven: 0,
+            house_cusps: None,
+            house_system: HouseSystem::WholeSign,
+            intercepted_signs: None,
+        }
+    }
+
+    #[test]
+    fn test_melee_round_yield_oudler_climax_bonus() {
+        let chart = test_chart();
+        let score = 80;
+        let clean_sweep = false;
+        let suit_match = Some(true);
+
+        let yield_with_climax = compute_melee_round_yield(score, clean_sweep, suit_match, true, &chart, None);
+        let yield_without_climax = compute_melee_round_yield(score, clean_sweep, suit_match, false, &chart, None);
+
+        let diff = ((yield_with_climax.total - yield_without_climax.total) * 10_000.0).round() / 10_000.0;
+        assert_eq!(
+            diff,
+            MELEE_OUDLER_BONUS,
+            "Winning final trick must grant exactly +{MELEE_OUDLER_BONUS} ESMS Oudler climax bonus"
+        );
+    }
+
+    #[test]
+    fn test_melee_round_yield_no_climax_when_false() {
+        let chart = test_chart();
+        let score = 60;
+        let clean_sweep = false;
+
+        // When a table has no tricks played (e.g. timeout drain) or the winner did not take trick 12,
+        // oudler_climax is false and no bonus is added.
+        let yield_no_climax = compute_melee_round_yield(score, clean_sweep, None, false, &chart, None);
+
+        // Expected base calculation: MELEE_BASE_YIELD (5.0) * score_mult (1.0 + 60/100 = 1.6) * 1.0 * 1.0 + 0 = 8.0000
+        let expected_total = 8.0000;
+        assert_eq!(
+            yield_no_climax.total,
+            expected_total,
+            "Yield without climax bonus must match base formula with 0.0 Oudler bonus"
+        );
+    }
+}
+

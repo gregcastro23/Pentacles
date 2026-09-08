@@ -3481,7 +3481,18 @@ fn melee_settle(ctx: &ReducerContext, table_id: u64) {
         let winner = &seats[winning_seat_idx];
         if let Some(chart) = ctx.db.natal_chart().identity().find(&winner.occupant) {
             let is_clean_sweep = winner.counters >= 120;
-            let oudler_climax = winner.took_final_trick;
+            // In Tarot / Golden Dawn trick taking, taking the final trick (trick 12 climax)
+            // earns the Oudler climax bonus (+1.5000 ESMS via MELEE_OUDLER_BONUS).
+            // Using max_by_key guarantees finding the final resolved trick regardless of
+            // scan order or shortened rounds, and safely yields false if no tricks were played.
+            let oudler_climax = ctx
+                .db
+                .melee_trick()
+                .table_id()
+                .filter(&table_id)
+                .max_by_key(|t| t.trick_number)
+                .map(|t| t.winner_seat == winner.seat_id)
+                .unwrap_or(false);
             let round_yield = faucet::compute_melee_round_yield(
                 winner.score,
                 is_clean_sweep,
