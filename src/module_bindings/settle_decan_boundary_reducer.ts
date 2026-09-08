@@ -11,16 +11,13 @@ import {
 } from "spacetimedb";
 
 import {
-  BridgeChain,
+  Planet,
 } from "./types";
 
 export default {
-  get chain() {
-    return BridgeChain;
+  decanId: __t.u16(),
+  signIndex: __t.u8(),
+  get winnerFaction() {
+    return Planet;
   },
-  txHash: __t.string(),
-  stakerPubkey: __t.string(),
-  starId: __t.u32(),
-  principalUsdc: __t.u64(),
-  positionPrincipal: __t.u64(),
 };

@@ -215,6 +215,18 @@ export const ConstellationStar = __t.object("ConstellationStar", {
 });
 export type ConstellationStar = __Infer<typeof ConstellationStar>;
 
+export const DecanYieldDistribution = __t.object("DecanYieldDistribution", {
+  distributionId: __t.u64(),
+  decanId: __t.u16(),
+  signIndex: __t.u8(),
+  get winnerFaction() {
+    return Planet;
+  },
+  totalEsmsDistributed: __t.u64(),
+  settledAt: __t.timestamp(),
+});
+export type DecanYieldDistribution = __Infer<typeof DecanYieldDistribution>;
+
 export const DeckSlot = __t.object("DeckSlot", {
   slotId: __t.u64(),
   owner: __t.identity(),
@@ -236,6 +248,14 @@ export const DeepSpaceCache = __t.object("DeepSpaceCache", {
   createdAt: __t.timestamp(),
 });
 export type DeepSpaceCache = __Infer<typeof DeepSpaceCache>;
+
+export const DeepSpaceClaim = __t.object("DeepSpaceClaim", {
+  claimId: __t.u64(),
+  cacheId: __t.u64(),
+  player: __t.identity(),
+  claimedAt: __t.timestamp(),
+});
+export type DeepSpaceClaim = __Infer<typeof DeepSpaceClaim>;
 
 export const Duel = __t.object("Duel", {
   duelId: __t.u64(),
@@ -309,6 +329,19 @@ export const Ephemeris = __t.object("Ephemeris", {
   retrograde: __t.bool(),
 });
 export type Ephemeris = __Infer<typeof Ephemeris>;
+
+export const FaucetTransaction = __t.object("FaucetTransaction", {
+  txId: __t.u64(),
+  recipient: __t.identity(),
+  source: __t.string(),
+  spirit: __t.u32(),
+  essence: __t.u32(),
+  matter: __t.u32(),
+  substance: __t.u32(),
+  total: __t.u32(),
+  createdAt: __t.timestamp(),
+});
+export type FaucetTransaction = __Infer<typeof FaucetTransaction>;
 
 export const GameConfig = __t.object("GameConfig", {
   id: __t.u8(),
@@ -596,6 +629,21 @@ export const Player = __t.object("Player", {
   solanaPubkey: __t.option(__t.string()),
 });
 export type Player = __Infer<typeof Player>;
+
+export const PlayerActionCooldown = __t.object("PlayerActionCooldown", {
+  key: __t.string(),
+  lastExecutedAt: __t.timestamp(),
+});
+export type PlayerActionCooldown = __Infer<typeof PlayerActionCooldown>;
+
+export const PlayerFaucetState = __t.object("PlayerFaucetState", {
+  identity: __t.identity(),
+  lastDailyClaimAt: __t.timestamp(),
+  lifetimeClaims: __t.u32(),
+  currentStreakDays: __t.u32(),
+  lastClaimYield: __t.array(__t.u32()),
+});
+export type PlayerFaucetState = __Infer<typeof PlayerFaucetState>;
 
 export const PlayerLocation = __t.object("PlayerLocation", {
   identity: __t.identity(),

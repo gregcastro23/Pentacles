@@ -10,17 +10,10 @@ import {
   type Infer as __Infer,
 } from "spacetimedb";
 
-import {
-  BridgeChain,
-} from "./types";
-
-export default {
-  get chain() {
-    return BridgeChain;
-  },
-  txHash: __t.string(),
-  stakerPubkey: __t.string(),
-  starId: __t.u32(),
-  principalUsdc: __t.u64(),
-  positionPrincipal: __t.u64(),
-};
+export default __t.row({
+  identity: __t.identity().primaryKey(),
+  lastDailyClaimAt: __t.timestamp().name("last_daily_claim_at"),
+  lifetimeClaims: __t.u32().name("lifetime_claims"),
+  currentStreakDays: __t.u32().name("current_streak_days"),
+  lastClaimYield: __t.array(__t.u32()).name("last_claim_yield"),
+});
