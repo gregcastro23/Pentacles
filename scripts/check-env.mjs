@@ -45,6 +45,13 @@ const tools = [
     purpose: "Needed for `bun run gen` client bindings generation & migrations",
     hint: "curl -sSf https://install.spacetimedb.com | sh",
   },
+  {
+    name: "Solana CLI",
+    cmd: "solana --version",
+    required: false,
+    purpose: "Needed for on-chain program deployment and keypair management",
+    hint: "sh -c \"$(curl -sSfL https://release.anza.xyz/stable/install)\"",
+  },
 ];
 
 let allRequiredPresent = true;
