@@ -197,7 +197,7 @@ try {
       console.error("  ✗ cargo not found in CI environment — cannot verify Rust engine parity");
       process.exit(1);
     }
-    console.warn("  ⚠ cargo not found in local environment — set PENTACLES_SKIP_PARITY=1 or install Rust for parity comparison");
+    console.warn("  ⚠ cargo not found in local environment — run `bun run check:env` or install Rust for parity comparison");
     process.exit(0);
   }
   console.error(err.stdout || "");
