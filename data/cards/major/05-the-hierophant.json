@@ -21,6 +21,9 @@
     "triplicitySign": "Taurus",
     "triplicityRuler": "Venus",
     "triplicityRulerIndex": 3,
+    "triplicityRulerIndices": [
+      3
+    ],
     "hebrewLetter": "Vav (ו)",
     "treeOfLifePath": "16th Path (Chokmah to Chesed)"
   },
@@ -43,6 +46,31 @@
     "adaptability": 24,
     "vitality": 52
   },
+  "planetaryStats": {
+    "solarAgency": 24,
+    "lunarReceptivity": 41,
+    "mercurialVelocity": 24,
+    "venusianCoherence": 56,
+    "martialImpetus": 21,
+    "jovianExpansion": 37,
+    "saturnianStructure": 54,
+    "chironicAdaptation": 29,
+    "uranianSurprisal": 20,
+    "neptunianResonance": 35,
+    "plutonicIntegration": 37
+  },
+  "planetaryAffinity": [
+    0,
+    4,
+    0,
+    5,
+    -5,
+    0,
+    0,
+    -4,
+    0,
+    -5
+  ],
   "scrabbleLetter": "H",
   "trickEngine": {
     "trickPower": 1050,

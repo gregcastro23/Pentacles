@@ -21,6 +21,9 @@
     "triplicitySign": null,
     "triplicityRuler": "Mars",
     "triplicityRulerIndex": 4,
+    "triplicityRulerIndices": [
+      4
+    ],
     "hebrewLetter": "Peh (פ)",
     "treeOfLifePath": "27th Path (Netzach to Hod)"
   },
@@ -43,6 +46,31 @@
     "adaptability": 28,
     "vitality": 67
   },
+  "planetaryStats": {
+    "solarAgency": 37,
+    "lunarReceptivity": 49,
+    "mercurialVelocity": 29,
+    "venusianCoherence": 44,
+    "martialImpetus": 59,
+    "jovianExpansion": 37,
+    "saturnianStructure": 54,
+    "chironicAdaptation": 34,
+    "uranianSurprisal": 35,
+    "neptunianResonance": 47,
+    "plutonicIntegration": 47
+  },
+  "planetaryAffinity": [
+    0,
+    0,
+    0,
+    0,
+    5,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
   "scrabbleLetter": "K",
   "trickEngine": {
     "trickPower": 1160,

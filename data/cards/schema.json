@@ -14,6 +14,8 @@
     "symbolism",
     "styling",
     "sacredStats",
+    "planetaryStats",
+    "planetaryAffinity",
     "trickEngine",
     "lore"
   ],
@@ -71,6 +73,11 @@
         "triplicitySign": { "type": ["string", "null"] },
         "triplicityRuler": { "type": ["string", "null"] },
         "triplicityRulerIndex": { "type": ["integer", "null"], "minimum": 0, "maximum": 9 },
+        "triplicityRulerIndices": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 0, "maximum": 9 },
+          "description": "Array of 0-based indices matching Planet::idx (0=Sun .. 9=Pluto) for all triplicity decan rulers, preserving dual rulers"
+        },
         "hebrewLetter": { "type": ["string", "null"] },
         "treeOfLifePath": { "type": ["string", "null"] }
       }
@@ -118,6 +125,43 @@
         "adaptability": { "type": "integer", "minimum": 0, "maximum": 100, "description": "Change navigation and metamorphic flexibility (🌊)" },
         "vitality": { "type": "integer", "minimum": 0, "maximum": 100, "description": "Life force energy and regenerative capacity (💚)" }
       }
+    },
+    "planetaryStats": {
+      "type": "object",
+      "description": "Alchm Planetary 12 Celestial Dynamics parameters (20-95 scale). Note on 11 vs 12: Contains the 11 static derivable axes from lib/agents/sacred-stats.ts:89-121. The 12th axis (kineticAlignment) is a runtime celestial transit synchronization quantity calculated dynamically via kineticAlignment(card, skyTransit) in src/cards/kinetics.js rather than stored as a static constant placeholder.",
+      "required": [
+        "solarAgency",
+        "lunarReceptivity",
+        "mercurialVelocity",
+        "venusianCoherence",
+        "martialImpetus",
+        "jovianExpansion",
+        "saturnianStructure",
+        "chironicAdaptation",
+        "uranianSurprisal",
+        "neptunianResonance",
+        "plutonicIntegration"
+      ],
+      "properties": {
+        "solarAgency": { "type": "integer", "minimum": 20, "maximum": 95, "description": "☀️ Core directed intent and causal power (10·Spirit)" },
+        "lunarReceptivity": { "type": "integer", "minimum": 20, "maximum": 95, "description": "🌙 Context integration and memory depth (10·Essence)" },
+        "mercurialVelocity": { "type": "integer", "minimum": 20, "maximum": 95, "description": "☿ Information processing speed and routing (4·Spirit + 6·Substance)" },
+        "venusianCoherence": { "type": "integer", "minimum": 20, "maximum": 95, "description": "♀ Subsystem harmony and aesthetic alignment (8·Essence)" },
+        "martialImpetus": { "type": "integer", "minimum": 20, "maximum": 95, "description": "♂ Generative drive and error-correction aggression (8·Spirit)" },
+        "jovianExpansion": { "type": "integer", "minimum": 20, "maximum": 95, "description": "♃ Breadth of retrieval and overarching synthesis (5·Substance + 5·Matter)" },
+        "saturnianStructure": { "type": "integer", "minimum": 20, "maximum": 95, "description": "♄ Boundary maintenance and logical consistency (12·Matter)" },
+        "chironicAdaptation": { "type": "integer", "minimum": 20, "maximum": 95, "description": "⚷ Capacity to learn from failures and self-heal (8·Substance + 4·Essence)" },
+        "uranianSurprisal": { "type": "integer", "minimum": 20, "maximum": 95, "description": "♅ Degree of unpredictable paradigm-shifting novelty (9·Spirit)" },
+        "neptunianResonance": { "type": "integer", "minimum": 20, "maximum": 95, "description": "♆ Semantic density and latent space richness (9·Essence + 3·Substance)" },
+        "plutonicIntegration": { "type": "integer", "minimum": 20, "maximum": 95, "description": "♇ Deep structural self-modification (6·Matter + 6·Spirit)" }
+      }
+    },
+    "planetaryAffinity": {
+      "type": "array",
+      "description": "10-element additive essential dignity vector [-5, 5] centered on 0, indexed by Planet::idx (0=Sun .. 9=Pluto) matching Pentacles server/src/chart.rs::faction_scores.",
+      "items": { "type": "integer", "minimum": -5, "maximum": 5 },
+      "minItems": 10,
+      "maxItems": 10
     },
     "scrabbleLetter": { "type": "string" },
     "trickEngine": {

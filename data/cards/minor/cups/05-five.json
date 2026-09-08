@@ -24,6 +24,9 @@
     "triplicitySign": "Scorpio",
     "triplicityRuler": "Mars",
     "triplicityRulerIndex": 4,
+    "triplicityRulerIndices": [
+      4
+    ],
     "hebrewLetter": null,
     "treeOfLifePath": null
   },
@@ -46,6 +49,31 @@
     "adaptability": 24,
     "vitality": 44
   },
+  "planetaryStats": {
+    "solarAgency": 24,
+    "lunarReceptivity": 46,
+    "mercurialVelocity": 24,
+    "venusianCoherence": 42,
+    "martialImpetus": 46,
+    "jovianExpansion": 31,
+    "saturnianStructure": 40,
+    "chironicAdaptation": 34,
+    "uranianSurprisal": 28,
+    "neptunianResonance": 47,
+    "plutonicIntegration": 35
+  },
+  "planetaryAffinity": [
+    0,
+    -4,
+    0,
+    -5,
+    5,
+    0,
+    0,
+    4,
+    0,
+    5
+  ],
   "scrabbleLetter": "P",
   "trickEngine": {
     "trickPower": 4,

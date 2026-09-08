@@ -21,6 +21,9 @@
     "triplicitySign": null,
     "triplicityRuler": "Saturn",
     "triplicityRulerIndex": 6,
+    "triplicityRulerIndices": [
+      6
+    ],
     "hebrewLetter": "Tav (ת)",
     "treeOfLifePath": "32nd Path (Yesod to Malkuth)"
   },
@@ -43,6 +46,31 @@
     "adaptability": 29,
     "vitality": 90
   },
+  "planetaryStats": {
+    "solarAgency": 49,
+    "lunarReceptivity": 24,
+    "mercurialVelocity": 34,
+    "venusianCoherence": 24,
+    "martialImpetus": 44,
+    "jovianExpansion": 43,
+    "saturnianStructure": 95,
+    "chironicAdaptation": 24,
+    "uranianSurprisal": 47,
+    "neptunianResonance": 24,
+    "plutonicIntegration": 62
+  },
+  "planetaryAffinity": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    5,
+    0,
+    0,
+    0
+  ],
   "scrabbleLetter": "Z",
   "trickEngine": {
     "trickPower": 1210,

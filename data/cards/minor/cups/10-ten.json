@@ -24,6 +24,9 @@
     "triplicitySign": "Scorpio",
     "triplicityRuler": "Pluto",
     "triplicityRulerIndex": 9,
+    "triplicityRulerIndices": [
+      9
+    ],
     "hebrewLetter": null,
     "treeOfLifePath": null
   },
@@ -46,6 +49,31 @@
     "adaptability": 28,
     "vitality": 35
   },
+  "planetaryStats": {
+    "solarAgency": 24,
+    "lunarReceptivity": 47,
+    "mercurialVelocity": 20,
+    "venusianCoherence": 47,
+    "martialImpetus": 24,
+    "jovianExpansion": 32,
+    "saturnianStructure": 37,
+    "chironicAdaptation": 33,
+    "uranianSurprisal": 24,
+    "neptunianResonance": 48,
+    "plutonicIntegration": 49
+  },
+  "planetaryAffinity": [
+    0,
+    0,
+    -5,
+    4,
+    0,
+    5,
+    0,
+    0,
+    5,
+    0
+  ],
   "scrabbleLetter": "E",
   "trickEngine": {
     "trickPower": 13,

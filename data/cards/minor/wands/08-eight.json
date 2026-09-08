@@ -24,6 +24,9 @@
     "triplicitySign": "Sagittarius",
     "triplicityRuler": "Jupiter",
     "triplicityRulerIndex": 5,
+    "triplicityRulerIndices": [
+      5
+    ],
     "hebrewLetter": null,
     "treeOfLifePath": null
   },
@@ -46,6 +49,31 @@
     "adaptability": 38,
     "vitality": 43
   },
+  "planetaryStats": {
+    "solarAgency": 50,
+    "lunarReceptivity": 37,
+    "mercurialVelocity": 32,
+    "venusianCoherence": 35,
+    "martialImpetus": 45,
+    "jovianExpansion": 46,
+    "saturnianStructure": 24,
+    "chironicAdaptation": 29,
+    "uranianSurprisal": 47,
+    "neptunianResonance": 36,
+    "plutonicIntegration": 40
+  },
+  "planetaryAffinity": [
+    0,
+    0,
+    -5,
+    0,
+    0,
+    5,
+    0,
+    0,
+    0,
+    0
+  ],
   "scrabbleLetter": "Y",
   "trickEngine": {
     "trickPower": 7,

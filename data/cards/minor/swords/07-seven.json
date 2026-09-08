@@ -24,6 +24,9 @@
     "triplicitySign": "Libra",
     "triplicityRuler": "Venus",
     "triplicityRulerIndex": 3,
+    "triplicityRulerIndices": [
+      3
+    ],
     "hebrewLetter": null,
     "treeOfLifePath": null
   },
@@ -46,6 +49,31 @@
     "adaptability": 38,
     "vitality": 35
   },
+  "planetaryStats": {
+    "solarAgency": 21,
+    "lunarReceptivity": 35,
+    "mercurialVelocity": 31,
+    "venusianCoherence": 52,
+    "martialImpetus": 24,
+    "jovianExpansion": 36,
+    "saturnianStructure": 40,
+    "chironicAdaptation": 38,
+    "uranianSurprisal": 27,
+    "neptunianResonance": 37,
+    "plutonicIntegration": 30
+  },
+  "planetaryAffinity": [
+    -5,
+    0,
+    0,
+    0,
+    0,
+    0,
+    5,
+    5,
+    0,
+    -4
+  ],
   "scrabbleLetter": "V",
   "trickEngine": {
     "trickPower": 6,

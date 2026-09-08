@@ -21,6 +21,9 @@
     "triplicitySign": null,
     "triplicityRuler": "Mercury",
     "triplicityRulerIndex": 2,
+    "triplicityRulerIndices": [
+      2
+    ],
     "hebrewLetter": "Beth (ב)",
     "treeOfLifePath": "12th Path (Kether to Binah)"
   },
@@ -43,6 +46,31 @@
     "adaptability": 83,
     "vitality": 42
   },
+  "planetaryStats": {
+    "solarAgency": 49,
+    "lunarReceptivity": 24,
+    "mercurialVelocity": 82,
+    "venusianCoherence": 24,
+    "martialImpetus": 44,
+    "jovianExpansion": 43,
+    "saturnianStructure": 24,
+    "chironicAdaptation": 54,
+    "uranianSurprisal": 47,
+    "neptunianResonance": 35,
+    "plutonicIntegration": 39
+  },
+  "planetaryAffinity": [
+    0,
+    0,
+    5,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
   "scrabbleLetter": "M",
   "trickEngine": {
     "trickPower": 1010,

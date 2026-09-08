@@ -21,6 +21,9 @@
     "triplicitySign": "Leo",
     "triplicityRuler": "Sun",
     "triplicityRulerIndex": 0,
+    "triplicityRulerIndices": [
+      0
+    ],
     "hebrewLetter": "Teth (ט)",
     "treeOfLifePath": "19th Path (Chesed to Geburah)"
   },
@@ -43,6 +46,31 @@
     "adaptability": 33,
     "vitality": 50
   },
+  "planetaryStats": {
+    "solarAgency": 71,
+    "lunarReceptivity": 24,
+    "mercurialVelocity": 34,
+    "venusianCoherence": 24,
+    "martialImpetus": 44,
+    "jovianExpansion": 24,
+    "saturnianStructure": 21,
+    "chironicAdaptation": 24,
+    "uranianSurprisal": 44,
+    "neptunianResonance": 24,
+    "plutonicIntegration": 39
+  },
+  "planetaryAffinity": [
+    5,
+    0,
+    0,
+    0,
+    0,
+    0,
+    -5,
+    -5,
+    0,
+    4
+  ],
   "scrabbleLetter": "S",
   "trickEngine": {
     "trickPower": 1080,

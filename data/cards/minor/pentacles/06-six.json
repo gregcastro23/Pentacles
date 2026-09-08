@@ -24,6 +24,9 @@
     "triplicitySign": "Virgo",
     "triplicityRuler": "Mercury",
     "triplicityRulerIndex": 2,
+    "triplicityRulerIndices": [
+      2
+    ],
     "hebrewLetter": null,
     "treeOfLifePath": null
   },
@@ -46,6 +49,31 @@
     "adaptability": 48,
     "vitality": 46
   },
+  "planetaryStats": {
+    "solarAgency": 35,
+    "lunarReceptivity": 28,
+    "mercurialVelocity": 54,
+    "venusianCoherence": 27,
+    "martialImpetus": 30,
+    "jovianExpansion": 36,
+    "saturnianStructure": 39,
+    "chironicAdaptation": 32,
+    "uranianSurprisal": 30,
+    "neptunianResonance": 27,
+    "plutonicIntegration": 35
+  },
+  "planetaryAffinity": [
+    0,
+    4,
+    0,
+    5,
+    -5,
+    0,
+    0,
+    -4,
+    0,
+    -5
+  ],
   "scrabbleLetter": "S",
   "trickEngine": {
     "trickPower": 5,

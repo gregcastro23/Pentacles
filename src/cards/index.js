@@ -5,6 +5,9 @@
    Source of truth: data/cards/
    ============================================================ */
 
+export * from "./kinetics.js";
+import * as kinetics from "./kinetics.js";
+
 export const ALL_CARDS = [
   {
     "id": "major-00",
@@ -29,6 +32,9 @@ export const ALL_CARDS = [
       "triplicitySign": null,
       "triplicityRuler": "Uranus",
       "triplicityRulerIndex": 7,
+      "triplicityRulerIndices": [
+        7
+      ],
       "hebrewLetter": "Aleph (א)",
       "treeOfLifePath": "11th Path (Kether to Chokmah)"
     },
@@ -51,6 +57,31 @@ export const ALL_CARDS = [
       "adaptability": 47,
       "vitality": 52
     },
+    "planetaryStats": {
+      "solarAgency": 24,
+      "lunarReceptivity": 49,
+      "mercurialVelocity": 31,
+      "venusianCoherence": 44,
+      "martialImpetus": 24,
+      "jovianExpansion": 43,
+      "saturnianStructure": 54,
+      "chironicAdaptation": 44,
+      "uranianSurprisal": 49,
+      "neptunianResonance": 51,
+      "plutonicIntegration": 39
+    },
+    "planetaryAffinity": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      5,
+      0,
+      0
+    ],
     "scrabbleLetter": "O",
     "trickEngine": {
       "trickPower": 1000,
@@ -100,6 +131,9 @@ export const ALL_CARDS = [
       "triplicitySign": null,
       "triplicityRuler": "Mercury",
       "triplicityRulerIndex": 2,
+      "triplicityRulerIndices": [
+        2
+      ],
       "hebrewLetter": "Beth (ב)",
       "treeOfLifePath": "12th Path (Kether to Binah)"
     },
@@ -122,6 +156,31 @@ export const ALL_CARDS = [
       "adaptability": 83,
       "vitality": 42
     },
+    "planetaryStats": {
+      "solarAgency": 49,
+      "lunarReceptivity": 24,
+      "mercurialVelocity": 82,
+      "venusianCoherence": 24,
+      "martialImpetus": 44,
+      "jovianExpansion": 43,
+      "saturnianStructure": 24,
+      "chironicAdaptation": 54,
+      "uranianSurprisal": 47,
+      "neptunianResonance": 35,
+      "plutonicIntegration": 39
+    },
+    "planetaryAffinity": [
+      0,
+      0,
+      5,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
     "scrabbleLetter": "M",
     "trickEngine": {
       "trickPower": 1010,
@@ -171,6 +230,9 @@ export const ALL_CARDS = [
       "triplicitySign": null,
       "triplicityRuler": "Moon",
       "triplicityRulerIndex": 1,
+      "triplicityRulerIndices": [
+        1
+      ],
       "hebrewLetter": "Gimel (ג)",
       "treeOfLifePath": "13th Path (Kether to Tiphereth)"
     },
@@ -193,6 +255,31 @@ export const ALL_CARDS = [
       "adaptability": 24,
       "vitality": 52
     },
+    "planetaryStats": {
+      "solarAgency": 24,
+      "lunarReceptivity": 87,
+      "mercurialVelocity": 24,
+      "venusianCoherence": 54,
+      "martialImpetus": 24,
+      "jovianExpansion": 37,
+      "saturnianStructure": 54,
+      "chironicAdaptation": 39,
+      "uranianSurprisal": 24,
+      "neptunianResonance": 58,
+      "plutonicIntegration": 39
+    },
+    "planetaryAffinity": [
+      0,
+      5,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
     "scrabbleLetter": "P",
     "trickEngine": {
       "trickPower": 1020,
@@ -240,6 +327,9 @@ export const ALL_CARDS = [
       "triplicitySign": null,
       "triplicityRuler": "Venus",
       "triplicityRulerIndex": 3,
+      "triplicityRulerIndices": [
+        3
+      ],
       "hebrewLetter": "Daleth (ד)",
       "treeOfLifePath": "14th Path (Chokmah to Binah)"
     },
@@ -262,6 +352,31 @@ export const ALL_CARDS = [
       "adaptability": 24,
       "vitality": 52
     },
+    "planetaryStats": {
+      "solarAgency": 24,
+      "lunarReceptivity": 62,
+      "mercurialVelocity": 24,
+      "venusianCoherence": 80,
+      "martialImpetus": 24,
+      "jovianExpansion": 37,
+      "saturnianStructure": 54,
+      "chironicAdaptation": 39,
+      "uranianSurprisal": 24,
+      "neptunianResonance": 58,
+      "plutonicIntegration": 39
+    },
+    "planetaryAffinity": [
+      0,
+      0,
+      0,
+      5,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
     "scrabbleLetter": "E",
     "trickEngine": {
       "trickPower": 1030,
@@ -309,6 +424,9 @@ export const ALL_CARDS = [
       "triplicitySign": "Aries",
       "triplicityRuler": "Mars",
       "triplicityRulerIndex": 4,
+      "triplicityRulerIndices": [
+        4
+      ],
       "hebrewLetter": "Heh (ה)",
       "treeOfLifePath": "15th Path (Chokmah to Tiphereth)"
     },
@@ -331,6 +449,31 @@ export const ALL_CARDS = [
       "adaptability": 28,
       "vitality": 55
     },
+    "planetaryStats": {
+      "solarAgency": 41,
+      "lunarReceptivity": 37,
+      "mercurialVelocity": 29,
+      "venusianCoherence": 31,
+      "martialImpetus": 56,
+      "jovianExpansion": 30,
+      "saturnianStructure": 35,
+      "chironicAdaptation": 29,
+      "uranianSurprisal": 35,
+      "neptunianResonance": 35,
+      "plutonicIntegration": 44
+    },
+    "planetaryAffinity": [
+      4,
+      0,
+      0,
+      -5,
+      5,
+      0,
+      -4,
+      0,
+      0,
+      0
+    ],
     "scrabbleLetter": "R",
     "trickEngine": {
       "trickPower": 1040,
@@ -378,6 +521,9 @@ export const ALL_CARDS = [
       "triplicitySign": "Taurus",
       "triplicityRuler": "Venus",
       "triplicityRulerIndex": 3,
+      "triplicityRulerIndices": [
+        3
+      ],
       "hebrewLetter": "Vav (ו)",
       "treeOfLifePath": "16th Path (Chokmah to Chesed)"
     },
@@ -400,6 +546,31 @@ export const ALL_CARDS = [
       "adaptability": 24,
       "vitality": 52
     },
+    "planetaryStats": {
+      "solarAgency": 24,
+      "lunarReceptivity": 41,
+      "mercurialVelocity": 24,
+      "venusianCoherence": 56,
+      "martialImpetus": 21,
+      "jovianExpansion": 37,
+      "saturnianStructure": 54,
+      "chironicAdaptation": 29,
+      "uranianSurprisal": 20,
+      "neptunianResonance": 35,
+      "plutonicIntegration": 37
+    },
+    "planetaryAffinity": [
+      0,
+      4,
+      0,
+      5,
+      -5,
+      0,
+      0,
+      -4,
+      0,
+      -5
+    ],
     "scrabbleLetter": "H",
     "trickEngine": {
       "trickPower": 1050,
@@ -447,6 +618,9 @@ export const ALL_CARDS = [
       "triplicitySign": "Gemini",
       "triplicityRuler": "Mercury",
       "triplicityRulerIndex": 2,
+      "triplicityRulerIndices": [
+        2
+      ],
       "hebrewLetter": "Zain (ז)",
       "treeOfLifePath": "17th Path (Binah to Tiphereth)"
     },
@@ -469,6 +643,31 @@ export const ALL_CARDS = [
       "adaptability": 69,
       "vitality": 33
     },
+    "planetaryStats": {
+      "solarAgency": 37,
+      "lunarReceptivity": 24,
+      "mercurialVelocity": 66,
+      "venusianCoherence": 24,
+      "martialImpetus": 34,
+      "jovianExpansion": 34,
+      "saturnianStructure": 24,
+      "chironicAdaptation": 44,
+      "uranianSurprisal": 35,
+      "neptunianResonance": 31,
+      "plutonicIntegration": 31
+    },
+    "planetaryAffinity": [
+      0,
+      0,
+      5,
+      0,
+      0,
+      -5,
+      0,
+      0,
+      0,
+      0
+    ],
     "scrabbleLetter": "L",
     "trickEngine": {
       "trickPower": 1060,
@@ -516,6 +715,9 @@ export const ALL_CARDS = [
       "triplicitySign": "Cancer",
       "triplicityRuler": "Moon",
       "triplicityRulerIndex": 1,
+      "triplicityRulerIndices": [
+        1
+      ],
       "hebrewLetter": "Cheth (ח)",
       "treeOfLifePath": "18th Path (Binah to Geburah)"
     },
@@ -538,6 +740,31 @@ export const ALL_CARDS = [
       "adaptability": 24,
       "vitality": 40
     },
+    "planetaryStats": {
+      "solarAgency": 24,
+      "lunarReceptivity": 71,
+      "mercurialVelocity": 24,
+      "venusianCoherence": 44,
+      "martialImpetus": 20,
+      "jovianExpansion": 35,
+      "saturnianStructure": 37,
+      "chironicAdaptation": 34,
+      "uranianSurprisal": 24,
+      "neptunianResonance": 51,
+      "plutonicIntegration": 31
+    },
+    "planetaryAffinity": [
+      0,
+      5,
+      0,
+      0,
+      -4,
+      4,
+      -5,
+      0,
+      4,
+      0
+    ],
     "scrabbleLetter": "C",
     "trickEngine": {
       "trickPower": 1070,
@@ -585,6 +812,9 @@ export const ALL_CARDS = [
       "triplicitySign": "Leo",
       "triplicityRuler": "Sun",
       "triplicityRulerIndex": 0,
+      "triplicityRulerIndices": [
+        0
+      ],
       "hebrewLetter": "Teth (ט)",
       "treeOfLifePath": "19th Path (Chesed to Geburah)"
     },
@@ -607,6 +837,31 @@ export const ALL_CARDS = [
       "adaptability": 33,
       "vitality": 50
     },
+    "planetaryStats": {
+      "solarAgency": 71,
+      "lunarReceptivity": 24,
+      "mercurialVelocity": 34,
+      "venusianCoherence": 24,
+      "martialImpetus": 44,
+      "jovianExpansion": 24,
+      "saturnianStructure": 21,
+      "chironicAdaptation": 24,
+      "uranianSurprisal": 44,
+      "neptunianResonance": 24,
+      "plutonicIntegration": 39
+    },
+    "planetaryAffinity": [
+      5,
+      0,
+      0,
+      0,
+      0,
+      0,
+      -5,
+      -5,
+      0,
+      4
+    ],
     "scrabbleLetter": "S",
     "trickEngine": {
       "trickPower": 1080,
@@ -654,6 +909,9 @@ export const ALL_CARDS = [
       "triplicitySign": "Virgo",
       "triplicityRuler": "Mercury",
       "triplicityRulerIndex": 2,
+      "triplicityRulerIndices": [
+        2
+      ],
       "hebrewLetter": "Yod (י)",
       "treeOfLifePath": "20th Path (Chesed to Tiphereth)"
     },
@@ -676,6 +934,31 @@ export const ALL_CARDS = [
       "adaptability": 55,
       "vitality": 47
     },
+    "planetaryStats": {
+      "solarAgency": 37,
+      "lunarReceptivity": 24,
+      "mercurialVelocity": 60,
+      "venusianCoherence": 20,
+      "martialImpetus": 34,
+      "jovianExpansion": 34,
+      "saturnianStructure": 39,
+      "chironicAdaptation": 34,
+      "uranianSurprisal": 35,
+      "neptunianResonance": 25,
+      "plutonicIntegration": 39
+    },
+    "planetaryAffinity": [
+      0,
+      0,
+      5,
+      -4,
+      0,
+      -5,
+      0,
+      0,
+      -5,
+      0
+    ],
     "scrabbleLetter": "I",
     "trickEngine": {
       "trickPower": 1090,
@@ -723,6 +1006,9 @@ export const ALL_CARDS = [
       "triplicitySign": null,
       "triplicityRuler": "Jupiter",
       "triplicityRulerIndex": 5,
+      "triplicityRulerIndices": [
+        5
+      ],
       "hebrewLetter": "Kaph (כ)",
       "treeOfLifePath": "21st Path (Chesed to Netzach)"
     },
@@ -745,6 +1031,31 @@ export const ALL_CARDS = [
       "adaptability": 38,
       "vitality": 52
     },
+    "planetaryStats": {
+      "solarAgency": 62,
+      "lunarReceptivity": 49,
+      "mercurialVelocity": 39,
+      "venusianCoherence": 44,
+      "martialImpetus": 54,
+      "jovianExpansion": 49,
+      "saturnianStructure": 24,
+      "chironicAdaptation": 34,
+      "uranianSurprisal": 58,
+      "neptunianResonance": 47,
+      "plutonicIntegration": 47
+    },
+    "planetaryAffinity": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      5,
+      0,
+      0,
+      0,
+      0
+    ],
     "scrabbleLetter": "W",
     "trickEngine": {
       "trickPower": 1100,
@@ -792,6 +1103,9 @@ export const ALL_CARDS = [
       "triplicitySign": "Libra",
       "triplicityRuler": "Venus",
       "triplicityRulerIndex": 3,
+      "triplicityRulerIndices": [
+        3
+      ],
       "hebrewLetter": "Lamed (ל)",
       "treeOfLifePath": "22nd Path (Geburah to Tiphereth)"
     },
@@ -814,6 +1128,31 @@ export const ALL_CARDS = [
       "adaptability": 38,
       "vitality": 40
     },
+    "planetaryStats": {
+      "solarAgency": 20,
+      "lunarReceptivity": 37,
+      "mercurialVelocity": 31,
+      "venusianCoherence": 56,
+      "martialImpetus": 21,
+      "jovianExpansion": 37,
+      "saturnianStructure": 44,
+      "chironicAdaptation": 39,
+      "uranianSurprisal": 24,
+      "neptunianResonance": 39,
+      "plutonicIntegration": 28
+    },
+    "planetaryAffinity": [
+      -4,
+      0,
+      0,
+      5,
+      -5,
+      0,
+      4,
+      0,
+      0,
+      0
+    ],
     "scrabbleLetter": "J",
     "trickEngine": {
       "trickPower": 1110,
@@ -861,6 +1200,9 @@ export const ALL_CARDS = [
       "triplicitySign": null,
       "triplicityRuler": "Neptune",
       "triplicityRulerIndex": 8,
+      "triplicityRulerIndices": [
+        8
+      ],
       "hebrewLetter": "Mem (מ)",
       "treeOfLifePath": "23rd Path (Geburah to Hod)"
     },
@@ -883,6 +1225,31 @@ export const ALL_CARDS = [
       "adaptability": 52,
       "vitality": 24
     },
+    "planetaryStats": {
+      "solarAgency": 24,
+      "lunarReceptivity": 62,
+      "mercurialVelocity": 39,
+      "venusianCoherence": 54,
+      "martialImpetus": 24,
+      "jovianExpansion": 37,
+      "saturnianStructure": 24,
+      "chironicAdaptation": 59,
+      "uranianSurprisal": 24,
+      "neptunianResonance": 91,
+      "plutonicIntegration": 24
+    },
+    "planetaryAffinity": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      5,
+      0
+    ],
     "scrabbleLetter": "U",
     "trickEngine": {
       "trickPower": 1120,
@@ -930,6 +1297,9 @@ export const ALL_CARDS = [
       "triplicitySign": "Scorpio",
       "triplicityRuler": "Pluto",
       "triplicityRulerIndex": 9,
+      "triplicityRulerIndices": [
+        9
+      ],
       "hebrewLetter": "Nun (נ)",
       "treeOfLifePath": "24th Path (Tiphereth to Netzach)"
     },
@@ -952,6 +1322,31 @@ export const ALL_CARDS = [
       "adaptability": 24,
       "vitality": 38
     },
+    "planetaryStats": {
+      "solarAgency": 24,
+      "lunarReceptivity": 45,
+      "mercurialVelocity": 24,
+      "venusianCoherence": 42,
+      "martialImpetus": 27,
+      "jovianExpansion": 30,
+      "saturnianStructure": 39,
+      "chironicAdaptation": 34,
+      "uranianSurprisal": 28,
+      "neptunianResonance": 47,
+      "plutonicIntegration": 54
+    },
+    "planetaryAffinity": [
+      0,
+      -4,
+      0,
+      -5,
+      5,
+      0,
+      0,
+      4,
+      0,
+      5
+    ],
     "scrabbleLetter": "D",
     "trickEngine": {
       "trickPower": 1130,
@@ -999,6 +1394,9 @@ export const ALL_CARDS = [
       "triplicitySign": "Sagittarius",
       "triplicityRuler": "Jupiter",
       "triplicityRulerIndex": 5,
+      "triplicityRulerIndices": [
+        5
+      ],
       "hebrewLetter": "Samekh (ס)",
       "treeOfLifePath": "25th Path (Tiphereth to Yesod)"
     },
@@ -1021,6 +1419,31 @@ export const ALL_CARDS = [
       "adaptability": 38,
       "vitality": 42
     },
+    "planetaryStats": {
+      "solarAgency": 49,
+      "lunarReceptivity": 37,
+      "mercurialVelocity": 31,
+      "venusianCoherence": 34,
+      "martialImpetus": 44,
+      "jovianExpansion": 46,
+      "saturnianStructure": 24,
+      "chironicAdaptation": 29,
+      "uranianSurprisal": 47,
+      "neptunianResonance": 35,
+      "plutonicIntegration": 39
+    },
+    "planetaryAffinity": [
+      0,
+      0,
+      -5,
+      0,
+      0,
+      5,
+      0,
+      0,
+      0,
+      0
+    ],
     "scrabbleLetter": "T",
     "trickEngine": {
       "trickPower": 1140,
@@ -1068,6 +1491,9 @@ export const ALL_CARDS = [
       "triplicitySign": "Capricorn",
       "triplicityRuler": "Saturn",
       "triplicityRulerIndex": 6,
+      "triplicityRulerIndices": [
+        6
+      ],
       "hebrewLetter": "Ayin (ע)",
       "treeOfLifePath": "26th Path (Tiphereth to Hod)"
     },
@@ -1090,6 +1516,31 @@ export const ALL_CARDS = [
       "adaptability": 25,
       "vitality": 69
     },
+    "planetaryStats": {
+      "solarAgency": 37,
+      "lunarReceptivity": 21,
+      "mercurialVelocity": 29,
+      "venusianCoherence": 24,
+      "martialImpetus": 38,
+      "jovianExpansion": 33,
+      "saturnianStructure": 77,
+      "chironicAdaptation": 24,
+      "uranianSurprisal": 35,
+      "neptunianResonance": 20,
+      "plutonicIntegration": 47
+    },
+    "planetaryAffinity": [
+      0,
+      -5,
+      0,
+      0,
+      4,
+      -4,
+      5,
+      0,
+      -4,
+      0
+    ],
     "scrabbleLetter": "B",
     "trickEngine": {
       "trickPower": 1150,
@@ -1137,6 +1588,9 @@ export const ALL_CARDS = [
       "triplicitySign": null,
       "triplicityRuler": "Mars",
       "triplicityRulerIndex": 4,
+      "triplicityRulerIndices": [
+        4
+      ],
       "hebrewLetter": "Peh (פ)",
       "treeOfLifePath": "27th Path (Netzach to Hod)"
     },
@@ -1159,6 +1613,31 @@ export const ALL_CARDS = [
       "adaptability": 28,
       "vitality": 67
     },
+    "planetaryStats": {
+      "solarAgency": 37,
+      "lunarReceptivity": 49,
+      "mercurialVelocity": 29,
+      "venusianCoherence": 44,
+      "martialImpetus": 59,
+      "jovianExpansion": 37,
+      "saturnianStructure": 54,
+      "chironicAdaptation": 34,
+      "uranianSurprisal": 35,
+      "neptunianResonance": 47,
+      "plutonicIntegration": 47
+    },
+    "planetaryAffinity": [
+      0,
+      0,
+      0,
+      0,
+      5,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
     "scrabbleLetter": "K",
     "trickEngine": {
       "trickPower": 1160,
@@ -1206,6 +1685,9 @@ export const ALL_CARDS = [
       "triplicitySign": "Aquarius",
       "triplicityRuler": "Uranus",
       "triplicityRulerIndex": 7,
+      "triplicityRulerIndices": [
+        7
+      ],
       "hebrewLetter": "Tzaddi (צ)",
       "treeOfLifePath": "28th Path (Netzach to Yesod)"
     },
@@ -1228,6 +1710,31 @@ export const ALL_CARDS = [
       "adaptability": 47,
       "vitality": 38
     },
+    "planetaryStats": {
+      "solarAgency": 21,
+      "lunarReceptivity": 37,
+      "mercurialVelocity": 31,
+      "venusianCoherence": 34,
+      "martialImpetus": 24,
+      "jovianExpansion": 37,
+      "saturnianStructure": 42,
+      "chironicAdaptation": 39,
+      "uranianSurprisal": 46,
+      "neptunianResonance": 39,
+      "plutonicIntegration": 31
+    },
+    "planetaryAffinity": [
+      -5,
+      0,
+      0,
+      0,
+      0,
+      0,
+      5,
+      5,
+      0,
+      -4
+    ],
     "scrabbleLetter": "A",
     "trickEngine": {
       "trickPower": 1170,
@@ -1275,6 +1782,9 @@ export const ALL_CARDS = [
       "triplicitySign": "Pisces",
       "triplicityRuler": "Neptune",
       "triplicityRulerIndex": 8,
+      "triplicityRulerIndices": [
+        8
+      ],
       "hebrewLetter": "Qoph (ק)",
       "treeOfLifePath": "29th Path (Netzach to Malkuth)"
     },
@@ -1297,6 +1807,31 @@ export const ALL_CARDS = [
       "adaptability": 42,
       "vitality": 24
     },
+    "planetaryStats": {
+      "solarAgency": 24,
+      "lunarReceptivity": 49,
+      "mercurialVelocity": 28,
+      "venusianCoherence": 49,
+      "martialImpetus": 24,
+      "jovianExpansion": 33,
+      "saturnianStructure": 24,
+      "chironicAdaptation": 44,
+      "uranianSurprisal": 24,
+      "neptunianResonance": 73,
+      "plutonicIntegration": 24
+    },
+    "planetaryAffinity": [
+      0,
+      0,
+      -5,
+      4,
+      0,
+      5,
+      0,
+      0,
+      5,
+      0
+    ],
     "scrabbleLetter": "N",
     "trickEngine": {
       "trickPower": 1180,
@@ -1344,6 +1879,9 @@ export const ALL_CARDS = [
       "triplicitySign": null,
       "triplicityRuler": "Sun",
       "triplicityRulerIndex": 0,
+      "triplicityRulerIndices": [
+        0
+      ],
       "hebrewLetter": "Resh (ר)",
       "treeOfLifePath": "30th Path (Hod to Yesod)"
     },
@@ -1366,6 +1904,31 @@ export const ALL_CARDS = [
       "adaptability": 38,
       "vitality": 60
     },
+    "planetaryStats": {
+      "solarAgency": 87,
+      "lunarReceptivity": 24,
+      "mercurialVelocity": 39,
+      "venusianCoherence": 24,
+      "martialImpetus": 54,
+      "jovianExpansion": 24,
+      "saturnianStructure": 24,
+      "chironicAdaptation": 24,
+      "uranianSurprisal": 58,
+      "neptunianResonance": 24,
+      "plutonicIntegration": 47
+    },
+    "planetaryAffinity": [
+      5,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
     "scrabbleLetter": "S",
     "trickEngine": {
       "trickPower": 1190,
@@ -1413,6 +1976,9 @@ export const ALL_CARDS = [
       "triplicitySign": null,
       "triplicityRuler": "Pluto",
       "triplicityRulerIndex": 9,
+      "triplicityRulerIndices": [
+        9
+      ],
       "hebrewLetter": "Shin (ש)",
       "treeOfLifePath": "31st Path (Hod to Malkuth)"
     },
@@ -1435,6 +2001,31 @@ export const ALL_CARDS = [
       "adaptability": 38,
       "vitality": 52
     },
+    "planetaryStats": {
+      "solarAgency": 24,
+      "lunarReceptivity": 49,
+      "mercurialVelocity": 31,
+      "venusianCoherence": 44,
+      "martialImpetus": 24,
+      "jovianExpansion": 43,
+      "saturnianStructure": 54,
+      "chironicAdaptation": 44,
+      "uranianSurprisal": 24,
+      "neptunianResonance": 51,
+      "plutonicIntegration": 64
+    },
+    "planetaryAffinity": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      5
+    ],
     "scrabbleLetter": "Y",
     "trickEngine": {
       "trickPower": 1200,
@@ -1482,6 +2073,9 @@ export const ALL_CARDS = [
       "triplicitySign": null,
       "triplicityRuler": "Saturn",
       "triplicityRulerIndex": 6,
+      "triplicityRulerIndices": [
+        6
+      ],
       "hebrewLetter": "Tav (ת)",
       "treeOfLifePath": "32nd Path (Yesod to Malkuth)"
     },
@@ -1504,6 +2098,31 @@ export const ALL_CARDS = [
       "adaptability": 29,
       "vitality": 90
     },
+    "planetaryStats": {
+      "solarAgency": 49,
+      "lunarReceptivity": 24,
+      "mercurialVelocity": 34,
+      "venusianCoherence": 24,
+      "martialImpetus": 44,
+      "jovianExpansion": 43,
+      "saturnianStructure": 95,
+      "chironicAdaptation": 24,
+      "uranianSurprisal": 47,
+      "neptunianResonance": 24,
+      "plutonicIntegration": 62
+    },
+    "planetaryAffinity": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      5,
+      0,
+      0,
+      0
+    ],
     "scrabbleLetter": "Z",
     "trickEngine": {
       "trickPower": 1210,
@@ -1542,8 +2161,8 @@ export const ALL_CARDS = [
       "goldenDawnTitle": "The Root of the Powers of Fire",
       "element": "Fire",
       "esms": 0,
-      "planetaryBody": "Sun",
-      "planetIndex": 0,
+      "planetaryBody": null,
+      "planetIndex": null,
       "zodiacSign": null,
       "signIndex": null,
       "decan": null,
@@ -1551,8 +2170,9 @@ export const ALL_CARDS = [
       "chaldeanRuler": null,
       "chaldeanRulerIndex": null,
       "triplicitySign": null,
-      "triplicityRuler": "Sun",
-      "triplicityRulerIndex": 0,
+      "triplicityRuler": null,
+      "triplicityRulerIndex": null,
+      "triplicityRulerIndices": [],
       "hebrewLetter": null,
       "treeOfLifePath": null
     },
@@ -1575,6 +2195,31 @@ export const ALL_CARDS = [
       "adaptability": 33,
       "vitality": 50
     },
+    "planetaryStats": {
+      "solarAgency": 49,
+      "lunarReceptivity": 24,
+      "mercurialVelocity": 34,
+      "venusianCoherence": 24,
+      "martialImpetus": 44,
+      "jovianExpansion": 24,
+      "saturnianStructure": 24,
+      "chironicAdaptation": 24,
+      "uranianSurprisal": 47,
+      "neptunianResonance": 24,
+      "plutonicIntegration": 39
+    },
+    "planetaryAffinity": [
+      3,
+      0,
+      0,
+      0,
+      3,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
     "scrabbleLetter": "A",
     "trickEngine": {
       "trickPower": 14,
@@ -1624,6 +2269,9 @@ export const ALL_CARDS = [
       "triplicitySign": "Aries",
       "triplicityRuler": "Mars",
       "triplicityRulerIndex": 4,
+      "triplicityRulerIndices": [
+        4
+      ],
       "hebrewLetter": null,
       "treeOfLifePath": null
     },
@@ -1646,6 +2294,31 @@ export const ALL_CARDS = [
       "adaptability": 28,
       "vitality": 56
     },
+    "planetaryStats": {
+      "solarAgency": 41,
+      "lunarReceptivity": 37,
+      "mercurialVelocity": 29,
+      "venusianCoherence": 32,
+      "martialImpetus": 56,
+      "jovianExpansion": 31,
+      "saturnianStructure": 36,
+      "chironicAdaptation": 29,
+      "uranianSurprisal": 35,
+      "neptunianResonance": 36,
+      "plutonicIntegration": 44
+    },
+    "planetaryAffinity": [
+      4,
+      0,
+      0,
+      -5,
+      5,
+      0,
+      -4,
+      0,
+      0,
+      0
+    ],
     "scrabbleLetter": "G",
     "trickEngine": {
       "trickPower": 1,
@@ -1696,6 +2369,9 @@ export const ALL_CARDS = [
       "triplicitySign": "Leo",
       "triplicityRuler": "Sun",
       "triplicityRulerIndex": 0,
+      "triplicityRulerIndices": [
+        0
+      ],
       "hebrewLetter": null,
       "treeOfLifePath": null
     },
@@ -1718,6 +2394,31 @@ export const ALL_CARDS = [
       "adaptability": 34,
       "vitality": 54
     },
+    "planetaryStats": {
+      "solarAgency": 75,
+      "lunarReceptivity": 24,
+      "mercurialVelocity": 35,
+      "venusianCoherence": 21,
+      "martialImpetus": 49,
+      "jovianExpansion": 24,
+      "saturnianStructure": 20,
+      "chironicAdaptation": 24,
+      "uranianSurprisal": 48,
+      "neptunianResonance": 24,
+      "plutonicIntegration": 45
+    },
+    "planetaryAffinity": [
+      4,
+      0,
+      0,
+      -5,
+      5,
+      0,
+      -4,
+      0,
+      0,
+      0
+    ],
     "scrabbleLetter": "J",
     "trickEngine": {
       "trickPower": 2,
@@ -1768,6 +2469,9 @@ export const ALL_CARDS = [
       "triplicitySign": "Sagittarius",
       "triplicityRuler": "Jupiter",
       "triplicityRulerIndex": 5,
+      "triplicityRulerIndices": [
+        5
+      ],
       "hebrewLetter": null,
       "treeOfLifePath": null
     },
@@ -1790,6 +2494,31 @@ export const ALL_CARDS = [
       "adaptability": 32,
       "vitality": 43
     },
+    "planetaryStats": {
+      "solarAgency": 52,
+      "lunarReceptivity": 35,
+      "mercurialVelocity": 33,
+      "venusianCoherence": 30,
+      "martialImpetus": 46,
+      "jovianExpansion": 43,
+      "saturnianStructure": 20,
+      "chironicAdaptation": 28,
+      "uranianSurprisal": 45,
+      "neptunianResonance": 34,
+      "plutonicIntegration": 42
+    },
+    "planetaryAffinity": [
+      4,
+      0,
+      0,
+      -5,
+      5,
+      0,
+      -4,
+      0,
+      0,
+      0
+    ],
     "scrabbleLetter": "M",
     "trickEngine": {
       "trickPower": 3,
@@ -1840,6 +2569,9 @@ export const ALL_CARDS = [
       "triplicitySign": "Leo",
       "triplicityRuler": "Sun",
       "triplicityRulerIndex": 0,
+      "triplicityRulerIndices": [
+        0
+      ],
       "hebrewLetter": null,
       "treeOfLifePath": null
     },
@@ -1862,6 +2594,31 @@ export const ALL_CARDS = [
       "adaptability": 33,
       "vitality": 51
     },
+    "planetaryStats": {
+      "solarAgency": 72,
+      "lunarReceptivity": 24,
+      "mercurialVelocity": 34,
+      "venusianCoherence": 24,
+      "martialImpetus": 45,
+      "jovianExpansion": 24,
+      "saturnianStructure": 21,
+      "chironicAdaptation": 24,
+      "uranianSurprisal": 45,
+      "neptunianResonance": 24,
+      "plutonicIntegration": 40
+    },
+    "planetaryAffinity": [
+      5,
+      0,
+      0,
+      0,
+      0,
+      0,
+      -5,
+      -5,
+      0,
+      4
+    ],
     "scrabbleLetter": "P",
     "trickEngine": {
       "trickPower": 4,
@@ -1912,6 +2669,9 @@ export const ALL_CARDS = [
       "triplicitySign": "Sagittarius",
       "triplicityRuler": "Jupiter",
       "triplicityRulerIndex": 5,
+      "triplicityRulerIndices": [
+        5
+      ],
       "hebrewLetter": null,
       "treeOfLifePath": null
     },
@@ -1934,6 +2694,31 @@ export const ALL_CARDS = [
       "adaptability": 32,
       "vitality": 41
     },
+    "planetaryStats": {
+      "solarAgency": 51,
+      "lunarReceptivity": 35,
+      "mercurialVelocity": 33,
+      "venusianCoherence": 32,
+      "martialImpetus": 43,
+      "jovianExpansion": 43,
+      "saturnianStructure": 21,
+      "chironicAdaptation": 28,
+      "uranianSurprisal": 42,
+      "neptunianResonance": 34,
+      "plutonicIntegration": 38
+    },
+    "planetaryAffinity": [
+      5,
+      0,
+      0,
+      0,
+      0,
+      0,
+      -5,
+      -5,
+      0,
+      4
+    ],
     "scrabbleLetter": "S",
     "trickEngine": {
       "trickPower": 5,
@@ -1984,6 +2769,9 @@ export const ALL_CARDS = [
       "triplicitySign": "Aries",
       "triplicityRuler": "Mars",
       "triplicityRulerIndex": 4,
+      "triplicityRulerIndices": [
+        4
+      ],
       "hebrewLetter": null,
       "treeOfLifePath": null
     },
@@ -2006,6 +2794,31 @@ export const ALL_CARDS = [
       "adaptability": 28,
       "vitality": 51
     },
+    "planetaryStats": {
+      "solarAgency": 40,
+      "lunarReceptivity": 35,
+      "mercurialVelocity": 29,
+      "venusianCoherence": 32,
+      "martialImpetus": 53,
+      "jovianExpansion": 29,
+      "saturnianStructure": 34,
+      "chironicAdaptation": 28,
+      "uranianSurprisal": 33,
+      "neptunianResonance": 34,
+      "plutonicIntegration": 38
+    },
+    "planetaryAffinity": [
+      5,
+      0,
+      0,
+      0,
+      0,
+      0,
+      -5,
+      -5,
+      0,
+      4
+    ],
     "scrabbleLetter": "V",
     "trickEngine": {
       "trickPower": 6,
@@ -2056,6 +2869,9 @@ export const ALL_CARDS = [
       "triplicitySign": "Sagittarius",
       "triplicityRuler": "Jupiter",
       "triplicityRulerIndex": 5,
+      "triplicityRulerIndices": [
+        5
+      ],
       "hebrewLetter": null,
       "treeOfLifePath": null
     },
@@ -2078,6 +2894,31 @@ export const ALL_CARDS = [
       "adaptability": 38,
       "vitality": 43
     },
+    "planetaryStats": {
+      "solarAgency": 50,
+      "lunarReceptivity": 37,
+      "mercurialVelocity": 32,
+      "venusianCoherence": 35,
+      "martialImpetus": 45,
+      "jovianExpansion": 46,
+      "saturnianStructure": 24,
+      "chironicAdaptation": 29,
+      "uranianSurprisal": 47,
+      "neptunianResonance": 36,
+      "plutonicIntegration": 40
+    },
+    "planetaryAffinity": [
+      0,
+      0,
+      -5,
+      0,
+      0,
+      5,
+      0,
+      0,
+      0,
+      0
+    ],
     "scrabbleLetter": "Y",
     "trickEngine": {
       "trickPower": 7,
@@ -2128,6 +2969,9 @@ export const ALL_CARDS = [
       "triplicitySign": "Aries",
       "triplicityRuler": "Mars",
       "triplicityRulerIndex": 4,
+      "triplicityRulerIndices": [
+        4
+      ],
       "hebrewLetter": null,
       "treeOfLifePath": null
     },
@@ -2150,6 +2994,31 @@ export const ALL_CARDS = [
       "adaptability": 33,
       "vitality": 51
     },
+    "planetaryStats": {
+      "solarAgency": 37,
+      "lunarReceptivity": 35,
+      "mercurialVelocity": 26,
+      "venusianCoherence": 32,
+      "martialImpetus": 53,
+      "jovianExpansion": 32,
+      "saturnianStructure": 37,
+      "chironicAdaptation": 28,
+      "uranianSurprisal": 35,
+      "neptunianResonance": 34,
+      "plutonicIntegration": 38
+    },
+    "planetaryAffinity": [
+      0,
+      0,
+      -5,
+      0,
+      0,
+      5,
+      0,
+      0,
+      0,
+      0
+    ],
     "scrabbleLetter": "B",
     "trickEngine": {
       "trickPower": 8,
@@ -2200,6 +3069,9 @@ export const ALL_CARDS = [
       "triplicitySign": "Leo",
       "triplicityRuler": "Sun",
       "triplicityRulerIndex": 0,
+      "triplicityRulerIndices": [
+        0
+      ],
       "hebrewLetter": null,
       "treeOfLifePath": null
     },
@@ -2222,6 +3094,31 @@ export const ALL_CARDS = [
       "adaptability": 37,
       "vitality": 49
     },
+    "planetaryStats": {
+      "solarAgency": 66,
+      "lunarReceptivity": 24,
+      "mercurialVelocity": 31,
+      "venusianCoherence": 24,
+      "martialImpetus": 43,
+      "jovianExpansion": 27,
+      "saturnianStructure": 24,
+      "chironicAdaptation": 24,
+      "uranianSurprisal": 45,
+      "neptunianResonance": 24,
+      "plutonicIntegration": 38
+    },
+    "planetaryAffinity": [
+      0,
+      0,
+      -5,
+      0,
+      0,
+      5,
+      0,
+      0,
+      0,
+      0
+    ],
     "scrabbleLetter": "E",
     "trickEngine": {
       "trickPower": 13,
@@ -2269,6 +3166,7 @@ export const ALL_CARDS = [
       "triplicitySign": null,
       "triplicityRuler": null,
       "triplicityRulerIndex": null,
+      "triplicityRulerIndices": [],
       "hebrewLetter": null,
       "treeOfLifePath": null
     },
@@ -2291,6 +3189,31 @@ export const ALL_CARDS = [
       "adaptability": 28,
       "vitality": 33
     },
+    "planetaryStats": {
+      "solarAgency": 37,
+      "lunarReceptivity": 24,
+      "mercurialVelocity": 29,
+      "venusianCoherence": 24,
+      "martialImpetus": 34,
+      "jovianExpansion": 24,
+      "saturnianStructure": 24,
+      "chironicAdaptation": 24,
+      "uranianSurprisal": 35,
+      "neptunianResonance": 24,
+      "plutonicIntegration": 31
+    },
+    "planetaryAffinity": [
+      3,
+      0,
+      0,
+      0,
+      3,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
     "scrabbleLetter": "P",
     "trickEngine": {
       "trickPower": 9,
@@ -2338,6 +3261,7 @@ export const ALL_CARDS = [
       "triplicitySign": null,
       "triplicityRuler": null,
       "triplicityRulerIndex": null,
+      "triplicityRulerIndices": [],
       "hebrewLetter": null,
       "treeOfLifePath": null
     },
@@ -2360,6 +3284,31 @@ export const ALL_CARDS = [
       "adaptability": 33,
       "vitality": 42
     },
+    "planetaryStats": {
+      "solarAgency": 49,
+      "lunarReceptivity": 24,
+      "mercurialVelocity": 34,
+      "venusianCoherence": 24,
+      "martialImpetus": 44,
+      "jovianExpansion": 24,
+      "saturnianStructure": 24,
+      "chironicAdaptation": 24,
+      "uranianSurprisal": 47,
+      "neptunianResonance": 24,
+      "plutonicIntegration": 39
+    },
+    "planetaryAffinity": [
+      3,
+      0,
+      0,
+      0,
+      3,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
     "scrabbleLetter": "N",
     "trickEngine": {
       "trickPower": 10,
@@ -2407,6 +3356,7 @@ export const ALL_CARDS = [
       "triplicitySign": null,
       "triplicityRuler": null,
       "triplicityRulerIndex": null,
+      "triplicityRulerIndices": [],
       "hebrewLetter": null,
       "treeOfLifePath": null
     },
@@ -2429,6 +3379,31 @@ export const ALL_CARDS = [
       "adaptability": 38,
       "vitality": 52
     },
+    "planetaryStats": {
+      "solarAgency": 62,
+      "lunarReceptivity": 24,
+      "mercurialVelocity": 39,
+      "venusianCoherence": 24,
+      "martialImpetus": 54,
+      "jovianExpansion": 24,
+      "saturnianStructure": 24,
+      "chironicAdaptation": 24,
+      "uranianSurprisal": 58,
+      "neptunianResonance": 24,
+      "plutonicIntegration": 47
+    },
+    "planetaryAffinity": [
+      3,
+      0,
+      0,
+      0,
+      3,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
     "scrabbleLetter": "Q",
     "trickEngine": {
       "trickPower": 11,
@@ -2476,6 +3451,7 @@ export const ALL_CARDS = [
       "triplicitySign": null,
       "triplicityRuler": null,
       "triplicityRulerIndex": null,
+      "triplicityRulerIndices": [],
       "hebrewLetter": null,
       "treeOfLifePath": null
     },
@@ -2498,6 +3474,31 @@ export const ALL_CARDS = [
       "adaptability": 42,
       "vitality": 61
     },
+    "planetaryStats": {
+      "solarAgency": 75,
+      "lunarReceptivity": 24,
+      "mercurialVelocity": 44,
+      "venusianCoherence": 24,
+      "martialImpetus": 64,
+      "jovianExpansion": 24,
+      "saturnianStructure": 24,
+      "chironicAdaptation": 24,
+      "uranianSurprisal": 70,
+      "neptunianResonance": 24,
+      "plutonicIntegration": 54
+    },
+    "planetaryAffinity": [
+      3,
+      0,
+      0,
+      0,
+      3,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
     "scrabbleLetter": "K",
     "trickEngine": {
       "trickPower": 12,
@@ -2534,8 +3535,8 @@ export const ALL_CARDS = [
       "goldenDawnTitle": "The Root of the Powers of Water",
       "element": "Water",
       "esms": 1,
-      "planetaryBody": "Moon",
-      "planetIndex": 1,
+      "planetaryBody": null,
+      "planetIndex": null,
       "zodiacSign": null,
       "signIndex": null,
       "decan": null,
@@ -2543,8 +3544,9 @@ export const ALL_CARDS = [
       "chaldeanRuler": null,
       "chaldeanRulerIndex": null,
       "triplicitySign": null,
-      "triplicityRuler": "Moon",
-      "triplicityRulerIndex": 1,
+      "triplicityRuler": null,
+      "triplicityRulerIndex": null,
+      "triplicityRulerIndices": [],
       "hebrewLetter": null,
       "treeOfLifePath": null
     },
@@ -2567,6 +3569,31 @@ export const ALL_CARDS = [
       "adaptability": 24,
       "vitality": 24
     },
+    "planetaryStats": {
+      "solarAgency": 24,
+      "lunarReceptivity": 49,
+      "mercurialVelocity": 24,
+      "venusianCoherence": 44,
+      "martialImpetus": 24,
+      "jovianExpansion": 24,
+      "saturnianStructure": 24,
+      "chironicAdaptation": 34,
+      "uranianSurprisal": 24,
+      "neptunianResonance": 47,
+      "plutonicIntegration": 24
+    },
+    "planetaryAffinity": [
+      0,
+      3,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      3,
+      0
+    ],
     "scrabbleLetter": "A",
     "trickEngine": {
       "trickPower": 14,
@@ -2616,6 +3643,9 @@ export const ALL_CARDS = [
       "triplicitySign": "Cancer",
       "triplicityRuler": "Moon",
       "triplicityRulerIndex": 1,
+      "triplicityRulerIndices": [
+        1
+      ],
       "hebrewLetter": null,
       "treeOfLifePath": null
     },
@@ -2638,6 +3668,31 @@ export const ALL_CARDS = [
       "adaptability": 24,
       "vitality": 41
     },
+    "planetaryStats": {
+      "solarAgency": 24,
+      "lunarReceptivity": 72,
+      "mercurialVelocity": 24,
+      "venusianCoherence": 45,
+      "martialImpetus": 20,
+      "jovianExpansion": 35,
+      "saturnianStructure": 37,
+      "chironicAdaptation": 34,
+      "uranianSurprisal": 24,
+      "neptunianResonance": 52,
+      "plutonicIntegration": 32
+    },
+    "planetaryAffinity": [
+      0,
+      5,
+      0,
+      0,
+      -4,
+      4,
+      -5,
+      0,
+      4,
+      0
+    ],
     "scrabbleLetter": "G",
     "trickEngine": {
       "trickPower": 1,
@@ -2688,6 +3743,10 @@ export const ALL_CARDS = [
       "triplicitySign": "Scorpio",
       "triplicityRuler": "Mars & Pluto",
       "triplicityRulerIndex": 4,
+      "triplicityRulerIndices": [
+        4,
+        9
+      ],
       "hebrewLetter": null,
       "treeOfLifePath": null
     },
@@ -2710,6 +3769,31 @@ export const ALL_CARDS = [
       "adaptability": 24,
       "vitality": 42
     },
+    "planetaryStats": {
+      "solarAgency": 24,
+      "lunarReceptivity": 49,
+      "mercurialVelocity": 24,
+      "venusianCoherence": 41,
+      "martialImpetus": 30,
+      "jovianExpansion": 33,
+      "saturnianStructure": 32,
+      "chironicAdaptation": 33,
+      "uranianSurprisal": 24,
+      "neptunianResonance": 48,
+      "plutonicIntegration": 39
+    },
+    "planetaryAffinity": [
+      0,
+      5,
+      0,
+      0,
+      -4,
+      4,
+      -5,
+      0,
+      4,
+      0
+    ],
     "scrabbleLetter": "J",
     "trickEngine": {
       "trickPower": 2,
@@ -2760,6 +3844,10 @@ export const ALL_CARDS = [
       "triplicitySign": "Pisces",
       "triplicityRuler": "Jupiter & Neptune",
       "triplicityRulerIndex": 5,
+      "triplicityRulerIndices": [
+        5,
+        8
+      ],
       "hebrewLetter": null,
       "treeOfLifePath": null
     },
@@ -2782,6 +3870,31 @@ export const ALL_CARDS = [
       "adaptability": 34,
       "vitality": 31
     },
+    "planetaryStats": {
+      "solarAgency": 31,
+      "lunarReceptivity": 54,
+      "mercurialVelocity": 31,
+      "venusianCoherence": 46,
+      "martialImpetus": 26,
+      "jovianExpansion": 41,
+      "saturnianStructure": 21,
+      "chironicAdaptation": 41,
+      "uranianSurprisal": 30,
+      "neptunianResonance": 65,
+      "plutonicIntegration": 28
+    },
+    "planetaryAffinity": [
+      0,
+      5,
+      0,
+      0,
+      -4,
+      4,
+      -5,
+      0,
+      4,
+      0
+    ],
     "scrabbleLetter": "M",
     "trickEngine": {
       "trickPower": 3,
@@ -2832,6 +3945,9 @@ export const ALL_CARDS = [
       "triplicitySign": "Scorpio",
       "triplicityRuler": "Mars",
       "triplicityRulerIndex": 4,
+      "triplicityRulerIndices": [
+        4
+      ],
       "hebrewLetter": null,
       "treeOfLifePath": null
     },
@@ -2854,6 +3970,31 @@ export const ALL_CARDS = [
       "adaptability": 24,
       "vitality": 44
     },
+    "planetaryStats": {
+      "solarAgency": 24,
+      "lunarReceptivity": 46,
+      "mercurialVelocity": 24,
+      "venusianCoherence": 42,
+      "martialImpetus": 46,
+      "jovianExpansion": 31,
+      "saturnianStructure": 40,
+      "chironicAdaptation": 34,
+      "uranianSurprisal": 28,
+      "neptunianResonance": 47,
+      "plutonicIntegration": 35
+    },
+    "planetaryAffinity": [
+      0,
+      -4,
+      0,
+      -5,
+      5,
+      0,
+      0,
+      4,
+      0,
+      5
+    ],
     "scrabbleLetter": "P",
     "trickEngine": {
       "trickPower": 4,
@@ -2904,6 +4045,10 @@ export const ALL_CARDS = [
       "triplicitySign": "Pisces",
       "triplicityRuler": "Jupiter & Neptune",
       "triplicityRulerIndex": 5,
+      "triplicityRulerIndices": [
+        5,
+        8
+      ],
       "hebrewLetter": null,
       "treeOfLifePath": null
     },
@@ -2926,6 +4071,31 @@ export const ALL_CARDS = [
       "adaptability": 31,
       "vitality": 28
     },
+    "planetaryStats": {
+      "solarAgency": 29,
+      "lunarReceptivity": 44,
+      "mercurialVelocity": 29,
+      "venusianCoherence": 40,
+      "martialImpetus": 31,
+      "jovianExpansion": 36,
+      "saturnianStructure": 24,
+      "chironicAdaptation": 38,
+      "uranianSurprisal": 33,
+      "neptunianResonance": 56,
+      "plutonicIntegration": 30
+    },
+    "planetaryAffinity": [
+      0,
+      -4,
+      0,
+      -5,
+      5,
+      0,
+      0,
+      4,
+      0,
+      5
+    ],
     "scrabbleLetter": "S",
     "trickEngine": {
       "trickPower": 5,
@@ -2976,6 +4146,9 @@ export const ALL_CARDS = [
       "triplicitySign": "Cancer",
       "triplicityRuler": "Moon",
       "triplicityRulerIndex": 1,
+      "triplicityRulerIndices": [
+        1
+      ],
       "hebrewLetter": null,
       "treeOfLifePath": null
     },
@@ -2998,6 +4171,31 @@ export const ALL_CARDS = [
       "adaptability": 24,
       "vitality": 32
     },
+    "planetaryStats": {
+      "solarAgency": 24,
+      "lunarReceptivity": 59,
+      "mercurialVelocity": 24,
+      "venusianCoherence": 37,
+      "martialImpetus": 27,
+      "jovianExpansion": 28,
+      "saturnianStructure": 33,
+      "chironicAdaptation": 32,
+      "uranianSurprisal": 28,
+      "neptunianResonance": 42,
+      "plutonicIntegration": 32
+    },
+    "planetaryAffinity": [
+      0,
+      -4,
+      0,
+      -5,
+      5,
+      0,
+      0,
+      4,
+      0,
+      5
+    ],
     "scrabbleLetter": "V",
     "trickEngine": {
       "trickPower": 6,
@@ -3048,6 +4246,10 @@ export const ALL_CARDS = [
       "triplicitySign": "Pisces",
       "triplicityRuler": "Jupiter & Neptune",
       "triplicityRulerIndex": 5,
+      "triplicityRulerIndices": [
+        5,
+        8
+      ],
       "hebrewLetter": null,
       "treeOfLifePath": null
     },
@@ -3070,6 +4272,31 @@ export const ALL_CARDS = [
       "adaptability": 38,
       "vitality": 28
     },
+    "planetaryStats": {
+      "solarAgency": 31,
+      "lunarReceptivity": 50,
+      "mercurialVelocity": 27,
+      "venusianCoherence": 49,
+      "martialImpetus": 29,
+      "jovianExpansion": 40,
+      "saturnianStructure": 24,
+      "chironicAdaptation": 40,
+      "uranianSurprisal": 30,
+      "neptunianResonance": 62,
+      "plutonicIntegration": 28
+    },
+    "planetaryAffinity": [
+      0,
+      0,
+      -5,
+      4,
+      0,
+      5,
+      0,
+      0,
+      5,
+      0
+    ],
     "scrabbleLetter": "Y",
     "trickEngine": {
       "trickPower": 7,
@@ -3120,6 +4347,9 @@ export const ALL_CARDS = [
       "triplicitySign": "Cancer",
       "triplicityRuler": "Moon",
       "triplicityRulerIndex": 1,
+      "triplicityRulerIndices": [
+        1
+      ],
       "hebrewLetter": null,
       "treeOfLifePath": null
     },
@@ -3142,6 +4372,31 @@ export const ALL_CARDS = [
       "adaptability": 28,
       "vitality": 35
     },
+    "planetaryStats": {
+      "solarAgency": 24,
+      "lunarReceptivity": 66,
+      "mercurialVelocity": 20,
+      "venusianCoherence": 47,
+      "martialImpetus": 24,
+      "jovianExpansion": 32,
+      "saturnianStructure": 37,
+      "chironicAdaptation": 33,
+      "uranianSurprisal": 24,
+      "neptunianResonance": 48,
+      "plutonicIntegration": 30
+    },
+    "planetaryAffinity": [
+      0,
+      0,
+      -5,
+      4,
+      0,
+      5,
+      0,
+      0,
+      5,
+      0
+    ],
     "scrabbleLetter": "B",
     "trickEngine": {
       "trickPower": 8,
@@ -3192,6 +4447,9 @@ export const ALL_CARDS = [
       "triplicitySign": "Scorpio",
       "triplicityRuler": "Pluto",
       "triplicityRulerIndex": 9,
+      "triplicityRulerIndices": [
+        9
+      ],
       "hebrewLetter": null,
       "treeOfLifePath": null
     },
@@ -3214,6 +4472,31 @@ export const ALL_CARDS = [
       "adaptability": 28,
       "vitality": 35
     },
+    "planetaryStats": {
+      "solarAgency": 24,
+      "lunarReceptivity": 47,
+      "mercurialVelocity": 20,
+      "venusianCoherence": 47,
+      "martialImpetus": 24,
+      "jovianExpansion": 32,
+      "saturnianStructure": 37,
+      "chironicAdaptation": 33,
+      "uranianSurprisal": 24,
+      "neptunianResonance": 48,
+      "plutonicIntegration": 49
+    },
+    "planetaryAffinity": [
+      0,
+      0,
+      -5,
+      4,
+      0,
+      5,
+      0,
+      0,
+      5,
+      0
+    ],
     "scrabbleLetter": "E",
     "trickEngine": {
       "trickPower": 13,
@@ -3261,6 +4544,7 @@ export const ALL_CARDS = [
       "triplicitySign": null,
       "triplicityRuler": null,
       "triplicityRulerIndex": null,
+      "triplicityRulerIndices": [],
       "hebrewLetter": null,
       "treeOfLifePath": null
     },
@@ -3283,6 +4567,31 @@ export const ALL_CARDS = [
       "adaptability": 24,
       "vitality": 24
     },
+    "planetaryStats": {
+      "solarAgency": 24,
+      "lunarReceptivity": 37,
+      "mercurialVelocity": 24,
+      "venusianCoherence": 34,
+      "martialImpetus": 24,
+      "jovianExpansion": 24,
+      "saturnianStructure": 24,
+      "chironicAdaptation": 29,
+      "uranianSurprisal": 24,
+      "neptunianResonance": 35,
+      "plutonicIntegration": 24
+    },
+    "planetaryAffinity": [
+      0,
+      3,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      3,
+      0
+    ],
     "scrabbleLetter": "P",
     "trickEngine": {
       "trickPower": 9,
@@ -3330,6 +4639,7 @@ export const ALL_CARDS = [
       "triplicitySign": null,
       "triplicityRuler": null,
       "triplicityRulerIndex": null,
+      "triplicityRulerIndices": [],
       "hebrewLetter": null,
       "treeOfLifePath": null
     },
@@ -3352,6 +4662,31 @@ export const ALL_CARDS = [
       "adaptability": 24,
       "vitality": 24
     },
+    "planetaryStats": {
+      "solarAgency": 24,
+      "lunarReceptivity": 49,
+      "mercurialVelocity": 24,
+      "venusianCoherence": 44,
+      "martialImpetus": 24,
+      "jovianExpansion": 24,
+      "saturnianStructure": 24,
+      "chironicAdaptation": 34,
+      "uranianSurprisal": 24,
+      "neptunianResonance": 47,
+      "plutonicIntegration": 24
+    },
+    "planetaryAffinity": [
+      0,
+      3,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      3,
+      0
+    ],
     "scrabbleLetter": "N",
     "trickEngine": {
       "trickPower": 10,
@@ -3399,6 +4734,7 @@ export const ALL_CARDS = [
       "triplicitySign": null,
       "triplicityRuler": null,
       "triplicityRulerIndex": null,
+      "triplicityRulerIndices": [],
       "hebrewLetter": null,
       "treeOfLifePath": null
     },
@@ -3421,6 +4757,31 @@ export const ALL_CARDS = [
       "adaptability": 24,
       "vitality": 24
     },
+    "planetaryStats": {
+      "solarAgency": 24,
+      "lunarReceptivity": 62,
+      "mercurialVelocity": 24,
+      "venusianCoherence": 54,
+      "martialImpetus": 24,
+      "jovianExpansion": 24,
+      "saturnianStructure": 24,
+      "chironicAdaptation": 39,
+      "uranianSurprisal": 24,
+      "neptunianResonance": 58,
+      "plutonicIntegration": 24
+    },
+    "planetaryAffinity": [
+      0,
+      3,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      3,
+      0
+    ],
     "scrabbleLetter": "Q",
     "trickEngine": {
       "trickPower": 11,
@@ -3468,6 +4829,7 @@ export const ALL_CARDS = [
       "triplicitySign": null,
       "triplicityRuler": null,
       "triplicityRulerIndex": null,
+      "triplicityRulerIndices": [],
       "hebrewLetter": null,
       "treeOfLifePath": null
     },
@@ -3490,6 +4852,31 @@ export const ALL_CARDS = [
       "adaptability": 24,
       "vitality": 24
     },
+    "planetaryStats": {
+      "solarAgency": 24,
+      "lunarReceptivity": 75,
+      "mercurialVelocity": 24,
+      "venusianCoherence": 64,
+      "martialImpetus": 24,
+      "jovianExpansion": 24,
+      "saturnianStructure": 24,
+      "chironicAdaptation": 44,
+      "uranianSurprisal": 24,
+      "neptunianResonance": 70,
+      "plutonicIntegration": 24
+    },
+    "planetaryAffinity": [
+      0,
+      3,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      3,
+      0
+    ],
     "scrabbleLetter": "K",
     "trickEngine": {
       "trickPower": 12,
@@ -3526,8 +4913,8 @@ export const ALL_CARDS = [
       "goldenDawnTitle": "The Root of the Powers of Air",
       "element": "Air",
       "esms": 3,
-      "planetaryBody": "Mercury",
-      "planetIndex": 2,
+      "planetaryBody": null,
+      "planetIndex": null,
       "zodiacSign": null,
       "signIndex": null,
       "decan": null,
@@ -3535,8 +4922,9 @@ export const ALL_CARDS = [
       "chaldeanRuler": null,
       "chaldeanRulerIndex": null,
       "triplicitySign": null,
-      "triplicityRuler": "Mercury",
-      "triplicityRulerIndex": 2,
+      "triplicityRuler": null,
+      "triplicityRulerIndex": null,
+      "triplicityRulerIndices": [],
       "hebrewLetter": null,
       "treeOfLifePath": null
     },
@@ -3559,6 +4947,31 @@ export const ALL_CARDS = [
       "adaptability": 60,
       "vitality": 24
     },
+    "planetaryStats": {
+      "solarAgency": 24,
+      "lunarReceptivity": 24,
+      "mercurialVelocity": 39,
+      "venusianCoherence": 24,
+      "martialImpetus": 24,
+      "jovianExpansion": 37,
+      "saturnianStructure": 24,
+      "chironicAdaptation": 44,
+      "uranianSurprisal": 24,
+      "neptunianResonance": 31,
+      "plutonicIntegration": 24
+    },
+    "planetaryAffinity": [
+      0,
+      0,
+      3,
+      0,
+      0,
+      0,
+      0,
+      3,
+      0,
+      0
+    ],
     "scrabbleLetter": "A",
     "trickEngine": {
       "trickPower": 14,
@@ -3608,6 +5021,9 @@ export const ALL_CARDS = [
       "triplicitySign": "Libra",
       "triplicityRuler": "Venus",
       "triplicityRulerIndex": 3,
+      "triplicityRulerIndices": [
+        3
+      ],
       "hebrewLetter": null,
       "treeOfLifePath": null
     },
@@ -3630,6 +5046,31 @@ export const ALL_CARDS = [
       "adaptability": 38,
       "vitality": 41
     },
+    "planetaryStats": {
+      "solarAgency": 20,
+      "lunarReceptivity": 37,
+      "mercurialVelocity": 31,
+      "venusianCoherence": 57,
+      "martialImpetus": 21,
+      "jovianExpansion": 37,
+      "saturnianStructure": 44,
+      "chironicAdaptation": 39,
+      "uranianSurprisal": 24,
+      "neptunianResonance": 40,
+      "plutonicIntegration": 28
+    },
+    "planetaryAffinity": [
+      -4,
+      0,
+      0,
+      5,
+      -5,
+      0,
+      4,
+      0,
+      0,
+      0
+    ],
     "scrabbleLetter": "G",
     "trickEngine": {
       "trickPower": 1,
@@ -3680,6 +5121,9 @@ export const ALL_CARDS = [
       "triplicitySign": "Aquarius",
       "triplicityRuler": "Uranus",
       "triplicityRulerIndex": 7,
+      "triplicityRulerIndices": [
+        7
+      ],
       "hebrewLetter": null,
       "treeOfLifePath": null
     },
@@ -3702,6 +5146,31 @@ export const ALL_CARDS = [
       "adaptability": 47,
       "vitality": 38
     },
+    "planetaryStats": {
+      "solarAgency": 20,
+      "lunarReceptivity": 35,
+      "mercurialVelocity": 31,
+      "venusianCoherence": 36,
+      "martialImpetus": 21,
+      "jovianExpansion": 36,
+      "saturnianStructure": 41,
+      "chironicAdaptation": 38,
+      "uranianSurprisal": 43,
+      "neptunianResonance": 37,
+      "plutonicIntegration": 26
+    },
+    "planetaryAffinity": [
+      -4,
+      0,
+      0,
+      5,
+      -5,
+      0,
+      4,
+      0,
+      0,
+      0
+    ],
     "scrabbleLetter": "J",
     "trickEngine": {
       "trickPower": 2,
@@ -3752,6 +5221,9 @@ export const ALL_CARDS = [
       "triplicitySign": "Gemini",
       "triplicityRuler": "Mercury",
       "triplicityRulerIndex": 2,
+      "triplicityRulerIndices": [
+        2
+      ],
       "hebrewLetter": null,
       "treeOfLifePath": null
     },
@@ -3774,6 +5246,31 @@ export const ALL_CARDS = [
       "adaptability": 62,
       "vitality": 34
     },
+    "planetaryStats": {
+      "solarAgency": 31,
+      "lunarReceptivity": 24,
+      "mercurialVelocity": 61,
+      "venusianCoherence": 27,
+      "martialImpetus": 30,
+      "jovianExpansion": 36,
+      "saturnianStructure": 28,
+      "chironicAdaptation": 43,
+      "uranianSurprisal": 34,
+      "neptunianResonance": 31,
+      "plutonicIntegration": 26
+    },
+    "planetaryAffinity": [
+      -4,
+      0,
+      0,
+      5,
+      -5,
+      0,
+      4,
+      0,
+      0,
+      0
+    ],
     "scrabbleLetter": "M",
     "trickEngine": {
       "trickPower": 3,
@@ -3824,6 +5321,10 @@ export const ALL_CARDS = [
       "triplicitySign": "Aquarius",
       "triplicityRuler": "Saturn & Uranus",
       "triplicityRulerIndex": 6,
+      "triplicityRulerIndices": [
+        6,
+        7
+      ],
       "hebrewLetter": null,
       "treeOfLifePath": null
     },
@@ -3846,6 +5347,31 @@ export const ALL_CARDS = [
       "adaptability": 37,
       "vitality": 49
     },
+    "planetaryStats": {
+      "solarAgency": 28,
+      "lunarReceptivity": 31,
+      "mercurialVelocity": 34,
+      "venusianCoherence": 29,
+      "martialImpetus": 29,
+      "jovianExpansion": 37,
+      "saturnianStructure": 53,
+      "chironicAdaptation": 37,
+      "uranianSurprisal": 43,
+      "neptunianResonance": 34,
+      "plutonicIntegration": 36
+    },
+    "planetaryAffinity": [
+      -5,
+      0,
+      0,
+      0,
+      0,
+      0,
+      5,
+      5,
+      0,
+      -4
+    ],
     "scrabbleLetter": "P",
     "trickEngine": {
       "trickPower": 4,
@@ -3896,6 +5422,9 @@ export const ALL_CARDS = [
       "triplicitySign": "Gemini",
       "triplicityRuler": "Mercury",
       "triplicityRulerIndex": 2,
+      "triplicityRulerIndices": [
+        2
+      ],
       "hebrewLetter": null,
       "treeOfLifePath": null
     },
@@ -3918,6 +5447,31 @@ export const ALL_CARDS = [
       "adaptability": 62,
       "vitality": 31
     },
+    "planetaryStats": {
+      "solarAgency": 32,
+      "lunarReceptivity": 24,
+      "mercurialVelocity": 61,
+      "venusianCoherence": 24,
+      "martialImpetus": 32,
+      "jovianExpansion": 36,
+      "saturnianStructure": 27,
+      "chironicAdaptation": 43,
+      "uranianSurprisal": 37,
+      "neptunianResonance": 31,
+      "plutonicIntegration": 30
+    },
+    "planetaryAffinity": [
+      -5,
+      0,
+      0,
+      0,
+      0,
+      0,
+      5,
+      5,
+      0,
+      -4
+    ],
     "scrabbleLetter": "S",
     "trickEngine": {
       "trickPower": 5,
@@ -3968,6 +5522,9 @@ export const ALL_CARDS = [
       "triplicitySign": "Libra",
       "triplicityRuler": "Venus",
       "triplicityRulerIndex": 3,
+      "triplicityRulerIndices": [
+        3
+      ],
       "hebrewLetter": null,
       "treeOfLifePath": null
     },
@@ -3990,6 +5547,31 @@ export const ALL_CARDS = [
       "adaptability": 38,
       "vitality": 35
     },
+    "planetaryStats": {
+      "solarAgency": 21,
+      "lunarReceptivity": 35,
+      "mercurialVelocity": 31,
+      "venusianCoherence": 52,
+      "martialImpetus": 24,
+      "jovianExpansion": 36,
+      "saturnianStructure": 40,
+      "chironicAdaptation": 38,
+      "uranianSurprisal": 27,
+      "neptunianResonance": 37,
+      "plutonicIntegration": 30
+    },
+    "planetaryAffinity": [
+      -5,
+      0,
+      0,
+      0,
+      0,
+      0,
+      5,
+      5,
+      0,
+      -4
+    ],
     "scrabbleLetter": "V",
     "trickEngine": {
       "trickPower": 6,
@@ -4040,6 +5622,9 @@ export const ALL_CARDS = [
       "triplicitySign": "Gemini",
       "triplicityRuler": "Mercury",
       "triplicityRulerIndex": 2,
+      "triplicityRulerIndices": [
+        2
+      ],
       "hebrewLetter": null,
       "treeOfLifePath": null
     },
@@ -4062,6 +5647,31 @@ export const ALL_CARDS = [
       "adaptability": 70,
       "vitality": 33
     },
+    "planetaryStats": {
+      "solarAgency": 37,
+      "lunarReceptivity": 24,
+      "mercurialVelocity": 67,
+      "venusianCoherence": 24,
+      "martialImpetus": 35,
+      "jovianExpansion": 34,
+      "saturnianStructure": 24,
+      "chironicAdaptation": 45,
+      "uranianSurprisal": 36,
+      "neptunianResonance": 32,
+      "plutonicIntegration": 32
+    },
+    "planetaryAffinity": [
+      0,
+      0,
+      5,
+      0,
+      0,
+      -5,
+      0,
+      0,
+      0,
+      0
+    ],
     "scrabbleLetter": "Y",
     "trickEngine": {
       "trickPower": 7,
@@ -4112,6 +5722,9 @@ export const ALL_CARDS = [
       "triplicitySign": "Libra",
       "triplicityRuler": "Venus",
       "triplicityRulerIndex": 3,
+      "triplicityRulerIndices": [
+        3
+      ],
       "hebrewLetter": null,
       "treeOfLifePath": null
     },
@@ -4134,6 +5747,31 @@ export const ALL_CARDS = [
       "adaptability": 42,
       "vitality": 35
     },
+    "planetaryStats": {
+      "solarAgency": 24,
+      "lunarReceptivity": 35,
+      "mercurialVelocity": 35,
+      "venusianCoherence": 52,
+      "martialImpetus": 24,
+      "jovianExpansion": 33,
+      "saturnianStructure": 37,
+      "chironicAdaptation": 38,
+      "uranianSurprisal": 24,
+      "neptunianResonance": 37,
+      "plutonicIntegration": 30
+    },
+    "planetaryAffinity": [
+      0,
+      0,
+      5,
+      0,
+      0,
+      -5,
+      0,
+      0,
+      0,
+      0
+    ],
     "scrabbleLetter": "B",
     "trickEngine": {
       "trickPower": 8,
@@ -4184,6 +5822,9 @@ export const ALL_CARDS = [
       "triplicitySign": "Aquarius",
       "triplicityRuler": "Uranus",
       "triplicityRulerIndex": 7,
+      "triplicityRulerIndices": [
+        7
+      ],
       "hebrewLetter": null,
       "treeOfLifePath": null
     },
@@ -4206,6 +5847,31 @@ export const ALL_CARDS = [
       "adaptability": 52,
       "vitality": 35
     },
+    "planetaryStats": {
+      "solarAgency": 24,
+      "lunarReceptivity": 35,
+      "mercurialVelocity": 35,
+      "venusianCoherence": 32,
+      "martialImpetus": 24,
+      "jovianExpansion": 33,
+      "saturnianStructure": 37,
+      "chironicAdaptation": 38,
+      "uranianSurprisal": 43,
+      "neptunianResonance": 37,
+      "plutonicIntegration": 30
+    },
+    "planetaryAffinity": [
+      0,
+      0,
+      5,
+      0,
+      0,
+      -5,
+      0,
+      0,
+      0,
+      0
+    ],
     "scrabbleLetter": "E",
     "trickEngine": {
       "trickPower": 13,
@@ -4253,6 +5919,7 @@ export const ALL_CARDS = [
       "triplicitySign": null,
       "triplicityRuler": null,
       "triplicityRulerIndex": null,
+      "triplicityRulerIndices": [],
       "hebrewLetter": null,
       "treeOfLifePath": null
     },
@@ -4275,6 +5942,31 @@ export const ALL_CARDS = [
       "adaptability": 38,
       "vitality": 24
     },
+    "planetaryStats": {
+      "solarAgency": 24,
+      "lunarReceptivity": 24,
+      "mercurialVelocity": 31,
+      "venusianCoherence": 24,
+      "martialImpetus": 24,
+      "jovianExpansion": 30,
+      "saturnianStructure": 24,
+      "chironicAdaptation": 34,
+      "uranianSurprisal": 24,
+      "neptunianResonance": 28,
+      "plutonicIntegration": 24
+    },
+    "planetaryAffinity": [
+      0,
+      0,
+      3,
+      0,
+      0,
+      0,
+      0,
+      3,
+      0,
+      0
+    ],
     "scrabbleLetter": "P",
     "trickEngine": {
       "trickPower": 9,
@@ -4322,6 +6014,7 @@ export const ALL_CARDS = [
       "triplicitySign": null,
       "triplicityRuler": null,
       "triplicityRulerIndex": null,
+      "triplicityRulerIndices": [],
       "hebrewLetter": null,
       "treeOfLifePath": null
     },
@@ -4344,6 +6037,31 @@ export const ALL_CARDS = [
       "adaptability": 52,
       "vitality": 24
     },
+    "planetaryStats": {
+      "solarAgency": 24,
+      "lunarReceptivity": 24,
+      "mercurialVelocity": 39,
+      "venusianCoherence": 24,
+      "martialImpetus": 24,
+      "jovianExpansion": 37,
+      "saturnianStructure": 24,
+      "chironicAdaptation": 44,
+      "uranianSurprisal": 24,
+      "neptunianResonance": 31,
+      "plutonicIntegration": 24
+    },
+    "planetaryAffinity": [
+      0,
+      0,
+      3,
+      0,
+      0,
+      0,
+      0,
+      3,
+      0,
+      0
+    ],
     "scrabbleLetter": "N",
     "trickEngine": {
       "trickPower": 10,
@@ -4391,6 +6109,7 @@ export const ALL_CARDS = [
       "triplicitySign": null,
       "triplicityRuler": null,
       "triplicityRulerIndex": null,
+      "triplicityRulerIndices": [],
       "hebrewLetter": null,
       "treeOfLifePath": null
     },
@@ -4413,6 +6132,31 @@ export const ALL_CARDS = [
       "adaptability": 66,
       "vitality": 24
     },
+    "planetaryStats": {
+      "solarAgency": 24,
+      "lunarReceptivity": 24,
+      "mercurialVelocity": 47,
+      "venusianCoherence": 24,
+      "martialImpetus": 24,
+      "jovianExpansion": 43,
+      "saturnianStructure": 24,
+      "chironicAdaptation": 54,
+      "uranianSurprisal": 24,
+      "neptunianResonance": 35,
+      "plutonicIntegration": 24
+    },
+    "planetaryAffinity": [
+      0,
+      0,
+      3,
+      0,
+      0,
+      0,
+      0,
+      3,
+      0,
+      0
+    ],
     "scrabbleLetter": "Q",
     "trickEngine": {
       "trickPower": 11,
@@ -4460,6 +6204,7 @@ export const ALL_CARDS = [
       "triplicitySign": null,
       "triplicityRuler": null,
       "triplicityRulerIndex": null,
+      "triplicityRulerIndices": [],
       "hebrewLetter": null,
       "treeOfLifePath": null
     },
@@ -4482,6 +6227,31 @@ export const ALL_CARDS = [
       "adaptability": 80,
       "vitality": 24
     },
+    "planetaryStats": {
+      "solarAgency": 24,
+      "lunarReceptivity": 24,
+      "mercurialVelocity": 54,
+      "venusianCoherence": 24,
+      "martialImpetus": 24,
+      "jovianExpansion": 49,
+      "saturnianStructure": 24,
+      "chironicAdaptation": 64,
+      "uranianSurprisal": 24,
+      "neptunianResonance": 39,
+      "plutonicIntegration": 24
+    },
+    "planetaryAffinity": [
+      0,
+      0,
+      3,
+      0,
+      0,
+      0,
+      0,
+      3,
+      0,
+      0
+    ],
     "scrabbleLetter": "K",
     "trickEngine": {
       "trickPower": 12,
@@ -4518,8 +6288,8 @@ export const ALL_CARDS = [
       "goldenDawnTitle": "The Root of the Powers of Earth",
       "element": "Earth",
       "esms": 2,
-      "planetaryBody": "Saturn",
-      "planetIndex": 6,
+      "planetaryBody": null,
+      "planetIndex": null,
       "zodiacSign": null,
       "signIndex": null,
       "decan": null,
@@ -4527,8 +6297,9 @@ export const ALL_CARDS = [
       "chaldeanRuler": null,
       "chaldeanRulerIndex": null,
       "triplicitySign": null,
-      "triplicityRuler": "Saturn",
-      "triplicityRulerIndex": 6,
+      "triplicityRuler": null,
+      "triplicityRulerIndex": null,
+      "triplicityRulerIndices": [],
       "hebrewLetter": null,
       "treeOfLifePath": null
     },
@@ -4551,6 +6322,31 @@ export const ALL_CARDS = [
       "adaptability": 20,
       "vitality": 58
     },
+    "planetaryStats": {
+      "solarAgency": 24,
+      "lunarReceptivity": 24,
+      "mercurialVelocity": 24,
+      "venusianCoherence": 24,
+      "martialImpetus": 24,
+      "jovianExpansion": 37,
+      "saturnianStructure": 54,
+      "chironicAdaptation": 24,
+      "uranianSurprisal": 24,
+      "neptunianResonance": 24,
+      "plutonicIntegration": 39
+    },
+    "planetaryAffinity": [
+      0,
+      0,
+      0,
+      3,
+      0,
+      0,
+      3,
+      0,
+      0,
+      0
+    ],
     "scrabbleLetter": "A",
     "trickEngine": {
       "trickPower": 14,
@@ -4600,6 +6396,9 @@ export const ALL_CARDS = [
       "triplicitySign": "Capricorn",
       "triplicityRuler": "Saturn",
       "triplicityRulerIndex": 6,
+      "triplicityRulerIndices": [
+        6
+      ],
       "hebrewLetter": null,
       "treeOfLifePath": null
     },
@@ -4622,6 +6421,31 @@ export const ALL_CARDS = [
       "adaptability": 25,
       "vitality": 71
     },
+    "planetaryStats": {
+      "solarAgency": 37,
+      "lunarReceptivity": 21,
+      "mercurialVelocity": 29,
+      "venusianCoherence": 24,
+      "martialImpetus": 39,
+      "jovianExpansion": 33,
+      "saturnianStructure": 78,
+      "chironicAdaptation": 24,
+      "uranianSurprisal": 36,
+      "neptunianResonance": 20,
+      "plutonicIntegration": 48
+    },
+    "planetaryAffinity": [
+      0,
+      -5,
+      0,
+      0,
+      4,
+      -4,
+      5,
+      0,
+      -4,
+      0
+    ],
     "scrabbleLetter": "G",
     "trickEngine": {
       "trickPower": 1,
@@ -4672,6 +6496,9 @@ export const ALL_CARDS = [
       "triplicitySign": "Taurus",
       "triplicityRuler": "Venus",
       "triplicityRulerIndex": 3,
+      "triplicityRulerIndices": [
+        3
+      ],
       "hebrewLetter": null,
       "treeOfLifePath": null
     },
@@ -4694,6 +6521,31 @@ export const ALL_CARDS = [
       "adaptability": 24,
       "vitality": 52
     },
+    "planetaryStats": {
+      "solarAgency": 24,
+      "lunarReceptivity": 32,
+      "mercurialVelocity": 24,
+      "venusianCoherence": 52,
+      "martialImpetus": 28,
+      "jovianExpansion": 32,
+      "saturnianStructure": 55,
+      "chironicAdaptation": 28,
+      "uranianSurprisal": 24,
+      "neptunianResonance": 30,
+      "plutonicIntegration": 38
+    },
+    "planetaryAffinity": [
+      0,
+      -5,
+      0,
+      0,
+      4,
+      -4,
+      5,
+      0,
+      -4,
+      0
+    ],
     "scrabbleLetter": "J",
     "trickEngine": {
       "trickPower": 2,
@@ -4744,6 +6596,9 @@ export const ALL_CARDS = [
       "triplicitySign": "Virgo",
       "triplicityRuler": "Mercury",
       "triplicityRulerIndex": 2,
+      "triplicityRulerIndices": [
+        2
+      ],
       "hebrewLetter": null,
       "treeOfLifePath": null
     },
@@ -4766,6 +6621,31 @@ export const ALL_CARDS = [
       "adaptability": 48,
       "vitality": 48
     },
+    "planetaryStats": {
+      "solarAgency": 35,
+      "lunarReceptivity": 21,
+      "mercurialVelocity": 54,
+      "venusianCoherence": 24,
+      "martialImpetus": 37,
+      "jovianExpansion": 32,
+      "saturnianStructure": 42,
+      "chironicAdaptation": 32,
+      "uranianSurprisal": 34,
+      "neptunianResonance": 23,
+      "plutonicIntegration": 38
+    },
+    "planetaryAffinity": [
+      0,
+      -5,
+      0,
+      0,
+      4,
+      -4,
+      5,
+      0,
+      -4,
+      0
+    ],
     "scrabbleLetter": "M",
     "trickEngine": {
       "trickPower": 3,
@@ -4816,6 +6696,9 @@ export const ALL_CARDS = [
       "triplicitySign": "Taurus",
       "triplicityRuler": "Venus",
       "triplicityRulerIndex": 3,
+      "triplicityRulerIndices": [
+        3
+      ],
       "hebrewLetter": null,
       "treeOfLifePath": null
     },
@@ -4838,6 +6721,31 @@ export const ALL_CARDS = [
       "adaptability": 24,
       "vitality": 53
     },
+    "planetaryStats": {
+      "solarAgency": 24,
+      "lunarReceptivity": 42,
+      "mercurialVelocity": 24,
+      "venusianCoherence": 57,
+      "martialImpetus": 21,
+      "jovianExpansion": 37,
+      "saturnianStructure": 55,
+      "chironicAdaptation": 29,
+      "uranianSurprisal": 20,
+      "neptunianResonance": 36,
+      "plutonicIntegration": 37
+    },
+    "planetaryAffinity": [
+      0,
+      4,
+      0,
+      5,
+      -5,
+      0,
+      0,
+      -4,
+      0,
+      -5
+    ],
     "scrabbleLetter": "P",
     "trickEngine": {
       "trickPower": 4,
@@ -4888,6 +6796,9 @@ export const ALL_CARDS = [
       "triplicitySign": "Virgo",
       "triplicityRuler": "Mercury",
       "triplicityRulerIndex": 2,
+      "triplicityRulerIndices": [
+        2
+      ],
       "hebrewLetter": null,
       "treeOfLifePath": null
     },
@@ -4910,6 +6821,31 @@ export const ALL_CARDS = [
       "adaptability": 48,
       "vitality": 46
     },
+    "planetaryStats": {
+      "solarAgency": 35,
+      "lunarReceptivity": 28,
+      "mercurialVelocity": 54,
+      "venusianCoherence": 27,
+      "martialImpetus": 30,
+      "jovianExpansion": 36,
+      "saturnianStructure": 39,
+      "chironicAdaptation": 32,
+      "uranianSurprisal": 30,
+      "neptunianResonance": 27,
+      "plutonicIntegration": 35
+    },
+    "planetaryAffinity": [
+      0,
+      4,
+      0,
+      5,
+      -5,
+      0,
+      0,
+      -4,
+      0,
+      -5
+    ],
     "scrabbleLetter": "S",
     "trickEngine": {
       "trickPower": 5,
@@ -4960,6 +6896,9 @@ export const ALL_CARDS = [
       "triplicitySign": "Capricorn",
       "triplicityRuler": "Saturn",
       "triplicityRulerIndex": 6,
+      "triplicityRulerIndices": [
+        6
+      ],
       "hebrewLetter": null,
       "treeOfLifePath": null
     },
@@ -4982,6 +6921,31 @@ export const ALL_CARDS = [
       "adaptability": 24,
       "vitality": 63
     },
+    "planetaryStats": {
+      "solarAgency": 35,
+      "lunarReceptivity": 28,
+      "mercurialVelocity": 28,
+      "venusianCoherence": 27,
+      "martialImpetus": 30,
+      "jovianExpansion": 36,
+      "saturnianStructure": 71,
+      "chironicAdaptation": 24,
+      "uranianSurprisal": 30,
+      "neptunianResonance": 24,
+      "plutonicIntegration": 42
+    },
+    "planetaryAffinity": [
+      0,
+      4,
+      0,
+      5,
+      -5,
+      0,
+      0,
+      -4,
+      0,
+      -5
+    ],
     "scrabbleLetter": "V",
     "trickEngine": {
       "trickPower": 6,
@@ -5032,6 +6996,9 @@ export const ALL_CARDS = [
       "triplicitySign": "Virgo",
       "triplicityRuler": "Mercury",
       "triplicityRulerIndex": 2,
+      "triplicityRulerIndices": [
+        2
+      ],
       "hebrewLetter": null,
       "treeOfLifePath": null
     },
@@ -5054,6 +7021,31 @@ export const ALL_CARDS = [
       "adaptability": 58,
       "vitality": 48
     },
+    "planetaryStats": {
+      "solarAgency": 38,
+      "lunarReceptivity": 24,
+      "mercurialVelocity": 62,
+      "venusianCoherence": 20,
+      "martialImpetus": 35,
+      "jovianExpansion": 35,
+      "saturnianStructure": 39,
+      "chironicAdaptation": 35,
+      "uranianSurprisal": 37,
+      "neptunianResonance": 26,
+      "plutonicIntegration": 40
+    },
+    "planetaryAffinity": [
+      0,
+      0,
+      5,
+      -4,
+      0,
+      -5,
+      0,
+      0,
+      -5,
+      0
+    ],
     "scrabbleLetter": "Y",
     "trickEngine": {
       "trickPower": 7,
@@ -5104,6 +7096,9 @@ export const ALL_CARDS = [
       "triplicitySign": "Capricorn",
       "triplicityRuler": "Saturn",
       "triplicityRulerIndex": 6,
+      "triplicityRulerIndices": [
+        6
+      ],
       "hebrewLetter": null,
       "treeOfLifePath": null
     },
@@ -5126,6 +7121,31 @@ export const ALL_CARDS = [
       "adaptability": 29,
       "vitality": 63
     },
+    "planetaryStats": {
+      "solarAgency": 35,
+      "lunarReceptivity": 24,
+      "mercurialVelocity": 33,
+      "venusianCoherence": 20,
+      "martialImpetus": 32,
+      "jovianExpansion": 33,
+      "saturnianStructure": 71,
+      "chironicAdaptation": 24,
+      "uranianSurprisal": 34,
+      "neptunianResonance": 21,
+      "plutonicIntegration": 44
+    },
+    "planetaryAffinity": [
+      0,
+      0,
+      5,
+      -4,
+      0,
+      -5,
+      0,
+      0,
+      -5,
+      0
+    ],
     "scrabbleLetter": "B",
     "trickEngine": {
       "trickPower": 8,
@@ -5176,6 +7196,9 @@ export const ALL_CARDS = [
       "triplicitySign": "Taurus",
       "triplicityRuler": "Venus",
       "triplicityRulerIndex": 3,
+      "triplicityRulerIndices": [
+        3
+      ],
       "hebrewLetter": null,
       "treeOfLifePath": null
     },
@@ -5198,6 +7221,31 @@ export const ALL_CARDS = [
       "adaptability": 28,
       "vitality": 46
     },
+    "planetaryStats": {
+      "solarAgency": 24,
+      "lunarReceptivity": 31,
+      "mercurialVelocity": 28,
+      "venusianCoherence": 45,
+      "martialImpetus": 24,
+      "jovianExpansion": 31,
+      "saturnianStructure": 48,
+      "chironicAdaptation": 27,
+      "uranianSurprisal": 24,
+      "neptunianResonance": 28,
+      "plutonicIntegration": 36
+    },
+    "planetaryAffinity": [
+      0,
+      0,
+      5,
+      -4,
+      0,
+      -5,
+      0,
+      0,
+      -5,
+      0
+    ],
     "scrabbleLetter": "E",
     "trickEngine": {
       "trickPower": 13,
@@ -5245,6 +7293,7 @@ export const ALL_CARDS = [
       "triplicitySign": null,
       "triplicityRuler": null,
       "triplicityRulerIndex": null,
+      "triplicityRulerIndices": [],
       "hebrewLetter": null,
       "treeOfLifePath": null
     },
@@ -5267,6 +7316,31 @@ export const ALL_CARDS = [
       "adaptability": 24,
       "vitality": 38
     },
+    "planetaryStats": {
+      "solarAgency": 24,
+      "lunarReceptivity": 24,
+      "mercurialVelocity": 24,
+      "venusianCoherence": 24,
+      "martialImpetus": 24,
+      "jovianExpansion": 30,
+      "saturnianStructure": 39,
+      "chironicAdaptation": 24,
+      "uranianSurprisal": 24,
+      "neptunianResonance": 24,
+      "plutonicIntegration": 31
+    },
+    "planetaryAffinity": [
+      0,
+      0,
+      0,
+      3,
+      0,
+      0,
+      3,
+      0,
+      0,
+      0
+    ],
     "scrabbleLetter": "P",
     "trickEngine": {
       "trickPower": 9,
@@ -5314,6 +7388,7 @@ export const ALL_CARDS = [
       "triplicitySign": null,
       "triplicityRuler": null,
       "triplicityRulerIndex": null,
+      "triplicityRulerIndices": [],
       "hebrewLetter": null,
       "treeOfLifePath": null
     },
@@ -5336,6 +7411,31 @@ export const ALL_CARDS = [
       "adaptability": 24,
       "vitality": 52
     },
+    "planetaryStats": {
+      "solarAgency": 24,
+      "lunarReceptivity": 24,
+      "mercurialVelocity": 24,
+      "venusianCoherence": 24,
+      "martialImpetus": 24,
+      "jovianExpansion": 37,
+      "saturnianStructure": 54,
+      "chironicAdaptation": 24,
+      "uranianSurprisal": 24,
+      "neptunianResonance": 24,
+      "plutonicIntegration": 39
+    },
+    "planetaryAffinity": [
+      0,
+      0,
+      0,
+      3,
+      0,
+      0,
+      3,
+      0,
+      0,
+      0
+    ],
     "scrabbleLetter": "N",
     "trickEngine": {
       "trickPower": 10,
@@ -5383,6 +7483,7 @@ export const ALL_CARDS = [
       "triplicitySign": null,
       "triplicityRuler": null,
       "triplicityRulerIndex": null,
+      "triplicityRulerIndices": [],
       "hebrewLetter": null,
       "treeOfLifePath": null
     },
@@ -5405,6 +7506,31 @@ export const ALL_CARDS = [
       "adaptability": 24,
       "vitality": 66
     },
+    "planetaryStats": {
+      "solarAgency": 24,
+      "lunarReceptivity": 24,
+      "mercurialVelocity": 24,
+      "venusianCoherence": 24,
+      "martialImpetus": 24,
+      "jovianExpansion": 43,
+      "saturnianStructure": 70,
+      "chironicAdaptation": 24,
+      "uranianSurprisal": 24,
+      "neptunianResonance": 24,
+      "plutonicIntegration": 47
+    },
+    "planetaryAffinity": [
+      0,
+      0,
+      0,
+      3,
+      0,
+      0,
+      3,
+      0,
+      0,
+      0
+    ],
     "scrabbleLetter": "Q",
     "trickEngine": {
       "trickPower": 11,
@@ -5452,6 +7578,7 @@ export const ALL_CARDS = [
       "triplicitySign": null,
       "triplicityRuler": null,
       "triplicityRulerIndex": null,
+      "triplicityRulerIndices": [],
       "hebrewLetter": null,
       "treeOfLifePath": null
     },
@@ -5474,6 +7601,31 @@ export const ALL_CARDS = [
       "adaptability": 24,
       "vitality": 80
     },
+    "planetaryStats": {
+      "solarAgency": 24,
+      "lunarReceptivity": 24,
+      "mercurialVelocity": 24,
+      "venusianCoherence": 24,
+      "martialImpetus": 24,
+      "jovianExpansion": 49,
+      "saturnianStructure": 85,
+      "chironicAdaptation": 24,
+      "uranianSurprisal": 24,
+      "neptunianResonance": 24,
+      "plutonicIntegration": 54
+    },
+    "planetaryAffinity": [
+      0,
+      0,
+      0,
+      3,
+      0,
+      0,
+      3,
+      0,
+      0,
+      0
+    ],
     "scrabbleLetter": "K",
     "trickEngine": {
       "trickPower": 12,
@@ -5613,6 +7765,7 @@ export function getAllCards() {
 }
 
 export default {
+  ...kinetics,
   ALL_CARDS,
   CARDS_BY_ID,
   CARDS_BY_SLUG,

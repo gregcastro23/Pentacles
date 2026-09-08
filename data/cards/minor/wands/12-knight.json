@@ -21,6 +21,7 @@
     "triplicitySign": null,
     "triplicityRuler": null,
     "triplicityRulerIndex": null,
+    "triplicityRulerIndices": [],
     "hebrewLetter": null,
     "treeOfLifePath": null
   },
@@ -43,6 +44,31 @@
     "adaptability": 33,
     "vitality": 42
   },
+  "planetaryStats": {
+    "solarAgency": 49,
+    "lunarReceptivity": 24,
+    "mercurialVelocity": 34,
+    "venusianCoherence": 24,
+    "martialImpetus": 44,
+    "jovianExpansion": 24,
+    "saturnianStructure": 24,
+    "chironicAdaptation": 24,
+    "uranianSurprisal": 47,
+    "neptunianResonance": 24,
+    "plutonicIntegration": 39
+  },
+  "planetaryAffinity": [
+    3,
+    0,
+    0,
+    0,
+    3,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
   "scrabbleLetter": "N",
   "trickEngine": {
     "trickPower": 10,

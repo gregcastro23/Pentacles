@@ -24,6 +24,9 @@
     "triplicitySign": "Capricorn",
     "triplicityRuler": "Saturn",
     "triplicityRulerIndex": 6,
+    "triplicityRulerIndices": [
+      6
+    ],
     "hebrewLetter": null,
     "treeOfLifePath": null
   },
@@ -46,6 +49,31 @@
     "adaptability": 29,
     "vitality": 63
   },
+  "planetaryStats": {
+    "solarAgency": 35,
+    "lunarReceptivity": 24,
+    "mercurialVelocity": 33,
+    "venusianCoherence": 20,
+    "martialImpetus": 32,
+    "jovianExpansion": 33,
+    "saturnianStructure": 71,
+    "chironicAdaptation": 24,
+    "uranianSurprisal": 34,
+    "neptunianResonance": 21,
+    "plutonicIntegration": 44
+  },
+  "planetaryAffinity": [
+    0,
+    0,
+    5,
+    -4,
+    0,
+    -5,
+    0,
+    0,
+    -5,
+    0
+  ],
   "scrabbleLetter": "B",
   "trickEngine": {
     "trickPower": 8,

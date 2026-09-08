@@ -24,6 +24,9 @@
     "triplicitySign": "Aquarius",
     "triplicityRuler": "Uranus",
     "triplicityRulerIndex": 7,
+    "triplicityRulerIndices": [
+      7
+    ],
     "hebrewLetter": null,
     "treeOfLifePath": null
   },
@@ -46,6 +49,31 @@
     "adaptability": 52,
     "vitality": 35
   },
+  "planetaryStats": {
+    "solarAgency": 24,
+    "lunarReceptivity": 35,
+    "mercurialVelocity": 35,
+    "venusianCoherence": 32,
+    "martialImpetus": 24,
+    "jovianExpansion": 33,
+    "saturnianStructure": 37,
+    "chironicAdaptation": 38,
+    "uranianSurprisal": 43,
+    "neptunianResonance": 37,
+    "plutonicIntegration": 30
+  },
+  "planetaryAffinity": [
+    0,
+    0,
+    5,
+    0,
+    0,
+    -5,
+    0,
+    0,
+    0,
+    0
+  ],
   "scrabbleLetter": "E",
   "trickEngine": {
     "trickPower": 13,

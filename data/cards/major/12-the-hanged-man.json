@@ -21,6 +21,9 @@
     "triplicitySign": null,
     "triplicityRuler": "Neptune",
     "triplicityRulerIndex": 8,
+    "triplicityRulerIndices": [
+      8
+    ],
     "hebrewLetter": "Mem (מ)",
     "treeOfLifePath": "23rd Path (Geburah to Hod)"
   },
@@ -43,6 +46,31 @@
     "adaptability": 52,
     "vitality": 24
   },
+  "planetaryStats": {
+    "solarAgency": 24,
+    "lunarReceptivity": 62,
+    "mercurialVelocity": 39,
+    "venusianCoherence": 54,
+    "martialImpetus": 24,
+    "jovianExpansion": 37,
+    "saturnianStructure": 24,
+    "chironicAdaptation": 59,
+    "uranianSurprisal": 24,
+    "neptunianResonance": 91,
+    "plutonicIntegration": 24
+  },
+  "planetaryAffinity": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    5,
+    0
+  ],
   "scrabbleLetter": "U",
   "trickEngine": {
     "trickPower": 1120,

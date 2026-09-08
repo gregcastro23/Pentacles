@@ -21,6 +21,9 @@
     "triplicitySign": "Sagittarius",
     "triplicityRuler": "Jupiter",
     "triplicityRulerIndex": 5,
+    "triplicityRulerIndices": [
+      5
+    ],
     "hebrewLetter": "Samekh (ס)",
     "treeOfLifePath": "25th Path (Tiphereth to Yesod)"
   },
@@ -43,6 +46,31 @@
     "adaptability": 38,
     "vitality": 42
   },
+  "planetaryStats": {
+    "solarAgency": 49,
+    "lunarReceptivity": 37,
+    "mercurialVelocity": 31,
+    "venusianCoherence": 34,
+    "martialImpetus": 44,
+    "jovianExpansion": 46,
+    "saturnianStructure": 24,
+    "chironicAdaptation": 29,
+    "uranianSurprisal": 47,
+    "neptunianResonance": 35,
+    "plutonicIntegration": 39
+  },
+  "planetaryAffinity": [
+    0,
+    0,
+    -5,
+    0,
+    0,
+    5,
+    0,
+    0,
+    0,
+    0
+  ],
   "scrabbleLetter": "T",
   "trickEngine": {
     "trickPower": 1140,
