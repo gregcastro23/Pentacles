@@ -799,7 +799,8 @@
       4 * getDignityScore(agent.faction, sign) +
       20 * trumpDepth(agent.active, zoneId) +
       15 * opportunity(zone, agent.faction) -
-      8 * (agent.rested ? 1 : 0);
+      8 * (agent.rested ? 1 : 0) +
+      Math.max(0, Math.min(8, Math.round(Number(agent.deckAffinity || 0))));
     return Math.max(0, Math.min(100, Math.round(raw)));
   }
 

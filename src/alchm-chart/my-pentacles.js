@@ -62,6 +62,9 @@ export class MyPentaclesInstance {
     this.deckFilter = "all"; // all | active | defense | bench | majors | minors
     this.cardSearchQuery = "";
     this.inspectedCard = null;
+    this.inspectorStatTab = "planetary12"; // planetary12 | sacred7
+    this._cardsData = null;
+    this._cardDefCache = new Map();
   }
 
   mount(el) {
@@ -561,11 +564,104 @@ export class MyPentaclesInstance {
     ]);
   }
 
+  _getCardDefinition(suitKey, rank, isMajor) {
+    const suit = isMajor ? "major" : (suitKey || "wands");
+    const r = Number(rank !== undefined && rank !== null ? rank : 0);
+    const key = `${suit}:${r}`;
+    if (this._cardDefCache.has(key)) {
+      return this._cardDefCache.get(key);
+    }
+    if (this._cardsData) {
+      const def = this._cardsData.getCard(suit, r);
+      if (def) this._cardDefCache.set(key, def);
+      return def;
+    }
+    import("../cards/index.js").then((mod) => {
+      this._cardsData = mod;
+      const def = mod.getCard(suit, r);
+      if (def) this._cardDefCache.set(key, def);
+      if (this.inspectedCard) {
+        this.paint();
+      }
+    }).catch(() => {});
+    return null;
+  }
+
+  _getSkyTransit() {
+    const st = this._stateOf();
+    if (!st) return null;
+    if (st.ephemeris && Array.isArray(st.ephemeris)) {
+      const sun = st.ephemeris.find((e) => e.body === 0 || e.body === "Sun");
+      if (sun) {
+        return typeof sun.ra === "number" ? sun.ra : ((Number(sun.transiting_zone) || 0) % 12) * 30;
+      }
+    }
+    if (st.player?.chart) {
+      return (Number(st.player.chart.ascendant) || 0) / 60;
+    }
+    return 0;
+  }
+
+  _renderInspectorStatBars(cardDef, kineticScore) {
+    const isPlanetary = this.inspectorStatTab === "planetary12";
+    const axes = isPlanetary ? [
+      { k: "Solar Agency", v: cardDef.planetaryStats?.solarAgency || 50, col: "#e8b84b", g: "☉" },
+      { k: "Lunar Receptivity", v: cardDef.planetaryStats?.lunarReceptivity || 50, col: "#cbd0db", g: "☽" },
+      { k: "Mercurial Velocity", v: cardDef.planetaryStats?.mercurialVelocity || 50, col: "#9aa7c4", g: "☿" },
+      { k: "Venusian Coherence", v: cardDef.planetaryStats?.venusianCoherence || 50, col: "#d98fb0", g: "♀" },
+      { k: "Martial Impetus", v: cardDef.planetaryStats?.martialImpetus || 50, col: "#cf4d4d", g: "♂" },
+      { k: "Jovian Expansion", v: cardDef.planetaryStats?.jovianExpansion || 50, col: "#cf9a52", g: "♃" },
+      { k: "Saturnian Structure", v: cardDef.planetaryStats?.saturnianStructure || 50, col: "#9a937c", g: "♄" },
+      { k: "Chironic Adaptation", v: cardDef.planetaryStats?.chironicAdaptation || 50, col: "#40c057", g: "⚷" },
+      { k: "Uranian Surprisal", v: cardDef.planetaryStats?.uranianSurprisal || 50, col: "#5fb6c4", g: "♅" },
+      { k: "Neptunian Resonance", v: cardDef.planetaryStats?.neptunianResonance || 50, col: "#6470c8", g: "♆" },
+      { k: "Plutonic Integration", v: cardDef.planetaryStats?.plutonicIntegration || 50, col: "#8a6aa0", g: "♇" },
+      { k: "Kinetic Alignment", v: kineticScore, col: "#f1dba1", g: "⚡" },
+    ] : [
+      { k: "Power", v: cardDef.sacredStats?.power || 50, col: "#cf4d4d", g: "⚔" },
+      { k: "Resonance", v: cardDef.sacredStats?.resonance || 50, col: "#5fb6c4", g: "✦" },
+      { k: "Wisdom", v: cardDef.sacredStats?.wisdom || 50, col: "#e8b84b", g: "📜" },
+      { k: "Charisma", v: cardDef.sacredStats?.charisma || 50, col: "#d98fb0", g: "✨" },
+      { k: "Intuition", v: cardDef.sacredStats?.intuition || 50, col: "#6470c8", g: "👁" },
+      { k: "Adaptability", v: cardDef.sacredStats?.adaptability || 50, col: "#40c057", g: "🌀" },
+      { k: "Vitality", v: cardDef.sacredStats?.vitality || 50, col: "#cf9a52", g: "♥" },
+    ];
+
+    return h("div", { class: "mc-stat-bars" }, axes.map((a) => h("div", { class: "mc-stat-bar-row" }, [
+      h("span", { class: "mc-stat-bar-label", text: `${a.g} ${a.k}` }),
+      h("div", { class: "mc-stat-bar-track" }, [
+        h("div", { class: "mc-stat-bar-fill", style: { width: `${Math.min(100, Math.max(5, a.v))}%`, background: a.col } }),
+      ]),
+      h("span", { class: "mc-stat-bar-val", text: String(a.v) }),
+    ])));
+  }
+
+  _renderAffinityBadges(cardDef) {
+    const affinityVec = cardDef.planetaryAffinity || [];
+    return h("div", { class: "mc-affinity-section" }, [
+      h("div", { class: "mc-affinity-title", text: "✦ Planetary Dignity Affinities" }),
+      h("div", { class: "mc-affinity-grid" }, PLANET_NAMES.map((name, i) => {
+        const score = affinityVec[i] ?? 0;
+        const isDom = score >= 5;
+        const isExa = score === 4;
+        const cls = "mc-affinity-badge" + (isDom ? " is-domicile" : (isExa ? " is-exaltation" : ""));
+        return h("div", { class: cls, title: `${name}: +${score} dignity (${isDom ? "Domicile +5" : (isExa ? "Exaltation +4" : "Affinity")})` }, [
+          h("span", { class: "badge-glyph", style: { color: PLANET_COLORS[i] }, text: PLANET_GLYPHS[i] }),
+          h("span", { class: "badge-name", text: name }),
+          h("span", { class: "badge-score", text: score > 0 ? `+${score}` : "0" }),
+        ]);
+      })),
+    ]);
+  }
+
   // ── Card Inspector Popover Modal ──
   _cardInspectorModal(c, deck, collection) {
     const card = normalizeTarotCard(c);
     const isMajor = card.isMajor;
     const currentLoadout = (deck.find((d) => Number(d.card_id) === Number(c.card_id)) || {}).loadout || "bench";
+    const cardDef = this._getCardDefinition(card.suitKey, card.rank, isMajor);
+    const transit = this._getSkyTransit();
+    const kineticScore = (cardDef && this._cardsData) ? this._cardsData.kineticAlignment(cardDef, transit) : 50;
 
     return h("div", { class: "mc-inspector-overlay", onClick: (e) => { if (e.target.classList.contains("mc-inspector-overlay")) { this.inspectedCard = null; this.paint(); } } }, [
       h("div", { class: "mc-inspector-card" }, [
@@ -596,6 +692,30 @@ export class MyPentaclesInstance {
                 alt: `${card.suitName} art`
               })
         ]),
+
+        cardDef ? h("div", { class: "mc-transit-resonance" }, [
+          h("div", { class: "mc-transit-resonance-label" }, [
+            h("span", { text: "⚡" }),
+            h("span", { text: "Celestial Transit Resonance" }),
+          ]),
+          h("div", { class: "mc-transit-resonance-score", text: `${kineticScore}% · ${kineticScore >= 80 ? "Harmonious Peak" : (kineticScore >= 60 ? "Resonant" : "Attuned")}` }),
+        ]) : null,
+
+        cardDef ? h("div", { class: "mc-inspector-tabs" }, [
+          h("button", {
+            class: "mc-inspector-tab" + (this.inspectorStatTab === "planetary12" ? " is-active" : ""),
+            text: "✦ Planetary 12",
+            onClick: () => { this.inspectorStatTab = "planetary12"; this.paint(); }
+          }),
+          h("button", {
+            class: "mc-inspector-tab" + (this.inspectorStatTab === "sacred7" ? " is-active" : ""),
+            text: "⬡ Sacred 7",
+            onClick: () => { this.inspectorStatTab = "sacred7"; this.paint(); }
+          }),
+        ]) : null,
+
+        cardDef ? this._renderInspectorStatBars(cardDef, kineticScore) : null,
+        cardDef ? this._renderAffinityBadges(cardDef) : null,
 
         h("div", { class: "mc-inspector-stats-grid" }, [
           h("div", { class: "mc-inspector-stat" }, [

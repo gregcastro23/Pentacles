@@ -24,12 +24,13 @@
 // See docs/ZONE_MELEE_ARCANA_TRICK_PLAN.md §9.
 
 import { sqlOneShot } from "./stdb-feed";
-import { cliCall } from "./spacetime-cli";
 import { signVector } from "../src/alchm-chart/sign-character.js";
 import { dignityScore } from "../src/alchm-chart/dignity.js";
 import { canAccessZone, accessRefusalReason } from "../src/alchm-chart/zone-access.js";
 export { canAccessZone, accessRefusalReason };
 import { warLedger, getDecanInfo } from "./war-ledger";
+import { calculateDeckPlanetaryAffinity } from "../src/cards/kinetics.js";
+import { getCard } from "../src/cards/index.js";
 
 // The engine is a classic IIFE; importing it for its side effect publishes it on
 // globalThis, exactly as the browser and the engine test suite do.
@@ -62,8 +63,29 @@ export interface Agent {
   handle: string;
   faction: number;          // 0..9, already the chart's top faction
   signVector: number[];     // 12 percentages summing to 100 (Asc suppressed on solar charts)
-  active: Array<{ card_id: number; suit?: string; rank: number; is_major?: boolean; inverted?: boolean; title?: string }>;
+  active: Array<{ card_id: number; suit?: string; rank: number; is_major?: boolean; inverted?: boolean; title?: string; planetaryAffinity?: number[] }>;
   rested: boolean;          // held a seat last round
+  deckAffinity?: number;    // 0..8 integer alignment of deck to agent's faction
+}
+
+/**
+ * Computes a champion's deck alignment score to their faction (0..8).
+ * Resolves active cards to canonical Planetary 12 affinity vectors,
+ * sums across the deck, extracts the champion's faction affinity, and rounds to an integer.
+ */
+export function computeAgentDeckAffinity(
+  active: Agent["active"],
+  faction: number,
+): number {
+  if (!active || !active.length) return 0;
+  const resolved = active.map((c) => {
+    if (c.planetaryAffinity) return c;
+    const cardDef = getCard(c.is_major ? "major" : (c.suit || "wands"), c.rank);
+    return cardDef ? { ...c, planetaryAffinity: cardDef.planetaryAffinity } : c;
+  });
+  const scores = calculateDeckPlanetaryAffinity(resolved as any);
+  const rawScore = scores[faction] ?? 0;
+  return Math.min(8, Math.max(0, Math.round(rawScore * 0.4)));
 }
 
 export interface SeatPlan { faction: number; occupant: string; handle: string; claim: number }
@@ -320,20 +342,23 @@ export function buildAgents(
     const placements = Array.isArray(row.placements) ? row.placements : [];
     const timeKnown = Boolean(row.time_known);
     const ascSign = timeKnown ? Math.floor((Number(row.ascendant) || 0) / 1800) % 12 : null;
-    agents.push({
-      identity: id,
-      handle: String(row.handle ?? id.slice(0, 10)),
-      faction,
-      // Solar charts have a placeholder Ascendant; sign-character.js suppresses its
-      // weight-20 term when ascSign is null, as faction_scores already does.
-      signVector: Array.from(signVector(placements.map((p: any) => ({
-        body: planetIdx(p.body) ?? 0, sign: Number(p.sign) || 0,
-        dignity: Number(p.dignity) || 0,
-      })), ascSign)),
-      active: ensureActiveHand(activeByOwner.get(id) ?? [], faction),
-      rested: restedIds.has(id),
-    });
-  }
+      const active = ensureActiveHand(activeByOwner.get(id) ?? [], faction);
+      const deckAffinity = computeAgentDeckAffinity(active, faction);
+      agents.push({
+        identity: id,
+        handle: String(row.handle ?? id.slice(0, 10)),
+        faction,
+        // Solar charts have a placeholder Ascendant; sign-character.js suppresses its
+        // weight-20 term when ascSign is null, as faction_scores already does.
+        signVector: Array.from(signVector(placements.map((p: any) => ({
+          body: planetIdx(p.body) ?? 0, sign: Number(p.sign) || 0,
+          dignity: Number(p.dignity) || 0,
+        })), ascSign)),
+        active,
+        rested: restedIds.has(id),
+        deckAffinity,
+      });
+    }
 
   // Rest is roster-relative: waive it for any faction thinner than its reach.
   const reachable = (f: number) => [0,1,2,3,4,5,6,7,8,9,10].filter((z) => canAccessZone(z, f, zoneOwners)).length;
