@@ -1,0 +1,69 @@
+{
+  "id": "major-05",
+  "slug": "the-hierophant",
+  "name": "The Hierophant",
+  "arcana": "major",
+  "numeral": "V",
+  "rank": 5,
+  "suit": "major",
+  "symbolism": {
+    "goldenDawnTitle": "The Magus of the Eternal Gods",
+    "element": "Earth",
+    "esms": 2,
+    "planetaryBody": null,
+    "planetIndex": null,
+    "zodiacSign": "Taurus",
+    "signIndex": 1,
+    "decan": null,
+    "decanRange": null,
+    "chaldeanRuler": null,
+    "chaldeanRulerIndex": null,
+    "triplicitySign": "Taurus",
+    "triplicityRuler": "Venus",
+    "triplicityRulerIndex": 3,
+    "hebrewLetter": "Vav (ו)",
+    "treeOfLifePath": "16th Path (Chokmah to Chesed)"
+  },
+  "styling": {
+    "glyph": "♉",
+    "suitGlyph": "✦",
+    "primaryColor": "#74ab6c",
+    "accentColor": "#f0a95e",
+    "frameStyle": "hieratic-sanctuary",
+    "artAsset": "/assets/cards/major/05-the-hierophant.jpg",
+    "fallbackArt": "/assets/suits/pentacles.jpg",
+    "audioFrequencyHz": 341
+  },
+  "sacredStats": {
+    "power": 38,
+    "resonance": 47,
+    "wisdom": 34,
+    "charisma": 41,
+    "intuition": 40,
+    "adaptability": 24,
+    "vitality": 52
+  },
+  "scrabbleLetter": "H",
+  "trickEngine": {
+    "trickPower": 1050,
+    "counterValue": 0,
+    "isHonour": false,
+    "family": "sign",
+    "biasedSuit": "Pentacles",
+    "eligibleMelds": [
+      "celestial-triumph"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Tradition",
+      "Spiritual Law",
+      "Orthodoxy",
+      "Initiation",
+      "Guidance"
+    ],
+    "upright": "The bridge between esoteric knowledge and community discipline; transmission of lineage truth.",
+    "reversed": "Dogmatism, hypocrisy, rebellion against outmoded traditions, spiritual rigidity.",
+    "description": "Bearing the triple-tiered papal staff, imparting sacred mysteries to knelt acolytes."
+  }
+}

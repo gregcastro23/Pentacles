@@ -1,0 +1,69 @@
+{
+  "id": "major-19",
+  "slug": "the-sun",
+  "name": "The Sun",
+  "arcana": "major",
+  "numeral": "XIX",
+  "rank": 19,
+  "suit": "major",
+  "symbolism": {
+    "goldenDawnTitle": "The Lord of the Fire of the World",
+    "element": "Fire",
+    "esms": 0,
+    "planetaryBody": "Sun",
+    "planetIndex": 0,
+    "zodiacSign": null,
+    "signIndex": null,
+    "decan": null,
+    "decanRange": null,
+    "chaldeanRuler": null,
+    "chaldeanRulerIndex": null,
+    "triplicitySign": null,
+    "triplicityRuler": "Sun",
+    "triplicityRulerIndex": 0,
+    "hebrewLetter": "Resh (ר)",
+    "treeOfLifePath": "30th Path (Hod to Yesod)"
+  },
+  "styling": {
+    "glyph": "☉",
+    "suitGlyph": "✦",
+    "primaryColor": "#f6cf83",
+    "accentColor": "#db7a47",
+    "frameStyle": "radiant-helios",
+    "artAsset": "/assets/cards/major/19-the-sun.jpg",
+    "fallbackArt": "/assets/suits/wands.jpg",
+    "audioFrequencyHz": 528
+  },
+  "sacredStats": {
+    "power": 65,
+    "resonance": 52,
+    "wisdom": 24,
+    "charisma": 67,
+    "intuition": 24,
+    "adaptability": 38,
+    "vitality": 60
+  },
+  "scrabbleLetter": "S",
+  "trickEngine": {
+    "trickPower": 1190,
+    "counterValue": 0,
+    "isHonour": false,
+    "family": "planetary",
+    "biasedSuit": "Wands",
+    "eligibleMelds": [
+      "celestial-triumph"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Vitality",
+      "Joy",
+      "Clarity",
+      "Warmth",
+      "Solar Victory"
+    ],
+    "upright": "Total conscious radiance, uninhibited warmth, the triumph of solar light and absolute vitality.",
+    "reversed": "Temporary clouds, dampened enthusiasm, unrealistic optimism, ego burn.",
+    "description": "The joyous child riding a white horse beneath sunflowers, under the golden face of the radiant Sun."
+  }
+}

@@ -1,0 +1,69 @@
+{
+  "id": "major-04",
+  "slug": "the-emperor",
+  "name": "The Emperor",
+  "arcana": "major",
+  "numeral": "IV",
+  "rank": 4,
+  "suit": "major",
+  "symbolism": {
+    "goldenDawnTitle": "Sun of the Morning, Chief Among the Mighty",
+    "element": "Fire",
+    "esms": 0,
+    "planetaryBody": null,
+    "planetIndex": null,
+    "zodiacSign": "Aries",
+    "signIndex": 0,
+    "decan": null,
+    "decanRange": null,
+    "chaldeanRuler": null,
+    "chaldeanRulerIndex": null,
+    "triplicitySign": "Aries",
+    "triplicityRuler": "Mars",
+    "triplicityRulerIndex": 4,
+    "hebrewLetter": "Heh (ה)",
+    "treeOfLifePath": "15th Path (Chokmah to Tiphereth)"
+  },
+  "styling": {
+    "glyph": "♈",
+    "suitGlyph": "✦",
+    "primaryColor": "#e26666",
+    "accentColor": "#db7a47",
+    "frameStyle": "martial-granite",
+    "artAsset": "/assets/cards/major/04-the-emperor.jpg",
+    "fallbackArt": "/assets/suits/wands.jpg",
+    "audioFrequencyHz": 396
+  },
+  "sacredStats": {
+    "power": 54,
+    "resonance": 47,
+    "wisdom": 31,
+    "charisma": 45,
+    "intuition": 40,
+    "adaptability": 28,
+    "vitality": 55
+  },
+  "scrabbleLetter": "R",
+  "trickEngine": {
+    "trickPower": 1040,
+    "counterValue": 0,
+    "isHonour": false,
+    "family": "sign",
+    "biasedSuit": "Wands",
+    "eligibleMelds": [
+      "celestial-triumph"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Authority",
+      "Structure",
+      "Sovereignty",
+      "Stability",
+      "Foundation"
+    ],
+    "upright": "Steadfast rule, martial organization, establishing firm boundaries and sovereign domains.",
+    "reversed": "Tyranny, rigidity, loss of control, stubborn unyielding dogmatism.",
+    "description": "Enthroned upon stone carved with ram heads, holding the globe of temporal and astral authority."
+  }
+}

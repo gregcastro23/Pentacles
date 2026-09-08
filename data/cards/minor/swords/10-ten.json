@@ -1,0 +1,72 @@
+{
+  "id": "swords-10",
+  "slug": "ten-of-swords",
+  "name": "Ten of Swords",
+  "arcana": "minor",
+  "numeral": "10",
+  "rank": 10,
+  "suit": "swords",
+  "symbolism": {
+    "goldenDawnTitle": "Lord of Ruin",
+    "element": "Air",
+    "esms": 3,
+    "planetaryBody": "Sun",
+    "planetIndex": 0,
+    "zodiacSign": "Gemini",
+    "signIndex": 2,
+    "decan": 2,
+    "decanRange": [
+      20,
+      30
+    ],
+    "chaldeanRuler": "Sun",
+    "chaldeanRulerIndex": 0,
+    "triplicitySign": "Aquarius",
+    "triplicityRuler": "Uranus",
+    "triplicityRulerIndex": 7,
+    "hebrewLetter": null,
+    "treeOfLifePath": null
+  },
+  "styling": {
+    "glyph": "🜁",
+    "suitGlyph": "🜁",
+    "primaryColor": "#aebbd6",
+    "accentColor": "#82bbf2",
+    "frameStyle": "swords-pip",
+    "artAsset": "/assets/cards/minor/swords/10-ten.jpg",
+    "fallbackArt": "/assets/suits/swords.jpg",
+    "audioFrequencyHz": 648
+  },
+  "sacredStats": {
+    "power": 29,
+    "resonance": 35,
+    "wisdom": 41,
+    "charisma": 31,
+    "intuition": 52,
+    "adaptability": 52,
+    "vitality": 35
+  },
+  "scrabbleLetter": "E",
+  "trickEngine": {
+    "trickPower": 13,
+    "counterValue": 10,
+    "isHonour": false,
+    "family": "minor",
+    "biasedSuit": "Swords",
+    "eligibleMelds": [
+      "run",
+      "flush"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Ruin",
+      "Gemini",
+      "Uranus",
+      "Decan 3"
+    ],
+    "upright": "Ruin expressed through Air, attuned to Uranus in Aquarius.",
+    "reversed": "Imbalance in Ruin; tension between Uranus and Gemini.",
+    "description": "The 10 of Swords governs the 3 decan of Gemini (20°–30°), ruled by Uranus."
+  }
+}

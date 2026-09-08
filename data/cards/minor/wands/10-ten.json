@@ -1,0 +1,72 @@
+{
+  "id": "wands-10",
+  "slug": "ten-of-wands",
+  "name": "Ten of Wands",
+  "arcana": "minor",
+  "numeral": "10",
+  "rank": 10,
+  "suit": "wands",
+  "symbolism": {
+    "goldenDawnTitle": "Lord of Oppression",
+    "element": "Fire",
+    "esms": 0,
+    "planetaryBody": "Saturn",
+    "planetIndex": 6,
+    "zodiacSign": "Sagittarius",
+    "signIndex": 8,
+    "decan": 2,
+    "decanRange": [
+      20,
+      30
+    ],
+    "chaldeanRuler": "Saturn",
+    "chaldeanRulerIndex": 6,
+    "triplicitySign": "Leo",
+    "triplicityRuler": "Sun",
+    "triplicityRulerIndex": 0,
+    "hebrewLetter": null,
+    "treeOfLifePath": null
+  },
+  "styling": {
+    "glyph": "🜂",
+    "suitGlyph": "🜂",
+    "primaryColor": "#db7a47",
+    "accentColor": "#f6cf83",
+    "frameStyle": "wands-pip",
+    "artAsset": "/assets/cards/minor/wands/10-ten.jpg",
+    "fallbackArt": "/assets/suits/wands.jpg",
+    "audioFrequencyHz": 552
+  },
+  "sacredStats": {
+    "power": 51,
+    "resonance": 41,
+    "wisdom": 24,
+    "charisma": 53,
+    "intuition": 26,
+    "adaptability": 37,
+    "vitality": 49
+  },
+  "scrabbleLetter": "E",
+  "trickEngine": {
+    "trickPower": 13,
+    "counterValue": 10,
+    "isHonour": false,
+    "family": "minor",
+    "biasedSuit": "Wands",
+    "eligibleMelds": [
+      "run",
+      "flush"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Oppression",
+      "Sagittarius",
+      "Sun",
+      "Decan 3"
+    ],
+    "upright": "Oppression expressed through Fire, attuned to Sun in Leo.",
+    "reversed": "Imbalance in Oppression; tension between Sun and Sagittarius.",
+    "description": "The 10 of Wands governs the 3 decan of Sagittarius (20°–30°), ruled by Sun."
+  }
+}

@@ -1,0 +1,72 @@
+{
+  "id": "pentacles-06",
+  "slug": "six-of-pentacles",
+  "name": "Six of Pentacles",
+  "arcana": "minor",
+  "numeral": "6",
+  "rank": 6,
+  "suit": "pentacles",
+  "symbolism": {
+    "goldenDawnTitle": "Lord of Material Success",
+    "element": "Earth",
+    "esms": 2,
+    "planetaryBody": "Moon",
+    "planetIndex": 1,
+    "zodiacSign": "Taurus",
+    "signIndex": 1,
+    "decan": 1,
+    "decanRange": [
+      10,
+      20
+    ],
+    "chaldeanRuler": "Moon",
+    "chaldeanRulerIndex": 1,
+    "triplicitySign": "Virgo",
+    "triplicityRuler": "Mercury",
+    "triplicityRulerIndex": 2,
+    "hebrewLetter": null,
+    "treeOfLifePath": null
+  },
+  "styling": {
+    "glyph": "🜃",
+    "suitGlyph": "🜃",
+    "primaryColor": "#74ab6c",
+    "accentColor": "#f0a95e",
+    "frameStyle": "pentacles-pip",
+    "artAsset": "/assets/cards/minor/pentacles/06-six.jpg",
+    "fallbackArt": "/assets/suits/pentacles.jpg",
+    "audioFrequencyHz": 413
+  },
+  "sacredStats": {
+    "power": 41,
+    "resonance": 35,
+    "wisdom": 43,
+    "charisma": 33,
+    "intuition": 29,
+    "adaptability": 48,
+    "vitality": 46
+  },
+  "scrabbleLetter": "S",
+  "trickEngine": {
+    "trickPower": 5,
+    "counterValue": 0,
+    "isHonour": false,
+    "family": "minor",
+    "biasedSuit": "Pentacles",
+    "eligibleMelds": [
+      "run",
+      "flush"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Material Success",
+      "Taurus",
+      "Mercury",
+      "Decan 2"
+    ],
+    "upright": "Material Success expressed through Earth, attuned to Mercury in Virgo.",
+    "reversed": "Imbalance in Material Success; tension between Mercury and Taurus.",
+    "description": "The 6 of Pentacles governs the 2 decan of Taurus (10°–20°), ruled by Mercury."
+  }
+}

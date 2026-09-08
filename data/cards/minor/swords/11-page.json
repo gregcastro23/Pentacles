@@ -1,0 +1,69 @@
+{
+  "id": "swords-11",
+  "slug": "page-of-swords",
+  "name": "Page of Swords",
+  "arcana": "minor",
+  "numeral": "P",
+  "rank": 11,
+  "suit": "swords",
+  "symbolism": {
+    "goldenDawnTitle": "Princess of the Rushing Winds; The Lotus of the Palace of Air",
+    "element": "Air",
+    "esms": 3,
+    "planetaryBody": null,
+    "planetIndex": null,
+    "zodiacSign": null,
+    "signIndex": null,
+    "decan": null,
+    "decanRange": null,
+    "chaldeanRuler": null,
+    "chaldeanRulerIndex": null,
+    "triplicitySign": null,
+    "triplicityRuler": null,
+    "triplicityRulerIndex": null,
+    "hebrewLetter": null,
+    "treeOfLifePath": null
+  },
+  "styling": {
+    "glyph": "🜁",
+    "suitGlyph": "🜁",
+    "primaryColor": "#aebbd6",
+    "accentColor": "#82bbf2",
+    "frameStyle": "swords-court",
+    "artAsset": "/assets/cards/minor/swords/11-page.jpg",
+    "fallbackArt": "/assets/suits/swords.jpg",
+    "audioFrequencyHz": 660
+  },
+  "sacredStats": {
+    "power": 24,
+    "resonance": 24,
+    "wisdom": 35,
+    "charisma": 24,
+    "intuition": 31,
+    "adaptability": 38,
+    "vitality": 24
+  },
+  "scrabbleLetter": "P",
+  "trickEngine": {
+    "trickPower": 9,
+    "counterValue": 0,
+    "isHonour": false,
+    "family": "minor",
+    "biasedSuit": "Swords",
+    "eligibleMelds": [
+      "marriage",
+      "royal-court"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Page",
+      "Air",
+      "Court Archetype",
+      "Magnitude +"
+    ],
+    "upright": "Mature embodiment of Page wielding Air consciousness at magnitude +.",
+    "reversed": "Misdirection of Page's + temperament; emotional or tactical friction.",
+    "description": "Princess of the Rushing Winds; The Lotus of the Palace of Air. Embodies the + magnitude of royal Air governance."
+  }
+}

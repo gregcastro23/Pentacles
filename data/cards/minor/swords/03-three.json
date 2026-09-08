@@ -1,0 +1,72 @@
+{
+  "id": "swords-03",
+  "slug": "three-of-swords",
+  "name": "Three of Swords",
+  "arcana": "minor",
+  "numeral": "3",
+  "rank": 3,
+  "suit": "swords",
+  "symbolism": {
+    "goldenDawnTitle": "Lord of Sorrow",
+    "element": "Air",
+    "esms": 3,
+    "planetaryBody": "Saturn",
+    "planetIndex": 6,
+    "zodiacSign": "Libra",
+    "signIndex": 6,
+    "decan": 1,
+    "decanRange": [
+      10,
+      20
+    ],
+    "chaldeanRuler": "Saturn",
+    "chaldeanRulerIndex": 6,
+    "triplicitySign": "Aquarius",
+    "triplicityRuler": "Uranus",
+    "triplicityRulerIndex": 7,
+    "hebrewLetter": null,
+    "treeOfLifePath": null
+  },
+  "styling": {
+    "glyph": "🜁",
+    "suitGlyph": "🜁",
+    "primaryColor": "#aebbd6",
+    "accentColor": "#82bbf2",
+    "frameStyle": "swords-pip",
+    "artAsset": "/assets/cards/minor/swords/03-three.jpg",
+    "fallbackArt": "/assets/suits/swords.jpg",
+    "audioFrequencyHz": 564
+  },
+  "sacredStats": {
+    "power": 33,
+    "resonance": 35,
+    "wisdom": 41,
+    "charisma": 31,
+    "intuition": 49,
+    "adaptability": 47,
+    "vitality": 38
+  },
+  "scrabbleLetter": "J",
+  "trickEngine": {
+    "trickPower": 2,
+    "counterValue": 0,
+    "isHonour": false,
+    "family": "minor",
+    "biasedSuit": "Swords",
+    "eligibleMelds": [
+      "run",
+      "flush"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Sorrow",
+      "Libra",
+      "Uranus",
+      "Decan 2"
+    ],
+    "upright": "Sorrow expressed through Air, attuned to Uranus in Aquarius.",
+    "reversed": "Imbalance in Sorrow; tension between Uranus and Libra.",
+    "description": "The 3 of Swords governs the 2 decan of Libra (10°–20°), ruled by Uranus."
+  }
+}

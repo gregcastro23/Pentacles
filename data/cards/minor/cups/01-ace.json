@@ -1,0 +1,68 @@
+{
+  "id": "cups-01",
+  "slug": "ace-of-cups",
+  "name": "Ace of Cups",
+  "arcana": "minor",
+  "numeral": "A",
+  "rank": 1,
+  "suit": "cups",
+  "symbolism": {
+    "goldenDawnTitle": "The Root of the Powers of Water",
+    "element": "Water",
+    "esms": 1,
+    "planetaryBody": "Moon",
+    "planetIndex": 1,
+    "zodiacSign": null,
+    "signIndex": null,
+    "decan": null,
+    "decanRange": null,
+    "chaldeanRuler": null,
+    "chaldeanRulerIndex": null,
+    "triplicitySign": null,
+    "triplicityRuler": "Moon",
+    "triplicityRulerIndex": 1,
+    "hebrewLetter": null,
+    "treeOfLifePath": null
+  },
+  "styling": {
+    "glyph": "🜄",
+    "suitGlyph": "🜄",
+    "primaryColor": "#5f93d8",
+    "accentColor": "#dce2f0",
+    "frameStyle": "cups-pip",
+    "artAsset": "/assets/cards/minor/cups/01-ace.jpg",
+    "fallbackArt": "/assets/suits/cups.jpg",
+    "audioFrequencyHz": 408
+  },
+  "sacredStats": {
+    "power": 24,
+    "resonance": 58,
+    "wisdom": 38,
+    "charisma": 42,
+    "intuition": 65,
+    "adaptability": 24,
+    "vitality": 24
+  },
+  "scrabbleLetter": "A",
+  "trickEngine": {
+    "trickPower": 14,
+    "counterValue": 10,
+    "isHonour": false,
+    "family": "minor",
+    "biasedSuit": "Cups",
+    "eligibleMelds": [
+      "royal-ace"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Origin",
+      "Seed of Power",
+      "Pure Potential",
+      "Elemental Emergence"
+    ],
+    "upright": "The pristine primal spark of Water; the root of elemental consciousness.",
+    "reversed": "Blocked inspiration, wasted potential, ungrounded creative force.",
+    "description": "A celestial hand emerges from the clouds bearing the living emblem of Water."
+  }
+}

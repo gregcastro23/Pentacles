@@ -1,0 +1,72 @@
+{
+  "id": "cups-05",
+  "slug": "five-of-cups",
+  "name": "Five of Cups",
+  "arcana": "minor",
+  "numeral": "5",
+  "rank": 5,
+  "suit": "cups",
+  "symbolism": {
+    "goldenDawnTitle": "Lord of Loss in Pleasure",
+    "element": "Water",
+    "esms": 1,
+    "planetaryBody": "Mars",
+    "planetIndex": 4,
+    "zodiacSign": "Scorpio",
+    "signIndex": 7,
+    "decan": 0,
+    "decanRange": [
+      0,
+      10
+    ],
+    "chaldeanRuler": "Mars",
+    "chaldeanRulerIndex": 4,
+    "triplicitySign": "Scorpio",
+    "triplicityRuler": "Mars",
+    "triplicityRulerIndex": 4,
+    "hebrewLetter": null,
+    "treeOfLifePath": null
+  },
+  "styling": {
+    "glyph": "🜄",
+    "suitGlyph": "🜄",
+    "primaryColor": "#5f93d8",
+    "accentColor": "#dce2f0",
+    "frameStyle": "cups-pip",
+    "artAsset": "/assets/cards/minor/cups/05-five.jpg",
+    "fallbackArt": "/assets/suits/cups.jpg",
+    "audioFrequencyHz": 456
+  },
+  "sacredStats": {
+    "power": 39,
+    "resonance": 56,
+    "wisdom": 42,
+    "charisma": 43,
+    "intuition": 57,
+    "adaptability": 24,
+    "vitality": 44
+  },
+  "scrabbleLetter": "P",
+  "trickEngine": {
+    "trickPower": 4,
+    "counterValue": 0,
+    "isHonour": false,
+    "family": "minor",
+    "biasedSuit": "Cups",
+    "eligibleMelds": [
+      "run",
+      "flush"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Loss in Pleasure",
+      "Scorpio",
+      "Mars",
+      "Decan 1"
+    ],
+    "upright": "Loss in Pleasure expressed through Water, attuned to Mars in Scorpio.",
+    "reversed": "Imbalance in Loss in Pleasure; tension between Mars and Scorpio.",
+    "description": "The 5 of Cups governs the 1 decan of Scorpio (0°–10°), ruled by Mars."
+  }
+}

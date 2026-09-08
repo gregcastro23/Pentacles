@@ -1,0 +1,69 @@
+{
+  "id": "major-15",
+  "slug": "the-devil",
+  "name": "The Devil",
+  "arcana": "major",
+  "numeral": "XV",
+  "rank": 15,
+  "suit": "major",
+  "symbolism": {
+    "goldenDawnTitle": "The Lord of the Gates of Matter; The Child of the Forces of Time",
+    "element": "Earth",
+    "esms": 2,
+    "planetaryBody": null,
+    "planetIndex": null,
+    "zodiacSign": "Capricorn",
+    "signIndex": 9,
+    "decan": null,
+    "decanRange": null,
+    "chaldeanRuler": null,
+    "chaldeanRulerIndex": null,
+    "triplicitySign": "Capricorn",
+    "triplicityRuler": "Saturn",
+    "triplicityRulerIndex": 6,
+    "hebrewLetter": "Ayin (ע)",
+    "treeOfLifePath": "26th Path (Tiphereth to Hod)"
+  },
+  "styling": {
+    "glyph": "♑",
+    "suitGlyph": "✦",
+    "primaryColor": "#74ab6c",
+    "accentColor": "#cf4d4d",
+    "frameStyle": "obsidian-chains",
+    "artAsset": "/assets/cards/major/15-the-devil.jpg",
+    "fallbackArt": "/assets/suits/pentacles.jpg",
+    "audioFrequencyHz": 288
+  },
+  "sacredStats": {
+    "power": 53,
+    "resonance": 33,
+    "wisdom": 32,
+    "charisma": 35,
+    "intuition": 24,
+    "adaptability": 25,
+    "vitality": 69
+  },
+  "scrabbleLetter": "B",
+  "trickEngine": {
+    "trickPower": 1150,
+    "counterValue": 0,
+    "isHonour": false,
+    "family": "sign",
+    "biasedSuit": "Pentacles",
+    "eligibleMelds": [
+      "celestial-triumph"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Attachment",
+      "Illusion of Bondage",
+      "Materialism",
+      "Shadow Self",
+      "Instinct"
+    ],
+    "upright": "Enthrallment to the material world; loose chains that can be removed as soon as consciousness awakens.",
+    "reversed": "Breaking free from addiction, release of fear, confronting the shadow, reclamation of sovereignty.",
+    "description": "The goat-headed Baphomet seated on the stone cube, holding the inverted torch over captive souls."
+  }
+}

@@ -1,0 +1,72 @@
+{
+  "id": "pentacles-10",
+  "slug": "ten-of-pentacles",
+  "name": "Ten of Pentacles",
+  "arcana": "minor",
+  "numeral": "10",
+  "rank": 10,
+  "suit": "pentacles",
+  "symbolism": {
+    "goldenDawnTitle": "Lord of Wealth",
+    "element": "Earth",
+    "esms": 2,
+    "planetaryBody": "Mercury",
+    "planetIndex": 2,
+    "zodiacSign": "Virgo",
+    "signIndex": 5,
+    "decan": 2,
+    "decanRange": [
+      20,
+      30
+    ],
+    "chaldeanRuler": "Mercury",
+    "chaldeanRulerIndex": 2,
+    "triplicitySign": "Taurus",
+    "triplicityRuler": "Venus",
+    "triplicityRulerIndex": 3,
+    "hebrewLetter": null,
+    "treeOfLifePath": null
+  },
+  "styling": {
+    "glyph": "🜃",
+    "suitGlyph": "🜃",
+    "primaryColor": "#74ab6c",
+    "accentColor": "#f0a95e",
+    "frameStyle": "pentacles-pip",
+    "artAsset": "/assets/cards/minor/pentacles/10-ten.jpg",
+    "fallbackArt": "/assets/suits/pentacles.jpg",
+    "audioFrequencyHz": 461
+  },
+  "sacredStats": {
+    "power": 35,
+    "resonance": 38,
+    "wisdom": 28,
+    "charisma": 37,
+    "intuition": 36,
+    "adaptability": 28,
+    "vitality": 46
+  },
+  "scrabbleLetter": "E",
+  "trickEngine": {
+    "trickPower": 13,
+    "counterValue": 10,
+    "isHonour": false,
+    "family": "minor",
+    "biasedSuit": "Pentacles",
+    "eligibleMelds": [
+      "run",
+      "flush"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Wealth",
+      "Virgo",
+      "Venus",
+      "Decan 3"
+    ],
+    "upright": "Wealth expressed through Earth, attuned to Venus in Taurus.",
+    "reversed": "Imbalance in Wealth; tension between Venus and Virgo.",
+    "description": "The 10 of Pentacles governs the 3 decan of Virgo (20°–30°), ruled by Venus."
+  }
+}

@@ -1,0 +1,72 @@
+{
+  "id": "swords-09",
+  "slug": "nine-of-swords",
+  "name": "Nine of Swords",
+  "arcana": "minor",
+  "numeral": "9",
+  "rank": 9,
+  "suit": "swords",
+  "symbolism": {
+    "goldenDawnTitle": "Lord of Despair & Cruelty",
+    "element": "Air",
+    "esms": 3,
+    "planetaryBody": "Mars",
+    "planetIndex": 4,
+    "zodiacSign": "Gemini",
+    "signIndex": 2,
+    "decan": 1,
+    "decanRange": [
+      10,
+      20
+    ],
+    "chaldeanRuler": "Mars",
+    "chaldeanRulerIndex": 4,
+    "triplicitySign": "Libra",
+    "triplicityRuler": "Venus",
+    "triplicityRulerIndex": 3,
+    "hebrewLetter": null,
+    "treeOfLifePath": null
+  },
+  "styling": {
+    "glyph": "🜁",
+    "suitGlyph": "🜁",
+    "primaryColor": "#aebbd6",
+    "accentColor": "#82bbf2",
+    "frameStyle": "swords-pip",
+    "artAsset": "/assets/cards/minor/swords/09-nine.jpg",
+    "fallbackArt": "/assets/suits/swords.jpg",
+    "audioFrequencyHz": 636
+  },
+  "sacredStats": {
+    "power": 29,
+    "resonance": 41,
+    "wisdom": 41,
+    "charisma": 40,
+    "intuition": 47,
+    "adaptability": 42,
+    "vitality": 35
+  },
+  "scrabbleLetter": "B",
+  "trickEngine": {
+    "trickPower": 8,
+    "counterValue": 0,
+    "isHonour": false,
+    "family": "minor",
+    "biasedSuit": "Swords",
+    "eligibleMelds": [
+      "run",
+      "flush"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Despair & Cruelty",
+      "Gemini",
+      "Venus",
+      "Decan 2"
+    ],
+    "upright": "Despair & Cruelty expressed through Air, attuned to Venus in Libra.",
+    "reversed": "Imbalance in Despair & Cruelty; tension between Venus and Gemini.",
+    "description": "The 9 of Swords governs the 2 decan of Gemini (10°–20°), ruled by Venus."
+  }
+}

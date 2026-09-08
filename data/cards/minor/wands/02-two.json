@@ -1,0 +1,72 @@
+{
+  "id": "wands-02",
+  "slug": "two-of-wands",
+  "name": "Two of Wands",
+  "arcana": "minor",
+  "numeral": "2",
+  "rank": 2,
+  "suit": "wands",
+  "symbolism": {
+    "goldenDawnTitle": "Lord of Dominion",
+    "element": "Fire",
+    "esms": 0,
+    "planetaryBody": "Mars",
+    "planetIndex": 4,
+    "zodiacSign": "Aries",
+    "signIndex": 0,
+    "decan": 0,
+    "decanRange": [
+      0,
+      10
+    ],
+    "chaldeanRuler": "Mars",
+    "chaldeanRulerIndex": 4,
+    "triplicitySign": "Aries",
+    "triplicityRuler": "Mars",
+    "triplicityRulerIndex": 4,
+    "hebrewLetter": null,
+    "treeOfLifePath": null
+  },
+  "styling": {
+    "glyph": "🜂",
+    "suitGlyph": "🜂",
+    "primaryColor": "#db7a47",
+    "accentColor": "#f6cf83",
+    "frameStyle": "wands-pip",
+    "artAsset": "/assets/cards/minor/wands/02-two.jpg",
+    "fallbackArt": "/assets/suits/wands.jpg",
+    "audioFrequencyHz": 456
+  },
+  "sacredStats": {
+    "power": 54,
+    "resonance": 48,
+    "wisdom": 31,
+    "charisma": 45,
+    "intuition": 41,
+    "adaptability": 28,
+    "vitality": 56
+  },
+  "scrabbleLetter": "G",
+  "trickEngine": {
+    "trickPower": 1,
+    "counterValue": 0,
+    "isHonour": false,
+    "family": "minor",
+    "biasedSuit": "Wands",
+    "eligibleMelds": [
+      "run",
+      "flush"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Dominion",
+      "Aries",
+      "Mars",
+      "Decan 1"
+    ],
+    "upright": "Dominion expressed through Fire, attuned to Mars in Aries.",
+    "reversed": "Imbalance in Dominion; tension between Mars and Aries.",
+    "description": "The 2 of Wands governs the 1 decan of Aries (0°–10°), ruled by Mars."
+  }
+}

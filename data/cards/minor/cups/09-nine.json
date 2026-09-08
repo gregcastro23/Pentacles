@@ -1,0 +1,72 @@
+{
+  "id": "cups-09",
+  "slug": "nine-of-cups",
+  "name": "Nine of Cups",
+  "arcana": "minor",
+  "numeral": "9",
+  "rank": 9,
+  "suit": "cups",
+  "symbolism": {
+    "goldenDawnTitle": "Lord of Material Happiness",
+    "element": "Water",
+    "esms": 1,
+    "planetaryBody": "Jupiter",
+    "planetIndex": 5,
+    "zodiacSign": "Pisces",
+    "signIndex": 11,
+    "decan": 1,
+    "decanRange": [
+      10,
+      20
+    ],
+    "chaldeanRuler": "Jupiter",
+    "chaldeanRulerIndex": 5,
+    "triplicitySign": "Cancer",
+    "triplicityRuler": "Moon",
+    "triplicityRulerIndex": 1,
+    "hebrewLetter": null,
+    "treeOfLifePath": null
+  },
+  "styling": {
+    "glyph": "🜄",
+    "suitGlyph": "🜄",
+    "primaryColor": "#5f93d8",
+    "accentColor": "#dce2f0",
+    "frameStyle": "cups-pip",
+    "artAsset": "/assets/cards/minor/cups/09-nine.jpg",
+    "fallbackArt": "/assets/suits/cups.jpg",
+    "audioFrequencyHz": 504
+  },
+  "sacredStats": {
+    "power": 29,
+    "resonance": 55,
+    "wisdom": 37,
+    "charisma": 41,
+    "intuition": 64,
+    "adaptability": 28,
+    "vitality": 35
+  },
+  "scrabbleLetter": "B",
+  "trickEngine": {
+    "trickPower": 8,
+    "counterValue": 0,
+    "isHonour": false,
+    "family": "minor",
+    "biasedSuit": "Cups",
+    "eligibleMelds": [
+      "run",
+      "flush"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Material Happiness",
+      "Pisces",
+      "Moon",
+      "Decan 2"
+    ],
+    "upright": "Material Happiness expressed through Water, attuned to Moon in Cancer.",
+    "reversed": "Imbalance in Material Happiness; tension between Moon and Pisces.",
+    "description": "The 9 of Cups governs the 2 decan of Pisces (10°–20°), ruled by Moon."
+  }
+}

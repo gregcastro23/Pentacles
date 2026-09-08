@@ -1,0 +1,68 @@
+{
+  "id": "swords-01",
+  "slug": "ace-of-swords",
+  "name": "Ace of Swords",
+  "arcana": "minor",
+  "numeral": "A",
+  "rank": 1,
+  "suit": "swords",
+  "symbolism": {
+    "goldenDawnTitle": "The Root of the Powers of Air",
+    "element": "Air",
+    "esms": 3,
+    "planetaryBody": "Mercury",
+    "planetIndex": 2,
+    "zodiacSign": null,
+    "signIndex": null,
+    "decan": null,
+    "decanRange": null,
+    "chaldeanRuler": null,
+    "chaldeanRulerIndex": null,
+    "triplicitySign": null,
+    "triplicityRuler": "Mercury",
+    "triplicityRulerIndex": 2,
+    "hebrewLetter": null,
+    "treeOfLifePath": null
+  },
+  "styling": {
+    "glyph": "🜁",
+    "suitGlyph": "🜁",
+    "primaryColor": "#aebbd6",
+    "accentColor": "#82bbf2",
+    "frameStyle": "swords-pip",
+    "artAsset": "/assets/cards/minor/swords/01-ace.jpg",
+    "fallbackArt": "/assets/suits/swords.jpg",
+    "audioFrequencyHz": 540
+  },
+  "sacredStats": {
+    "power": 24,
+    "resonance": 24,
+    "wisdom": 53,
+    "charisma": 24,
+    "intuition": 38,
+    "adaptability": 60,
+    "vitality": 24
+  },
+  "scrabbleLetter": "A",
+  "trickEngine": {
+    "trickPower": 14,
+    "counterValue": 10,
+    "isHonour": false,
+    "family": "minor",
+    "biasedSuit": "Swords",
+    "eligibleMelds": [
+      "royal-ace"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Origin",
+      "Seed of Power",
+      "Pure Potential",
+      "Elemental Emergence"
+    ],
+    "upright": "The pristine primal spark of Air; the root of elemental consciousness.",
+    "reversed": "Blocked inspiration, wasted potential, ungrounded creative force.",
+    "description": "A celestial hand emerges from the clouds bearing the living emblem of Air."
+  }
+}

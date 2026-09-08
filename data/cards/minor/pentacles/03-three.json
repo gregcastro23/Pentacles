@@ -1,0 +1,72 @@
+{
+  "id": "pentacles-03",
+  "slug": "three-of-pentacles",
+  "name": "Three of Pentacles",
+  "arcana": "minor",
+  "numeral": "3",
+  "rank": 3,
+  "suit": "pentacles",
+  "symbolism": {
+    "goldenDawnTitle": "Lord of Material Works",
+    "element": "Earth",
+    "esms": 2,
+    "planetaryBody": "Mars",
+    "planetIndex": 4,
+    "zodiacSign": "Capricorn",
+    "signIndex": 9,
+    "decan": 1,
+    "decanRange": [
+      10,
+      20
+    ],
+    "chaldeanRuler": "Mars",
+    "chaldeanRulerIndex": 4,
+    "triplicitySign": "Taurus",
+    "triplicityRuler": "Venus",
+    "triplicityRulerIndex": 3,
+    "hebrewLetter": null,
+    "treeOfLifePath": null
+  },
+  "styling": {
+    "glyph": "🜃",
+    "suitGlyph": "🜃",
+    "primaryColor": "#74ab6c",
+    "accentColor": "#f0a95e",
+    "frameStyle": "pentacles-pip",
+    "artAsset": "/assets/cards/minor/pentacles/03-three.jpg",
+    "fallbackArt": "/assets/suits/pentacles.jpg",
+    "audioFrequencyHz": 377
+  },
+  "sacredStats": {
+    "power": 40,
+    "resonance": 41,
+    "wisdom": 29,
+    "charisma": 40,
+    "intuition": 37,
+    "adaptability": 24,
+    "vitality": 52
+  },
+  "scrabbleLetter": "J",
+  "trickEngine": {
+    "trickPower": 2,
+    "counterValue": 0,
+    "isHonour": false,
+    "family": "minor",
+    "biasedSuit": "Pentacles",
+    "eligibleMelds": [
+      "run",
+      "flush"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Material Works",
+      "Capricorn",
+      "Venus",
+      "Decan 2"
+    ],
+    "upright": "Material Works expressed through Earth, attuned to Venus in Taurus.",
+    "reversed": "Imbalance in Material Works; tension between Venus and Capricorn.",
+    "description": "The 3 of Pentacles governs the 2 decan of Capricorn (10°–20°), ruled by Venus."
+  }
+}

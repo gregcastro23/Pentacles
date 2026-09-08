@@ -1,0 +1,72 @@
+{
+  "id": "cups-10",
+  "slug": "ten-of-cups",
+  "name": "Ten of Cups",
+  "arcana": "minor",
+  "numeral": "10",
+  "rank": 10,
+  "suit": "cups",
+  "symbolism": {
+    "goldenDawnTitle": "Lord of Perfected Success",
+    "element": "Water",
+    "esms": 1,
+    "planetaryBody": "Mars",
+    "planetIndex": 4,
+    "zodiacSign": "Pisces",
+    "signIndex": 11,
+    "decan": 2,
+    "decanRange": [
+      20,
+      30
+    ],
+    "chaldeanRuler": "Mars",
+    "chaldeanRulerIndex": 4,
+    "triplicitySign": "Scorpio",
+    "triplicityRuler": "Pluto",
+    "triplicityRulerIndex": 9,
+    "hebrewLetter": null,
+    "treeOfLifePath": null
+  },
+  "styling": {
+    "glyph": "🜄",
+    "suitGlyph": "🜄",
+    "primaryColor": "#5f93d8",
+    "accentColor": "#dce2f0",
+    "frameStyle": "cups-pip",
+    "artAsset": "/assets/cards/minor/cups/10-ten.jpg",
+    "fallbackArt": "/assets/suits/cups.jpg",
+    "audioFrequencyHz": 516
+  },
+  "sacredStats": {
+    "power": 37,
+    "resonance": 50,
+    "wisdom": 42,
+    "charisma": 41,
+    "intuition": 56,
+    "adaptability": 28,
+    "vitality": 35
+  },
+  "scrabbleLetter": "E",
+  "trickEngine": {
+    "trickPower": 13,
+    "counterValue": 10,
+    "isHonour": false,
+    "family": "minor",
+    "biasedSuit": "Cups",
+    "eligibleMelds": [
+      "run",
+      "flush"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Perfected Success",
+      "Pisces",
+      "Pluto",
+      "Decan 3"
+    ],
+    "upright": "Perfected Success expressed through Water, attuned to Pluto in Scorpio.",
+    "reversed": "Imbalance in Perfected Success; tension between Pluto and Pisces.",
+    "description": "The 10 of Cups governs the 3 decan of Pisces (20°–30°), ruled by Pluto."
+  }
+}

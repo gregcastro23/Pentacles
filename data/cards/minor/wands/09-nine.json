@@ -1,0 +1,72 @@
+{
+  "id": "wands-09",
+  "slug": "nine-of-wands",
+  "name": "Nine of Wands",
+  "arcana": "minor",
+  "numeral": "9",
+  "rank": 9,
+  "suit": "wands",
+  "symbolism": {
+    "goldenDawnTitle": "Lord of Great Strength",
+    "element": "Fire",
+    "esms": 0,
+    "planetaryBody": "Moon",
+    "planetIndex": 1,
+    "zodiacSign": "Sagittarius",
+    "signIndex": 8,
+    "decan": 1,
+    "decanRange": [
+      10,
+      20
+    ],
+    "chaldeanRuler": "Moon",
+    "chaldeanRulerIndex": 1,
+    "triplicitySign": "Aries",
+    "triplicityRuler": "Mars",
+    "triplicityRulerIndex": 4,
+    "hebrewLetter": null,
+    "treeOfLifePath": null
+  },
+  "styling": {
+    "glyph": "🜂",
+    "suitGlyph": "🜂",
+    "primaryColor": "#db7a47",
+    "accentColor": "#f6cf83",
+    "frameStyle": "wands-pip",
+    "artAsset": "/assets/cards/minor/wands/09-nine.jpg",
+    "fallbackArt": "/assets/suits/wands.jpg",
+    "audioFrequencyHz": 540
+  },
+  "sacredStats": {
+    "power": 49,
+    "resonance": 45,
+    "wisdom": 29,
+    "charisma": 43,
+    "intuition": 40,
+    "adaptability": 33,
+    "vitality": 51
+  },
+  "scrabbleLetter": "B",
+  "trickEngine": {
+    "trickPower": 8,
+    "counterValue": 0,
+    "isHonour": false,
+    "family": "minor",
+    "biasedSuit": "Wands",
+    "eligibleMelds": [
+      "run",
+      "flush"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Great Strength",
+      "Sagittarius",
+      "Mars",
+      "Decan 2"
+    ],
+    "upright": "Great Strength expressed through Fire, attuned to Mars in Aries.",
+    "reversed": "Imbalance in Great Strength; tension between Mars and Sagittarius.",
+    "description": "The 9 of Wands governs the 2 decan of Sagittarius (10°–20°), ruled by Mars."
+  }
+}

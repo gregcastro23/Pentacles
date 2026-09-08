@@ -1,0 +1,72 @@
+{
+  "id": "swords-04",
+  "slug": "four-of-swords",
+  "name": "Four of Swords",
+  "arcana": "minor",
+  "numeral": "4",
+  "rank": 4,
+  "suit": "swords",
+  "symbolism": {
+    "goldenDawnTitle": "Lord of Rest from Strife",
+    "element": "Air",
+    "esms": 3,
+    "planetaryBody": "Jupiter",
+    "planetIndex": 5,
+    "zodiacSign": "Libra",
+    "signIndex": 6,
+    "decan": 2,
+    "decanRange": [
+      20,
+      30
+    ],
+    "chaldeanRuler": "Jupiter",
+    "chaldeanRulerIndex": 5,
+    "triplicitySign": "Gemini",
+    "triplicityRuler": "Mercury",
+    "triplicityRulerIndex": 2,
+    "hebrewLetter": null,
+    "treeOfLifePath": null
+  },
+  "styling": {
+    "glyph": "🜁",
+    "suitGlyph": "🜁",
+    "primaryColor": "#aebbd6",
+    "accentColor": "#82bbf2",
+    "frameStyle": "swords-pip",
+    "artAsset": "/assets/cards/minor/swords/04-four.jpg",
+    "fallbackArt": "/assets/suits/swords.jpg",
+    "audioFrequencyHz": 576
+  },
+  "sacredStats": {
+    "power": 37,
+    "resonance": 31,
+    "wisdom": 51,
+    "charisma": 33,
+    "intuition": 37,
+    "adaptability": 62,
+    "vitality": 34
+  },
+  "scrabbleLetter": "M",
+  "trickEngine": {
+    "trickPower": 3,
+    "counterValue": 0,
+    "isHonour": false,
+    "family": "minor",
+    "biasedSuit": "Swords",
+    "eligibleMelds": [
+      "run",
+      "flush"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Rest from Strife",
+      "Libra",
+      "Mercury",
+      "Decan 3"
+    ],
+    "upright": "Rest from Strife expressed through Air, attuned to Mercury in Gemini.",
+    "reversed": "Imbalance in Rest from Strife; tension between Mercury and Libra.",
+    "description": "The 4 of Swords governs the 3 decan of Libra (20°–30°), ruled by Mercury."
+  }
+}

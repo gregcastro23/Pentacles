@@ -1,0 +1,69 @@
+{
+  "id": "major-18",
+  "slug": "the-moon",
+  "name": "The Moon",
+  "arcana": "major",
+  "numeral": "XVIII",
+  "rank": 18,
+  "suit": "major",
+  "symbolism": {
+    "goldenDawnTitle": "The Ruler of Flux and Reflux; The Child of the Sons of the Mighty",
+    "element": "Water",
+    "esms": 1,
+    "planetaryBody": null,
+    "planetIndex": null,
+    "zodiacSign": "Pisces",
+    "signIndex": 11,
+    "decan": null,
+    "decanRange": null,
+    "chaldeanRuler": null,
+    "chaldeanRulerIndex": null,
+    "triplicitySign": "Pisces",
+    "triplicityRuler": "Neptune",
+    "triplicityRulerIndex": 8,
+    "hebrewLetter": "Qoph (ק)",
+    "treeOfLifePath": "29th Path (Netzach to Malkuth)"
+  },
+  "styling": {
+    "glyph": "♓",
+    "suitGlyph": "✦",
+    "primaryColor": "#5f93d8",
+    "accentColor": "#998ab0",
+    "frameStyle": "nocturnal-tides",
+    "artAsset": "/assets/cards/major/18-the-moon.jpg",
+    "fallbackArt": "/assets/suits/cups.jpg",
+    "audioFrequencyHz": 384
+  },
+  "sacredStats": {
+    "power": 24,
+    "resonance": 59,
+    "wisdom": 49,
+    "charisma": 42,
+    "intuition": 74,
+    "adaptability": 42,
+    "vitality": 24
+  },
+  "scrabbleLetter": "N",
+  "trickEngine": {
+    "trickPower": 1180,
+    "counterValue": 0,
+    "isHonour": false,
+    "family": "sign",
+    "biasedSuit": "Cups",
+    "eligibleMelds": [
+      "celestial-triumph"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Illusion",
+      "Dreams",
+      "Wild Instincts",
+      "Uncertainty",
+      "The Abyss"
+    ],
+    "upright": "Navigating nocturnal landscapes of the psyche; primal instincts rising as the lobster crawls from the pool.",
+    "reversed": "Dispelling deception, waking from nightmare, release of irrational anxiety.",
+    "description": "A path between twin watchtowers, a dog and wolf baying at the crescent orb shedding drops of light."
+  }
+}

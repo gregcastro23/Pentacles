@@ -1,0 +1,72 @@
+{
+  "id": "cups-02",
+  "slug": "two-of-cups",
+  "name": "Two of Cups",
+  "arcana": "minor",
+  "numeral": "2",
+  "rank": 2,
+  "suit": "cups",
+  "symbolism": {
+    "goldenDawnTitle": "Lord of Love",
+    "element": "Water",
+    "esms": 1,
+    "planetaryBody": "Venus",
+    "planetIndex": 3,
+    "zodiacSign": "Cancer",
+    "signIndex": 3,
+    "decan": 0,
+    "decanRange": [
+      0,
+      10
+    ],
+    "chaldeanRuler": "Venus",
+    "chaldeanRulerIndex": 3,
+    "triplicitySign": "Cancer",
+    "triplicityRuler": "Moon",
+    "triplicityRulerIndex": 1,
+    "hebrewLetter": null,
+    "treeOfLifePath": null
+  },
+  "styling": {
+    "glyph": "🜄",
+    "suitGlyph": "🜄",
+    "primaryColor": "#5f93d8",
+    "accentColor": "#dce2f0",
+    "frameStyle": "cups-pip",
+    "artAsset": "/assets/cards/minor/cups/02-two.jpg",
+    "fallbackArt": "/assets/suits/cups.jpg",
+    "audioFrequencyHz": 420
+  },
+  "sacredStats": {
+    "power": 35,
+    "resonance": 58,
+    "wisdom": 38,
+    "charisma": 43,
+    "intuition": 66,
+    "adaptability": 24,
+    "vitality": 41
+  },
+  "scrabbleLetter": "G",
+  "trickEngine": {
+    "trickPower": 1,
+    "counterValue": 0,
+    "isHonour": false,
+    "family": "minor",
+    "biasedSuit": "Cups",
+    "eligibleMelds": [
+      "run",
+      "flush"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Love",
+      "Cancer",
+      "Moon",
+      "Decan 1"
+    ],
+    "upright": "Love expressed through Water, attuned to Moon in Cancer.",
+    "reversed": "Imbalance in Love; tension between Moon and Cancer.",
+    "description": "The 2 of Cups governs the 1 decan of Cancer (0°–10°), ruled by Moon."
+  }
+}

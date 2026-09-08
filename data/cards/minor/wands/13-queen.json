@@ -1,0 +1,69 @@
+{
+  "id": "wands-13",
+  "slug": "queen-of-wands",
+  "name": "Queen of Wands",
+  "arcana": "minor",
+  "numeral": "Q",
+  "rank": 13,
+  "suit": "wands",
+  "symbolism": {
+    "goldenDawnTitle": "Queen of the Thrones of Flame",
+    "element": "Fire",
+    "esms": 0,
+    "planetaryBody": null,
+    "planetIndex": null,
+    "zodiacSign": null,
+    "signIndex": null,
+    "decan": null,
+    "decanRange": null,
+    "chaldeanRuler": null,
+    "chaldeanRulerIndex": null,
+    "triplicitySign": null,
+    "triplicityRuler": null,
+    "triplicityRulerIndex": null,
+    "hebrewLetter": null,
+    "treeOfLifePath": null
+  },
+  "styling": {
+    "glyph": "🜂",
+    "suitGlyph": "🜂",
+    "primaryColor": "#db7a47",
+    "accentColor": "#f6cf83",
+    "frameStyle": "wands-court",
+    "artAsset": "/assets/cards/minor/wands/13-queen.jpg",
+    "fallbackArt": "/assets/suits/wands.jpg",
+    "audioFrequencyHz": 588
+  },
+  "sacredStats": {
+    "power": 59,
+    "resonance": 52,
+    "wisdom": 24,
+    "charisma": 59,
+    "intuition": 24,
+    "adaptability": 38,
+    "vitality": 52
+  },
+  "scrabbleLetter": "Q",
+  "trickEngine": {
+    "trickPower": 11,
+    "counterValue": 0,
+    "isHonour": false,
+    "family": "minor",
+    "biasedSuit": "Wands",
+    "eligibleMelds": [
+      "marriage",
+      "royal-court"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Queen",
+      "Fire",
+      "Court Archetype",
+      "Magnitude +++"
+    ],
+    "upright": "Mature embodiment of Queen wielding Fire consciousness at magnitude +++.",
+    "reversed": "Misdirection of Queen's +++ temperament; emotional or tactical friction.",
+    "description": "Queen of the Thrones of Flame. Embodies the +++ magnitude of royal Fire governance."
+  }
+}

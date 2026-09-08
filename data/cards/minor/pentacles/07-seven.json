@@ -1,0 +1,72 @@
+{
+  "id": "pentacles-07",
+  "slug": "seven-of-pentacles",
+  "name": "Seven of Pentacles",
+  "arcana": "minor",
+  "numeral": "7",
+  "rank": 7,
+  "suit": "pentacles",
+  "symbolism": {
+    "goldenDawnTitle": "Lord of Success Unfulfilled",
+    "element": "Earth",
+    "esms": 2,
+    "planetaryBody": "Saturn",
+    "planetIndex": 6,
+    "zodiacSign": "Taurus",
+    "signIndex": 1,
+    "decan": 2,
+    "decanRange": [
+      20,
+      30
+    ],
+    "chaldeanRuler": "Saturn",
+    "chaldeanRulerIndex": 6,
+    "triplicitySign": "Capricorn",
+    "triplicityRuler": "Saturn",
+    "triplicityRulerIndex": 6,
+    "hebrewLetter": null,
+    "treeOfLifePath": null
+  },
+  "styling": {
+    "glyph": "🜃",
+    "suitGlyph": "🜃",
+    "primaryColor": "#74ab6c",
+    "accentColor": "#f0a95e",
+    "frameStyle": "pentacles-pip",
+    "artAsset": "/assets/cards/minor/pentacles/07-seven.jpg",
+    "fallbackArt": "/assets/suits/pentacles.jpg",
+    "audioFrequencyHz": 425
+  },
+  "sacredStats": {
+    "power": 46,
+    "resonance": 35,
+    "wisdom": 35,
+    "charisma": 33,
+    "intuition": 24,
+    "adaptability": 24,
+    "vitality": 63
+  },
+  "scrabbleLetter": "V",
+  "trickEngine": {
+    "trickPower": 6,
+    "counterValue": 0,
+    "isHonour": false,
+    "family": "minor",
+    "biasedSuit": "Pentacles",
+    "eligibleMelds": [
+      "run",
+      "flush"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Success Unfulfilled",
+      "Taurus",
+      "Saturn",
+      "Decan 3"
+    ],
+    "upright": "Success Unfulfilled expressed through Earth, attuned to Saturn in Capricorn.",
+    "reversed": "Imbalance in Success Unfulfilled; tension between Saturn and Taurus.",
+    "description": "The 7 of Pentacles governs the 3 decan of Taurus (20°–30°), ruled by Saturn."
+  }
+}

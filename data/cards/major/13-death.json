@@ -1,0 +1,69 @@
+{
+  "id": "major-13",
+  "slug": "death",
+  "name": "Death",
+  "arcana": "major",
+  "numeral": "XIII",
+  "rank": 13,
+  "suit": "major",
+  "symbolism": {
+    "goldenDawnTitle": "The Child of the Great Transformers; The Lord of the Gate of Death",
+    "element": "Water",
+    "esms": 1,
+    "planetaryBody": null,
+    "planetIndex": null,
+    "zodiacSign": "Scorpio",
+    "signIndex": 7,
+    "decan": null,
+    "decanRange": null,
+    "chaldeanRuler": null,
+    "chaldeanRulerIndex": null,
+    "triplicitySign": "Scorpio",
+    "triplicityRuler": "Pluto",
+    "triplicityRulerIndex": 9,
+    "hebrewLetter": "Nun (נ)",
+    "treeOfLifePath": "24th Path (Tiphereth to Netzach)"
+  },
+  "styling": {
+    "glyph": "♏",
+    "suitGlyph": "✦",
+    "primaryColor": "#5f93d8",
+    "accentColor": "#705988",
+    "frameStyle": "chthonic-transmutation",
+    "artAsset": "/assets/cards/major/13-death.jpg",
+    "fallbackArt": "/assets/suits/cups.jpg",
+    "audioFrequencyHz": 312
+  },
+  "sacredStats": {
+    "power": 38,
+    "resonance": 55,
+    "wisdom": 47,
+    "charisma": 42,
+    "intuition": 56,
+    "adaptability": 24,
+    "vitality": 38
+  },
+  "scrabbleLetter": "D",
+  "trickEngine": {
+    "trickPower": 1130,
+    "counterValue": 0,
+    "isHonour": false,
+    "family": "sign",
+    "biasedSuit": "Cups",
+    "eligibleMelds": [
+      "celestial-triumph"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Transformation",
+      "Endings",
+      "Metamorphosis",
+      "Transition",
+      "Rebirth"
+    ],
+    "upright": "The necessary clearing of the dead wood so that fresh shoots may rise; total irreversible transformation.",
+    "reversed": "Fear of change, stagnation, decay, dragging out the inevitable, holding onto ghosts.",
+    "description": "The skeletal knight on a pale horse carrying the black banner of the Mystic Rose before a rising golden sun."
+  }
+}

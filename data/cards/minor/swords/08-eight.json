@@ -1,0 +1,72 @@
+{
+  "id": "swords-08",
+  "slug": "eight-of-swords",
+  "name": "Eight of Swords",
+  "arcana": "minor",
+  "numeral": "8",
+  "rank": 8,
+  "suit": "swords",
+  "symbolism": {
+    "goldenDawnTitle": "Lord of Shortened Force",
+    "element": "Air",
+    "esms": 3,
+    "planetaryBody": "Jupiter",
+    "planetIndex": 5,
+    "zodiacSign": "Gemini",
+    "signIndex": 2,
+    "decan": 0,
+    "decanRange": [
+      0,
+      10
+    ],
+    "chaldeanRuler": "Jupiter",
+    "chaldeanRulerIndex": 5,
+    "triplicitySign": "Gemini",
+    "triplicityRuler": "Mercury",
+    "triplicityRulerIndex": 2,
+    "hebrewLetter": null,
+    "treeOfLifePath": null
+  },
+  "styling": {
+    "glyph": "🜁",
+    "suitGlyph": "🜁",
+    "primaryColor": "#aebbd6",
+    "accentColor": "#82bbf2",
+    "frameStyle": "swords-pip",
+    "artAsset": "/assets/cards/minor/swords/08-eight.jpg",
+    "fallbackArt": "/assets/suits/swords.jpg",
+    "audioFrequencyHz": 624
+  },
+  "sacredStats": {
+    "power": 36,
+    "resonance": 33,
+    "wisdom": 54,
+    "charisma": 36,
+    "intuition": 40,
+    "adaptability": 70,
+    "vitality": 33
+  },
+  "scrabbleLetter": "Y",
+  "trickEngine": {
+    "trickPower": 7,
+    "counterValue": 0,
+    "isHonour": false,
+    "family": "minor",
+    "biasedSuit": "Swords",
+    "eligibleMelds": [
+      "run",
+      "flush"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Shortened Force",
+      "Gemini",
+      "Mercury",
+      "Decan 1"
+    ],
+    "upright": "Shortened Force expressed through Air, attuned to Mercury in Gemini.",
+    "reversed": "Imbalance in Shortened Force; tension between Mercury and Gemini.",
+    "description": "The 8 of Swords governs the 1 decan of Gemini (0°–10°), ruled by Mercury."
+  }
+}

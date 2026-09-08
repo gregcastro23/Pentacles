@@ -1,0 +1,69 @@
+{
+  "id": "major-11",
+  "slug": "justice",
+  "name": "Justice",
+  "arcana": "major",
+  "numeral": "XI",
+  "rank": 11,
+  "suit": "major",
+  "symbolism": {
+    "goldenDawnTitle": "The Daughter of the Lords of Truth; The Ruler of the Balance",
+    "element": "Air",
+    "esms": 3,
+    "planetaryBody": null,
+    "planetIndex": null,
+    "zodiacSign": "Libra",
+    "signIndex": 6,
+    "decan": null,
+    "decanRange": null,
+    "chaldeanRuler": null,
+    "chaldeanRulerIndex": null,
+    "triplicitySign": "Libra",
+    "triplicityRuler": "Venus",
+    "triplicityRulerIndex": 3,
+    "hebrewLetter": "Lamed (ל)",
+    "treeOfLifePath": "22nd Path (Geburah to Tiphereth)"
+  },
+  "styling": {
+    "glyph": "♎",
+    "suitGlyph": "✦",
+    "primaryColor": "#aebbd6",
+    "accentColor": "#f6cf83",
+    "frameStyle": "equinoctial-scales",
+    "artAsset": "/assets/cards/major/11-justice.jpg",
+    "fallbackArt": "/assets/suits/swords.jpg",
+    "audioFrequencyHz": 432
+  },
+  "sacredStats": {
+    "power": 34,
+    "resonance": 43,
+    "wisdom": 42,
+    "charisma": 41,
+    "intuition": 47,
+    "adaptability": 38,
+    "vitality": 40
+  },
+  "scrabbleLetter": "J",
+  "trickEngine": {
+    "trickPower": 1110,
+    "counterValue": 0,
+    "isHonour": false,
+    "family": "sign",
+    "biasedSuit": "Swords",
+    "eligibleMelds": [
+      "celestial-triumph"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Truth",
+      "Fairness",
+      "Equilibrium",
+      "Cause & Effect",
+      "Law"
+    ],
+    "upright": "Impartial clarity, absolute truth, weighing intentions upon the celestial balance.",
+    "reversed": "Injustice, dishonesty, unaccountability, corruption, prejudice.",
+    "description": "Seated between stone pillars, holding aloft the double-edged sword of discernment and golden scales."
+  }
+}

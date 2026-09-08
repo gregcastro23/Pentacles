@@ -1,0 +1,72 @@
+{
+  "id": "cups-03",
+  "slug": "three-of-cups",
+  "name": "Three of Cups",
+  "arcana": "minor",
+  "numeral": "3",
+  "rank": 3,
+  "suit": "cups",
+  "symbolism": {
+    "goldenDawnTitle": "Lord of Abundance",
+    "element": "Water",
+    "esms": 1,
+    "planetaryBody": "Mercury",
+    "planetIndex": 2,
+    "zodiacSign": "Cancer",
+    "signIndex": 3,
+    "decan": 1,
+    "decanRange": [
+      10,
+      20
+    ],
+    "chaldeanRuler": "Mercury",
+    "chaldeanRulerIndex": 2,
+    "triplicitySign": "Scorpio",
+    "triplicityRuler": "Mars & Pluto",
+    "triplicityRulerIndex": 4,
+    "hebrewLetter": null,
+    "treeOfLifePath": null
+  },
+  "styling": {
+    "glyph": "🜄",
+    "suitGlyph": "🜄",
+    "primaryColor": "#5f93d8",
+    "accentColor": "#dce2f0",
+    "frameStyle": "cups-pip",
+    "artAsset": "/assets/cards/minor/cups/03-three.jpg",
+    "fallbackArt": "/assets/suits/cups.jpg",
+    "audioFrequencyHz": 432
+  },
+  "sacredStats": {
+    "power": 40,
+    "resonance": 48,
+    "wisdom": 36,
+    "charisma": 40,
+    "intuition": 52,
+    "adaptability": 24,
+    "vitality": 42
+  },
+  "scrabbleLetter": "J",
+  "trickEngine": {
+    "trickPower": 2,
+    "counterValue": 0,
+    "isHonour": false,
+    "family": "minor",
+    "biasedSuit": "Cups",
+    "eligibleMelds": [
+      "run",
+      "flush"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Abundance",
+      "Cancer",
+      "Mars & Pluto",
+      "Decan 2"
+    ],
+    "upright": "Abundance expressed through Water, attuned to Mars & Pluto in Scorpio.",
+    "reversed": "Imbalance in Abundance; tension between Mars & Pluto and Cancer.",
+    "description": "The 3 of Cups governs the 2 decan of Cancer (10°–20°), ruled by Mars & Pluto."
+  }
+}

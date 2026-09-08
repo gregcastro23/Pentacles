@@ -1,0 +1,72 @@
+{
+  "id": "swords-05",
+  "slug": "five-of-swords",
+  "name": "Five of Swords",
+  "arcana": "minor",
+  "numeral": "5",
+  "rank": 5,
+  "suit": "swords",
+  "symbolism": {
+    "goldenDawnTitle": "Lord of Defeat",
+    "element": "Air",
+    "esms": 3,
+    "planetaryBody": "Venus",
+    "planetIndex": 3,
+    "zodiacSign": "Aquarius",
+    "signIndex": 10,
+    "decan": 0,
+    "decanRange": [
+      0,
+      10
+    ],
+    "chaldeanRuler": "Venus",
+    "chaldeanRulerIndex": 3,
+    "triplicitySign": "Aquarius",
+    "triplicityRuler": "Saturn & Uranus",
+    "triplicityRulerIndex": 6,
+    "hebrewLetter": null,
+    "treeOfLifePath": null
+  },
+  "styling": {
+    "glyph": "🜁",
+    "suitGlyph": "🜁",
+    "primaryColor": "#aebbd6",
+    "accentColor": "#82bbf2",
+    "frameStyle": "swords-pip",
+    "artAsset": "/assets/cards/minor/swords/05-five.jpg",
+    "fallbackArt": "/assets/suits/swords.jpg",
+    "audioFrequencyHz": 588
+  },
+  "sacredStats": {
+    "power": 37,
+    "resonance": 39,
+    "wisdom": 51,
+    "charisma": 35,
+    "intuition": 39,
+    "adaptability": 37,
+    "vitality": 49
+  },
+  "scrabbleLetter": "P",
+  "trickEngine": {
+    "trickPower": 4,
+    "counterValue": 0,
+    "isHonour": false,
+    "family": "minor",
+    "biasedSuit": "Swords",
+    "eligibleMelds": [
+      "run",
+      "flush"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Defeat",
+      "Aquarius",
+      "Saturn & Uranus",
+      "Decan 1"
+    ],
+    "upright": "Defeat expressed through Air, attuned to Saturn & Uranus in Aquarius.",
+    "reversed": "Imbalance in Defeat; tension between Saturn & Uranus and Aquarius.",
+    "description": "The 5 of Swords governs the 1 decan of Aquarius (0°–10°), ruled by Saturn & Uranus."
+  }
+}

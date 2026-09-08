@@ -1,0 +1,72 @@
+{
+  "id": "wands-07",
+  "slug": "seven-of-wands",
+  "name": "Seven of Wands",
+  "arcana": "minor",
+  "numeral": "7",
+  "rank": 7,
+  "suit": "wands",
+  "symbolism": {
+    "goldenDawnTitle": "Lord of Valour",
+    "element": "Fire",
+    "esms": 0,
+    "planetaryBody": "Mars",
+    "planetIndex": 4,
+    "zodiacSign": "Leo",
+    "signIndex": 4,
+    "decan": 2,
+    "decanRange": [
+      20,
+      30
+    ],
+    "chaldeanRuler": "Mars",
+    "chaldeanRulerIndex": 4,
+    "triplicitySign": "Aries",
+    "triplicityRuler": "Mars",
+    "triplicityRulerIndex": 4,
+    "hebrewLetter": null,
+    "treeOfLifePath": null
+  },
+  "styling": {
+    "glyph": "🜂",
+    "suitGlyph": "🜂",
+    "primaryColor": "#db7a47",
+    "accentColor": "#f6cf83",
+    "frameStyle": "wands-pip",
+    "artAsset": "/assets/cards/minor/wands/07-seven.jpg",
+    "fallbackArt": "/assets/suits/wands.jpg",
+    "audioFrequencyHz": 516
+  },
+  "sacredStats": {
+    "power": 49,
+    "resonance": 48,
+    "wisdom": 33,
+    "charisma": 43,
+    "intuition": 37,
+    "adaptability": 28,
+    "vitality": 51
+  },
+  "scrabbleLetter": "V",
+  "trickEngine": {
+    "trickPower": 6,
+    "counterValue": 0,
+    "isHonour": false,
+    "family": "minor",
+    "biasedSuit": "Wands",
+    "eligibleMelds": [
+      "run",
+      "flush"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Valour",
+      "Leo",
+      "Mars",
+      "Decan 3"
+    ],
+    "upright": "Valour expressed through Fire, attuned to Mars in Aries.",
+    "reversed": "Imbalance in Valour; tension between Mars and Leo.",
+    "description": "The 7 of Wands governs the 3 decan of Leo (20°–30°), ruled by Mars."
+  }
+}

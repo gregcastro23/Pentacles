@@ -1,0 +1,69 @@
+{
+  "id": "major-10",
+  "slug": "wheel-of-fortune",
+  "name": "Wheel of Fortune",
+  "arcana": "major",
+  "numeral": "X",
+  "rank": 10,
+  "suit": "major",
+  "symbolism": {
+    "goldenDawnTitle": "The Lord of the Forces of Life",
+    "element": "Fire",
+    "esms": 0,
+    "planetaryBody": "Jupiter",
+    "planetIndex": 5,
+    "zodiacSign": null,
+    "signIndex": null,
+    "decan": null,
+    "decanRange": null,
+    "chaldeanRuler": null,
+    "chaldeanRulerIndex": null,
+    "triplicitySign": null,
+    "triplicityRuler": "Jupiter",
+    "triplicityRulerIndex": 5,
+    "hebrewLetter": "Kaph (כ)",
+    "treeOfLifePath": "21st Path (Chesed to Netzach)"
+  },
+  "styling": {
+    "glyph": "♃",
+    "suitGlyph": "✦",
+    "primaryColor": "#f0a95e",
+    "accentColor": "#5f93d8",
+    "frameStyle": "karmic-zodiac",
+    "artAsset": "/assets/cards/major/10-wheel-of-fortune.jpg",
+    "fallbackArt": "/assets/suits/wands.jpg",
+    "audioFrequencyHz": 494
+  },
+  "sacredStats": {
+    "power": 62,
+    "resonance": 80,
+    "wisdom": 45,
+    "charisma": 83,
+    "intuition": 56,
+    "adaptability": 38,
+    "vitality": 52
+  },
+  "scrabbleLetter": "W",
+  "trickEngine": {
+    "trickPower": 1100,
+    "counterValue": 0,
+    "isHonour": false,
+    "family": "planetary",
+    "biasedSuit": "Wands",
+    "eligibleMelds": [
+      "celestial-triumph"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Cycles",
+      "Destiny",
+      "Karma",
+      "Turning Tide",
+      "Fortune"
+    ],
+    "upright": "The inevitable revolutions of cosmic fate; change, rising luck, and seasonal transition.",
+    "reversed": "Bad turn of luck, resistance to change, breaking cycles, clinging to static illusions.",
+    "description": "The eight-spoked wheel inscribed with TARO and Hebrew tetragrammaton, flanked by Hermanubis and Typhon."
+  }
+}

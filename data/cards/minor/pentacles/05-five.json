@@ -1,0 +1,72 @@
+{
+  "id": "pentacles-05",
+  "slug": "five-of-pentacles",
+  "name": "Five of Pentacles",
+  "arcana": "minor",
+  "numeral": "5",
+  "rank": 5,
+  "suit": "pentacles",
+  "symbolism": {
+    "goldenDawnTitle": "Lord of Material Trouble",
+    "element": "Earth",
+    "esms": 2,
+    "planetaryBody": "Mercury",
+    "planetIndex": 2,
+    "zodiacSign": "Taurus",
+    "signIndex": 1,
+    "decan": 0,
+    "decanRange": [
+      0,
+      10
+    ],
+    "chaldeanRuler": "Mercury",
+    "chaldeanRulerIndex": 2,
+    "triplicitySign": "Taurus",
+    "triplicityRuler": "Venus",
+    "triplicityRulerIndex": 3,
+    "hebrewLetter": null,
+    "treeOfLifePath": null
+  },
+  "styling": {
+    "glyph": "🜃",
+    "suitGlyph": "🜃",
+    "primaryColor": "#74ab6c",
+    "accentColor": "#f0a95e",
+    "frameStyle": "pentacles-pip",
+    "artAsset": "/assets/cards/minor/pentacles/05-five.jpg",
+    "fallbackArt": "/assets/suits/pentacles.jpg",
+    "audioFrequencyHz": 401
+  },
+  "sacredStats": {
+    "power": 38,
+    "resonance": 48,
+    "wisdom": 35,
+    "charisma": 42,
+    "intuition": 41,
+    "adaptability": 24,
+    "vitality": 53
+  },
+  "scrabbleLetter": "P",
+  "trickEngine": {
+    "trickPower": 4,
+    "counterValue": 0,
+    "isHonour": false,
+    "family": "minor",
+    "biasedSuit": "Pentacles",
+    "eligibleMelds": [
+      "run",
+      "flush"
+    ]
+  },
+  "lore": {
+    "keywords": [
+      "Material Trouble",
+      "Taurus",
+      "Venus",
+      "Decan 1"
+    ],
+    "upright": "Material Trouble expressed through Earth, attuned to Venus in Taurus.",
+    "reversed": "Imbalance in Material Trouble; tension between Venus and Taurus.",
+    "description": "The 5 of Pentacles governs the 1 decan of Taurus (0°–10°), ruled by Venus."
+  }
+}
