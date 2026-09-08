@@ -34,7 +34,7 @@
     "accentColor": "#82bbf2",
     "frameStyle": "mystic-suspension",
     "artAsset": "/assets/cards/major/12-the-hanged-man.jpg",
-    "fallbackArt": "/assets/suits/cups.jpg",
+    "fallbackArt": null,
     "audioFrequencyHz": 360
   },
   "sacredStats": {

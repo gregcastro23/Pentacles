@@ -32,7 +32,7 @@
     "accentColor": "#f6cf83",
     "frameStyle": "wands-court",
     "artAsset": "/assets/cards/minor/wands/13-queen.jpg",
-    "fallbackArt": "/assets/suits/wands.jpg",
+    "fallbackArt": null,
     "audioFrequencyHz": 588
   },
   "sacredStats": {

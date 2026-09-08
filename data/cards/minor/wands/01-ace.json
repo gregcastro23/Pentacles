@@ -32,7 +32,7 @@
     "accentColor": "#f6cf83",
     "frameStyle": "wands-pip",
     "artAsset": "/assets/cards/minor/wands/01-ace.jpg",
-    "fallbackArt": "/assets/suits/wands.jpg",
+    "fallbackArt": null,
     "audioFrequencyHz": 444
   },
   "sacredStats": {

@@ -37,7 +37,7 @@
     "accentColor": "#82bbf2",
     "frameStyle": "swords-pip",
     "artAsset": "/assets/cards/minor/swords/09-nine.jpg",
-    "fallbackArt": "/assets/suits/swords.jpg",
+    "fallbackArt": null,
     "audioFrequencyHz": 636
   },
   "sacredStats": {

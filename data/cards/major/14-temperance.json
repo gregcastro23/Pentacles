@@ -34,7 +34,7 @@
     "accentColor": "#76e0a8",
     "frameStyle": "angelic-synthesis",
     "artAsset": "/assets/cards/major/14-temperance.jpg",
-    "fallbackArt": "/assets/suits/wands.jpg",
+    "fallbackArt": null,
     "audioFrequencyHz": 450
   },
   "sacredStats": {

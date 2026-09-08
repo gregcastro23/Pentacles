@@ -34,7 +34,7 @@
     "accentColor": "#dce2f0",
     "frameStyle": "astral-dew",
     "artAsset": "/assets/cards/major/17-the-star.jpg",
-    "fallbackArt": "/assets/suits/swords.jpg",
+    "fallbackArt": null,
     "audioFrequencyHz": 672
   },
   "sacredStats": {

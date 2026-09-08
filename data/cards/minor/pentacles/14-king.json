@@ -32,7 +32,7 @@
     "accentColor": "#f0a95e",
     "frameStyle": "pentacles-court",
     "artAsset": "/assets/cards/minor/pentacles/14-king.jpg",
-    "fallbackArt": "/assets/suits/pentacles.jpg",
+    "fallbackArt": null,
     "audioFrequencyHz": 509
   },
   "sacredStats": {

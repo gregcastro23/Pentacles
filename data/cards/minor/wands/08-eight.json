@@ -37,7 +37,7 @@
     "accentColor": "#f6cf83",
     "frameStyle": "wands-pip",
     "artAsset": "/assets/cards/minor/wands/08-eight.jpg",
-    "fallbackArt": "/assets/suits/wands.jpg",
+    "fallbackArt": null,
     "audioFrequencyHz": 528
   },
   "sacredStats": {

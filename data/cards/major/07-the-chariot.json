@@ -34,7 +34,7 @@
     "accentColor": "#cbd0db",
     "frameStyle": "star-canopy",
     "artAsset": "/assets/cards/major/07-the-chariot.jpg",
-    "fallbackArt": "/assets/suits/cups.jpg",
+    "fallbackArt": null,
     "audioFrequencyHz": 466
   },
   "sacredStats": {

@@ -34,7 +34,7 @@
     "accentColor": "#f6cf83",
     "frameStyle": "emerald-luxuria",
     "artAsset": "/assets/cards/major/03-the-empress.jpg",
-    "fallbackArt": "/assets/suits/cups.jpg",
+    "fallbackArt": null,
     "audioFrequencyHz": 440
   },
   "sacredStats": {

@@ -164,7 +164,8 @@
     "swords:1": "/assets/cards/minor/swords/01-ace.jpg",
     "swords:3": "/assets/cards/minor/swords/03-three.jpg",
     "swords:14": "/assets/cards/minor/swords/14-king.jpg",
-    "pentacles:1": "/assets/cards/minor/pentacles/01-ace.jpg"
+    "pentacles:1": "/assets/cards/minor/pentacles/01-ace.jpg",
+    "pentacles:6": "/assets/cards/minor/pentacles/06-six.jpg"
   };
 
   const RANK_LABEL = { 1: "Ace", 11: "Page", 12: "Knight", 13: "Queen", 14: "King" };
@@ -287,10 +288,6 @@
     const artKey = isMajor ? `major:${rawRank}` : `${suitKey}:${rawRank}`;
     if (!artAsset && SHIPPED_CARD_ART[artKey]) {
       artAsset = SHIPPED_CARD_ART[artKey];
-    } else if (!artAsset && isMajor && rawRank !== undefined && ARCANA_SLUGS[rawRank]) {
-      artAsset = `/assets/cards/major/${String(rawRank).padStart(2, "0")}-${ARCANA_SLUGS[rawRank]}.jpg`;
-    } else if (!artAsset && !isMajor && rawRank !== undefined && RANK_SLUGS[rawRank]) {
-      artAsset = `/assets/cards/minor/${suitKey}/${String(rawRank).padStart(2, "0")}-${RANK_SLUGS[rawRank]}.jpg`;
     }
 
     return {

@@ -37,7 +37,7 @@
     "accentColor": "#dce2f0",
     "frameStyle": "cups-pip",
     "artAsset": "/assets/cards/minor/cups/10-ten.jpg",
-    "fallbackArt": "/assets/suits/cups.jpg",
+    "fallbackArt": null,
     "audioFrequencyHz": 516
   },
   "sacredStats": {

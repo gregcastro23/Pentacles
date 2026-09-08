@@ -34,7 +34,7 @@
     "accentColor": "#db7a47",
     "frameStyle": "martial-granite",
     "artAsset": "/assets/cards/major/04-the-emperor.jpg",
-    "fallbackArt": "/assets/suits/wands.jpg",
+    "fallbackArt": null,
     "audioFrequencyHz": 396
   },
   "sacredStats": {

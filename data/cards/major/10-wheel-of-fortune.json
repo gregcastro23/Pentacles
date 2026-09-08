@@ -34,7 +34,7 @@
     "accentColor": "#5f93d8",
     "frameStyle": "karmic-zodiac",
     "artAsset": "/assets/cards/major/10-wheel-of-fortune.jpg",
-    "fallbackArt": "/assets/suits/wands.jpg",
+    "fallbackArt": null,
     "audioFrequencyHz": 494
   },
   "sacredStats": {

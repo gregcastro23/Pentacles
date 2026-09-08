@@ -431,7 +431,7 @@ export const CARD_PROMPT_CATALOG = [
     prompt: `${ART_STYLE_PREFIX} Five of Pentacles: Two impoverished wanderers in tattered rags trudging through icy snow on a frozen comet surface, passing beneath an illuminated stained-glass observatory dome glowing brightly with five golden pentacles into the dark cosmos. ${ART_STYLE_SUFFIX}`
   },
   {
-    id: "pentacles-06", rank: 6, suit: "pentacles", name: "Six of Pentacles", filename: "06-six.jpg", relativePath: "minor/pentacles/06-six.jpg", shipped: false,
+    id: "pentacles-06", rank: 6, suit: "pentacles", name: "Six of Pentacles", filename: "06-six.jpg", relativePath: "minor/pentacles/06-six.jpg", shipped: true,
     prompt: `${ART_STYLE_PREFIX} Six of Pentacles: A generous cosmic merchant in a purple velvet robe holding a pair of golden scales in his left hand, gently bestowing golden pentacle coins with his right into the open palms of two kneeling supplicants on an asteroid terrace. ${ART_STYLE_SUFFIX}`
   },
   {

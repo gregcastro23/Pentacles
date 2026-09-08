@@ -34,7 +34,7 @@
     "accentColor": "#998ab0",
     "frameStyle": "nocturnal-tides",
     "artAsset": "/assets/cards/major/18-the-moon.jpg",
-    "fallbackArt": "/assets/suits/cups.jpg",
+    "fallbackArt": null,
     "audioFrequencyHz": 384
   },
   "sacredStats": {
