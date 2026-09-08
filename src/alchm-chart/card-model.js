@@ -63,6 +63,35 @@ export const SIGN_GLYPHS = [
   "♐", "♑", "♒", "♓"
 ];
 
+export const ARCANA_SLUGS = [
+  "the-fool", "the-magician", "the-high-priestess", "the-empress", "the-emperor",
+  "the-hierophant", "the-lovers", "the-chariot", "strength", "the-hermit",
+  "wheel-of-fortune", "justice", "the-hanged-man", "death", "temperance",
+  "the-devil", "the-tower", "the-star", "the-moon", "the-sun",
+  "judgement", "the-world"
+];
+
+export const RANK_SLUGS = {
+  1: "ace", 2: "two", 3: "three", 4: "four", 5: "five", 6: "six",
+  7: "seven", 8: "eight", 9: "nine", 10: "ten",
+  11: "page", 12: "knight", 13: "queen", 14: "king"
+};
+
+export const SHIPPED_CARD_ART = {
+  "major:0": "/assets/cards/major/00-the-fool.jpg",
+  "major:1": "/assets/cards/major/01-the-magician.jpg",
+  "major:2": "/assets/cards/major/02-the-high-priestess.jpg",
+  "major:19": "/assets/cards/major/19-the-sun.jpg",
+  "major:21": "/assets/cards/major/21-the-world.jpg",
+  "wands:1": "/assets/cards/minor/wands/01-ace.jpg",
+  "wands:2": "/assets/cards/minor/wands/02-two.jpg",
+  "cups:1": "/assets/cards/minor/cups/01-ace.jpg",
+  "cups:3": "/assets/cards/minor/cups/03-three.jpg",
+  "swords:1": "/assets/cards/minor/swords/01-ace.jpg",
+  "swords:14": "/assets/cards/minor/swords/14-king.jpg",
+  "pentacles:1": "/assets/cards/minor/pentacles/01-ace.jpg"
+};
+
 export const rankLabel = (r) => rankName(r);
 
 export function escapeHtml(str) {
@@ -170,6 +199,17 @@ export function normalizeTarotCard(rawCard, loadout = "bench", options = {}) {
   const level = Number(c.level || 1);
   const letter = c.letter ? String(c.letter) : null;
 
+  // Specific card art asset resolution (Pixie / Pamela Colman Smith style)
+  let artAsset = c.artAsset || c.art_asset || c.styling?.artAsset || null;
+  const artKey = isMajor ? `major:${rawRank}` : `${suitKey}:${rawRank}`;
+  if (!artAsset && SHIPPED_CARD_ART[artKey]) {
+    artAsset = SHIPPED_CARD_ART[artKey];
+  } else if (!artAsset && isMajor && rawRank !== undefined && rawRank !== null && ARCANA_SLUGS[rawRank]) {
+    artAsset = `/assets/cards/major/${String(rawRank).padStart(2, "0")}-${ARCANA_SLUGS[rawRank]}.jpg`;
+  } else if (!artAsset && !isMajor && rawRank !== undefined && rawRank !== null && RANK_SLUGS[rawRank]) {
+    artAsset = `/assets/cards/minor/${suitKey}/${String(rawRank).padStart(2, "0")}-${RANK_SLUGS[rawRank]}.jpg`;
+  }
+
   return {
     cardId,
     isMajor,
@@ -179,6 +219,8 @@ export function normalizeTarotCard(rawCard, loadout = "bench", options = {}) {
     suitElement,
     suitColor,
     suitArtSrc,
+    artAsset,
+    artSrc: artAsset || suitArtSrc,
     bodyIdx,
     planetName,
     planetGlyph,

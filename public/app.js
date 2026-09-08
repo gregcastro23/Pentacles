@@ -674,10 +674,12 @@
       // Art Stage (roughly 45–55% of card height)
       let artStageHTML = "";
       if (c.isMajor) {
+        const majorArt = c.artAsset;
         artStageHTML = `
           <div class="web-card-art major-art">
             <div class="web-card-art-frame major-frame">
-              <div class="web-card-major-sigil">
+              ${majorArt ? `<img class="web-card-suit-img web-card-major-img" src="${majorArt}" alt="${escapeFn(c.title)} art" loading="lazy" onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='flex';">` : ""}
+              <div class="web-card-major-sigil" style="${majorArt ? "display:none;" : ""}">
                 <div class="sigil-ring sigil-ring-outer"></div>
                 <div class="sigil-ring sigil-ring-inner"></div>
                 <span class="sigil-glyph">${c.planetGlyph}</span>
@@ -687,11 +689,13 @@
           </div>
         `;
       } else {
-        const imgSrc = c.suitArtSrc || `/assets/suits/${c.suitKey}.jpg`;
+        const specificArt = c.artAsset;
+        const suitArt = c.suitArtSrc || `/assets/suits/${c.suitKey}.jpg`;
+        const initialSrc = specificArt || suitArt;
         artStageHTML = `
           <div class="web-card-art">
             <div class="web-card-art-frame">
-              <img class="web-card-suit-img" src="${imgSrc}" alt="${escapeFn(c.suitName)} suit art" loading="lazy" onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='flex';">
+              <img class="web-card-suit-img" src="${initialSrc}" alt="${escapeFn(c.suitName)} suit art" loading="lazy" onerror="if(this.src !== '${suitArt}' && '${suitArt}') { this.src = '${suitArt}'; } else { this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='flex'; }">
               <div class="web-card-art-fallback" style="display:none; color: ${c.suitColor};">
                 <span class="web-card-fallback-glyph">${c.suitGlyph}</span>
                 <span class="web-card-fallback-label">${escapeFn(c.suitElement)}</span>
