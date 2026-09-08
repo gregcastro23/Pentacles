@@ -26,13 +26,15 @@ jobs:
 
       - name: Install SpacetimeDB CLI
         run: |
-          curl -sSf https://install.spacetimedb.com | sh -s -- --version 2.6.0 || curl -sSf https://install.spacetimedb.com | sh
-          echo "$HOME/.spacetimedb/bin" >> $GITHUB_PATH
+          curl -sSf https://install.spacetimedb.com | sh -s -- -y
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          echo "$HOME/.local/share/spacetime/bin" >> $GITHUB_PATH
 
       - name: Generate client bindings
         run: |
-          export PATH="$HOME/.spacetimedb/bin:$PATH"
-          spacetime --version || true
+          export PATH="$HOME/.local/bin:$HOME/.local/share/spacetime/bin:$PATH"
+          which spacetime
+          spacetime --version
           bun run gen
 
       - name: Check for changes
