@@ -1066,7 +1066,10 @@ body.alchm-open #pentacles-net { display: none; }
 }
 .alchm-pentacles .mc-inspector-card, .alchm-codex .mc-inspector-card {
   position: relative;
-  width: min(440px, 92vw);
+  width: min(460px, 94vw);
+  max-height: min(92vh, 820px);
+  overflow-y: auto;
+  overflow-x: hidden;
   background: rgba(14,17,30,0.98);
   border: 1.5px solid var(--ac-gold-bright);
   border-radius: 12px;
@@ -1075,6 +1078,15 @@ body.alchm-open #pentacles-net { display: none; }
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+.alchm-pentacles .mc-inspector-card::-webkit-scrollbar,
+.alchm-codex .mc-inspector-card::-webkit-scrollbar {
+  width: 6px;
+}
+.alchm-pentacles .mc-inspector-card::-webkit-scrollbar-thumb,
+.alchm-codex .mc-inspector-card::-webkit-scrollbar-thumb {
+  background: rgba(216,180,106,0.3);
+  border-radius: 3px;
 }
 .alchm-pentacles .mc-inspector-close, .alchm-codex .mc-inspector-close {
   position: absolute;
@@ -1104,27 +1116,33 @@ body.alchm-open #pentacles-net { display: none; }
 }
 .alchm-pentacles .mc-inspector-art-stage {
   width: 100%;
-  height: 220px;
+  height: 290px;
   border-radius: 8px;
   border: 1px solid rgba(216,180,106,0.35);
-  box-shadow: inset 0 0 16px rgba(0,0,0,0.6), 0 4px 16px rgba(0,0,0,0.4);
+  box-shadow: inset 0 0 20px rgba(0,0,0,0.7), 0 4px 16px rgba(0,0,0,0.4);
   overflow: hidden;
   position: relative;
-  background: rgba(5,7,14,0.85);
+  background: radial-gradient(circle at 50% 40%, rgba(24, 28, 44, 0.9) 0%, rgba(5, 7, 14, 0.96) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 8px;
 }
 .alchm-pentacles .mc-inspector-suit-art,
 .alchm-pentacles .mc-inspector-major-art {
-  width: 100%;
+  width: auto;
+  max-width: 100%;
   height: 100%;
-  object-fit: cover;
-  object-position: center 20%;
-  transition: transform 0.3s ease;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 4px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.8), 0 0 12px rgba(216,180,106,0.18);
+  transition: transform 0.3s ease, filter 0.3s ease;
 }
-.alchm-pentacles .mc-inspector-art-stage:hover .mc-inspector-suit-art {
-  transform: scale(1.03);
+.alchm-pentacles .mc-inspector-art-stage:hover .mc-inspector-suit-art,
+.alchm-pentacles .mc-inspector-art-stage:hover .mc-inspector-major-art {
+  transform: scale(1.02);
+  filter: brightness(1.04);
 }
 .alchm-pentacles .mc-inspector-title, .alchm-codex .mc-inspector-title {
   font-family: "Cormorant Garamond", Georgia, serif;
