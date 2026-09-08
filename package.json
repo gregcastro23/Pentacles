@@ -8,6 +8,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "check:env": "node scripts/check-env.mjs",
     "test:chart": "node src/alchm-chart/__tests__/math.test.js",
     "test:engine": "node scripts/arcana-trick-engine.test.mjs",
     "test:gameplay": "node scripts/arcana-trick-engine.test.mjs && node scripts/gameplay-contract.test.mjs && node scripts/card-synthesis.test.mjs && bun scripts/starter-deck.test.mjs && bun scripts/pentacles-stardex.test.mjs",
