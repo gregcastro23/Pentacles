@@ -34,7 +34,7 @@
     "accentColor": "#db7a47",
     "frameStyle": "solar-leonic",
     "artAsset": "/assets/cards/major/08-strength.jpg",
-    "fallbackArt": "/assets/suits/wands.jpg",
+    "fallbackArt": null,
     "audioFrequencyHz": 540
   },
   "sacredStats": {

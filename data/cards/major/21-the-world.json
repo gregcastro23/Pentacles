@@ -34,7 +34,7 @@
     "accentColor": "#74ab6c",
     "frameStyle": "ouroboric-wreath",
     "artAsset": "/assets/cards/major/21-the-world.jpg",
-    "fallbackArt": "/assets/suits/pentacles.jpg",
+    "fallbackArt": null,
     "audioFrequencyHz": 741
   },
   "sacredStats": {

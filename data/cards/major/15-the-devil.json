@@ -34,7 +34,7 @@
     "accentColor": "#cf4d4d",
     "frameStyle": "obsidian-chains",
     "artAsset": "/assets/cards/major/15-the-devil.jpg",
-    "fallbackArt": "/assets/suits/pentacles.jpg",
+    "fallbackArt": null,
     "audioFrequencyHz": 288
   },
   "sacredStats": {

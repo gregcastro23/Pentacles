@@ -19,7 +19,7 @@
 import { h, clear } from "./dom.js";
 import { decanCard } from "./decans.js";
 import { SUIT_GLYPHS, SUIT_COLORS, SUIT_ART, rankName, MAJOR_NUMERALS, MAJOR_NAMES, ARCANA_NUMERALS, ARCANA_NAMES } from "./deck.js";
-import { normalizeTarotCard } from "./card-model.js";
+import { normalizeTarotCard, SHIPPED_CARD_ART } from "./card-model.js";
 import { categoricalChartAnalytics } from "./sign-character.js";
 
 const PLANET_GLYPHS = ["☉", "☽", "☿", "♀", "♂", "♃", "♄", "♅", "♆", "♇"];
@@ -490,8 +490,8 @@ export class MyPentaclesInstance {
     // Art Stage element (45-55% height)
     let artEl;
     const cardDef = this._getCardDefinition(card.suitKey, card.rank, isMajor);
-    const cardArtSrc = card.artAsset || cardDef?.styling?.artAsset || (isMajor ? null : (card.suitArtSrc || `/assets/suits/${card.suitKey}.jpg`));
-    const suitFallback = card.suitArtSrc || `/assets/suits/${card.suitKey}.jpg`;
+    const cardArtSrc = card.artAsset || null;
+    const suitFallback = null;
 
     if (isMajor) {
       const sigilFallback = h("div", { class: "mc-card-major-sigil", style: cardArtSrc ? { display: "none" } : {} }, [
@@ -521,26 +521,31 @@ export class MyPentaclesInstance {
         ]),
       ]);
     } else {
-      const imgEl = h("img", {
+      const imgEl = cardArtSrc ? h("img", {
         class: "mc-card-suit-art",
-        src: cardArtSrc || suitFallback,
+        src: cardArtSrc,
         alt: `${card.title} art`,
         loading: "lazy",
-      });
-      const fallbackEl = h("div", { class: "mc-card-art-fallback", style: { display: "none", color: card.suitColor } }, [
-        h("span", { class: "mc-card-fallback-glyph", text: card.suitGlyph }),
-        h("span", { class: "mc-card-fallback-label", text: card.suitElement }),
+      }) : null;
+      const fallbackEl = h("div", {
+        class: "mc-card-art-fallback",
+        style: cardArtSrc ? { display: "none", color: card.suitColor } : { display: "flex", color: card.suitColor }
+      }, [
+        h("div", { class: "mc-card-major-sigil" }, [
+          h("div", { class: "sigil-ring sigil-ring-outer", style: { borderColor: `${card.suitColor}55` } }),
+          h("div", { class: "sigil-ring sigil-ring-inner", style: { borderColor: `${card.suitColor}88` } }),
+          h("span", { class: "sigil-glyph", style: { color: card.suitColor }, text: card.suitGlyph }),
+        ]),
+        h("div", { class: "mc-card-major-tag", style: { color: card.suitColor }, text: `${card.signGlyph} ${card.suitElement}` }),
       ]);
-      imgEl.onerror = () => {
-        if (imgEl.src !== suitFallback) {
-          imgEl.src = suitFallback;
-        } else {
+      if (imgEl) {
+        imgEl.onerror = () => {
           imgEl.style.display = "none";
           fallbackEl.style.display = "flex";
-        }
-      };
+        };
+      }
       artEl = h("div", { class: "mc-card-art" }, [
-        h("div", { class: "mc-card-art-frame" }, [imgEl, fallbackEl]),
+        h("div", { class: "mc-card-art-frame", style: { borderColor: `${card.suitColor}44` } }, imgEl ? [imgEl, fallbackEl] : [fallbackEl]),
       ]);
     }
 
@@ -705,9 +710,9 @@ export class MyPentaclesInstance {
 
         h("div", { class: "mc-inspector-art-stage" }, [
           (() => {
-            const specificArt = cardDef?.styling?.artAsset || card.artAsset;
-            const suitFallback = card.suitArtSrc || `/assets/suits/${card.suitKey}.jpg`;
-            const artSrc = specificArt || (isMajor ? null : suitFallback);
+            const artKey = isMajor ? `major:${card.rank}` : `${card.suitKey}:${card.rank}`;
+            const specificArt = card.artAsset || (SHIPPED_CARD_ART[artKey] || null);
+            const artSrc = specificArt || null;
 
             if (isMajor) {
               const sigilFallback = h("div", { class: "mc-card-major-sigil", style: artSrc ? { display: "none" } : {} }, [
@@ -728,17 +733,23 @@ export class MyPentaclesInstance {
               }
               return h("div", { class: "mc-inspector-art-wrapper", style: "width:100%; height:100%; display:flex; align-items:center; justify-content:center; position:relative;" }, [img, sigilFallback]);
             } else {
-              const img = h("img", {
+              const sigilFallback = h("div", { class: "mc-card-major-sigil", style: artSrc ? { display: "none" } : {} }, [
+                h("div", { class: "sigil-ring sigil-ring-outer", style: { borderColor: `${card.suitColor}55` } }),
+                h("div", { class: "sigil-ring sigil-ring-inner", style: { borderColor: `${card.suitColor}88` } }),
+                h("span", { class: "sigil-glyph", style: { color: card.suitColor }, text: card.suitGlyph }),
+              ]);
+              const img = artSrc ? h("img", {
                 class: "mc-inspector-suit-art",
                 src: artSrc,
                 alt: `${card.title} art`
-              });
-              img.onerror = () => {
-                if (img.src !== suitFallback) {
-                  img.src = suitFallback;
-                }
-              };
-              return img;
+              }) : null;
+              if (img) {
+                img.onerror = () => {
+                  img.style.display = "none";
+                  sigilFallback.style.display = "flex";
+                };
+              }
+              return h("div", { class: "mc-inspector-art-wrapper", style: "width:100%; height:100%; display:flex; align-items:center; justify-content:center; position:relative;" }, [img, sigilFallback]);
             }
           })()
         ]),

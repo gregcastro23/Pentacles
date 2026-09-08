@@ -34,7 +34,7 @@
     "accentColor": "#9aa7c4",
     "frameStyle": "cloistered-lantern",
     "artAsset": "/assets/cards/major/09-the-hermit.jpg",
-    "fallbackArt": "/assets/suits/pentacles.jpg",
+    "fallbackArt": null,
     "audioFrequencyHz": 405
   },
   "sacredStats": {

@@ -34,7 +34,7 @@
     "accentColor": "#e26666",
     "frameStyle": "apocalyptic-trumpet",
     "artAsset": "/assets/cards/major/20-judgement.jpg",
-    "fallbackArt": "/assets/suits/swords.jpg",
+    "fallbackArt": null,
     "audioFrequencyHz": 639
   },
   "sacredStats": {

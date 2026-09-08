@@ -34,7 +34,7 @@
     "accentColor": "#db7a47",
     "frameStyle": "radiant-helios",
     "artAsset": "/assets/cards/major/19-the-sun.jpg",
-    "fallbackArt": "/assets/suits/wands.jpg",
+    "fallbackArt": null,
     "audioFrequencyHz": 528
   },
   "sacredStats": {

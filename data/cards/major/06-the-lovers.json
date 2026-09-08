@@ -34,7 +34,7 @@
     "accentColor": "#db7a47",
     "frameStyle": "alchemical-conjunction",
     "artAsset": "/assets/cards/major/06-the-lovers.jpg",
-    "fallbackArt": "/assets/suits/swords.jpg",
+    "fallbackArt": null,
     "audioFrequencyHz": 480
   },
   "sacredStats": {

@@ -34,7 +34,7 @@
     "accentColor": "#705988",
     "frameStyle": "chthonic-transmutation",
     "artAsset": "/assets/cards/major/13-death.jpg",
-    "fallbackArt": "/assets/suits/cups.jpg",
+    "fallbackArt": null,
     "audioFrequencyHz": 312
   },
   "sacredStats": {

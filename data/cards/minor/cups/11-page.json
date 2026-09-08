@@ -32,7 +32,7 @@
     "accentColor": "#dce2f0",
     "frameStyle": "cups-court",
     "artAsset": "/assets/cards/minor/cups/11-page.jpg",
-    "fallbackArt": "/assets/suits/cups.jpg",
+    "fallbackArt": null,
     "audioFrequencyHz": 528
   },
   "sacredStats": {

@@ -37,7 +37,7 @@
     "accentColor": "#f0a95e",
     "frameStyle": "pentacles-pip",
     "artAsset": "/assets/cards/minor/pentacles/02-two.jpg",
-    "fallbackArt": "/assets/suits/pentacles.jpg",
+    "fallbackArt": null,
     "audioFrequencyHz": 365
   },
   "sacredStats": {

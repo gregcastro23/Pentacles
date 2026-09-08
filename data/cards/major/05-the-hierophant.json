@@ -34,7 +34,7 @@
     "accentColor": "#f0a95e",
     "frameStyle": "hieratic-sanctuary",
     "artAsset": "/assets/cards/major/05-the-hierophant.jpg",
-    "fallbackArt": "/assets/suits/pentacles.jpg",
+    "fallbackArt": null,
     "audioFrequencyHz": 341
   },
   "sacredStats": {

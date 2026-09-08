@@ -196,7 +196,7 @@ assert.ok(activeHtml.includes("21"), "Attack stat must be visible");
 assert.ok(activeHtml.includes("31"), "Health stat must be visible");
 assert.ok(activeHtml.includes("12"), "Armour stat must be visible");
 assert.ok(activeHtml.includes("web-card-art"), "Art stage must be present");
-assert.ok(activeHtml.includes("/assets/suits/cups.jpg"), "Local suit art image must be referenced");
+assert.ok(activeHtml.includes("/assets/cards/minor/cups/06-six.jpg") || activeHtml.includes("/assets/suits/cups.jpg"), "Local card or suit art image must be referenced");
 
 // Case 2: Explicit faceDown: true
 const faceDownHtml = buildCardHTML({

@@ -45,7 +45,7 @@ export const ALL_CARDS = [
       "accentColor": "#f1dba1",
       "frameStyle": "celestial-aether",
       "artAsset": "/assets/cards/major/00-the-fool.jpg",
-      "fallbackArt": "/assets/suits/swords.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 432
     },
     "sacredStats": {
@@ -144,7 +144,7 @@ export const ALL_CARDS = [
       "accentColor": "#f6cf83",
       "frameStyle": "hermetic-gold",
       "artAsset": "/assets/cards/major/01-the-magician.jpg",
-      "fallbackArt": "/assets/suits/swords.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 528
     },
     "sacredStats": {
@@ -243,7 +243,7 @@ export const ALL_CARDS = [
       "accentColor": "#5f93d8",
       "frameStyle": "lunar-veil",
       "artAsset": "/assets/cards/major/02-the-high-priestess.jpg",
-      "fallbackArt": "/assets/suits/cups.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 416
     },
     "sacredStats": {
@@ -340,7 +340,7 @@ export const ALL_CARDS = [
       "accentColor": "#f6cf83",
       "frameStyle": "emerald-luxuria",
       "artAsset": "/assets/cards/major/03-the-empress.jpg",
-      "fallbackArt": "/assets/suits/cups.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 440
     },
     "sacredStats": {
@@ -437,7 +437,7 @@ export const ALL_CARDS = [
       "accentColor": "#db7a47",
       "frameStyle": "martial-granite",
       "artAsset": "/assets/cards/major/04-the-emperor.jpg",
-      "fallbackArt": "/assets/suits/wands.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 396
     },
     "sacredStats": {
@@ -534,7 +534,7 @@ export const ALL_CARDS = [
       "accentColor": "#f0a95e",
       "frameStyle": "hieratic-sanctuary",
       "artAsset": "/assets/cards/major/05-the-hierophant.jpg",
-      "fallbackArt": "/assets/suits/pentacles.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 341
     },
     "sacredStats": {
@@ -631,7 +631,7 @@ export const ALL_CARDS = [
       "accentColor": "#db7a47",
       "frameStyle": "alchemical-conjunction",
       "artAsset": "/assets/cards/major/06-the-lovers.jpg",
-      "fallbackArt": "/assets/suits/swords.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 480
     },
     "sacredStats": {
@@ -728,7 +728,7 @@ export const ALL_CARDS = [
       "accentColor": "#cbd0db",
       "frameStyle": "star-canopy",
       "artAsset": "/assets/cards/major/07-the-chariot.jpg",
-      "fallbackArt": "/assets/suits/cups.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 466
     },
     "sacredStats": {
@@ -825,7 +825,7 @@ export const ALL_CARDS = [
       "accentColor": "#db7a47",
       "frameStyle": "solar-leonic",
       "artAsset": "/assets/cards/major/08-strength.jpg",
-      "fallbackArt": "/assets/suits/wands.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 540
     },
     "sacredStats": {
@@ -922,7 +922,7 @@ export const ALL_CARDS = [
       "accentColor": "#9aa7c4",
       "frameStyle": "cloistered-lantern",
       "artAsset": "/assets/cards/major/09-the-hermit.jpg",
-      "fallbackArt": "/assets/suits/pentacles.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 405
     },
     "sacredStats": {
@@ -1019,7 +1019,7 @@ export const ALL_CARDS = [
       "accentColor": "#5f93d8",
       "frameStyle": "karmic-zodiac",
       "artAsset": "/assets/cards/major/10-wheel-of-fortune.jpg",
-      "fallbackArt": "/assets/suits/wands.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 494
     },
     "sacredStats": {
@@ -1116,7 +1116,7 @@ export const ALL_CARDS = [
       "accentColor": "#f6cf83",
       "frameStyle": "equinoctial-scales",
       "artAsset": "/assets/cards/major/11-justice.jpg",
-      "fallbackArt": "/assets/suits/swords.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 432
     },
     "sacredStats": {
@@ -1213,7 +1213,7 @@ export const ALL_CARDS = [
       "accentColor": "#82bbf2",
       "frameStyle": "mystic-suspension",
       "artAsset": "/assets/cards/major/12-the-hanged-man.jpg",
-      "fallbackArt": "/assets/suits/cups.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 360
     },
     "sacredStats": {
@@ -1310,7 +1310,7 @@ export const ALL_CARDS = [
       "accentColor": "#705988",
       "frameStyle": "chthonic-transmutation",
       "artAsset": "/assets/cards/major/13-death.jpg",
-      "fallbackArt": "/assets/suits/cups.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 312
     },
     "sacredStats": {
@@ -1407,7 +1407,7 @@ export const ALL_CARDS = [
       "accentColor": "#76e0a8",
       "frameStyle": "angelic-synthesis",
       "artAsset": "/assets/cards/major/14-temperance.jpg",
-      "fallbackArt": "/assets/suits/wands.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 450
     },
     "sacredStats": {
@@ -1504,7 +1504,7 @@ export const ALL_CARDS = [
       "accentColor": "#cf4d4d",
       "frameStyle": "obsidian-chains",
       "artAsset": "/assets/cards/major/15-the-devil.jpg",
-      "fallbackArt": "/assets/suits/pentacles.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 288
     },
     "sacredStats": {
@@ -1601,7 +1601,7 @@ export const ALL_CARDS = [
       "accentColor": "#f6cf83",
       "frameStyle": "fulgurite-citadel",
       "artAsset": "/assets/cards/major/16-the-tower.jpg",
-      "fallbackArt": "/assets/suits/wands.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 588
     },
     "sacredStats": {
@@ -1698,7 +1698,7 @@ export const ALL_CARDS = [
       "accentColor": "#dce2f0",
       "frameStyle": "astral-dew",
       "artAsset": "/assets/cards/major/17-the-star.jpg",
-      "fallbackArt": "/assets/suits/swords.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 672
     },
     "sacredStats": {
@@ -1795,7 +1795,7 @@ export const ALL_CARDS = [
       "accentColor": "#998ab0",
       "frameStyle": "nocturnal-tides",
       "artAsset": "/assets/cards/major/18-the-moon.jpg",
-      "fallbackArt": "/assets/suits/cups.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 384
     },
     "sacredStats": {
@@ -1892,7 +1892,7 @@ export const ALL_CARDS = [
       "accentColor": "#db7a47",
       "frameStyle": "radiant-helios",
       "artAsset": "/assets/cards/major/19-the-sun.jpg",
-      "fallbackArt": "/assets/suits/wands.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 528
     },
     "sacredStats": {
@@ -1989,7 +1989,7 @@ export const ALL_CARDS = [
       "accentColor": "#e26666",
       "frameStyle": "apocalyptic-trumpet",
       "artAsset": "/assets/cards/major/20-judgement.jpg",
-      "fallbackArt": "/assets/suits/swords.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 639
     },
     "sacredStats": {
@@ -2086,7 +2086,7 @@ export const ALL_CARDS = [
       "accentColor": "#74ab6c",
       "frameStyle": "ouroboric-wreath",
       "artAsset": "/assets/cards/major/21-the-world.jpg",
-      "fallbackArt": "/assets/suits/pentacles.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 741
     },
     "sacredStats": {
@@ -2183,7 +2183,7 @@ export const ALL_CARDS = [
       "accentColor": "#f6cf83",
       "frameStyle": "wands-pip",
       "artAsset": "/assets/cards/minor/wands/01-ace.jpg",
-      "fallbackArt": "/assets/suits/wands.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 444
     },
     "sacredStats": {
@@ -2282,7 +2282,7 @@ export const ALL_CARDS = [
       "accentColor": "#f6cf83",
       "frameStyle": "wands-pip",
       "artAsset": "/assets/cards/minor/wands/02-two.jpg",
-      "fallbackArt": "/assets/suits/wands.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 456
     },
     "sacredStats": {
@@ -2382,7 +2382,7 @@ export const ALL_CARDS = [
       "accentColor": "#f6cf83",
       "frameStyle": "wands-pip",
       "artAsset": "/assets/cards/minor/wands/03-three.jpg",
-      "fallbackArt": "/assets/suits/wands.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 468
     },
     "sacredStats": {
@@ -2482,7 +2482,7 @@ export const ALL_CARDS = [
       "accentColor": "#f6cf83",
       "frameStyle": "wands-pip",
       "artAsset": "/assets/cards/minor/wands/04-four.jpg",
-      "fallbackArt": "/assets/suits/wands.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 480
     },
     "sacredStats": {
@@ -2582,7 +2582,7 @@ export const ALL_CARDS = [
       "accentColor": "#f6cf83",
       "frameStyle": "wands-pip",
       "artAsset": "/assets/cards/minor/wands/05-five.jpg",
-      "fallbackArt": "/assets/suits/wands.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 492
     },
     "sacredStats": {
@@ -2682,7 +2682,7 @@ export const ALL_CARDS = [
       "accentColor": "#f6cf83",
       "frameStyle": "wands-pip",
       "artAsset": "/assets/cards/minor/wands/06-six.jpg",
-      "fallbackArt": "/assets/suits/wands.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 504
     },
     "sacredStats": {
@@ -2782,7 +2782,7 @@ export const ALL_CARDS = [
       "accentColor": "#f6cf83",
       "frameStyle": "wands-pip",
       "artAsset": "/assets/cards/minor/wands/07-seven.jpg",
-      "fallbackArt": "/assets/suits/wands.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 516
     },
     "sacredStats": {
@@ -2882,7 +2882,7 @@ export const ALL_CARDS = [
       "accentColor": "#f6cf83",
       "frameStyle": "wands-pip",
       "artAsset": "/assets/cards/minor/wands/08-eight.jpg",
-      "fallbackArt": "/assets/suits/wands.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 528
     },
     "sacredStats": {
@@ -2982,7 +2982,7 @@ export const ALL_CARDS = [
       "accentColor": "#f6cf83",
       "frameStyle": "wands-pip",
       "artAsset": "/assets/cards/minor/wands/09-nine.jpg",
-      "fallbackArt": "/assets/suits/wands.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 540
     },
     "sacredStats": {
@@ -3082,7 +3082,7 @@ export const ALL_CARDS = [
       "accentColor": "#f6cf83",
       "frameStyle": "wands-pip",
       "artAsset": "/assets/cards/minor/wands/10-ten.jpg",
-      "fallbackArt": "/assets/suits/wands.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 552
     },
     "sacredStats": {
@@ -3177,7 +3177,7 @@ export const ALL_CARDS = [
       "accentColor": "#f6cf83",
       "frameStyle": "wands-court",
       "artAsset": "/assets/cards/minor/wands/11-page.jpg",
-      "fallbackArt": "/assets/suits/wands.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 564
     },
     "sacredStats": {
@@ -3272,7 +3272,7 @@ export const ALL_CARDS = [
       "accentColor": "#f6cf83",
       "frameStyle": "wands-court",
       "artAsset": "/assets/cards/minor/wands/12-knight.jpg",
-      "fallbackArt": "/assets/suits/wands.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 576
     },
     "sacredStats": {
@@ -3367,7 +3367,7 @@ export const ALL_CARDS = [
       "accentColor": "#f6cf83",
       "frameStyle": "wands-court",
       "artAsset": "/assets/cards/minor/wands/13-queen.jpg",
-      "fallbackArt": "/assets/suits/wands.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 588
     },
     "sacredStats": {
@@ -3462,7 +3462,7 @@ export const ALL_CARDS = [
       "accentColor": "#f6cf83",
       "frameStyle": "wands-court",
       "artAsset": "/assets/cards/minor/wands/14-king.jpg",
-      "fallbackArt": "/assets/suits/wands.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 600
     },
     "sacredStats": {
@@ -3557,7 +3557,7 @@ export const ALL_CARDS = [
       "accentColor": "#dce2f0",
       "frameStyle": "cups-pip",
       "artAsset": "/assets/cards/minor/cups/01-ace.jpg",
-      "fallbackArt": "/assets/suits/cups.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 408
     },
     "sacredStats": {
@@ -3656,7 +3656,7 @@ export const ALL_CARDS = [
       "accentColor": "#dce2f0",
       "frameStyle": "cups-pip",
       "artAsset": "/assets/cards/minor/cups/02-two.jpg",
-      "fallbackArt": "/assets/suits/cups.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 420
     },
     "sacredStats": {
@@ -3757,7 +3757,7 @@ export const ALL_CARDS = [
       "accentColor": "#dce2f0",
       "frameStyle": "cups-pip",
       "artAsset": "/assets/cards/minor/cups/03-three.jpg",
-      "fallbackArt": "/assets/suits/cups.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 432
     },
     "sacredStats": {
@@ -3858,7 +3858,7 @@ export const ALL_CARDS = [
       "accentColor": "#dce2f0",
       "frameStyle": "cups-pip",
       "artAsset": "/assets/cards/minor/cups/04-four.jpg",
-      "fallbackArt": "/assets/suits/cups.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 444
     },
     "sacredStats": {
@@ -3958,7 +3958,7 @@ export const ALL_CARDS = [
       "accentColor": "#dce2f0",
       "frameStyle": "cups-pip",
       "artAsset": "/assets/cards/minor/cups/05-five.jpg",
-      "fallbackArt": "/assets/suits/cups.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 456
     },
     "sacredStats": {
@@ -4059,7 +4059,7 @@ export const ALL_CARDS = [
       "accentColor": "#dce2f0",
       "frameStyle": "cups-pip",
       "artAsset": "/assets/cards/minor/cups/06-six.jpg",
-      "fallbackArt": "/assets/suits/cups.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 468
     },
     "sacredStats": {
@@ -4159,7 +4159,7 @@ export const ALL_CARDS = [
       "accentColor": "#dce2f0",
       "frameStyle": "cups-pip",
       "artAsset": "/assets/cards/minor/cups/07-seven.jpg",
-      "fallbackArt": "/assets/suits/cups.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 480
     },
     "sacredStats": {
@@ -4260,7 +4260,7 @@ export const ALL_CARDS = [
       "accentColor": "#dce2f0",
       "frameStyle": "cups-pip",
       "artAsset": "/assets/cards/minor/cups/08-eight.jpg",
-      "fallbackArt": "/assets/suits/cups.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 492
     },
     "sacredStats": {
@@ -4360,7 +4360,7 @@ export const ALL_CARDS = [
       "accentColor": "#dce2f0",
       "frameStyle": "cups-pip",
       "artAsset": "/assets/cards/minor/cups/09-nine.jpg",
-      "fallbackArt": "/assets/suits/cups.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 504
     },
     "sacredStats": {
@@ -4460,7 +4460,7 @@ export const ALL_CARDS = [
       "accentColor": "#dce2f0",
       "frameStyle": "cups-pip",
       "artAsset": "/assets/cards/minor/cups/10-ten.jpg",
-      "fallbackArt": "/assets/suits/cups.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 516
     },
     "sacredStats": {
@@ -4555,7 +4555,7 @@ export const ALL_CARDS = [
       "accentColor": "#dce2f0",
       "frameStyle": "cups-court",
       "artAsset": "/assets/cards/minor/cups/11-page.jpg",
-      "fallbackArt": "/assets/suits/cups.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 528
     },
     "sacredStats": {
@@ -4650,7 +4650,7 @@ export const ALL_CARDS = [
       "accentColor": "#dce2f0",
       "frameStyle": "cups-court",
       "artAsset": "/assets/cards/minor/cups/12-knight.jpg",
-      "fallbackArt": "/assets/suits/cups.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 540
     },
     "sacredStats": {
@@ -4745,7 +4745,7 @@ export const ALL_CARDS = [
       "accentColor": "#dce2f0",
       "frameStyle": "cups-court",
       "artAsset": "/assets/cards/minor/cups/13-queen.jpg",
-      "fallbackArt": "/assets/suits/cups.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 552
     },
     "sacredStats": {
@@ -4840,7 +4840,7 @@ export const ALL_CARDS = [
       "accentColor": "#dce2f0",
       "frameStyle": "cups-court",
       "artAsset": "/assets/cards/minor/cups/14-king.jpg",
-      "fallbackArt": "/assets/suits/cups.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 564
     },
     "sacredStats": {
@@ -4935,7 +4935,7 @@ export const ALL_CARDS = [
       "accentColor": "#82bbf2",
       "frameStyle": "swords-pip",
       "artAsset": "/assets/cards/minor/swords/01-ace.jpg",
-      "fallbackArt": "/assets/suits/swords.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 540
     },
     "sacredStats": {
@@ -5034,7 +5034,7 @@ export const ALL_CARDS = [
       "accentColor": "#82bbf2",
       "frameStyle": "swords-pip",
       "artAsset": "/assets/cards/minor/swords/02-two.jpg",
-      "fallbackArt": "/assets/suits/swords.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 552
     },
     "sacredStats": {
@@ -5134,7 +5134,7 @@ export const ALL_CARDS = [
       "accentColor": "#82bbf2",
       "frameStyle": "swords-pip",
       "artAsset": "/assets/cards/minor/swords/03-three.jpg",
-      "fallbackArt": "/assets/suits/swords.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 564
     },
     "sacredStats": {
@@ -5234,7 +5234,7 @@ export const ALL_CARDS = [
       "accentColor": "#82bbf2",
       "frameStyle": "swords-pip",
       "artAsset": "/assets/cards/minor/swords/04-four.jpg",
-      "fallbackArt": "/assets/suits/swords.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 576
     },
     "sacredStats": {
@@ -5335,7 +5335,7 @@ export const ALL_CARDS = [
       "accentColor": "#82bbf2",
       "frameStyle": "swords-pip",
       "artAsset": "/assets/cards/minor/swords/05-five.jpg",
-      "fallbackArt": "/assets/suits/swords.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 588
     },
     "sacredStats": {
@@ -5435,7 +5435,7 @@ export const ALL_CARDS = [
       "accentColor": "#82bbf2",
       "frameStyle": "swords-pip",
       "artAsset": "/assets/cards/minor/swords/06-six.jpg",
-      "fallbackArt": "/assets/suits/swords.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 600
     },
     "sacredStats": {
@@ -5535,7 +5535,7 @@ export const ALL_CARDS = [
       "accentColor": "#82bbf2",
       "frameStyle": "swords-pip",
       "artAsset": "/assets/cards/minor/swords/07-seven.jpg",
-      "fallbackArt": "/assets/suits/swords.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 612
     },
     "sacredStats": {
@@ -5635,7 +5635,7 @@ export const ALL_CARDS = [
       "accentColor": "#82bbf2",
       "frameStyle": "swords-pip",
       "artAsset": "/assets/cards/minor/swords/08-eight.jpg",
-      "fallbackArt": "/assets/suits/swords.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 624
     },
     "sacredStats": {
@@ -5735,7 +5735,7 @@ export const ALL_CARDS = [
       "accentColor": "#82bbf2",
       "frameStyle": "swords-pip",
       "artAsset": "/assets/cards/minor/swords/09-nine.jpg",
-      "fallbackArt": "/assets/suits/swords.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 636
     },
     "sacredStats": {
@@ -5835,7 +5835,7 @@ export const ALL_CARDS = [
       "accentColor": "#82bbf2",
       "frameStyle": "swords-pip",
       "artAsset": "/assets/cards/minor/swords/10-ten.jpg",
-      "fallbackArt": "/assets/suits/swords.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 648
     },
     "sacredStats": {
@@ -5930,7 +5930,7 @@ export const ALL_CARDS = [
       "accentColor": "#82bbf2",
       "frameStyle": "swords-court",
       "artAsset": "/assets/cards/minor/swords/11-page.jpg",
-      "fallbackArt": "/assets/suits/swords.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 660
     },
     "sacredStats": {
@@ -6025,7 +6025,7 @@ export const ALL_CARDS = [
       "accentColor": "#82bbf2",
       "frameStyle": "swords-court",
       "artAsset": "/assets/cards/minor/swords/12-knight.jpg",
-      "fallbackArt": "/assets/suits/swords.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 672
     },
     "sacredStats": {
@@ -6120,7 +6120,7 @@ export const ALL_CARDS = [
       "accentColor": "#82bbf2",
       "frameStyle": "swords-court",
       "artAsset": "/assets/cards/minor/swords/13-queen.jpg",
-      "fallbackArt": "/assets/suits/swords.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 684
     },
     "sacredStats": {
@@ -6215,7 +6215,7 @@ export const ALL_CARDS = [
       "accentColor": "#82bbf2",
       "frameStyle": "swords-court",
       "artAsset": "/assets/cards/minor/swords/14-king.jpg",
-      "fallbackArt": "/assets/suits/swords.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 696
     },
     "sacredStats": {
@@ -6310,7 +6310,7 @@ export const ALL_CARDS = [
       "accentColor": "#f0a95e",
       "frameStyle": "pentacles-pip",
       "artAsset": "/assets/cards/minor/pentacles/01-ace.jpg",
-      "fallbackArt": "/assets/suits/pentacles.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 353
     },
     "sacredStats": {
@@ -6409,7 +6409,7 @@ export const ALL_CARDS = [
       "accentColor": "#f0a95e",
       "frameStyle": "pentacles-pip",
       "artAsset": "/assets/cards/minor/pentacles/02-two.jpg",
-      "fallbackArt": "/assets/suits/pentacles.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 365
     },
     "sacredStats": {
@@ -6509,7 +6509,7 @@ export const ALL_CARDS = [
       "accentColor": "#f0a95e",
       "frameStyle": "pentacles-pip",
       "artAsset": "/assets/cards/minor/pentacles/03-three.jpg",
-      "fallbackArt": "/assets/suits/pentacles.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 377
     },
     "sacredStats": {
@@ -6609,7 +6609,7 @@ export const ALL_CARDS = [
       "accentColor": "#f0a95e",
       "frameStyle": "pentacles-pip",
       "artAsset": "/assets/cards/minor/pentacles/04-four.jpg",
-      "fallbackArt": "/assets/suits/pentacles.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 389
     },
     "sacredStats": {
@@ -6709,7 +6709,7 @@ export const ALL_CARDS = [
       "accentColor": "#f0a95e",
       "frameStyle": "pentacles-pip",
       "artAsset": "/assets/cards/minor/pentacles/05-five.jpg",
-      "fallbackArt": "/assets/suits/pentacles.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 401
     },
     "sacredStats": {
@@ -6809,7 +6809,7 @@ export const ALL_CARDS = [
       "accentColor": "#f0a95e",
       "frameStyle": "pentacles-pip",
       "artAsset": "/assets/cards/minor/pentacles/06-six.jpg",
-      "fallbackArt": "/assets/suits/pentacles.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 413
     },
     "sacredStats": {
@@ -6909,7 +6909,7 @@ export const ALL_CARDS = [
       "accentColor": "#f0a95e",
       "frameStyle": "pentacles-pip",
       "artAsset": "/assets/cards/minor/pentacles/07-seven.jpg",
-      "fallbackArt": "/assets/suits/pentacles.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 425
     },
     "sacredStats": {
@@ -7009,7 +7009,7 @@ export const ALL_CARDS = [
       "accentColor": "#f0a95e",
       "frameStyle": "pentacles-pip",
       "artAsset": "/assets/cards/minor/pentacles/08-eight.jpg",
-      "fallbackArt": "/assets/suits/pentacles.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 437
     },
     "sacredStats": {
@@ -7109,7 +7109,7 @@ export const ALL_CARDS = [
       "accentColor": "#f0a95e",
       "frameStyle": "pentacles-pip",
       "artAsset": "/assets/cards/minor/pentacles/09-nine.jpg",
-      "fallbackArt": "/assets/suits/pentacles.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 449
     },
     "sacredStats": {
@@ -7209,7 +7209,7 @@ export const ALL_CARDS = [
       "accentColor": "#f0a95e",
       "frameStyle": "pentacles-pip",
       "artAsset": "/assets/cards/minor/pentacles/10-ten.jpg",
-      "fallbackArt": "/assets/suits/pentacles.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 461
     },
     "sacredStats": {
@@ -7304,7 +7304,7 @@ export const ALL_CARDS = [
       "accentColor": "#f0a95e",
       "frameStyle": "pentacles-court",
       "artAsset": "/assets/cards/minor/pentacles/11-page.jpg",
-      "fallbackArt": "/assets/suits/pentacles.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 473
     },
     "sacredStats": {
@@ -7399,7 +7399,7 @@ export const ALL_CARDS = [
       "accentColor": "#f0a95e",
       "frameStyle": "pentacles-court",
       "artAsset": "/assets/cards/minor/pentacles/12-knight.jpg",
-      "fallbackArt": "/assets/suits/pentacles.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 485
     },
     "sacredStats": {
@@ -7494,7 +7494,7 @@ export const ALL_CARDS = [
       "accentColor": "#f0a95e",
       "frameStyle": "pentacles-court",
       "artAsset": "/assets/cards/minor/pentacles/13-queen.jpg",
-      "fallbackArt": "/assets/suits/pentacles.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 497
     },
     "sacredStats": {
@@ -7589,7 +7589,7 @@ export const ALL_CARDS = [
       "accentColor": "#f0a95e",
       "frameStyle": "pentacles-court",
       "artAsset": "/assets/cards/minor/pentacles/14-king.jpg",
-      "fallbackArt": "/assets/suits/pentacles.jpg",
+      "fallbackArt": null,
       "audioFrequencyHz": 509
     },
     "sacredStats": {

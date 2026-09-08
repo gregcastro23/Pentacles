@@ -34,7 +34,7 @@
     "accentColor": "#5f93d8",
     "frameStyle": "lunar-veil",
     "artAsset": "/assets/cards/major/02-the-high-priestess.jpg",
-    "fallbackArt": "/assets/suits/cups.jpg",
+    "fallbackArt": null,
     "audioFrequencyHz": 416
   },
   "sacredStats": {

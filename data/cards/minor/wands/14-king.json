@@ -32,7 +32,7 @@
     "accentColor": "#f6cf83",
     "frameStyle": "wands-court",
     "artAsset": "/assets/cards/minor/wands/14-king.jpg",
-    "fallbackArt": "/assets/suits/wands.jpg",
+    "fallbackArt": null,
     "audioFrequencyHz": 600
   },
   "sacredStats": {

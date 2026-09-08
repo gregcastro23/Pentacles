@@ -34,7 +34,7 @@
     "accentColor": "#f6cf83",
     "frameStyle": "equinoctial-scales",
     "artAsset": "/assets/cards/major/11-justice.jpg",
-    "fallbackArt": "/assets/suits/swords.jpg",
+    "fallbackArt": null,
     "audioFrequencyHz": 432
   },
   "sacredStats": {

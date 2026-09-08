@@ -37,7 +37,7 @@
     "accentColor": "#82bbf2",
     "frameStyle": "swords-pip",
     "artAsset": "/assets/cards/minor/swords/07-seven.jpg",
-    "fallbackArt": "/assets/suits/swords.jpg",
+    "fallbackArt": null,
     "audioFrequencyHz": 612
   },
   "sacredStats": {

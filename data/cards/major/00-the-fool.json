@@ -34,7 +34,7 @@
     "accentColor": "#f1dba1",
     "frameStyle": "celestial-aether",
     "artAsset": "/assets/cards/major/00-the-fool.jpg",
-    "fallbackArt": "/assets/suits/swords.jpg",
+    "fallbackArt": null,
     "audioFrequencyHz": 432
   },
   "sacredStats": {

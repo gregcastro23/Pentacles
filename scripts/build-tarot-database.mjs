@@ -954,7 +954,7 @@ for (const item of cardRawList) {
         accentColor: card.accentColor,
         frameStyle: card.frameStyle,
         artAsset: `/assets/cards/major/${String(card.rank).padStart(2, "0")}-${card.slug}.jpg`,
-        fallbackArt: `/assets/suits/${card.biasedSuit.toLowerCase()}.jpg`,
+        fallbackArt: null,
         audioFrequencyHz: card.audioFrequencyHz
       },
       sacredStats: item.normalizedStats,
@@ -1087,7 +1087,7 @@ for (const item of cardRawList) {
         accentColor: suit.accent,
         frameStyle: `${suit.id}-${rank <= 10 ? "pip" : "court"}`,
         artAsset: `/assets/cards/minor/${suit.id}/${String(rank).padStart(2, "0")}-${rankSlug}.jpg`,
-        fallbackArt: `/assets/suits/${suit.id}.jpg`,
+        fallbackArt: null,
         audioFrequencyHz: suit.audioBaseHz + (rank * 12)
       },
       sacredStats: item.normalizedStats,

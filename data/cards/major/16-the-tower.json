@@ -34,7 +34,7 @@
     "accentColor": "#f6cf83",
     "frameStyle": "fulgurite-citadel",
     "artAsset": "/assets/cards/major/16-the-tower.jpg",
-    "fallbackArt": "/assets/suits/wands.jpg",
+    "fallbackArt": null,
     "audioFrequencyHz": 588
   },
   "sacredStats": {

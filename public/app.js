@@ -690,16 +690,22 @@
         `;
       } else {
         const specificArt = c.artAsset;
-        const suitArt = c.suitArtSrc || `/assets/suits/${c.suitKey}.jpg`;
-        const initialSrc = specificArt || suitArt;
+        const initialSrc = specificArt || "";
+        const fallbackHTML = `
+          <div class="web-card-art-fallback" style="${specificArt ? "display:none;" : "display:flex;"} color: ${c.suitColor};">
+            <div class="web-card-major-sigil">
+              <div class="sigil-ring sigil-ring-outer" style="border-color:${c.suitColor}55;"></div>
+              <div class="sigil-ring sigil-ring-inner" style="border-color:${c.suitColor}88;"></div>
+              <span class="sigil-glyph" style="color:${c.suitColor};">${c.suitGlyph}</span>
+            </div>
+            <div class="web-card-major-tag" style="color:${c.suitColor};">${escapeFn(c.signGlyph)} ${escapeFn(c.suitElement)}</div>
+          </div>
+        `;
         artStageHTML = `
           <div class="web-card-art">
-            <div class="web-card-art-frame">
-              <img class="web-card-suit-img" src="${initialSrc}" alt="${escapeFn(c.suitName)} suit art" loading="lazy" onerror="if(this.src !== '${suitArt}' && '${suitArt}') { this.src = '${suitArt}'; } else { this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='flex'; }">
-              <div class="web-card-art-fallback" style="display:none; color: ${c.suitColor};">
-                <span class="web-card-fallback-glyph">${c.suitGlyph}</span>
-                <span class="web-card-fallback-label">${escapeFn(c.suitElement)}</span>
-              </div>
+            <div class="web-card-art-frame" style="border-color:${c.suitColor}44;">
+              <img class="web-card-suit-img" src="${initialSrc}" alt="${escapeFn(c.title)} art" loading="lazy" style="${specificArt ? "" : "display:none;"}" onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='flex';">
+              ${fallbackHTML}
             </div>
           </div>
         `;

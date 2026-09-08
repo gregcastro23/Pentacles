@@ -30,7 +30,9 @@
     "test:all": "bun run check:env && bun run test:client && bun run test:solana && bun run test:feeder && bun run test:parity && bun run test:smoke",
     "test:parity": "bun scripts/melee-parity.test.mjs",
     "test:benchmark": "bun scripts/testdrive-math-and-gameplay.mjs",
-    "testdrive": "bun scripts/testdrive-math-and-gameplay.mjs"
+    "testdrive": "bun scripts/testdrive-math-and-gameplay.mjs",
+    "audit:cards": "bun scripts/verify-card-art-completeness.mjs",
+    "deck:generate": "bun scripts/generate-tarot-deck.mjs"
   },
   "devDependencies": {
     "vercel": "^59.10.0",
