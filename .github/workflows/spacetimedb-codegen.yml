@@ -1,0 +1,45 @@
+name: SpacetimeDB Codegen
+
+on:
+  workflow_dispatch:
+
+jobs:
+  codegen:
+    name: Generate SpacetimeDB TypeScript Bindings
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Install SpacetimeDB CLI
+        run: |
+          curl -sSf https://install.spacetimedb.com | sh -s -- --version 2.6.0 || curl -sSf https://install.spacetimedb.com | sh
+          echo "$HOME/.spacetimedb/bin" >> $GITHUB_PATH
+
+      - name: Generate client bindings
+        run: |
+          export PATH="$HOME/.spacetimedb/bin:$PATH"
+          spacetime --version || true
+          bun run gen
+
+      - name: Check for changes
+        run: git status
+
+      - name: Upload generated bindings artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: spacetimedb-module-bindings
+          path: src/module_bindings/
