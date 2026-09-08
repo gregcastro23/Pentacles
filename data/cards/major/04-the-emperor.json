@@ -21,6 +21,9 @@
     "triplicitySign": "Aries",
     "triplicityRuler": "Mars",
     "triplicityRulerIndex": 4,
+    "triplicityRulerIndices": [
+      4
+    ],
     "hebrewLetter": "Heh (ה)",
     "treeOfLifePath": "15th Path (Chokmah to Tiphereth)"
   },
@@ -43,6 +46,31 @@
     "adaptability": 28,
     "vitality": 55
   },
+  "planetaryStats": {
+    "solarAgency": 41,
+    "lunarReceptivity": 37,
+    "mercurialVelocity": 29,
+    "venusianCoherence": 31,
+    "martialImpetus": 56,
+    "jovianExpansion": 30,
+    "saturnianStructure": 35,
+    "chironicAdaptation": 29,
+    "uranianSurprisal": 35,
+    "neptunianResonance": 35,
+    "plutonicIntegration": 44
+  },
+  "planetaryAffinity": [
+    4,
+    0,
+    0,
+    -5,
+    5,
+    0,
+    -4,
+    0,
+    0,
+    0
+  ],
   "scrabbleLetter": "R",
   "trickEngine": {
     "trickPower": 1040,

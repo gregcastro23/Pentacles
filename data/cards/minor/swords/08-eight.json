@@ -24,6 +24,9 @@
     "triplicitySign": "Gemini",
     "triplicityRuler": "Mercury",
     "triplicityRulerIndex": 2,
+    "triplicityRulerIndices": [
+      2
+    ],
     "hebrewLetter": null,
     "treeOfLifePath": null
   },
@@ -46,6 +49,31 @@
     "adaptability": 70,
     "vitality": 33
   },
+  "planetaryStats": {
+    "solarAgency": 37,
+    "lunarReceptivity": 24,
+    "mercurialVelocity": 67,
+    "venusianCoherence": 24,
+    "martialImpetus": 35,
+    "jovianExpansion": 34,
+    "saturnianStructure": 24,
+    "chironicAdaptation": 45,
+    "uranianSurprisal": 36,
+    "neptunianResonance": 32,
+    "plutonicIntegration": 32
+  },
+  "planetaryAffinity": [
+    0,
+    0,
+    5,
+    0,
+    0,
+    -5,
+    0,
+    0,
+    0,
+    0
+  ],
   "scrabbleLetter": "Y",
   "trickEngine": {
     "trickPower": 7,

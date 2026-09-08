@@ -24,6 +24,9 @@
     "triplicitySign": "Taurus",
     "triplicityRuler": "Venus",
     "triplicityRulerIndex": 3,
+    "triplicityRulerIndices": [
+      3
+    ],
     "hebrewLetter": null,
     "treeOfLifePath": null
   },
@@ -46,6 +49,31 @@
     "adaptability": 24,
     "vitality": 53
   },
+  "planetaryStats": {
+    "solarAgency": 24,
+    "lunarReceptivity": 42,
+    "mercurialVelocity": 24,
+    "venusianCoherence": 57,
+    "martialImpetus": 21,
+    "jovianExpansion": 37,
+    "saturnianStructure": 55,
+    "chironicAdaptation": 29,
+    "uranianSurprisal": 20,
+    "neptunianResonance": 36,
+    "plutonicIntegration": 37
+  },
+  "planetaryAffinity": [
+    0,
+    4,
+    0,
+    5,
+    -5,
+    0,
+    0,
+    -4,
+    0,
+    -5
+  ],
   "scrabbleLetter": "P",
   "trickEngine": {
     "trickPower": 4,

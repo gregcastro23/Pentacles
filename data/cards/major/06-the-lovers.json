@@ -21,6 +21,9 @@
     "triplicitySign": "Gemini",
     "triplicityRuler": "Mercury",
     "triplicityRulerIndex": 2,
+    "triplicityRulerIndices": [
+      2
+    ],
     "hebrewLetter": "Zain (ז)",
     "treeOfLifePath": "17th Path (Binah to Tiphereth)"
   },
@@ -43,6 +46,31 @@
     "adaptability": 69,
     "vitality": 33
   },
+  "planetaryStats": {
+    "solarAgency": 37,
+    "lunarReceptivity": 24,
+    "mercurialVelocity": 66,
+    "venusianCoherence": 24,
+    "martialImpetus": 34,
+    "jovianExpansion": 34,
+    "saturnianStructure": 24,
+    "chironicAdaptation": 44,
+    "uranianSurprisal": 35,
+    "neptunianResonance": 31,
+    "plutonicIntegration": 31
+  },
+  "planetaryAffinity": [
+    0,
+    0,
+    5,
+    0,
+    0,
+    -5,
+    0,
+    0,
+    0,
+    0
+  ],
   "scrabbleLetter": "L",
   "trickEngine": {
     "trickPower": 1060,

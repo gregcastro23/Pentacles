@@ -24,6 +24,10 @@
     "triplicitySign": "Pisces",
     "triplicityRuler": "Jupiter & Neptune",
     "triplicityRulerIndex": 5,
+    "triplicityRulerIndices": [
+      5,
+      8
+    ],
     "hebrewLetter": null,
     "treeOfLifePath": null
   },
@@ -46,6 +50,31 @@
     "adaptability": 38,
     "vitality": 28
   },
+  "planetaryStats": {
+    "solarAgency": 31,
+    "lunarReceptivity": 50,
+    "mercurialVelocity": 27,
+    "venusianCoherence": 49,
+    "martialImpetus": 29,
+    "jovianExpansion": 40,
+    "saturnianStructure": 24,
+    "chironicAdaptation": 40,
+    "uranianSurprisal": 30,
+    "neptunianResonance": 62,
+    "plutonicIntegration": 28
+  },
+  "planetaryAffinity": [
+    0,
+    0,
+    -5,
+    4,
+    0,
+    5,
+    0,
+    0,
+    5,
+    0
+  ],
   "scrabbleLetter": "Y",
   "trickEngine": {
     "trickPower": 7,

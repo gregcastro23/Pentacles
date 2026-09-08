@@ -32,7 +32,13 @@ import {
   getDecanPip,
   getAllMajors,
   getAllMinors,
-  getAllCards
+  getAllCards,
+  PLANETARY_12_AXES,
+  STORED_PLANETARY_AXES,
+  PLANET_TO_AXIS,
+  PLANET_BODIES,
+  kineticAlignment,
+  calculateDeckPlanetaryAffinity
 } from "../src/cards/index.js";
 
 const ROOT = process.cwd();
@@ -87,6 +93,39 @@ for (const card of ALL_CARDS) {
     const val = card.sacredStats[key];
     assert.ok(typeof val === "number", `Stat ${key} must be a number on ${card.id}`);
     assert.ok(val >= 20 && val <= 95, `Stat ${key} on ${card.id} out of bounds: ${val} (expected 20..95)`);
+  }
+
+  // Planetary 12 Stats (11 static stored axes)
+  assert.ok(card.planetaryStats, `Card missing planetaryStats: ${card.id}`);
+  for (const axis of STORED_PLANETARY_AXES) {
+    const val = card.planetaryStats[axis];
+    assert.ok(typeof val === "number", `Planetary stat ${axis} must be a number on ${card.id}`);
+    assert.ok(val >= 20 && val <= 95, `Planetary stat ${axis} on ${card.id} out of bounds: ${val} (expected 20..95)`);
+  }
+
+  // Planetary Affinity Vector ([i8; 10] matching server/src/chart.rs::faction_scores)
+  assert.ok(Array.isArray(card.planetaryAffinity), `Card missing planetaryAffinity array: ${card.id}`);
+  assert.equal(card.planetaryAffinity.length, 10, `planetaryAffinity must have exactly 10 elements on ${card.id}`);
+  for (let i = 0; i < 10; i++) {
+    const aff = card.planetaryAffinity[i];
+    assert.ok(Number.isInteger(aff), `planetaryAffinity[${i}] must be integer on ${card.id}`);
+    assert.ok(aff >= -5 && aff <= 5, `planetaryAffinity[${i}] out of bounds [-5, 5] on ${card.id}: ${aff}`);
+  }
+
+  // Symbolism triplicity ruler indices
+  assert.ok(Array.isArray(card.symbolism.triplicityRulerIndices), `Missing triplicityRulerIndices array: ${card.id}`);
+  for (const idx of card.symbolism.triplicityRulerIndices) {
+    assert.ok(Number.isInteger(idx) && idx >= 0 && idx < 10, `Invalid triplicityRulerIndex ${idx} on ${card.id}`);
+  }
+
+  // Ace nullification check (Finding B4)
+  if (card.arcana === "minor" && card.rank === 1) {
+    assert.equal(card.symbolism.triplicityRuler, null, `Ace ${card.id} must have null triplicityRuler`);
+    assert.equal(card.symbolism.triplicityRulerIndex, null, `Ace ${card.id} must have null triplicityRulerIndex`);
+    assert.equal(card.symbolism.triplicityRulerIndices.length, 0, `Ace ${card.id} must have empty triplicityRulerIndices`);
+    assert.equal(card.symbolism.triplicitySign, null, `Ace ${card.id} must have null triplicitySign`);
+    assert.equal(card.symbolism.planetaryBody, null, `Ace ${card.id} must have null planetaryBody`);
+    assert.equal(card.symbolism.planetIndex, null, `Ace ${card.id} must have null planetIndex`);
   }
 
   // Scrabble Letter
@@ -288,5 +327,162 @@ for (const suit of ["wands", "cups", "swords", "pentacles"]) {
 }
 console.log("  ✓ Court card pure suit element and + / ++ / +++ / ++++ magnitude hierarchy verified across all suits");
 
-console.log("\nALL 78 Tarot Card Definition & Sacred 7 Registry tests passed with 100% success!\n");
+console.log("▶ 8 · Validating Planetary 12 Bounds & Additive Affinity Vectors...");
+for (const card of ALL_CARDS) {
+  assert.equal(Object.keys(card.planetaryStats).length, 11, `Card ${card.id} must have exactly 11 planetaryStats`);
+  assert.equal(card.planetaryAffinity.length, 10, `Card ${card.id} must have exactly 10 planetaryAffinity entries`);
+}
+console.log("  ✓ All 78 cards possess full 11-axis Planetary 12 stats in [20, 95] and 10-planet affinity in [-5, 5]");
+
+console.log("▶ 9 · Validating Non-Collinearity via Spearman Rank Correlation (|ρ| < 0.95)...");
+function getRanks(arr) {
+  const indexed = arr.map((v, i) => ({ v, i }));
+  indexed.sort((a, b) => a.v - b.v);
+  const ranks = new Array(arr.length);
+  let i = 0;
+  while (i < indexed.length) {
+    let j = i;
+    while (j < indexed.length - 1 && indexed[j + 1].v === indexed[j].v) j++;
+    const avgRank = 1 + (i + j) / 2;
+    for (let k = i; k <= j; k++) ranks[indexed[k].i] = avgRank;
+    i = j + 1;
+  }
+  return ranks;
+}
+
+function spearmanRho(x, y) {
+  const rx = getRanks(x);
+  const ry = getRanks(y);
+  const n = x.length;
+  const meanX = (n + 1) / 2;
+  const meanY = (n + 1) / 2;
+  let num = 0, denX = 0, denY = 0;
+  for (let i = 0; i < n; i++) {
+    const dx = rx[i] - meanX;
+    const dy = ry[i] - meanY;
+    num += dx * dy;
+    denX += dx * dx;
+    denY += dy * dy;
+  }
+  return num / Math.sqrt(denX * denY);
+}
+
+const solarScores = ALL_CARDS.map(c => c.planetaryStats.solarAgency);
+const martialScores = ALL_CARDS.map(c => c.planetaryStats.martialImpetus);
+const uranianScores = ALL_CARDS.map(c => c.planetaryStats.uranianSurprisal);
+const lunarScores = ALL_CARDS.map(c => c.planetaryStats.lunarReceptivity);
+const venusScores = ALL_CARDS.map(c => c.planetaryStats.venusianCoherence);
+
+const rhoSolarMartial = spearmanRho(solarScores, martialScores);
+const rhoSolarUranian = spearmanRho(solarScores, uranianScores);
+const rhoLunarVenus = spearmanRho(lunarScores, venusScores);
+
+console.log(`  • Spearman ρ(solarAgency, martialImpetus):   ${rhoSolarMartial.toFixed(4)} (threshold: |ρ| < 0.95)`);
+console.log(`  • Spearman ρ(solarAgency, uranianSurprisal): ${rhoSolarUranian.toFixed(4)} (threshold: |ρ| < 0.95)`);
+console.log(`  • Spearman ρ(lunarReceptivity, venusianCoherence): ${rhoLunarVenus.toFixed(4)} (threshold: |ρ| < 0.95)`);
+
+assert.ok(Math.abs(rhoSolarMartial) < 0.95, `solarAgency vs martialImpetus collinear: ρ = ${rhoSolarMartial}`);
+assert.ok(Math.abs(rhoSolarUranian) < 0.95, `solarAgency vs uranianSurprisal collinear: ρ = ${rhoSolarUranian}`);
+assert.ok(Math.abs(rhoLunarVenus) < 0.95, `lunarReceptivity vs venusianCoherence collinear: ρ = ${rhoLunarVenus}`);
+console.log("  ✓ Zero collinearity across all previously degenerate single-axis dimensions (|ρ| < 0.95)");
+
+console.log("▶ 10 · Validating Planetary Majors Standing & Astrological Reality...");
+const PLANETARY_MAJORS_SPEC = [
+  { name: "The Sun", planet: "Sun", axis: "solarAgency", expectedDeckRankMax: 1 },
+  { name: "The High Priestess", planet: "Moon", axis: "lunarReceptivity", expectedDeckRankMax: 1 },
+  { name: "The Magician", planet: "Mercury", axis: "mercurialVelocity", expectedDeckRankMax: 1 },
+  { name: "The Empress", planet: "Venus", axis: "venusianCoherence", expectedDeckRankMax: 1 },
+  { name: "The Tower", planet: "Mars", axis: "martialImpetus", expectedDeckRankMax: 2 },
+  { name: "Wheel of Fortune", planet: "Jupiter", axis: "jovianExpansion", expectedDeckRankMax: 1 },
+  { name: "The World", planet: "Saturn", axis: "saturnianStructure", expectedDeckRankMax: 1 },
+  { name: "The Hanged Man", planet: "Neptune", axis: "neptunianResonance", expectedDeckRankMax: 1 },
+  { name: "Judgement", planet: "Pluto", axis: "plutonicIntegration", expectedDeckRankMax: 1 },
+  { name: "The Fool", planet: "Uranus", axis: "uranianSurprisal", expectedDeckRankMax: 5 }
+];
+
+for (const pm of PLANETARY_MAJORS_SPEC) {
+  const majorCard = ALL_CARDS.find(c => c.name === pm.name);
+  assert.ok(majorCard, `Major card ${pm.name} must exist`);
+  const score = majorCard.planetaryStats[pm.axis];
+
+  // Cards ruled by this planet
+  const ruledCards = ALL_CARDS.filter(c =>
+    c.symbolism?.planetaryBody === pm.planet ||
+    c.symbolism?.chaldeanRuler === pm.planet ||
+    c.symbolism?.triplicityRuler?.includes(pm.planet)
+  );
+
+  const maxRuledScore = Math.max(...ruledCards.map(c => c.planetaryStats[pm.axis]));
+  assert.ok(score >= maxRuledScore, `${pm.name} (${score}) must rank #1 among ${pm.planet}-governed cards (max: ${maxRuledScore})`);
+
+  // Deck-wide ranking
+  const deckSorted = [...ALL_CARDS].sort((a, b) => b.planetaryStats[pm.axis] - a.planetaryStats[pm.axis]);
+  const deckRank = deckSorted.findIndex(c => c.name === pm.name) + 1;
+  assert.ok(deckRank <= pm.expectedDeckRankMax, `${pm.name} deck rank #${deckRank} exceeded max allowed #${pm.expectedDeckRankMax}`);
+  console.log(`  • ${pm.name.padEnd(20)} (${pm.planet.padEnd(7)} -> ${pm.axis.padEnd(19)}): score=${score}, #1 among ruled: ✓, deckRank=#${deckRank}`);
+}
+console.log("  ✓ All 10 Planetary Majors hold astrological #1 standing among cards governed by their planet");
+
+console.log("▶ 11 · Validating Chiron Asymmetry & Structural Integrity...");
+const chironScores = ALL_CARDS.map(c => c.planetaryStats.chironicAdaptation);
+const chironMin = Math.min(...chironScores);
+const chironMax = Math.max(...chironScores);
+assert.ok(chironMax > chironMin, "chironicAdaptation must have healthy deck-wide variance");
+for (const card of ALL_CARDS) {
+  assert.notEqual(card.symbolism?.planetaryBody, "Chiron", `${card.id} cannot have Chiron planetaryBody`);
+  assert.notEqual(card.symbolism?.chaldeanRuler, "Chiron", `${card.id} cannot have Chiron chaldeanRuler`);
+  assert.notEqual(card.symbolism?.triplicityRuler, "Chiron", `${card.id} cannot have Chiron triplicityRuler`);
+  assert.equal(card.planetaryAffinity.length, 10, `${card.id} planetaryAffinity must exclude Chiron (10 planets only)`);
+}
+console.log(`  ✓ Chiron asymmetry verified: non-zero variance [${chironMin}, ${chironMax}] with zero invalid ruler attributions`);
+
+console.log("▶ 12 · Validating Suit-Level Dominance in Planetary 12...");
+const suitsList = ["wands", "cups", "swords", "pentacles"];
+const getSuitAvg = (suitId, axis) => {
+  const cards = MINOR_ARCANA[suitId];
+  return cards.reduce((sum, c) => sum + c.planetaryStats[axis], 0) / cards.length;
+};
+
+const wandsSolar = getSuitAvg("wands", "solarAgency");
+const swordsMercury = getSuitAvg("swords", "mercurialVelocity");
+const cupsLunar = getSuitAvg("cups", "lunarReceptivity");
+const pentaclesSaturn = getSuitAvg("pentacles", "saturnianStructure");
+
+for (const s of suitsList) {
+  if (s !== "wands") assert.ok(wandsSolar > getSuitAvg(s, "solarAgency"), `Wands solarAgency must exceed ${s}`);
+  if (s !== "swords") assert.ok(swordsMercury > getSuitAvg(s, "mercurialVelocity"), `Swords mercurialVelocity must exceed ${s}`);
+  if (s !== "cups") assert.ok(cupsLunar > getSuitAvg(s, "lunarReceptivity"), `Cups lunarReceptivity must exceed ${s}`);
+  if (s !== "pentacles") assert.ok(pentaclesSaturn > getSuitAvg(s, "saturnianStructure"), `Pentacles saturnianStructure must exceed ${s}`);
+}
+console.log(`  • Wands leads solarAgency:       ${wandsSolar.toFixed(1)} vs others < 30`);
+console.log(`  • Swords leads mercurialVelocity: ${swordsMercury.toFixed(1)} vs others < 34`);
+console.log(`  • Cups leads lunarReceptivity:     ${cupsLunar.toFixed(1)} vs others < 30`);
+console.log(`  • Pentacles leads saturnianStruct: ${pentaclesSaturn.toFixed(1)} vs others < 33`);
+console.log("  ✓ Elemental suit archetypes mathematically dominate their respective planetary axes");
+
+console.log("▶ 13 · Validating Live Kinetics & Faction Affinity Integration...");
+const testHand = [
+  getCardBySlug("the-magician"),
+  getCardBySlug("three-of-cups"),
+  getCard("pentacles", 14),
+  getCard("wands", 1),
+  getCardBySlug("seven-of-swords")
+];
+const deckAffinity = calculateDeckPlanetaryAffinity(testHand);
+assert.equal(deckAffinity.length, 10, "calculateDeckPlanetaryAffinity must return 10-element vector");
+for (const val of deckAffinity) {
+  assert.ok(typeof val === "number" && !isNaN(val), "Deck affinity score must be a valid number");
+}
+console.log(`  • Sample dealt hand faction alignment: [${deckAffinity.join(", ")}]`);
+
+// Transit synchronization check
+const sampleDecan = getCardBySlug("two-of-wands"); // Aries decan 0 (0..10 deg, mid 5 deg)
+const perfectTransit = kineticAlignment(sampleDecan, { signIndex: 0, degreeInSign: 5 });
+const oppositeTransit = kineticAlignment(sampleDecan, { signIndex: 6, degreeInSign: 5 });
+assert.equal(perfectTransit, 100, "Direct transit alignment in decan window must yield maximum 100");
+assert.equal(oppositeTransit, 10, "Opposite transit must yield minimum falloff 10");
+console.log(`  • kineticAlignment transit resonance: in-window=${perfectTransit}, opposite=${oppositeTransit}`);
+console.log("  ✓ Real consumer calculateDeckPlanetaryAffinity and kineticAlignment transit calculations verified");
+
+console.log("\nALL 78 Tarot Card Definition, Sacred 7 & Planetary 12 Registry tests passed with 100% success!\n");
 

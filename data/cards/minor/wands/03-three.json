@@ -24,6 +24,9 @@
     "triplicitySign": "Leo",
     "triplicityRuler": "Sun",
     "triplicityRulerIndex": 0,
+    "triplicityRulerIndices": [
+      0
+    ],
     "hebrewLetter": null,
     "treeOfLifePath": null
   },
@@ -46,6 +49,31 @@
     "adaptability": 34,
     "vitality": 54
   },
+  "planetaryStats": {
+    "solarAgency": 75,
+    "lunarReceptivity": 24,
+    "mercurialVelocity": 35,
+    "venusianCoherence": 21,
+    "martialImpetus": 49,
+    "jovianExpansion": 24,
+    "saturnianStructure": 20,
+    "chironicAdaptation": 24,
+    "uranianSurprisal": 48,
+    "neptunianResonance": 24,
+    "plutonicIntegration": 45
+  },
+  "planetaryAffinity": [
+    4,
+    0,
+    0,
+    -5,
+    5,
+    0,
+    -4,
+    0,
+    0,
+    0
+  ],
   "scrabbleLetter": "J",
   "trickEngine": {
     "trickPower": 2,

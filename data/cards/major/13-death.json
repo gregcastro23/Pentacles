@@ -21,6 +21,9 @@
     "triplicitySign": "Scorpio",
     "triplicityRuler": "Pluto",
     "triplicityRulerIndex": 9,
+    "triplicityRulerIndices": [
+      9
+    ],
     "hebrewLetter": "Nun (נ)",
     "treeOfLifePath": "24th Path (Tiphereth to Netzach)"
   },
@@ -43,6 +46,31 @@
     "adaptability": 24,
     "vitality": 38
   },
+  "planetaryStats": {
+    "solarAgency": 24,
+    "lunarReceptivity": 45,
+    "mercurialVelocity": 24,
+    "venusianCoherence": 42,
+    "martialImpetus": 27,
+    "jovianExpansion": 30,
+    "saturnianStructure": 39,
+    "chironicAdaptation": 34,
+    "uranianSurprisal": 28,
+    "neptunianResonance": 47,
+    "plutonicIntegration": 54
+  },
+  "planetaryAffinity": [
+    0,
+    -4,
+    0,
+    -5,
+    5,
+    0,
+    0,
+    4,
+    0,
+    5
+  ],
   "scrabbleLetter": "D",
   "trickEngine": {
     "trickPower": 1130,

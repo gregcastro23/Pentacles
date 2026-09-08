@@ -12,6 +12,15 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import {
+  esmsToPlanetary12,
+  PLANET_TO_AXIS,
+  PLANET_BODIES,
+  RULER_RESONANCE,
+  SIGN_ENV_WEIGHT,
+  derivePlanetaryAffinity,
+  getDignityMultiplier as getDignityMultiplierFromEngine
+} from "./lib/derive-card-stats.mjs";
 
 const ROOT = process.cwd();
 const CARDS_DIR = path.join(ROOT, "data", "cards");
@@ -668,10 +677,37 @@ for (const card of MAJOR_ARCANA) {
     }
   }
 
+  // Planetary 12 projection
+  const rawPlanetary = esmsToPlanetary12(v);
+
+  if (card.family === "planetary") {
+    // Planetary Major: supreme ruler resonance + planetary throne dignity (+5.0 domicile)
+    const pAxis = PLANET_TO_AXIS[card.planet];
+    if (pAxis) {
+      rawPlanetary[pAxis] += RULER_RESONANCE + 5.0;
+    }
+  } else {
+    // Sign Major: host sign dignity environment and sign ruler resonance
+    const hostSignIdx = card.signIndex !== undefined ? card.signIndex : SIGN_NAMES.indexOf(card.zodiacSign);
+    if (hostSignIdx !== null && hostSignIdx !== undefined && hostSignIdx >= 0) {
+      for (let i = 0; i < 10; i++) {
+        const pName = PLANET_BODIES[i];
+        const axis = PLANET_TO_AXIS[pName];
+        const digMul = getDignityMultiplier(pName, hostSignIdx);
+        rawPlanetary[axis] += SIGN_ENV_WEIGHT * (digMul - 1.0);
+      }
+    }
+    const pAxis = PLANET_TO_AXIS[card.signRuler];
+    if (pAxis) {
+      rawPlanetary[pAxis] += RULER_RESONANCE;
+    }
+  }
+
   cardRawList.push({
     isMajor: true,
     cardDef: card,
-    rawStats: raw
+    rawStats: raw,
+    rawPlanetary
   });
 }
 
@@ -781,13 +817,40 @@ for (const suit of SUITS) {
       }
     }
 
+    // Planetary 12 projection
+    const rawPlanetary = esmsToPlanetary12(v);
+
+    if (rank >= 2 && rank <= 10 && triplicityData) {
+      // Decan pips: apply host sign dignity environment
+      const hostSignIdx = SIGN_NAMES.indexOf(triplicityData.sign);
+      if (hostSignIdx >= 0) {
+        for (let i = 0; i < 10; i++) {
+          const pName = PLANET_BODIES[i];
+          const axis = PLANET_TO_AXIS[pName];
+          const digMul = getDignityMultiplier(pName, hostSignIdx);
+          rawPlanetary[axis] += SIGN_ENV_WEIGHT * (digMul - 1.0);
+        }
+      }
+      // Apply ruler resonance across triplicity rulers
+      if (triplicityData.rulers && triplicityData.rulers.length > 0) {
+        const resWeight = RULER_RESONANCE / triplicityData.rulers.length;
+        for (const r of triplicityData.rulers) {
+          const axis = PLANET_TO_AXIS[r];
+          if (axis) {
+            rawPlanetary[axis] += resWeight;
+          }
+        }
+      }
+    }
+
     cardRawList.push({
       isMajor: false,
       suit,
       rank,
       triplicityData,
       chaldeanInfo,
-      rawStats: raw
+      rawStats: raw,
+      rawPlanetary
     });
   }
 }
@@ -820,6 +883,37 @@ for (const item of cardRawList) {
   };
 }
 
+let planetaryMin = Infinity;
+let planetaryMax = -Infinity;
+
+for (const item of cardRawList) {
+  for (const v of Object.values(item.rawPlanetary)) {
+    if (v < planetaryMin) planetaryMin = v;
+    if (v > planetaryMax) planetaryMax = v;
+  }
+}
+
+function normalizePlanetaryToBand(val) {
+  const normalized = 20 + ((val - planetaryMin) / (planetaryMax - planetaryMin)) * (95 - 20);
+  return Math.round(normalized);
+}
+
+for (const item of cardRawList) {
+  item.normalizedPlanetary = {
+    solarAgency:         normalizePlanetaryToBand(item.rawPlanetary.solarAgency),
+    lunarReceptivity:    normalizePlanetaryToBand(item.rawPlanetary.lunarReceptivity),
+    mercurialVelocity:   normalizePlanetaryToBand(item.rawPlanetary.mercurialVelocity),
+    venusianCoherence:   normalizePlanetaryToBand(item.rawPlanetary.venusianCoherence),
+    martialImpetus:      normalizePlanetaryToBand(item.rawPlanetary.martialImpetus),
+    jovianExpansion:     normalizePlanetaryToBand(item.rawPlanetary.jovianExpansion),
+    saturnianStructure:  normalizePlanetaryToBand(item.rawPlanetary.saturnianStructure),
+    chironicAdaptation:  normalizePlanetaryToBand(item.rawPlanetary.chironicAdaptation),
+    uranianSurprisal:    normalizePlanetaryToBand(item.rawPlanetary.uranianSurprisal),
+    neptunianResonance:  normalizePlanetaryToBand(item.rawPlanetary.neptunianResonance),
+    plutonicIntegration: normalizePlanetaryToBand(item.rawPlanetary.plutonicIntegration)
+  };
+}
+
 // ── 9. Write 78 JSON Card Files ─────────────────────────────────────────────
 const allCards = [];
 
@@ -849,6 +943,7 @@ for (const item of cardRawList) {
         triplicitySign: card.zodiacSign || null,
         triplicityRuler: card.planet || card.signRuler || null,
         triplicityRulerIndex: card.planet ? PLANET_INDICES[card.planet] : (card.signRuler ? PLANET_INDICES[card.signRuler] : null),
+        triplicityRulerIndices: card.planet ? [card.planetIndex] : (card.signRuler ? [PLANET_INDICES[card.signRuler]] : []),
         hebrewLetter: card.hebrewLetter || null,
         treeOfLifePath: card.treeOfLifePath || null
       },
@@ -863,6 +958,8 @@ for (const item of cardRawList) {
         audioFrequencyHz: card.audioFrequencyHz
       },
       sacredStats: item.normalizedStats,
+      planetaryStats: item.normalizedPlanetary,
+      planetaryAffinity: [], // derived below
       scrabbleLetter: card.scrabbleLetter,
       trickEngine: {
         trickPower: 1000 + (card.rank * 10),
@@ -879,6 +976,8 @@ for (const item of cardRawList) {
         description: card.description
       }
     };
+
+    cardData.planetaryAffinity = derivePlanetaryAffinity(cardData);
 
     const filename = path.join(CARDS_DIR, "major", `${String(card.rank).padStart(2, "0")}-${card.slug}.json`);
     fs.writeFileSync(filename, JSON.stringify(cardData, null, 2), "utf8");
@@ -903,6 +1002,7 @@ for (const item of cardRawList) {
     let triplicitySign = null;
     let triplicityRuler = null;
     let triplicityRulerIndex = null;
+    let triplicityRulerIndices = [];
 
     let keywords = [];
     let upright = "";
@@ -915,8 +1015,10 @@ for (const item of cardRawList) {
       upright = `The pristine primal spark of ${suit.element}; the root of elemental consciousness.`;
       reversed = `Blocked inspiration, wasted potential, ungrounded creative force.`;
       description = `A celestial hand emerges from the clouds bearing the living emblem of ${suit.element}.`;
-      triplicityRuler = suit.id === "wands" ? "Sun" : (suit.id === "cups" ? "Moon" : (suit.id === "swords" ? "Mercury" : "Saturn"));
-      triplicityRulerIndex = PLANET_INDICES[triplicityRuler];
+      triplicitySign = null;
+      triplicityRuler = null;
+      triplicityRulerIndex = null;
+      triplicityRulerIndices = [];
     } else if (rank >= 2 && rank <= 10) {
       goldenDawnTitle = `Lord of ${chaldeanInfo.title}`;
       zodiacSign = chaldeanInfo.sign;
@@ -929,6 +1031,7 @@ for (const item of cardRawList) {
       triplicitySign = triplicityData.triplicitySign;
       triplicityRuler = triplicityData.rulers.join(" & ");
       triplicityRulerIndex = PLANET_INDICES[triplicityData.rulers[0]];
+      triplicityRulerIndices = triplicityData.rulers.map(r => PLANET_INDICES[r]);
 
       keywords = [chaldeanInfo.title, zodiacSign, triplicityRuler, `Decan ${decan + 1}`];
       upright = `${chaldeanInfo.title} expressed through ${suit.element}, attuned to ${triplicityRuler} in ${triplicitySign}.`;
@@ -941,6 +1044,10 @@ for (const item of cardRawList) {
       upright = `Mature embodiment of ${court.name} wielding ${suit.element} consciousness at magnitude ${court.badge}.`;
       reversed = `Misdirection of ${court.name}'s ${court.badge} temperament; emotional or tactical friction.`;
       description = `${goldenDawnTitle}. Embodies the ${court.badge} magnitude of royal ${suit.element} governance.`;
+      triplicitySign = null;
+      triplicityRuler = null;
+      triplicityRulerIndex = null;
+      triplicityRulerIndices = [];
     }
 
     const counterVal = COUNTER_VALUES[rank] || 0;
@@ -969,6 +1076,7 @@ for (const item of cardRawList) {
         triplicitySign,
         triplicityRuler,
         triplicityRulerIndex,
+        triplicityRulerIndices,
         hebrewLetter: null,
         treeOfLifePath: null
       },
@@ -983,6 +1091,8 @@ for (const item of cardRawList) {
         audioFrequencyHz: suit.audioBaseHz + (rank * 12)
       },
       sacredStats: item.normalizedStats,
+      planetaryStats: item.normalizedPlanetary,
+      planetaryAffinity: [], // derived below
       scrabbleLetter: suit.courtLetters[rank] || String.fromCharCode(65 + ((rank * 3) % 26)),
       trickEngine: {
         trickPower,
@@ -1000,6 +1110,8 @@ for (const item of cardRawList) {
       }
     };
 
+    cardData.planetaryAffinity = derivePlanetaryAffinity(cardData);
+
     const filename = path.join(CARDS_DIR, "minor", suit.id, `${String(rank).padStart(2, "0")}-${rankSlug}.json`);
     fs.writeFileSync(filename, JSON.stringify(cardData, null, 2), "utf8");
     allCards.push(cardData);
@@ -1013,6 +1125,9 @@ const indexModuleContent = `/* =================================================
    Auto-generated registry of all 78 Tarot cards.
    Source of truth: data/cards/
    ============================================================ */
+
+export * from "./kinetics.js";
+import * as kinetics from "./kinetics.js";
 
 export const ALL_CARDS = ${JSON.stringify(allCards, null, 2)};
 
@@ -1129,6 +1244,7 @@ export function getAllCards() {
 }
 
 export default {
+  ...kinetics,
   ALL_CARDS,
   CARDS_BY_ID,
   CARDS_BY_SLUG,
@@ -1147,5 +1263,6 @@ export default {
 
 fs.writeFileSync(path.join(SRC_CARDS_DIR, "index.js"), indexModuleContent, "utf8");
 
-console.log(`✓ Successfully derived and generated all ${allCards.length} Tarot cards with canonical Alchm Sacred 7 stats!`);
-console.log(`  Global Raw Bounds: [${globalMin.toFixed(2)}, ${globalMax.toFixed(2)}] → Target Band [20, 95]`);
+console.log(`✓ Successfully derived and generated all ${allCards.length} Tarot cards with canonical Alchm Sacred 7 & Planetary 12 stats!`);
+console.log(`  Sacred 7 Raw Bounds: [${globalMin.toFixed(2)}, ${globalMax.toFixed(2)}] → Target Band [20, 95]`);
+console.log(`  Planetary 12 Raw Bounds: [${planetaryMin.toFixed(2)}, ${planetaryMax.toFixed(2)}] → Target Band [20, 95]`);

@@ -21,6 +21,9 @@
     "triplicitySign": null,
     "triplicityRuler": "Sun",
     "triplicityRulerIndex": 0,
+    "triplicityRulerIndices": [
+      0
+    ],
     "hebrewLetter": "Resh (ר)",
     "treeOfLifePath": "30th Path (Hod to Yesod)"
   },
@@ -43,6 +46,31 @@
     "adaptability": 38,
     "vitality": 60
   },
+  "planetaryStats": {
+    "solarAgency": 87,
+    "lunarReceptivity": 24,
+    "mercurialVelocity": 39,
+    "venusianCoherence": 24,
+    "martialImpetus": 54,
+    "jovianExpansion": 24,
+    "saturnianStructure": 24,
+    "chironicAdaptation": 24,
+    "uranianSurprisal": 58,
+    "neptunianResonance": 24,
+    "plutonicIntegration": 47
+  },
+  "planetaryAffinity": [
+    5,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
   "scrabbleLetter": "S",
   "trickEngine": {
     "trickPower": 1190,

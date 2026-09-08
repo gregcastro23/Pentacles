@@ -24,6 +24,9 @@
     "triplicitySign": "Aries",
     "triplicityRuler": "Mars",
     "triplicityRulerIndex": 4,
+    "triplicityRulerIndices": [
+      4
+    ],
     "hebrewLetter": null,
     "treeOfLifePath": null
   },
@@ -46,6 +49,31 @@
     "adaptability": 33,
     "vitality": 51
   },
+  "planetaryStats": {
+    "solarAgency": 37,
+    "lunarReceptivity": 35,
+    "mercurialVelocity": 26,
+    "venusianCoherence": 32,
+    "martialImpetus": 53,
+    "jovianExpansion": 32,
+    "saturnianStructure": 37,
+    "chironicAdaptation": 28,
+    "uranianSurprisal": 35,
+    "neptunianResonance": 34,
+    "plutonicIntegration": 38
+  },
+  "planetaryAffinity": [
+    0,
+    0,
+    -5,
+    0,
+    0,
+    5,
+    0,
+    0,
+    0,
+    0
+  ],
   "scrabbleLetter": "B",
   "trickEngine": {
     "trickPower": 8,

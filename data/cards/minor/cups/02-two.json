@@ -24,6 +24,9 @@
     "triplicitySign": "Cancer",
     "triplicityRuler": "Moon",
     "triplicityRulerIndex": 1,
+    "triplicityRulerIndices": [
+      1
+    ],
     "hebrewLetter": null,
     "treeOfLifePath": null
   },
@@ -46,6 +49,31 @@
     "adaptability": 24,
     "vitality": 41
   },
+  "planetaryStats": {
+    "solarAgency": 24,
+    "lunarReceptivity": 72,
+    "mercurialVelocity": 24,
+    "venusianCoherence": 45,
+    "martialImpetus": 20,
+    "jovianExpansion": 35,
+    "saturnianStructure": 37,
+    "chironicAdaptation": 34,
+    "uranianSurprisal": 24,
+    "neptunianResonance": 52,
+    "plutonicIntegration": 32
+  },
+  "planetaryAffinity": [
+    0,
+    5,
+    0,
+    0,
+    -4,
+    4,
+    -5,
+    0,
+    4,
+    0
+  ],
   "scrabbleLetter": "G",
   "trickEngine": {
     "trickPower": 1,
