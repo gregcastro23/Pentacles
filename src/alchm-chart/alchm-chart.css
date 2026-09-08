@@ -2716,3 +2716,185 @@ body.alchm-open #pentacles-net { display: none; }
   object-fit: contain;
 }
 
+/* ── Card Inspector: Sacred 7 & Planetary 12 Visualizations ── */
+.mc-inspector-tabs {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0 8px;
+  background: rgba(18, 22, 38, 0.7);
+  padding: 4px;
+  border-radius: 8px;
+  border: 1px solid rgba(216, 180, 106, 0.2);
+}
+.mc-inspector-tab {
+  flex: 1;
+  padding: 6px 10px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--ac-dim, #9aa7c4);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.mc-inspector-tab:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.05);
+}
+.mc-inspector-tab.is-active {
+  color: var(--ac-gold, #f1dba1);
+  background: rgba(216, 180, 106, 0.15);
+  box-shadow: 0 0 10px rgba(216, 180, 106, 0.2);
+}
+
+.mc-stat-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 0 14px;
+  max-height: 220px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.mc-stat-bar-row {
+  display: grid;
+  grid-template-columns: 130px 1fr 34px;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+}
+.mc-stat-bar-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #cbd0db;
+}
+.mc-stat-bar-track {
+  height: 5px;
+  background: rgba(30, 35, 55, 0.8);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.mc-stat-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  min-width: 3px;
+  transition: width 0.3s ease;
+}
+.mc-stat-bar-val {
+  text-align: right;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 11px;
+  color: var(--ac-dim, #9aa7c4);
+}
+
+/* ── Planetary Dignity Affinity Badges ── */
+.mc-affinity-section {
+  margin: 10px 0 14px;
+}
+.mc-affinity-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ac-gold, #f1dba1);
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.mc-affinity-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+.mc-affinity-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 4px 2px;
+  background: rgba(18, 22, 38, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  font-size: 10px;
+  transition: all 0.15s ease;
+}
+.mc-affinity-badge .badge-glyph {
+  font-size: 13px;
+  margin-bottom: 1px;
+}
+.mc-affinity-badge .badge-name {
+  font-size: 9px;
+  color: #9aa7c4;
+}
+.mc-affinity-badge .badge-score {
+  font-weight: 700;
+  font-family: ui-monospace, "SF Mono", monospace;
+  font-size: 10px;
+}
+.mc-affinity-badge.is-domicile {
+  border-color: #f1dba1;
+  background: rgba(216, 180, 106, 0.15);
+  box-shadow: 0 0 8px rgba(241, 219, 161, 0.3);
+}
+.mc-affinity-badge.is-domicile .badge-score {
+  color: #ffd700;
+}
+.mc-affinity-badge.is-exaltation {
+  border-color: #5fb6c4;
+  background: rgba(95, 182, 196, 0.15);
+  box-shadow: 0 0 8px rgba(95, 182, 196, 0.3);
+}
+.mc-affinity-badge.is-exaltation .badge-score {
+  color: #5fb6c4;
+}
+
+/* ── Live Transit Resonance Indicator ── */
+.mc-transit-resonance {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  background: radial-gradient(circle at right, rgba(246, 207, 131, 0.15), rgba(18, 22, 38, 0.8));
+  border: 1px solid rgba(216, 180, 106, 0.35);
+  border-radius: 8px;
+  box-shadow: 0 0 12px rgba(216, 180, 106, 0.1);
+}
+.mc-transit-resonance-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+}
+.mc-transit-resonance-score {
+  font-family: ui-monospace, "SF Mono", monospace;
+  font-weight: 700;
+  color: var(--ac-gold, #f1dba1);
+}
+
+.mc-card-transit-badge {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(10, 14, 27, 0.9);
+  border: 1px solid #f1dba1;
+  color: #f1dba1;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 999px;
+  box-shadow: 0 0 8px rgba(241, 219, 161, 0.4);
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 2;
+}
+
+

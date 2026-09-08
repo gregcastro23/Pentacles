@@ -79,11 +79,13 @@ console.log("▶ 2 · Zone Claim");
   // Mars is domicile in Aries (zone 0) and in fall in Cancer (zone 3).
   assert.ok(computeClaim(agent(), 0, quiet, NEUTRAL) > computeClaim(agent({ signVector: flat }), 3, quiet, NEUTRAL),
     "dignity in the zone's sign matters");
+  assert.ok(computeClaim(agent({ deckAffinity: 6 }), 0, quiet, NEUTRAL) > computeClaim(agent({ deckAffinity: 0 }), 0, quiet, NEUTRAL),
+    "deck planetary affinity raises a claim");
 
   assert.ok(opportunity({ control: 10, owner: 3, inFlux: true }, 4) === 1.0, "every opportunity term stacks to 1");
   assert.equal(trumpDepth([{ suit: "wands" }, { suit: "cups" }], 0), 0.5, "trump depth is a share of minors");
   assert.equal(trumpDepth([{ is_major: true, rank: 4 }], 0), 0, "Majors are not trump depth");
-  console.log("  ✓ hard access gate, monotone in affinity / dignity / opportunity / rest");
+  console.log("  ✓ hard access gate, monotone in affinity / dignity / opportunity / rest / deck-affinity");
 }
 
 // ── 3. Champions ────────────────────────────────────────────────────────────
@@ -233,5 +235,25 @@ console.log("▶ 8 · Astrological combat archetypes");
 
   console.log("  ✓ Mars aggression · Saturn hoarding · Mercury probes");
 }
+
+// ── 9. Planetary 12 Deck Affinity ──────────────────────────────────────────
+console.log("▶ 9 · Planetary 12 Deck Affinity");
+{
+  const { computeAgentDeckAffinity } = await import("../feeder/war-table.ts");
+  // Emperor (Major 4, Aries / Mars ruled) + Tower (Major 16, Mars ruled)
+  const marsDeck = [
+    { card_id: 1, is_major: true, rank: 4 },
+    { card_id: 2, is_major: true, rank: 16 },
+  ];
+  const marsScore = computeAgentDeckAffinity(marsDeck, 4 /* Mars */);
+  const venusScore = computeAgentDeckAffinity(marsDeck, 3 /* Venus */);
+  assert.ok(marsScore > 0, "Mars deck provides positive Mars affinity");
+  assert.ok(marsScore > venusScore, "Mars deck provides higher Mars affinity than Venus");
+
+  // Empty hand returns 0
+  assert.equal(computeAgentDeckAffinity([], 4), 0, "Empty hand returns 0 affinity");
+  console.log("  ✓ Mars-aligned deck yields higher Mars affinity than cross-faction");
+}
+
 
 console.log("ALL War Table tests passed — against the real implementation.");

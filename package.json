@@ -20,7 +20,7 @@
     "test:war": "bun scripts/war-table.test.mjs && bun scripts/agent-round-tracking.test.mjs && bun test tests/war-ledger.test.ts",
     "test:routing": "bun scripts/gate-routing.test.mjs",
     "test:warmodel": "node src/alchm-chart/__tests__/war-model.test.js",
-    "test:tarot": "bun scripts/tarot-card-rendering.test.mjs",
+    "test:tarot": "bun scripts/tarot-card-rendering.test.mjs && node scripts/deck-card-lookup.test.mjs",
     "test:cards": "node scripts/validate-card-definitions.test.mjs",
     "build:cards": "node scripts/build-tarot-database.mjs",
     "test:feeder": "bun test tests/feeder-services.test.ts",
