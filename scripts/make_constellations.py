@@ -85,7 +85,7 @@ FIGURES = [
         ("Ruchbah", "Segin"),
     ]),
     ("Cyg", "Cygnus", [
-        ("Deneb", "Sadr"), ("Sadr", "Gienah"), ("Sadr", "Fawaris"), ("Sadr", "Albireo"),
+        ("Deneb", "Sadr"), ("Sadr", "Aljanah"), ("Sadr", "Fawaris"), ("Sadr", "Albireo"),
     ]),
     ("Lyr", "Lyra", [
         ("Vega", "Sulafat"), ("Sulafat", "Sheliak"), ("Sheliak", "Vega"),
@@ -125,7 +125,7 @@ def parse_catalog(js_path):
     """Read star-catalog.js → {name_lower: (hip, ra, dec, mag)} and hip index."""
     text = Path(js_path).read_text(encoding="utf-8")
     by_name, by_hip = {}, {}
-    row = re.compile(r'\[(\d+),"((?:[^"\\]|\\.)*)",(-?[\d.]+),(-?[\d.]+),(-?[\d.]+)\]')
+    row = re.compile(r'\[(\d+),"((?:[^"\\]|\\.)*)",(-?[\d.]+),(-?[\d.]+),(-?[\d.]+)(?:,.*?)?\]')
     for m in row.finditer(text):
         hip = int(m.group(1))
         name = m.group(2).replace('\\"', '"').replace("\\\\", "\\")
@@ -160,6 +160,13 @@ def build(by_name):
                     misses.append((abbr, tok, suggest(tok, by_name)))
             if ra_ is None or rb_ is None:
                 continue
+            # Sanity check: constellation lines should connect stars in the same region
+            ra1, dec1 = math.radians(ra_[1]), math.radians(ra_[2])
+            ra2, dec2 = math.radians(rb_[1]), math.radians(rb_[2])
+            cos_d = math.sin(dec1)*math.sin(dec2) + math.cos(dec1)*math.cos(dec2)*math.cos(ra1 - ra2)
+            dist_deg = math.degrees(math.acos(max(-1.0, min(1.0, cos_d))))
+            if dist_deg > 30.0:
+                raise ValueError(f"Constellation line {abbr} ({a} -> {b}) exceeds 30 deg ({dist_deg:.1f} deg). Check star identification!")
             members[ra_[0]] = ra_
             members[rb_[0]] = rb_
             lines.append((ra_[0], rb_[0]))

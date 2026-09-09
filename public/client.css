@@ -85,6 +85,31 @@ body {
   width: 100vw;
   position: relative;
   z-index: 2;
+  transition: grid-template-columns 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.app-shell.sidebars-collapsed {
+  grid-template-columns: 0px 1fr 0px;
+}
+.app-shell.sidebars-collapsed .sidebar {
+  transform: translateX(-100%);
+  opacity: 0;
+  pointer-events: none;
+  width: 0 !important;
+  min-width: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  overflow: hidden !important;
+}
+.app-shell.sidebars-collapsed .sidebar.right {
+  transform: translateX(100%);
+  opacity: 0;
+  pointer-events: none;
+  width: 0 !important;
+  min-width: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  overflow: hidden !important;
 }
 
 /* Sidebars styling */
@@ -97,7 +122,7 @@ body {
   height: 100%;
   overflow-y: auto;
   position: relative;
-  transition: transform 0.3s;
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
 }
 .sidebar.right {
   border-right: none;
@@ -135,6 +160,9 @@ body {
   justify-content: center;
   height: 100%;
   overflow: hidden;
+  box-sizing: border-box;
+  padding-top: 52px;
+  padding-bottom: 42px;
 }
 
 /* ============================================================
@@ -168,16 +196,34 @@ body {
    INTERACTIVE CELESTIAL MAP
    ============================================================ */
 .map-container {
-  width: min(600px, 92vw, 68vh);
-  height: min(600px, 92vw, 68vh);
-  max-width: 100%;
+  width: min(calc(100% - 32px), calc(100vh - 100px), calc(100dvh - 100px));
+  height: min(calc(100% - 32px), calc(100vh - 100px), calc(100dvh - 100px));
+  max-width: 1200px;
+  max-height: calc(100vh - 100px);
   aspect-ratio: 1 / 1;
   position: relative;
   z-index: 3;
   transform-style: preserve-3d;
-  transition: transform 0.1s ease-out;
+  transition: transform 0.1s ease-out, width 0.35s ease, height 0.35s ease;
   cursor: grab;
 }
+.map-container::before {
+  content: "";
+  position: absolute;
+  inset: -6%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 50%, rgba(216, 180, 106, 0.08) 0%, rgba(30, 48, 88, 0.12) 48%, rgba(5, 6, 12, 0) 70%);
+  pointer-events: none;
+  z-index: -1;
+  filter: blur(20px);
+  animation: celestialAuraPulse 10s ease-in-out infinite alternate;
+}
+
+@keyframes celestialAuraPulse {
+  0% { transform: scale(0.97); opacity: 0.7; }
+  100% { transform: scale(1.03); opacity: 1; }
+}
+
 .map-container:active {
   cursor: grabbing;
 }
@@ -352,6 +398,9 @@ body {
   align-items: center;
   z-index: 10;
   pointer-events: none;
+}
+.app-shell.sidebars-collapsed .hud-bar {
+  right: 260px;
 }
 .hud-btn-group {
   display: flex;
@@ -1875,7 +1924,7 @@ body {
 
 .ritual-hud-overlay {
   position: absolute;
-  bottom: 24px;
+  bottom: 46px;
   left: 50%;
   transform: translateX(-50%);
   width: 440px;

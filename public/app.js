@@ -2822,7 +2822,17 @@ window.getLocalStorageConsent = getLocalStorageConsent;
 window.toggleLocalStorageConsent = toggleLocalStorageConsent;
 window.useMyLocation = useMyLocation;
 window.calculateNatalOnboarding = calculateNatalOnboarding;
-window.confirmFactionOnboarding = confirmFactionOnboarding;
+function toggleSidebars() {
+  const shell = document.querySelector(".app-shell");
+  if (!shell) return;
+  const isCollapsed = shell.classList.toggle("sidebars-collapsed");
+  const btn = document.getElementById("toggle-sidebars-btn");
+  if (btn) {
+    btn.innerHTML = isCollapsed ? "✦ Show Panels" : "⛶ Focus Sky";
+    btn.setAttribute("title", isCollapsed ? "Show sidebars" : "Toggle sidebars for wide planetarium sky view");
+  }
+}
+window.toggleSidebars = toggleSidebars;
 window.resetCameraView = resetCameraView;
 window.toggleSound = toggleSound;
 window.toggleARMode = toggleARMode;
