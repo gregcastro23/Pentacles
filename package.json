@@ -24,7 +24,7 @@
     "test:tarot": "bun scripts/tarot-card-rendering.test.mjs && node scripts/deck-card-lookup.test.mjs",
     "test:cards": "node scripts/validate-card-definitions.test.mjs",
     "build:cards": "node scripts/build-tarot-database.mjs",
-    "test:feeder": "bun test tests/feeder-services.test.ts",
+    "test:feeder": "bun test tests/feeder-services.test.ts tests/historical-agents.test.ts",
     "test:client": "bun run test:gameplay && bun run test:tarot && bun run test:cards && bun run test:war && bun run test:warmodel && bun run test:routing && bun run test:chart",
     "test:smoke": "bun scripts/smoke.test.mjs",
     "test:live": "node scripts/production-live.test.mjs",

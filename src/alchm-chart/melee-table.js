@@ -24,6 +24,8 @@ import { initSingularityShaderCanvas } from "./singularity-shader.js";
 // a different table of the same shape. Reading a rank out of those renders The
 // Fool as The Sun and leaves every arcana above X blank.
 import { rankName, SUIT_GLYPHS, SUIT_GLYPH_NAMES, SUIT_COLORS, SUIT_ART, ARCANA_NAMES, ARCANA_NUMERALS } from "./deck.js";
+import { normalizeTarotCard, SHIPPED_CARD_ART } from "./card-model.js";
+import { pickContenders } from "./historical-agents.js";
 
 const PLANET_GLYPHS = ["☉", "☽", "☿", "♀", "♂", "♃", "♄", "♅", "♆", "♇"];
 const PLANET_COLORS = ["#e8b84b", "#cbd0db", "#9aa7c4", "#d98fb0", "#cf4d4d", "#cf9a52", "#9a937c", "#5fb6c4", "#6470c8", "#8a6aa0"];
@@ -341,10 +343,22 @@ export class MeleeTableInstance {
     core.appendChild(coreBadge);
     arenaRing.appendChild(core);
 
-    const seatList = this.seats && this.seats.length ? this.seats : [
-      { seatId: 1, faction: 4, handle: "Mars Champion", isAgent: true, archetype: "Onslaught", counters: 10, meldsValue: 20, score: 30 },
-      { seatId: 2, faction: 1, handle: "Moon Ally", isHuman: true, archetype: "Tides", counters: 20, meldsValue: 0, score: 20 },
-    ];
+    const seatList = (this.seats && this.seats.length) ? this.seats : (() => {
+      const contenders = pickContenders(this.table ? this.table.zoneId : 0, null, 5);
+      return [
+        { seatId: 1, faction: 4, handle: "Seeker", isHuman: true, archetype: "Onslaught", counters: 20, meldsValue: 10, score: 30 },
+        ...contenders.map((c, i) => ({
+          seatId: i + 2,
+          faction: c.faction,
+          handle: c.handle,
+          isAgent: true,
+          archetype: c.tactic ? c.tactic.split(" ")[0] : "Balanced",
+          counters: 15,
+          meldsValue: 10,
+          score: 25,
+        }))
+      ];
+    })();
     const N = seatList.length;
     const turnSeat = this.table ? this.table.turnSeat : null;
     const pot = this._sweep ? this._sweep.plays : this._pot();
@@ -482,6 +496,31 @@ export class MeleeTableInstance {
     const isTrump = !isMaj && suit.toLowerCase() === trump.toLowerCase();
     const titleText = isMaj ? (ARCANA_NAMES[play.rank] || "Major Arcana") : `${rankName(play.rank)} of ${cap}`;
 
+    const normalized = normalizeTarotCard({
+      card_id: play.cardId || play.card_id,
+      is_major: play.isMajor,
+      rank: play.rank,
+      suit: play.suit,
+    });
+    const artSrc = normalized.artAsset || normalized.artSrc;
+    const artImg = artSrc ? h("img", {
+      class: "mt-card-illustration",
+      src: artSrc,
+      alt: titleText,
+      loading: "lazy",
+    }) : null;
+    const fallbackGlyph = h("span", {
+      class: "mt-card-glyph",
+      style: { color: col, display: artSrc ? "none" : "flex" },
+      text: isMaj ? (PLANET_GLYPHS[play.rank % 10] || "✦") : glyph,
+    });
+    if (artImg) {
+      artImg.onerror = () => {
+        artImg.style.display = "none";
+        fallbackGlyph.style.display = "flex";
+      };
+    }
+
     return h("div", {
       class: `mt-played-card aw-card--${suit}`
         + (isMaj ? " aw-card--major" : "")
@@ -491,11 +530,10 @@ export class MeleeTableInstance {
       "aria-label": titleText,
     }, [
       h("span", { class: "mt-card-pip top-left", "aria-hidden": "true", text: rank }),
-      h("span", { class: "mt-card-pip top-right", "aria-hidden": "true", text: isMaj ? "✦" : glyph }),
+      h("span", { class: "mt-card-pip top-right", "aria-hidden": "true", text: isMaj ? (PLANET_GLYPHS[play.rank % 10] || "✦") : glyph }),
       h("div", { class: "mt-card-art", "aria-hidden": "true" }, [
-        SUIT_ART[cap] && !isMaj
-          ? h("img", { class: "mt-card-suit-art", src: SUIT_ART[cap], alt: "" })
-          : h("span", { class: "mt-card-glyph", style: { color: col }, text: isMaj ? "✦" : glyph }),
+        artImg,
+        fallbackGlyph,
       ]),
       h("div", { class: "mt-card-name", text: titleText }),
       h("span", { class: "mt-card-pip bottom-right", "aria-hidden": "true", text: rank }),
@@ -601,6 +639,34 @@ export class MeleeTableInstance {
         const atk = c.attack != null ? c.attack : (c.is_major ? 20 + c.rank : (typeof c.rank === "number" ? c.rank * 2 : 15));
         const def = c.defense != null ? c.defense : (c.is_major ? 15 + c.rank : (typeof c.rank === "number" ? c.rank : 10));
 
+        const normalized = normalizeTarotCard({
+          card_id: c.card_id,
+          is_major: c.is_major,
+          rank: c.rank,
+          suit: c.suit,
+          inverted: c.inverted,
+          attack: atk,
+          defense: def,
+        });
+        const handArtSrc = normalized.artAsset || normalized.artSrc;
+        const handArtImg = handArtSrc ? h("img", {
+          class: "mt-hand-illustration",
+          src: handArtSrc,
+          alt: cardTitle,
+          loading: "lazy",
+        }) : null;
+        const handFallbackGlyph = h("span", {
+          class: "mt-hand-glyph",
+          style: { display: handArtSrc ? "none" : "flex" },
+          text: c.is_major ? (PLANET_GLYPHS[c.rank % 10] || "✦") : glyph,
+        });
+        if (handArtImg) {
+          handArtImg.onerror = () => {
+            handArtImg.style.display = "none";
+            handFallbackGlyph.style.display = "flex";
+          };
+        }
+
         handStrip.appendChild(h("div", {
           class: `mt-hand-card aw-card--${c.suit || "wands"}`
             + (c.is_major ? " aw-card--major" : "")
@@ -629,11 +695,10 @@ export class MeleeTableInstance {
           },
         }, [
           h("span", { class: "mt-card-pip top-left", "aria-hidden": "true", text: rank }),
-          h("span", { class: "mt-card-pip top-right", "aria-hidden": "true", text: glyph }),
+          h("span", { class: "mt-card-pip top-right", "aria-hidden": "true", text: c.is_major ? (PLANET_GLYPHS[c.rank % 10] || "✦") : glyph }),
           h("div", { class: "mt-hand-art", "aria-hidden": "true" }, [
-            SUIT_ART[cap] && !c.is_major
-              ? h("img", { class: "mt-hand-suit-art", src: SUIT_ART[cap], alt: "" })
-              : h("span", { class: "mt-hand-glyph", text: glyph }),
+            handArtImg,
+            handFallbackGlyph,
           ]),
           h("div", {
             class: "mt-hand-title",

@@ -1303,18 +1303,28 @@ class GameState {
     const trumpSuit = (SIGN_SUITS[zoneId % 12] || "wands").toLowerCase();
 
     // 2. Select 3 to 5 agent champions across different factions
-    const AGENT_CHAMPIONS = [
-      { name: "Nicolas Flamel", faction: 0, glyph: "☉", tactic: "Solar Transmutation" },
-      { name: "Galileo Galilei", faction: 1, glyph: "☽", tactic: "Tidal Geometry" },
-      { name: "Hypatia", faction: 2, glyph: "☿", tactic: "Hermetic Analytics" },
-      { name: "John Dee", faction: 3, glyph: "♀", tactic: "Enochian Harmony" },
-      { name: "Paracelsus", faction: 4, glyph: "♂", tactic: "Martian Elementals" },
-      { name: "Carl Jung", faction: 5, glyph: "♃", tactic: "Archetypal Synthesis" },
-      { name: "Isaac Newton", faction: 6, glyph: "♄", tactic: "Gravitational Hoard" },
-      { name: "Ada Lovelace", faction: 7, glyph: "♅", tactic: "Algorithmic Prism" },
-      { name: "Mary Shelley", faction: 8, glyph: "♆", tactic: "Mystic Galvanism" },
-      { name: "Dante Alighieri", faction: 9, glyph: "♇", tactic: "Chthonic Descent" }
-    ];
+    // Uses canonical ALCHM Historical Agents from agents.alchm.kitchen (ASOL)
+    const AGENT_CHAMPIONS = (typeof window !== "undefined" && window.AlchmHistoricalAgents && typeof window.AlchmHistoricalAgents.getFactionChampions === "function")
+      ? window.AlchmHistoricalAgents.getFactionChampions().map(c => ({
+          name: c.handle,
+          faction: c.faction,
+          glyph: c.glyph,
+          tactic: c.tactic,
+          key: c.key,
+          title: c.title
+        }))
+      : [
+          { name: "Plato", faction: 0, glyph: "☉", tactic: "Solar Idealism & Luminosity" },
+          { name: "Albert Einstein", faction: 1, glyph: "☽", tactic: "Lunar Intuition & Relativistic Flux" },
+          { name: "Socrates", faction: 2, glyph: "☿", tactic: "Socratic Dialectic & Analytical Wit" },
+          { name: "Nikola Tesla", faction: 3, glyph: "♀", tactic: "Resonant Harmony & Electric Frequency" },
+          { name: "Aristotle", faction: 4, glyph: "♂", tactic: "Martian Logic & Categorical Drive" },
+          { name: "Chiron", faction: 5, glyph: "♃", tactic: "Jovian Expansion & Holistic Healing" },
+          { name: "Alexander the Great", faction: 6, glyph: "♄", tactic: "Saturnian Structure & Strategic Conquest" },
+          { name: "Confucius", faction: 7, glyph: "♅", tactic: "Uranian Innovation & Cosmic Order" },
+          { name: "Tecumseh", faction: 8, glyph: "♆", tactic: "Neptunian Vision & Sovereign Unity" },
+          { name: "Leonardo da Vinci", faction: 9, glyph: "♇", tactic: "Chthonic Depth & Polymath Transformation" }
+        ];
 
     const shuffledAgents = [...AGENT_CHAMPIONS].sort(() => Math.random() - 0.5);
     const contestants = [];
@@ -1742,13 +1752,29 @@ class GameState {
     const Engine = (typeof window !== "undefined" && window.ArcanaTrickEngine) || (typeof globalThis !== "undefined" && globalThis.ArcanaTrickEngine);
     const arcanaLadder = Engine ? Engine.buildArcanaLadder(skyContext.planets, skyContext.signVector) : {};
 
+    const myFactionIdx = this.player ? this.player.faction : 1;
+    const opponentAgents = (typeof window !== "undefined" && window.AlchmHistoricalAgents && typeof window.AlchmHistoricalAgents.pickContenders === "function")
+      ? window.AlchmHistoricalAgents.pickContenders(zoneId, myFactionIdx, 5)
+      : [
+          { handle: "Socrates", faction: 2, glyph: "☿", color: "#00daf3" },
+          { handle: "Nikola Tesla", faction: 3, glyph: "♀", color: "#f6cf83" },
+          { handle: "Aristotle", faction: 4, glyph: "♂", color: "#8bc34a" },
+          { handle: "Plato", faction: 0, glyph: "☉", color: "#ff5722" },
+          { handle: "Alexander the Great", faction: 6, glyph: "♄", color: "#cd7f32" }
+        ];
+
     const CONTENDER_ROSTER = [
       { seatId: 0, name: "You (Seeker)", faction: (this.player ? PLANET_NAMES[this.player.faction] : "Moon"), factionId: (this.player ? this.player.faction : 1), glyph: (this.player ? PLANET_GLYPHS[this.player.faction] : "✦"), isHuman: true, avatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuBG3IAfFZPaUazfdV6k6Qpy2XXyRE0FbSCQ5FEXOoUhIHdG2b_lNO1h5ujd3rJVNpfOTJ2nBXUS6NhW3XcuIPMnNCWCBcADuNZkPZeoAlD9OMyoSUyjRcZu40R1dKmhq5jRQ5NLE381NcDGvCMl0EhzPj8wNXdKIwE_RuyZuoS-CSsOb3gNiCGIgNB3E6jNf3CLAIbNtqylYNd5Q-pDVFBenFS-gXuvy_UtW6FtNYC0fc2H46GjfkEGNQ", color: "#f6cf83" },
-      { seatId: 1, name: "Hypatia", faction: "Mercury", factionId: 2, glyph: "☿", isHuman: false, avatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuDod_RQk1s-pcUaa-qc40uOsRtn61ngd04V5qXM6Ex2F7kivkTgZhkN4JTSIjVi0BtpKEjR-DH5siPgH1lFZnmLsNR0EB9sZQCGmWwOr69MRbPfrZiO8vXigjazd_2PsKykpB7EScCcCtJNJb-XQ9Rwe24Gabmm4WuSZmwk5Lmvi3lJhnxNgEmfv_XmPqo7OPzMNB-SCp8VgipZYy1r0IrHb5uniB5Kl4Q8veL44utAQcMAwE2YxLGGtA", color: "#00daf3" },
-      { seatId: 2, name: "John Dee", faction: "Venus", factionId: 3, glyph: "♀", isHuman: false, avatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuBSS0Qwt4OiYfm878WS18Er6DN6E7TPjvsx0a0ik5klB0VCaXrxnhCtbHflb0JLZdsbh4i5CZ6iyKXIOWcXxSJAL2FhW1LE0Ve6Q0JqUmr-Uj5DfnwPl6rPSKMAguScZAXg6PyKrYQjHiwA8hSKyEjRQXSUS9DmpXdZp4blV2Q36gEECcqRoT1ZiM4uzXfrpwnVDysOUuJbn4dKGE4L_hPkAUejJXotzApacy8_Qrz7ZpqlmMLi4IdY0Q", color: "#f6cf83" },
-      { seatId: 3, name: "Paracelsus", faction: "Mars", factionId: 4, glyph: "♂", isHuman: false, avatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuA8aZ6mtOWpAAw3nNO31GhPCaOuwUWWga9VWzqtzgWL6rhyf45mpUVv7asKDC4upHrgW-U9ulUkFqSUImyG1zRxk7c7giftZrW6XOwJ3z55_yKbKGsbmVFI9rLk47BVK5cZmsXCaqY2S0esR0oVG76pPs-JcPDTsCLl8S5KyO957dPXqs35R5OZb0XlQgge7W5Sla5rCwpml59iiVHJNTB6pkQED2Y-7am2mhpYmS2o5KIzoEAsKnQMZg", color: "#8bc34a" },
-      { seatId: 4, name: "Nicolas Flamel", faction: "Sun", factionId: 0, glyph: "☉", isHuman: false, avatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuBzOCPGicqORqFCpmJ4s4uHGeow4_P-ONOVpraZX4G9DBh0eTF4_WhzRhCqqb8LXQzYWIXZG_AaiP5v8PzzvJe0X3KgR005RAH5kn658ksyaP9p-tuv0pjY-UdMv1G85pXJmsnITo6nGrIPXoZnZrng3IRqo81tvpB8ghSTOW8QX703Na8Bkd445cKG5sM1YelTEWHdvA66HwflxVF7O6lXeno2uH6mDvgSpg14CyY-bEcAcGt3le1QJQ", color: "#ff5722" },
-      { seatId: 5, name: "Isaac Newton", faction: "Saturn", factionId: 6, glyph: "♄", isHuman: false, avatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuDod_RQk1s-pcUaa-qc40uOsRtn61ngd04V5qXM6Ex2F7kivkTgZhkN4JTSIjVi0BtpKEjR-DH5siPgH1lFZnmLsNR0EB9sZQCGmWwOr69MRbPfrZiO8vXigjazd_2PsKykpB7EScCcCtJNJb-XQ9Rwe24Gabmm4WuSZmwk5Lmvi3lJhnxNgEmfv_XmPqo7OPzMNB-SCp8VgipZYy1r0IrHb5uniB5Kl4Q8veL44utAQcMAwE2YxLGGtA", color: "#cd7f32" }
+      ...opponentAgents.slice(0, 5).map((ag, i) => ({
+        seatId: i + 1,
+        name: ag.handle || ag.name,
+        faction: PLANET_NAMES[ag.faction] || "Faction",
+        factionId: ag.faction,
+        glyph: ag.glyph || PLANET_GLYPHS[ag.faction] || "✦",
+        isHuman: false,
+        avatar: ag.avatar || "",
+        color: ag.color || (typeof PLANET_COLORS !== "undefined" ? PLANET_COLORS[ag.faction] : "#00daf3")
+      }))
     ];
 
     const HANDICAPS = [0, 0, 0, 0, 0, 20, 20, 20, 20, 20, 40];
@@ -1838,7 +1864,7 @@ class GameState {
         playerHarvestPile: [],
         guardianHarvestPile: [],
         excuseSpent: { player: false, guardian: false },
-        log: [`6-Seat Melee commenced in Zone ${zoneId} (${targetSuit.toUpperCase()} Trump). Contenders: Hypatia, Dee, Paracelsus, Seeker, Flamel, Newton.`],
+        log: [`${CONTENDER_ROSTER.length}-Seat Melee commenced in Zone ${zoneId} (${targetSuit.toUpperCase()} Trump). Contenders: ${CONTENDER_ROSTER.map(c => c.name).join(", ")}.`],
         status: "active",
         outcome: null
       }

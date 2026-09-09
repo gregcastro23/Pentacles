@@ -577,7 +577,7 @@ class AdminTelemetryInstance {
       }
     };
 
-    const keepInput = h('input', { class: 'at-action-input', type: 'text', placeholder: 'agent keys to KEEP, comma-separated (e.g. jung,hypatia,chiron)' });
+    const keepInput = h('input', { class: 'at-action-input', type: 'text', placeholder: 'agent keys to KEEP, comma-separated (e.g. jung,socrates,chiron)' });
 
     const backfill = h('button', { class: 'at-action-btn', text: 'Backfill decans', onClick: () => {
       if (!confirm('Run backfill_decans? Idempotent — recomputes every player\'s natal_decan rows from their chart.')) return;

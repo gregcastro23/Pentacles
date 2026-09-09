@@ -133,12 +133,12 @@ console.log("▶ 4 · Offline Practice Table Fallback & Playability when no live
   assert.ok(practiceTable !== null, "showMeleeTable was called with practice fallback");
   assert.equal(practiceTable.isPractice, true, "table is marked as practice");
   assert.equal(practiceTable.tableId, 9007, "tableId is 9000 + zoneId (9007)");
-  assert.equal(practiceTable.seats.length, 4, "practice table has 4 seats");
+  assert.equal(practiceTable.seats.length, 6, "practice table has 6 seats");
   assert.equal(practiceTable.seats[0].isHuman, true, "seat 1 is human seeker");
   assert.equal(practiceTable.seats[1].isAgent, true, "seat 2 is AI champion agent");
   assert.equal(practiceTable.currentTrick, 1, "starts at trick 1");
 
-  // Assert all 4 seats are dealt full 12-card hands
+  // Assert all 6 seats are dealt full 12-card hands
   assert.ok(
     practiceTable.seats.every((s) => Array.isArray(s.hand) && s.hand.length === 12),
     "Every seat on the practice table is dealt 12 real cards",
@@ -159,7 +159,7 @@ console.log("▶ 4 · Offline Practice Table Fallback & Playability when no live
   assert.ok(updatedTable !== null, "mt.setData was called after card play");
   assert.equal(practiceTable.currentTrick, 2, "trick advanced from 1 to 2");
   assert.equal(practiceTable.seats[0].handRemaining, 11, "human hand spent 1 card (11 remaining)");
-  assert.equal(practiceTable.plays.length, 4, "all 4 seats (1 human + 3 AI) made legal plays in trick 1");
+  assert.equal(practiceTable.plays.length, 6, "all 6 seats (1 human + 5 AI) made legal plays in trick 1");
 
   const winningSeat = practiceTable.seats.find((s) => (s.score || 0) > 0 || (s.tricksWon || 0) > 0);
   assert.ok(winningSeat, "a winning seat took the trick and scored");

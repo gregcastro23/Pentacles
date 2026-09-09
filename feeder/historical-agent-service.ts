@@ -1,6 +1,6 @@
 // Pentacles — Historical ALCHM Agents Gameplay & Zone Flux Companion Service.
 //
-// Historical agents (e.g. Newton, Paracelsus, Dee, Flamel, Hypatia, etc.) actively
+// Historical agents (e.g. Newton, Socrates, Einstein, Leonardo, Tesla, etc.) actively
 // participate in setting the table for Pentacles gameplay.
 // This daemon service evaluates live planetary ephemeris transits and historical agent
 // natal placements to dynamically bring zones IN FLUX (`trigger_zone_flux`).

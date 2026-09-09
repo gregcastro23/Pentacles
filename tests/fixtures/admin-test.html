@@ -85,7 +85,7 @@
       jing_cast: { count: 188 },
       oracle_request: oracleReq, oracle_reply: oracleRep, oracle_cache: { count: 31 },
       duel_challenge: Array.from({ length: 9 }, (_, i) => ({ challenge_id: i, answered: i > 3 })),
-      agent_chart: Array.from({ length: 72 }, (_, i) => ({ identity: { __identity__: "0xa" + i }, handle: pick(["Carl Jung","Hypatia","Chiron","Nikola Tesla","Ada Lovelace","Pythagoras","Marie Curie","Galileo"]) + (i > 7 ? " " + i : ""), time_known: true })),
+      agent_chart: Array.from({ length: 72 }, (_, i) => ({ identity: { __identity__: "0xa" + i }, handle: pick(["Carl Jung","Socrates","Chiron","Nikola Tesla","Plato","Aristotle","Marie Curie","Galileo"]) + (i > 7 ? " " + i : ""), time_known: true })),
       star_agent: Array.from({ length: 30 }, (_, i) => ({ hip_id: i, display_name: pick(["Sirius","Vega","Polaris","Rigel","Betelgeuse","Altair"]), element: rnd(4), active: i < 28 })),
       comet: [{ comet_id: 0, name: "Chiron", active: true }],
       constellation: consts, constellation_star: { count: 612 }, constellation_block: blocks, constellation_resolution: resolutions,

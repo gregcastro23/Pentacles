@@ -38,10 +38,13 @@ import {
   checkAndNotifyDailyLoginReward,
   notifyDailySignInReward,
 } from './faucet/index.js'
+import historicalAgents from './alchm-chart/historical-agents.js'
 import './alchm-chart/alchm-chart.css'
 
 const Pentacles = (window.Pentacles = window.Pentacles || {})
 Pentacles.version = '0.2.0'
+Pentacles.historicalAgents = historicalAgents
+window.AlchmHistoricalAgents = historicalAgents
 Pentacles.initSingularityShaderCanvas = initSingularityShaderCanvas
 Pentacles.cleanupSingularityShaderCanvas = cleanupSingularityShaderCanvas
 window.initSingularityShaderCanvas = initSingularityShaderCanvas
@@ -253,9 +256,11 @@ function openFactionWar(targetZoneId = null) {
   try {
     if (warInst) warInst.destroy()
     const myIdent = (window.state && window.state.identity) || (spacetime && spacetime.identity) || null
+    const initialZones = (window.state && Array.isArray(window.state.map)) ? window.state.map : null
     warInst = FactionWar.create({
       el: document.getElementById('aw-host'),
       spacetime,
+      zones: initialZones,
       selectedZone: targetZoneId !== null ? Number(targetZoneId) : null,
       myFaction: warMyFaction(),
       myIdentity: myIdent,

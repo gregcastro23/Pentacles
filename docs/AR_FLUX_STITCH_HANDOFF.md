@@ -6,7 +6,7 @@ This document outlines the API specifications, database subscriptions, and UI/UX
 
 ## 1. System Overview
 
-- **Historical ALCHM Agents**: Autonomous backend agents (Newton, Paracelsus, Dee, Flamel, Hypatia, etc.) dynamically trigger **FLUX** on zones based on planetary ephemeris transits and astrological alignments.
+- **Historical ALCHM Agents**: Autonomous backend agents (Newton, Socrates, Einstein, Leonardo, Tesla, etc.) dynamically trigger **FLUX** on zones based on planetary ephemeris transits and astrological alignments.
 - **Zone Flux**: When a zone enters FLUX, control velocity is multiplied (**2.5x**), making the zone volatile, contested, and highly lucrative.
 - **Human AR Meta Advantage**: Human Seekers have decisive authority over bot agents. By opening the AR Camera and aligning their phone with the active constellation in the sky over a flux zone, humans trigger an **AR Capture**. This unlocks a **4x Human Meta Advantage** multiplier and pushes +400 instant control to their faction.
 

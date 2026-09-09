@@ -24,12 +24,22 @@ t("zone naming + kind split (5 House / 5 Spire / 1 Crown)", () => {
   assert.equal(zoneKindOf(10), "crown");
 });
 
-t("planetIdx normalizes name/case/index/null", () => {
+t("planetIdx normalizes name/case/index/null and decodes SpacetimeDB Rust enum/Option objects", () => {
   assert.equal(planetIdx("Jupiter"), 5);
   assert.equal(planetIdx("jupiter"), 5);
   assert.equal(planetIdx(5), 5);
   assert.equal(planetIdx(null), null);
   assert.equal(planetIdx("Chiron"), null); // not a faction
+  // SpacetimeDB Rust Option & Enum objects:
+  assert.equal(planetIdx({ some: { uranus: {} } }), 7);
+  assert.equal(planetIdx({ some: { Uranus: {} } }), 7);
+  assert.equal(planetIdx({ uranus: {} }), 7);
+  assert.equal(planetIdx({ Uranus: [] }), 7);
+  assert.equal(planetIdx({ tag: "Uranus" }), 7);
+  assert.equal(planetIdx({ tag: "some", value: { tag: "Mars" } }), 4);
+  assert.equal(planetIdx({ tag: "none" }), null);
+  assert.equal(planetIdx({ none: {} }), null);
+  assert.equal(planetIdx([0, [4, []]]), 4);
 });
 
 t("buildZones fills all 11, clamps control, flags contested", () => {

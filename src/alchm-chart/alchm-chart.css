@@ -1850,7 +1850,29 @@ body.alchm-open #pentacles-net { display: none; }
 .alchm-war .aw-tray-rank { font-size: 9px; text-transform: uppercase; letter-spacing: 0.05em; }
 .alchm-war .aw-tray-title { font-family: "Cormorant Garamond", Georgia, serif; font-size: 13px; color: var(--ac-text); line-height: 1.05; }
 .alchm-war .aw-tray-stats { display: flex; gap: 7px; font-size: 10px; color: var(--ac-text); font-variant-numeric: tabular-nums; }
-.alchm-war .aw-tray-foot { display: flex; align-items: center; gap: 5px; font-size: 9px; text-transform: uppercase; letter-spacing: 0.04em; margin-top: 2px; }
+.alchm-war .aw-tray-art {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 56px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.4);
+  margin: 2px 0;
+}
+.alchm-war .aw-tray-illustration {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 20%;
+  border-radius: 4px;
+  box-shadow: inset 0 0 4px rgba(0, 0, 0, 0.5);
+}
+.alchm-war .aw-seat-list--muster .aw-seat-row {
+  opacity: 0.9;
+  border-left: 2px solid rgba(246, 207, 131, 0.4);
+}
 .alchm-war .aw-tray-letter { margin-left: auto; min-width: 14px; height: 14px; padding: 0 3px; border-radius: 3px; display: inline-flex; align-items: center; justify-content: center;
   background: linear-gradient(135deg, var(--ac-gold-bright), var(--ac-gold-deep)); color: #1a1206; font-weight: 700; font-size: 9px; }
 /* drop affordances */
@@ -3435,6 +3457,26 @@ body.alchm-open #pentacles-net { display: none; }
 .alchm-melee-table .mt-played-card.aw-card--major .mt-card-pip { color: var(--primary); text-shadow: 0 0 6px rgba(246, 207, 131, 0.6); }
 .alchm-melee-table .mt-played-card.is-trump .mt-card-pip { color: var(--primary); }
 
+.alchm-melee-table .mt-card-art {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 38px;
+  position: relative;
+  overflow: hidden;
+  border-radius: 4px;
+}
+
+.alchm-melee-table .mt-card-illustration {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 25%;
+  border-radius: 4px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+}
+
 .alchm-melee-table .mt-card-suit-art {
   width: 22px;
   height: 22px;
@@ -3686,9 +3728,26 @@ body.alchm-open #pentacles-net { display: none; }
   align-items: center;
   justify-content: center;
   width: 100%;
-  height: 48px;
-  margin: 4px 0;
+  height: 60px;
+  margin: 3px 0;
   position: relative;
+  overflow: hidden;
+  border-radius: 5px;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.alchm-melee-table .mt-hand-illustration {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 25%;
+  border-radius: 5px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
+  transition: transform 0.2s ease;
+}
+
+.alchm-melee-table .mt-hand-card:hover .mt-hand-illustration {
+  transform: scale(1.05);
 }
 
 .alchm-melee-table .mt-hand-suit-art {

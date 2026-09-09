@@ -2391,7 +2391,7 @@
 
       const seats = (melee.seats && melee.seats.length > 0) ? melee.seats : [
         { seatId: 0, name: "You (Seeker)", faction: "Moon", glyph: "✦", isHuman: true, avatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuBG3IAfFZPaUazfdV6k6Qpy2XXyRE0FbSCQ5FEXOoUhIHdG2b_lNO1h5ujd3rJVNpfOTJ2nBXUS6NhW3XcuIPMnNCWCBcADuNZkPZeoAlD9OMyoSUyjRcZu40R1dKmhq5jRQ5NLE381NcDGvCMl0EhzPj8wNXdKIwE_RuyZuoS-CSsOb3gNiCGIgNB3E6jNf3CLAIbNtqylYNd5Q-pDVFBenFS-gXuvy_UtW6FtNYC0fc2H46GjfkEGNQ", color: "#f6cf83", score: melee.playerScore, tricksWon: melee.playerTricksWon },
-        { seatId: 1, name: "Hypatia", faction: "Mercury", glyph: "☿", isHuman: false, avatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuDod_RQk1s-pcUaa-qc40uOsRtn61ngd04V5qXM6Ex2F7kivkTgZhkN4JTSIjVi0BtpKEjR-DH5siPgH1lFZnmLsNR0EB9sZQCGmWwOr69MRbPfrZiO8vXigjazd_2PsKykpB7EScCcCtJNJb-XQ9Rwe24Gabmm4WuSZmwk5Lmvi3lJhnxNgEmfv_XmPqo7OPzMNB-SCp8VgipZYy1r0IrHb5uniB5Kl4Q8veL44utAQcMAwE2YxLGGtA", color: "#00daf3", score: melee.guardianScore, tricksWon: melee.guardianTricksWon }
+        { seatId: 1, name: "Socrates", faction: "Mercury", glyph: "☿", isHuman: false, avatar: "https://lh3.googleusercontent.com/aida-public/AB6AXuDod_RQk1s-pcUaa-qc40uOsRtn61ngd04V5qXM6Ex2F7kivkTgZhkN4JTSIjVi0BtpKEjR-DH5siPgH1lFZnmLsNR0EB9sZQCGmWwOr69MRbPfrZiO8vXigjazd_2PsKykpB7EScCcCtJNJb-XQ9Rwe24Gabmm4WuSZmwk5Lmvi3lJhnxNgEmfv_XmPqo7OPzMNB-SCp8VgipZYy1r0IrHb5uniB5Kl4Q8veL44utAQcMAwE2YxLGGtA", color: "#00daf3", score: melee.guardianScore, tricksWon: melee.guardianTricksWon }
       ];
 
       // If Melee completed, show Climax / Post-Match Summary Screen

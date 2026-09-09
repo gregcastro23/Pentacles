@@ -38,18 +38,99 @@ export function factionArchetype(idx) {
   return FACTION_ARCHETYPES[idx] || { idx, name: PLANET_NAMES[idx] || "Neutral", archetype: "Balanced", tactic: "Standard Guardian AI play." };
 }
 
+/** Canonical baseline zones when SpacetimeDB is pre-connect or offline. */
+export const BASELINE_ZONES = Object.freeze([
+  { zone_id: 0, kind: "house", owner: 4, control: 250 },
+  { zone_id: 1, kind: "house", owner: 3, control: 250 },
+  { zone_id: 2, kind: "house", owner: 2, control: 250 },
+  { zone_id: 3, kind: "house", owner: 1, control: 250 },
+  { zone_id: 4, kind: "house", owner: 0, control: 250 },
+  { zone_id: 5, kind: "spire", owner: null, control: 0 },
+  { zone_id: 6, kind: "spire", owner: null, control: 0 },
+  { zone_id: 7, kind: "spire", owner: null, control: 0 },
+  { zone_id: 8, kind: "spire", owner: null, control: 0 },
+  { zone_id: 9, kind: "spire", owner: null, control: 0 },
+  { zone_id: 10, kind: "crown", owner: null, control: 0 },
+]);
+
 /** Zone 0–4 = Houses, 5–9 = Spires, 10 = Crown. */
-export function zoneKindOf(id) { return id <= 4 ? "house" : id <= 9 ? "spire" : "crown"; }
+export function zoneKindOf(idOrZone) {
+  if (idOrZone && typeof idOrZone === "object") {
+    if (idOrZone.kind) {
+      let k = idOrZone.kind;
+      if (typeof k === "object") k = Object.keys(k)[0];
+      const sk = String(k).toLowerCase();
+      if (sk.includes("house")) return "house";
+      if (sk.includes("spire")) return "spire";
+      if (sk.includes("crown")) return "crown";
+    }
+    const id = Number(idOrZone.zone_id ?? idOrZone.id ?? 0);
+    return id <= 4 ? "house" : id <= 9 ? "spire" : "crown";
+  }
+  const id = Number(idOrZone);
+  return id <= 4 ? "house" : id <= 9 ? "spire" : "crown";
+}
+
 export function zoneName(id) {
-  if (id <= 4) return `House ${ROMAN[id]}`;
-  if (id <= 9) return `Spire ${ROMAN[id - 5]}`;
+  const n = Number(id);
+  if (n <= 4) return `House ${ROMAN[n]}`;
+  if (n <= 9) return `Spire ${ROMAN[n - 5]}`;
   return "The Crown";
 }
 
-/** Normalize an owner/faction value ("Jupiter" | "jupiter" | 5 | null) → idx 0–9 | null. */
+/** Normalize an owner/faction value ("Jupiter" | "jupiter" | 5 | { some: { uranus: {} } } | null) → idx 0–9 | null. */
 export function planetIdx(v, names = PLANET_NAMES) {
   if (v == null || v === "") return null;
-  if (typeof v === "number") return v >= 0 && v < 10 ? v : null;
+  if (typeof v === "number") return v >= 0 && v < names.length ? v : null;
+  if (Array.isArray(v)) {
+    if (v.length === 0) return null;
+    // Positional Rust Option tuple: [0, variant] = Some(variant), [1, []] = None
+    if (v.length === 2) {
+      if (v[0] === 0) {
+        // Some(variant)
+        if (Array.isArray(v[1])) {
+          if (typeof v[1][0] === "number" && v[1][0] >= 0 && v[1][0] < names.length) {
+            return v[1][0];
+          }
+          if (typeof v[1][0] === "string") {
+            return planetIdx(v[1][0], names);
+          }
+        }
+        return planetIdx(v[1], names);
+      }
+      if (v[0] === 1 && Array.isArray(v[1]) && v[1].length === 0) {
+        return null; // None: [1, []]
+      }
+      // Unit variant: [discriminant, []] or [discriminant, {}]
+      if (typeof v[0] === "number" && ((Array.isArray(v[1]) && v[1].length === 0) || (typeof v[1] === "object" && v[1] !== null && Object.keys(v[1]).length === 0))) {
+        return v[0] >= 0 && v[0] < names.length ? v[0] : null;
+      }
+    }
+    if (typeof v[0] === "number") {
+      return v[0] >= 0 && v[0] < names.length ? v[0] : null;
+    }
+    if (typeof v[0] === "string") {
+      return planetIdx(v[0], names);
+    }
+    return null;
+  }
+  if (typeof v === "object") {
+    if (v.none !== undefined) return null;
+    if (v.some !== undefined) return planetIdx(v.some, names);
+    if (v.tag !== undefined) {
+      if (String(v.tag).toLowerCase() === "some") return planetIdx(v.value, names);
+      if (String(v.tag).toLowerCase() === "none") return null;
+      const i = names.findIndex((n) => n.toLowerCase() === String(v.tag).toLowerCase());
+      if (i >= 0) return i;
+    }
+    const key = Object.keys(v)[0];
+    if (!key) return null;
+    if (key.toLowerCase() === "some") return planetIdx(v[key], names);
+    if (key.toLowerCase() === "none") return null;
+    const s = key.toLowerCase();
+    const i = names.findIndex((n) => n.toLowerCase() === s);
+    return i >= 0 ? i : null;
+  }
   const s = String(v).toLowerCase();
   const i = names.findIndex((n) => n.toLowerCase() === s);
   return i >= 0 ? i : null;
@@ -74,11 +155,24 @@ export function parseTimestampMs(ts) {
 
 /** Raw zone rows → 11 normalized zone view-objects, ordered by id. */
 export function buildZones(zoneRows, names = PLANET_NAMES) {
+  let rows = zoneRows;
+  if (!Array.isArray(rows) || rows.length === 0) {
+    if (typeof window !== "undefined" && window.state && Array.isArray(window.state.map) && window.state.map.length) {
+      rows = window.state.map;
+    } else {
+      rows = BASELINE_ZONES;
+    }
+  }
+
   const byId = {};
-  for (const z of zoneRows || []) byId[Number(z.zone_id)] = z;
+  for (const z of rows || []) {
+    const zid = Number(z.zone_id !== undefined ? z.zone_id : z.id);
+    if (!isNaN(zid)) byId[zid] = z;
+  }
+
   const out = [];
   for (let id = 0; id < 11; id++) {
-    const z = byId[id] || {};
+    const z = byId[id] || (BASELINE_ZONES[id] || {});
     const ownerIdx = planetIdx(z.owner, names);
     const control = Math.max(0, Math.min(CONTROL_MAX, Number(z.control) || 0));
     out.push({

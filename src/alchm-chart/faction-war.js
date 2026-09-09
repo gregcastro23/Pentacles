@@ -19,6 +19,8 @@ import {
 import { agentDeck, dealHandFromCards, MAJOR_NUMERALS, MAJOR_NAMES, ARCANA_NUMERALS, ARCANA_NAMES, SUIT_GLYPHS, SUIT_COLORS, SUIT_ART, rankName } from "./deck.js";
 import { categoricalChartAnalytics } from "./sign-character.js";
 import MeleeTable from "./melee-table.js";
+import { pickContenders, getFactionChampion, getAgentsByFaction, getAgentByHandle, getAgentByKey } from "./historical-agents.js";
+import { normalizeTarotCard, SHIPPED_CARD_ART } from "./card-model.js";
 
 const suitCap = (s) => (s ? s[0].toUpperCase() + s.slice(1).toLowerCase() : "Wands");
 
@@ -57,8 +59,23 @@ export class FactionWarInstance {
     this.myIdentity = this.opts.myIdentity ? String(this.opts.myIdentity) : null;
     this.myCards = Array.isArray(this.opts.myCards) ? this.opts.myCards : []; // viewer's Active hand (deployable)
     this._dragging = null;
-    this.data = { zones: [], players: [], agents: [], tables: [], seats: [], queue: [], plays: [] };
-    this.events = this.opts.events ? this.opts.events.slice() : [];
+    this.data = {
+      zones: this.opts.zones || (this.opts.data && this.opts.data.zones) || [],
+      players: this.opts.players || (this.opts.data && this.opts.data.players) || [],
+      agents: this.opts.agents || (this.opts.data && this.opts.data.agents) || [],
+      tables: this.opts.tables || (this.opts.data && this.opts.data.tables) || [],
+      seats: this.opts.seats || (this.opts.data && this.opts.data.seats) || [],
+      queue: this.opts.queue || (this.opts.data && this.opts.data.queue) || [],
+      plays: this.opts.plays || (this.opts.data && this.opts.data.plays) || [],
+    };
+    const seedEvents = [
+      { idx: 4, glyph: "♂", faction: "Mars", text: "champion Giordano Bruno advanced on House I", kind: "rise", t: nowLabel() },
+      { idx: 3, glyph: "♀", faction: "Venus", text: "champion Emily Dickinson fortified House II", kind: "rise", t: nowLabel() },
+      { idx: 0, glyph: "☉", faction: "Sun", text: "champion Emanuel Swedenborg contested House V", kind: "capture", t: nowLabel() },
+      { idx: 1, glyph: "☽", faction: "Moon", text: "champion William Blake channeled tides at House IV", kind: "rise", t: nowLabel() },
+      { idx: 5, glyph: "♃", faction: "Jupiter", text: "champion Lewis Carroll mobilized at Spire I", kind: "join", t: nowLabel() },
+    ];
+    this.events = (this.opts.events && this.opts.events.length) ? this.opts.events.slice() : seedEvents;
     this.selected = this.opts.selected != null ? this.opts.selected : null; // selected faction idx
     this.selectedZone = this.opts.selectedZone != null ? this.opts.selectedZone : null; // selected zone id (0..10)
     this._prev = null;
@@ -293,7 +310,16 @@ export class FactionWarInstance {
     if (idx == null) { host.appendChild(h("div", { class: "aw-dim aw-detail-empty", text: "Select a faction or zone" })); return; }
     const col = this.PC[idx];
     const st = m.standings.find((r) => r.idx === idx) || { zones: 0, control: 0, agents: 0, humans: 0 };
-    const roster = factionRoster(idx, this.data.players, m.agentMap, this.PN);
+    let roster = factionRoster(idx, this.data.players, m.agentMap, this.PN);
+    if (!roster.length) {
+      const historical = getAgentsByFaction(idx);
+      roster = historical.map((ag) => ({
+        identity: ag.identity,
+        handle: ag.handle,
+        isAgent: true,
+        historicalAgent: ag,
+      }));
+    }
 
     host.appendChild(h("div", { class: "aw-detail-hero" }, [
       h("span", { class: "aw-detail-glyph", style: { color: col, borderColor: col }, text: this.PG[idx] }),
@@ -304,14 +330,14 @@ export class FactionWarInstance {
     ]));
     host.appendChild(h("div", { class: "aw-detail-stats" }, [
       this._stat(st.zones, "zones"), this._stat(st.control, "control"),
-      this._stat(st.agents, "agents"), this._stat(st.humans, "allies"),
+      this._stat(st.agents || roster.filter(r => r.isAgent).length, "agents"), this._stat(st.humans, "allies"),
     ]));
 
     host.appendChild(h("div", { class: "aw-section-label", text: `Roster — ${roster.length} node${roster.length === 1 ? "" : "s"}` }));
     const list = h("div", { class: "aw-roster" });
     if (!roster.length) list.appendChild(h("div", { class: "aw-dim", text: "No agents yet — held by the planetary agent alone." }));
     for (const a of roster) {
-      const openable = a.isAgent && m.agentMap[a.identity];
+      const openable = a.isAgent && (m.agentMap[a.identity] || a.historicalAgent || getAgentByHandle(a.handle));
       list.appendChild(h("div", {
         class: "aw-roster-row" + (openable ? " is-open" : ""),
         tabindex: openable ? "0" : null, role: openable ? "button" : null,
@@ -381,7 +407,22 @@ export class FactionWarInstance {
         onClick: () => this.showMeleeTable(table),
       }, ["👁 Watch Live Melee Table"]));
     } else {
-      host.appendChild(h("div", { class: "aw-dim aw-detail-empty", text: "No active War Table mustering at this zone." }));
+      const myF = this.myFaction != null ? this.myFaction : 0;
+      const musteringContenders = pickContenders(zoneId, myF, 5);
+      host.appendChild(h("div", { class: "aw-section-label", text: `Mustering Skirmish · ${z.name}` }));
+      const musterList = h("div", { class: "aw-seat-list aw-seat-list--muster" });
+      for (const ag of musteringContenders) {
+        const acol = this.PC[ag.faction] || "var(--ac-gold)";
+        musterList.appendChild(h("div", { class: "aw-seat-row" }, [
+          h("span", { class: "aw-seat-glyph", style: { color: acol, borderColor: acol }, text: this.PG[ag.faction] || "✦" }),
+          h("div", { class: "aw-seat-id" }, [
+            h("div", { class: "aw-seat-name", text: ag.handle }),
+            h("div", { class: "aw-seat-tag aw-dim", text: `${this.PN[ag.faction]} · ${ag.title || "Historical Sage"}` }),
+          ]),
+          h("div", { class: "aw-seat-score aw-dim", text: "Ready" }),
+        ]));
+      }
+      host.appendChild(musterList);
     }
 
     // Instant Practice Skirmish Melee button — unblocks offline and instant play
@@ -506,14 +547,34 @@ export class FactionWarInstance {
   }
 
   _trayCard(c) {
-    const cap = suitCap(c.suit);
-    const scol = SUIT_COLORS[cap] || "var(--ac-gold)";
-    const pcol = this.PC[c.source_body] || scol;
-    const isMajor = !!c.is_major;
-    const numeral = (c.rank !== undefined && ARCANA_NUMERALS[c.rank]) || (c.source_body !== undefined && MAJOR_NUMERALS[c.source_body]) || "major";
-    const rank = isMajor ? numeral : rankName(c.rank);
-    const name = c.title || (isMajor ? (ARCANA_NAMES[c.rank] || MAJOR_NAMES[c.source_body] || "Major Arcana") : `${rank} of ${cap}`);
-    const cls = "aw-tray-card aw-card--" + (c.suit || "wands").toLowerCase() + (isMajor ? " aw-card--major" : "") + (c.inverted ? " aw-card--inv" : "");
+    const norm = normalizeTarotCard(c);
+    const cap = suitCap(norm.suitKey || c.suit);
+    const scol = norm.suitColor || SUIT_COLORS[cap] || "var(--ac-gold)";
+    const pcol = this.PC[norm.bodyIdx != null ? norm.bodyIdx : c.source_body] || scol;
+    const isMajor = !!norm.isMajor;
+    const rank = isMajor ? norm.rankDisplay : (norm.rankCorner || rankName(c.rank));
+    const name = norm.title || c.title || (isMajor ? (ARCANA_NAMES[c.rank] || MAJOR_NAMES[c.source_body] || "Major Arcana") : `${rank} of ${cap}`);
+    const cls = "aw-tray-card aw-card--" + (norm.suitKey || "wands").toLowerCase() + (isMajor ? " aw-card--major" : "") + (norm.isInverted ? " aw-card--inv" : "");
+    const artSrc = norm.artAsset || norm.artSrc;
+
+    const artImg = artSrc ? h("img", {
+      class: "aw-tray-illustration",
+      src: artSrc,
+      alt: name,
+      loading: "lazy",
+    }) : null;
+    const fallbackGlyph = h("span", {
+      class: "aw-tray-glyph",
+      style: { color: pcol, display: artSrc ? "none" : "inline-block" },
+      text: isMajor ? (this.PG[norm.bodyIdx % 10] || "✦") : (SUIT_GLYPHS[cap] || "✦"),
+    });
+    if (artImg) {
+      artImg.onerror = () => {
+        artImg.style.display = "none";
+        fallbackGlyph.style.display = "inline-block";
+      };
+    }
+
     return h("div", {
       class: cls, draggable: "true", title: "Drag onto a zone to deploy",
       dataset: { cardId: String(c.card_id) },
@@ -521,21 +582,20 @@ export class FactionWarInstance {
       onDragend: () => this._onCardDragEnd(),
     }, [
       h("div", { class: "aw-tray-top" }, [
-        SUIT_ART[cap] && !isMajor
-          ? h("img", { class: "aw-tray-suit-art", src: SUIT_ART[cap], alt: cap })
-          : h("span", { class: "aw-tray-glyph", style: { color: pcol }, text: isMajor ? "✦" : (SUIT_GLYPHS[cap] || "✦") }),
+        fallbackGlyph,
         h("span", { class: "aw-tray-rank aw-dim", text: rank }),
       ]),
+      artImg ? h("div", { class: "aw-tray-art" }, [artImg]) : null,
       h("div", { class: "aw-tray-title", text: name }),
       h("div", { class: "aw-tray-stats" }, [
-        h("span", { text: `⚔ ${c.attack || 0}` }),
-        h("span", { text: `♥ ${c.health || 0}` }),
-        h("span", { text: `🛡 ${c.armour || 0}` }),
+        h("span", { text: `⚔ ${norm.attack != null ? norm.attack : (c.attack || 0)}` }),
+        h("span", { text: `♥ ${norm.health != null ? norm.health : (c.health || 0)}` }),
+        h("span", { text: `🛡 ${norm.armour != null ? norm.armour : (c.armour || 0)}` }),
       ]),
       h("div", { class: "aw-tray-foot aw-dim" }, [
-        h("span", { style: { color: pcol }, text: `${this.PG[c.source_body] || ""} Lv ${c.level || 1}` }),
+        h("span", { style: { color: pcol }, text: `${this.PG[norm.bodyIdx] || ""} Lv ${c.level || 1}` }),
         c.letter ? h("span", { class: "aw-tray-letter", text: String(c.letter) }) : null,
-        c.inverted ? h("span", { text: "℞" }) : null,
+        norm.isInverted ? h("span", { text: "℞" }) : null,
       ]),
     ]);
   }
@@ -600,8 +660,8 @@ export class FactionWarInstance {
     const myF = this.myFaction != null ? this.myFaction : 0;
     const practiceIdentity = this.myIdentity || "0xplayer";
     
-    const opponentFactions = [4, 2, 3, 5, 6, 1].filter((f) => f !== myF).slice(0, 3);
-    const opponentNames = ["Mars Champion", "Hypatia", "Paracelsus", "John Dee"];
+    // Select real historical agents from competing factions from the canonical ALCHM registry (ASOL)
+    const contenders = pickContenders(zoneId, myF, 5);
     
     const ladder = {};
     for (let i = 0; i < 22; i++) {
@@ -627,21 +687,24 @@ export class FactionWarInstance {
         hasDeal: true,
         hand: humanHand,
       },
-      ...opponentFactions.map((f, idx) => ({
+      ...contenders.map((agent, idx) => ({
         seatId: idx + 2,
-        faction: f,
-        handle: opponentNames[idx] || this.PN[f] || `Agent ${f}`,
+        faction: agent.faction,
+        handle: agent.handle,
+        key: agent.key,
         isHuman: false,
         isAgent: true,
-        occupant: `0xagent_${f}`,
-        archetype: "Champion",
-        tactic: "Astrological combat archetype",
+        occupant: agent.identity,
+        archetype: agent.title || "Historical Sage",
+        tactic: agent.tactic || `${this.PN[agent.faction]} Astrological Tactics`,
+        kitchenUrl: agent.kitchenUrl,
+        glyph: agent.glyph,
         score: 0,
         counters: 0,
         meldsValue: 0,
         handRemaining: 12,
         hasDeal: true,
-        hand: dealHandFromCards([], 2000 + zoneId * 10 + f),
+        hand: dealHandFromCards([], 2000 + zoneId * 10 + agent.faction),
       }))
     ];
 
@@ -890,6 +953,25 @@ export class FactionWarInstance {
           window.state.recalculateLeaderboard();
         }
 
+        if (Array.isArray(this.data.zones)) {
+          const zRow = this.data.zones.find((z) => Number(z.zone_id ?? z.id) === zoneId);
+          if (zRow) {
+            const curControl = Number(zRow.control) || 0;
+            if (zRow.owner === winnerFaction) {
+              zRow.control = Math.min(1000, curControl + controlShift);
+            } else {
+              if (curControl <= controlShift) {
+                zRow.owner = winnerFaction;
+                zRow.control = Math.min(1000, controlShift - curControl + 150);
+                capturedZone = true;
+              } else {
+                zRow.control = curControl - controlShift;
+              }
+            }
+            this.paint();
+          }
+        }
+
         if (typeof window.renderLeaderboard === "function") window.renderLeaderboard();
         if (typeof window.renderZonesList === "function") window.renderZonesList();
       }
@@ -1024,7 +1106,22 @@ export class FactionWarInstance {
 
   // ── Agent Dossier & Planetary Pentacles ──
   showAgentProfile(a, agentMap) {
-    const chart = agentMap[a.identity];
+    let chart = (agentMap && agentMap[a.identity]) || null;
+    const hist = a.historicalAgent || getAgentByHandle(a.handle) || getAgentByKey(a.key);
+    if (!chart && hist) {
+      chart = {
+        handle: hist.handle,
+        time_known: hist.timeKnown,
+        birth_unix: 0,
+        placements: [
+          { body: hist.faction, sign: (hist.faction * 2) % 12, arc_minutes: 300, retrograde: false, dignity: 5 },
+          { body: 0, sign: 4, arc_minutes: 0, retrograde: false, dignity: 3 },
+        ],
+        ascendant: 0,
+        midheaven: 1800,
+        kitchenUrl: hist.kitchenUrl,
+      };
+    }
     const pop = this.dom.pop;
     if (!chart || !pop) return;
     const factionIdx = this.selected != null ? this.selected : 0;
@@ -1043,7 +1140,7 @@ export class FactionWarInstance {
     const card = h("div", { class: "aw-pop-card" });
 
     const birth = this._birthLine(chart);
-    const kitchenUrl = `https://agents.alchm.kitchen/profile?agent=${encodeURIComponent(a.handle || "agent")}&faction=${factionIdx}`;
+    const kitchenUrl = (hist && hist.kitchenUrl) || `https://agents.alchm.kitchen/profile?agent=${encodeURIComponent(a.handle || "agent")}&faction=${factionIdx}`;
 
     card.appendChild(h("div", { class: "aw-pop-head" }, [
       h("span", { class: "aw-pop-medallion", style: { color: col, borderColor: col }, text: this.PG[factionIdx] || "✦" }),
