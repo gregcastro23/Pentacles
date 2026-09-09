@@ -2457,3 +2457,14 @@ function handleOrientation(event) {
   // Apply smooth 3D CSS rotate based on orientation
   map.style.transform = `rotateZ(${-alpha}deg) rotateX(${beta - 70}deg) rotateY(${gamma}deg)`;
 }
+
+window.toggleSidebars = function toggleSidebars() {
+  const shell = document.querySelector(".app-shell");
+  if (!shell) return;
+  const isCollapsed = shell.classList.toggle("sidebars-collapsed");
+  const btn = document.getElementById("toggle-sidebars-btn");
+  if (btn) {
+    btn.innerHTML = isCollapsed ? "✦ Show Panels" : "⛶ Focus Sky";
+    btn.setAttribute("title", isCollapsed ? "Show sidebars" : "Toggle sidebars for wide planetarium sky view");
+  }
+};
