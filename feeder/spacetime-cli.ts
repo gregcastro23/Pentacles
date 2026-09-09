@@ -40,7 +40,7 @@ export function resolveFeederEnv(): { db: string; uri: string; token: string } {
       throw new Error("SPACETIME_TOKEN must be explicitly set in production.");
     }
   }
-  const db = process.env.SPACETIMEDB_DB ?? "pentacles";
+  const db = process.env.SPACETIMEDB_DB ?? "pentacles1";
   const uri = (process.env.SPACETIMEDB_URI ?? "https://maincloud.spacetimedb.com").replace(/\/+$/, "");
   const token = process.env.SPACETIME_TOKEN || "";
   return { db, uri, token };

@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 
 const URI = (process.env.SPACETIMEDB_URI ?? "https://maincloud.spacetimedb.com").replace(/\/+$/, "");
-const DB = process.env.SPACETIMEDB_DB ?? "pentacles2xtest";
+const DB = process.env.SPACETIMEDB_DB ?? "pentacles1";
 const WORD = (process.argv[2] ?? "STAR").toUpperCase();
 const OPP = (process.argv[3] ?? "Mars");
 

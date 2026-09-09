@@ -34,7 +34,7 @@
 # ============================================================================
 set -euo pipefail
 
-DB="${SPACETIMEDB_DB:-cookingwithcastrollc}"
+DB="${SPACETIMEDB_DB:-pentacles1}"
 SERVER="${SPACETIMEDB_SERVER:-maincloud}"
 URI="${SPACETIMEDB_URI:-https://maincloud.spacetimedb.com}"
 WASM="${WASM_PATH:-server/target/wasm32-unknown-unknown/release/pentacles_server.wasm}"

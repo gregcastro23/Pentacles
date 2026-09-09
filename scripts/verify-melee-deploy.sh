@@ -13,7 +13,7 @@
 # Usage: bash scripts/verify-melee-deploy.sh [database-name]
 set -uo pipefail
 
-DB="${1:-${SPACETIMEDB_DB:-cookingwithcastrollc}}"
+DB="${1:-${SPACETIMEDB_DB:-pentacles1}}"
 ROUND_SECS="${ROUND_SECS:-75}"   # one 60s feeder round, plus slack
 
 say()  { printf '\n\033[1m%s\033[0m\n' "$*"; }

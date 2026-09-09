@@ -6,12 +6,33 @@
   <title>Alchm Chart — Dome Harness</title>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet" />
   <style>
-    html, body { margin: 0; height: 100%; background: #05060c; }
-    body { display: grid; place-items: start center; padding: 20px; box-sizing: border-box; }
-    #host { width: min(1180px, 96vw); }
-    /* This harness mounts the REAL AlchmChart module with mock providers (no
-       SpacetimeDB / wallet), so the 3D dome can be verified in isolation. */
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      background: #05060c;
+      overflow: hidden;
+    }
+    body {
+      display: flex;
+      align-items: stretch;
+      justify-content: center;
+      padding: 8px 12px;
+      box-sizing: border-box;
+    }
+    #host {
+      width: 100%;
+      max-width: 1620px;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+    /* This harness mounts the REAL AlchmChart module with real sky ephemeris */
   </style>
+  <script src="/star-catalog.js"></script>
+  <script src="/constellations.js"></script>
+  <script src="/sky.js"></script>
+  <script src="/astro-weather.js"></script>
 </head>
 <body>
   <div id="host"></div>
@@ -20,7 +41,7 @@
     import "/src/alchm-chart/alchm-chart.css";
     import AlchmChart from "/src/alchm-chart/index.js";
 
-    // ── mock celestial data ──────────────────────────────────────────────
+    // ── fallback mock celestial data if static scripts are delayed ──────
     const B = {
       names: ["Sun", "Moon", "Mercury", "Venus", "Mars", "Jupiter", "Saturn"],
       glyphs: ["☉", "☽", "☿", "♀", "♂", "♃", "♄"],
@@ -28,22 +49,25 @@
     };
     const SIGN_N = ["Aries","Taurus","Gemini","Cancer","Leo","Virgo","Libra","Scorpio","Sagittarius","Capricorn","Aquarius","Pisces"];
     const SIGN_G = ["♈","♉","♊","♋","♌","♍","♎","♏","♐","♑","♒","♓"];
-    // [body, eclLon, alt, az, up, house, dignity]
-    const RAW = [
-      [0,  60,  35, 150, true, 10,  0],   // Sun  — grand trine hub
-      [1, 180,  28,  95, true,  7,  0],   // Moon
-      [2,  75,  42, 170, true, 11,  2],   // Mercury
-      [3,  40,  20, 120, true, 12, -1],   // Venus
-      [4, 300, -25,  20, false, 4,  3],   // Mars  (below horizon)
-      [5,  65,  38, 160, true,  9,  5],   // Jupiter (conj Sun)
-      [6, 350, -10, 320, false, 1,  0],   // Saturn (below horizon)
-    ];
-    function dignity(score) {
-      const label = score >= 5 ? "Domicile" : score >= 3 ? "Exaltation" : score <= -3 ? "Fall" : "Peregrine";
-      return { score, label, key: label.toLowerCase() };
-    }
-    function mockChart(date) {
-      const positions = RAW.map(([body, eclLon, alt, az, up, house, dig]) => {
+
+    function fallbackChart(date) {
+      // Real approx Sep 9, 2026 positions for fallback:
+      // Sun Virgo 17° (167°), Moon Leo 29° (149°), Mercury Leo 25° (145°), Venus Libra 12° (192°),
+      // Mars Cancer 3° (93°), Jupiter Gemini 19° (79°), Saturn Pisces 15° (345°)
+      const FALLBACK_RAW = [
+        [0, 167.1,  42, 165, true, 10,  0],   // Sun in Virgo
+        [1, 148.8,  58, 140, true, 11,  0],   // Moon in Leo (Waning Crescent)
+        [2, 145.0,  55, 135, true, 11,  2],   // Mercury in Leo
+        [3, 192.0,  26, 195, true,  9,  5],   // Venus in Libra (Domicile)
+        [4,  93.0, -15,  70, false, 4, -3],   // Mars in Cancer (Fall, below horizon)
+        [5,  79.0, -32,  50, false, 3,  0],   // Jupiter in Gemini
+        [6, 345.0, -48, 350, false, 1,  0],   // Saturn in Pisces
+      ];
+      function dignity(score) {
+        const label = score >= 5 ? "Domicile" : score >= 3 ? "Exaltation" : score <= -3 ? "Fall" : "Peregrine";
+        return { score, label, key: label.toLowerCase() };
+      }
+      const positions = FALLBACK_RAW.map(([body, eclLon, alt, az, up, house, dig]) => {
         const sign = Math.floor(eclLon / 30) % 12;
         return {
           body, name: B.names[body], glyph: B.glyphs[body], color: B.colors[body],
@@ -52,36 +76,51 @@
           dignity: dignity(dig), alt, az, up,
         };
       });
-      return { frame: "mundane", asc: 95, mc: 5, cusps: null, accuracy: "real", positions, date };
+      return { frame: "mundane", asc: 215, mc: 125, cusps: null, accuracy: "real", positions, date };
     }
 
-    // ── mock pools + the sky helpers footprints need ─────────────────────
-    const POOLS = [
+    // ── pools + sky provider wiring ──────────────────────────────────────
+    const DEFAULT_POOLS = [
       { id: 0, name: "Spirit/Substance", abbr: "SP·SU", pair: [0, 3], members: [9001, 9002] },
       { id: 1, name: "Essence/Matter",   abbr: "ES·MA", pair: [1, 2], members: [9003, 9004] },
       { id: 2, name: "Matter/Spirit",    abbr: "MA·SP", pair: [2, 0], members: [9005, 9006] },
       { id: 3, name: "Substance/Essence",abbr: "SU·ES", pair: [3, 1], members: [9007, 9008] },
     ];
     const STAR_RA = { 9001: 52, 9002: 68, 9003: 188, 9004: 212, 9005: 292, 9006: 308, 9007: 344, 9008: 356 };
-    const sky = {
+    const defaultSky = {
       starByHip: (hip) => (STAR_RA[hip] != null ? [hip, "star" + hip, STAR_RA[hip], 10, 3] : null),
-      equatorialToEcliptic: (ra) => ra, // treat RA as ecliptic lon for the fixture
+      equatorialToEcliptic: (ra) => ra,
     };
 
     const providers = {
-      sky,
-      chart: { mundane: (lat, lon, date) => mockChart(date), natal: () => null, lonAt: () => 0 },
-      // no amm / trade → pools render from pressure only (no live reserves / swap)
+      sky: (typeof window !== "undefined" && window.PentaclesSky) || defaultSky,
+      chart: {
+        mundane: (lat, lon, date, opts) => {
+          if (typeof window !== "undefined" && window.AstroWeather && typeof window.AstroWeather.chartOfMoment === "function") {
+            return window.AstroWeather.chartOfMoment(lat, lon, date, opts || { system: "placidus" });
+          }
+          return fallbackChart(date);
+        },
+        natal: () => null,
+        lonAt: (body, date) => {
+          if (typeof window !== "undefined" && window.PentaclesSky && typeof window.PentaclesSky.lonAt === "function") {
+            return window.PentaclesSky.lonAt(body, date);
+          }
+          return 0;
+        },
+      },
     };
+
+    const pools = (typeof window !== "undefined" && window.PentaclesSky && window.PentaclesSky.CONSTELLATIONS) || DEFAULT_POOLS;
 
     const chart = AlchmChart.create({
       el: document.getElementById("host"),
       providers,
-      pools: POOLS,
+      pools,
       observer: { lat: 40.71, lon: -74.0 },
     });
     chart.mount();
-    window.__domeChart = chart; // handy for poking from the console
+    window.__domeChart = chart;
     chart.on("select", (p) => console.log("[harness] select", p.kind, p.constId ?? p.pos?.name ?? ""));
   </script>
 </body>
