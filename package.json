@@ -2,6 +2,7 @@
   "name": "pentacles-web",
   "version": "0.1.1",
   "private": true,
+  "packageManager": "bun@1.4.0",
   "type": "module",
   "description": "Pentacles — a sky-gated astrology game and Constellation DEX web client",
   "scripts": {
@@ -47,7 +48,7 @@
     "buffer": "^6.0.3",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
-    "spacetimedb": "^2.6.0",
+    "spacetimedb": "^2.10.0",
     "three": "^0.185.0"
   }
 }

@@ -62,6 +62,7 @@ export class MyPentaclesInstance {
     this.deckFilter = "all"; // all | active | defense | bench | majors | minors
     this.cardSearchQuery = "";
     this.inspectedCard = null;
+    this.inspectorFlipped = false;
     this.inspectorStatTab = "planetary12"; // planetary12 | sacred7
     this._cardsData = null;
     this._cardDefCache = new Map();
@@ -121,9 +122,21 @@ export class MyPentaclesInstance {
     root.appendChild(this._factionSection(player, factionIdx));
 
     // If a card is currently selected for inspection, render the modal
+    // Append to document.body so that position:fixed is relative to viewport,
+    // not the mc-window (which has backdrop-filter creating a containing block).
+    this._cleanupInspector();
     if (this.inspectedCard) {
-      root.appendChild(this._cardInspectorModal(this.inspectedCard, deck, collection));
+      this._inspectorEl = this._cardInspectorModal(this.inspectedCard, deck, collection);
+      this._inspectorEl.classList.add("alchm-pentacles", "alchm-codex");
+      document.body.appendChild(this._inspectorEl);
     }
+  }
+
+  _cleanupInspector() {
+    if (this._inspectorEl && this._inspectorEl.parentNode) {
+      this._inspectorEl.parentNode.removeChild(this._inspectorEl);
+    }
+    this._inspectorEl = null;
   }
 
   // ── Seeker header ──
@@ -560,12 +573,14 @@ export class MyPentaclesInstance {
       title: "Click to inspect card and assign loadout slot",
       onClick: () => {
         this.inspectedCard = rawCard;
+        this.inspectorFlipped = false;
         this.paint();
       },
       onKeydown: (e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           this.inspectedCard = rawCard;
+          this.inspectorFlipped = false;
           this.paint();
         }
       }
@@ -692,68 +707,91 @@ export class MyPentaclesInstance {
     const transit = this._getSkyTransit();
     const kineticScore = (cardDef && this._cardsData) ? this._cardsData.kineticAlignment(cardDef, transit) : 50;
 
-    return h("div", { class: "mc-inspector-overlay", onClick: (e) => { if (e.target.classList.contains("mc-inspector-overlay")) { this.inspectedCard = null; this.paint(); } } }, [
-      h("div", { class: "mc-inspector-card" }, [
-        h("button", { class: "mc-inspector-close", text: "✕", onClick: () => { this.inspectedCard = null; this.paint(); } }),
-        
-        h("div", { class: "mc-inspector-head" }, [
+    const artKey = isMajor ? `major:${card.rank}` : `${card.suitKey}:${card.rank}`;
+    const specificArt = card.artAsset || (SHIPPED_CARD_ART[artKey] || null);
+    const artSrc = specificArt || null;
+
+    // --- FRONT SIDE: Maximized Tarot Card Art ---
+    const sigilFallback = h("div", { class: "mc-card-major-sigil", style: artSrc ? { display: "none" } : {} }, [
+      h("div", { class: "sigil-ring sigil-ring-outer", style: isMajor ? {} : { borderColor: `${card.suitColor}55` } }),
+      h("div", { class: "sigil-ring sigil-ring-inner", style: isMajor ? {} : { borderColor: `${card.suitColor}88` } }),
+      h("span", { class: "sigil-glyph", style: isMajor ? { color: card.planetColor } : { color: card.suitColor }, text: isMajor ? card.planetGlyph : card.suitGlyph }),
+    ]);
+    const frontImg = artSrc ? h("img", {
+      class: "mc-inspector-full-art",
+      src: artSrc,
+      alt: `${card.title} art`,
+      title: "Click to flip card and view stats",
+    }) : null;
+    if (frontImg) {
+      frontImg.onerror = () => {
+        frontImg.style.display = "none";
+        sigilFallback.style.display = "flex";
+      };
+    }
+
+    const frontSide = h("div", { class: "mc-inspector-side mc-inspector-side--front" }, [
+      h("button", {
+        class: "mc-inspector-close",
+        text: "✕",
+        "aria-label": "Close",
+        onClick: (e) => { e.stopPropagation(); this.inspectedCard = null; this.inspectorFlipped = false; this.paint(); }
+      }),
+      h("div", { class: "mc-inspector-front-header" }, [
+        isMajor
+          ? h("span", { class: "mc-inspector-glyph", style: { color: card.planetColor }, text: card.planetGlyph })
+          : (card.suitArtSrc
+              ? h("img", { class: "mc-inspector-suit-icon", src: card.suitArtSrc, alt: card.suitName })
+              : h("span", { class: "mc-inspector-glyph", style: { color: card.planetColor }, text: card.suitGlyph })),
+        h("div", { class: "mc-inspector-front-title-wrap" }, [
+          h("div", { class: "mc-inspector-title", text: card.title }),
+          h("div", { class: "mc-inspector-sub mc-dim", text: `${card.subline} · ${card.planetName} Ruled` }),
+        ]),
+      ]),
+      h("div", {
+        class: "mc-inspector-front-stage",
+        onClick: () => { this.inspectorFlipped = true; this.paint(); },
+        title: "Click to flip card to view stats and assign loadout"
+      }, [
+        h("div", { class: "mc-inspector-art-wrapper", style: "width:100%; height:100%; display:flex; align-items:center; justify-content:center; position:relative;" }, frontImg ? [frontImg, sigilFallback] : [sigilFallback]),
+      ]),
+      h("div", { class: "mc-inspector-front-footer" }, [
+        h("button", {
+          class: "mc-flip-btn",
+          onClick: (e) => { e.stopPropagation(); this.inspectorFlipped = true; this.paint(); },
+          title: "Flip card to view stats and assign loadout"
+        }, [
+          h("span", { class: "mc-flip-icon", text: "↺" }),
+          h("span", { text: "View Stats & Loadout" }),
+        ]),
+      ]),
+    ]);
+
+    // --- BACK SIDE: Comprehensive Card Stats & Controls ---
+    const backSide = h("div", { class: "mc-inspector-side mc-inspector-side--back" }, [
+      h("button", {
+        class: "mc-inspector-close",
+        text: "✕",
+        "aria-label": "Close",
+        onClick: (e) => { e.stopPropagation(); this.inspectedCard = null; this.inspectorFlipped = false; this.paint(); }
+      }),
+      h("div", { class: "mc-inspector-back-header" }, [
+        h("button", {
+          class: "mc-flip-back-btn",
+          onClick: () => { this.inspectorFlipped = false; this.paint(); },
+          title: "Flip back to card art"
+        }, [
+          h("span", { class: "mc-flip-icon", text: "↺" }),
+          h("span", { text: "View Card Art" }),
+        ]),
+        h("div", { class: "mc-inspector-back-title-wrap" }, [
           isMajor
             ? h("span", { class: "mc-inspector-glyph", style: { color: card.planetColor }, text: card.planetGlyph })
-            : (card.suitArtSrc
-                ? h("img", { class: "mc-inspector-suit-icon", src: card.suitArtSrc, alt: card.suitName })
-                : h("span", { class: "mc-inspector-glyph", style: { color: card.planetColor }, text: card.suitGlyph })),
-          h("div", {}, [
-            h("div", { class: "mc-inspector-title", text: card.title }),
-            h("div", { class: "mc-inspector-sub mc-dim", text: `${card.subline} · ${card.planetName} Ruled` }),
-          ]),
+            : h("span", { class: "mc-inspector-glyph", style: { color: card.planetColor }, text: card.suitGlyph }),
+          h("span", { class: "mc-inspector-back-title", text: card.title }),
         ]),
-
-        h("div", { class: "mc-inspector-art-stage" }, [
-          (() => {
-            const artKey = isMajor ? `major:${card.rank}` : `${card.suitKey}:${card.rank}`;
-            const specificArt = card.artAsset || (SHIPPED_CARD_ART[artKey] || null);
-            const artSrc = specificArt || null;
-
-            if (isMajor) {
-              const sigilFallback = h("div", { class: "mc-card-major-sigil", style: artSrc ? { display: "none" } : {} }, [
-                h("div", { class: "sigil-ring sigil-ring-outer" }),
-                h("div", { class: "sigil-ring sigil-ring-inner" }),
-                h("span", { class: "sigil-glyph", text: card.planetGlyph }),
-              ]);
-              const img = artSrc ? h("img", {
-                class: "mc-inspector-suit-art mc-inspector-major-art",
-                src: artSrc,
-                alt: `${card.title} art`
-              }) : null;
-              if (img) {
-                img.onerror = () => {
-                  img.style.display = "none";
-                  sigilFallback.style.display = "flex";
-                };
-              }
-              return h("div", { class: "mc-inspector-art-wrapper", style: "width:100%; height:100%; display:flex; align-items:center; justify-content:center; position:relative;" }, [img, sigilFallback]);
-            } else {
-              const sigilFallback = h("div", { class: "mc-card-major-sigil", style: artSrc ? { display: "none" } : {} }, [
-                h("div", { class: "sigil-ring sigil-ring-outer", style: { borderColor: `${card.suitColor}55` } }),
-                h("div", { class: "sigil-ring sigil-ring-inner", style: { borderColor: `${card.suitColor}88` } }),
-                h("span", { class: "sigil-glyph", style: { color: card.suitColor }, text: card.suitGlyph }),
-              ]);
-              const img = artSrc ? h("img", {
-                class: "mc-inspector-suit-art",
-                src: artSrc,
-                alt: `${card.title} art`
-              }) : null;
-              if (img) {
-                img.onerror = () => {
-                  img.style.display = "none";
-                  sigilFallback.style.display = "flex";
-                };
-              }
-              return h("div", { class: "mc-inspector-art-wrapper", style: "width:100%; height:100%; display:flex; align-items:center; justify-content:center; position:relative;" }, [img, sigilFallback]);
-            }
-          })()
-        ]),
-
+      ]),
+      h("div", { class: "mc-inspector-back-body" }, [
         cardDef ? h("div", { class: "mc-transit-resonance" }, [
           h("div", { class: "mc-transit-resonance-label" }, [
             h("span", { text: "⚡" }),
@@ -825,6 +863,24 @@ export class MyPentaclesInstance {
           ]),
         ]),
       ]),
+    ]);
+
+    return h("div", {
+      class: "mc-inspector-overlay",
+      onClick: (e) => {
+        if (e.target.classList.contains("mc-inspector-overlay")) {
+          this.inspectedCard = null;
+          this.inspectorFlipped = false;
+          this.paint();
+        }
+      }
+    }, [
+      h("div", { class: "mc-inspector-flipper-container" }, [
+        h("div", { class: "mc-inspector-flipper" + (this.inspectorFlipped ? " is-flipped" : "") }, [
+          frontSide,
+          backSide,
+        ])
+      ])
     ]);
   }
 
@@ -956,7 +1012,7 @@ export class MyPentaclesInstance {
     return wrap;
   }
 
-  destroy() { if (this.el) clear(this.el); }
+  destroy() { this._cleanupInspector(); if (this.el) clear(this.el); }
 }
 
 export function create(opts) { return new MyPentaclesInstance(opts); }

@@ -141,32 +141,15 @@
   };
 
   // Dedicated sample & shipped Tarot card art in authentic Pamela Colman Smith style
-  const SHIPPED_CARD_ART = {
-    "major:0": "/assets/cards/major/00-the-fool.jpg",
-    "major:1": "/assets/cards/major/01-the-magician.jpg",
-    "major:2": "/assets/cards/major/02-the-high-priestess.jpg",
-    "major:3": "/assets/cards/major/03-the-empress.jpg",
-    "major:4": "/assets/cards/major/04-the-emperor.jpg",
-    "major:5": "/assets/cards/major/05-the-hierophant.jpg",
-    "major:6": "/assets/cards/major/06-the-lovers.jpg",
-    "major:7": "/assets/cards/major/07-the-chariot.jpg",
-    "major:8": "/assets/cards/major/08-strength.jpg",
-    "major:9": "/assets/cards/major/09-the-hermit.jpg",
-    "major:10": "/assets/cards/major/10-wheel-of-fortune.jpg",
-    "major:19": "/assets/cards/major/19-the-sun.jpg",
-    "major:21": "/assets/cards/major/21-the-world.jpg",
-    "wands:1": "/assets/cards/minor/wands/01-ace.jpg",
-    "wands:2": "/assets/cards/minor/wands/02-two.jpg",
-    "wands:6": "/assets/cards/minor/wands/06-six.jpg",
-    "cups:1": "/assets/cards/minor/cups/01-ace.jpg",
-    "cups:3": "/assets/cards/minor/cups/03-three.jpg",
-    "cups:6": "/assets/cards/minor/cups/06-six.jpg",
-    "swords:1": "/assets/cards/minor/swords/01-ace.jpg",
-    "swords:3": "/assets/cards/minor/swords/03-three.jpg",
-    "swords:14": "/assets/cards/minor/swords/14-king.jpg",
-    "pentacles:1": "/assets/cards/minor/pentacles/01-ace.jpg",
-    "pentacles:6": "/assets/cards/minor/pentacles/06-six.jpg"
-  };
+  const SHIPPED_CARD_ART = {};
+  for (let r = 0; r <= 21; r++) {
+    SHIPPED_CARD_ART[`major:${r}`] = `/assets/cards/major/${String(r).padStart(2, "0")}-${ARCANA_SLUGS[r]}.jpg`;
+  }
+  for (const s of ["wands", "cups", "swords", "pentacles"]) {
+    for (let r = 1; r <= 14; r++) {
+      SHIPPED_CARD_ART[`${s}:${r}`] = `/assets/cards/minor/${s}/${String(r).padStart(2, "0")}-${RANK_SLUGS[r]}.jpg`;
+    }
+  }
 
   const RANK_LABEL = { 1: "Ace", 11: "Page", 12: "Knight", 13: "Queen", 14: "King" };
   const rankLabel = function (r) {

@@ -21,7 +21,7 @@ import { julianDay, geocentricEclipticLon } from "../feeder/ephemeris.ts";
 import { FIGURES, Figure } from "./agents-data.ts";
 
 const URI = (process.env.SPACETIMEDB_URI ?? "https://maincloud.spacetimedb.com").replace(/\/+$/, "");
-const DB = process.env.SPACETIMEDB_DB ?? "pentacles2xtest";
+const DB = process.env.SPACETIMEDB_DB ?? "pentacles1";
 
 // ── astronomy (ported verbatim from public/sky.js + astro-weather.js) ────────
 const OBLIQUITY_DEG = 23.439291;

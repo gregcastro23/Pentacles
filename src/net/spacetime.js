@@ -25,8 +25,8 @@
 import { DbConnection } from '../module_bindings'
 import { normalizeWsRow } from './ws-normalize.js'
 
-const RAW_URI = (import.meta.env.VITE_SPACETIMEDB_URI || '').trim()
-const DB_NAME = (import.meta.env.VITE_SPACETIMEDB_DB || 'cookingwithcastrollc').trim()
+const RAW_URI = (import.meta.env.VITE_SPACETIMEDB_URI || 'https://maincloud.spacetimedb.com').trim()
+const DB_NAME = (import.meta.env.VITE_SPACETIMEDB_DB || 'pentacles1').trim()
 const TOKEN_KEY = 'pentacles_stdb_token'
 // A signed-in OIDC token (minted by the Pentacles OIDC issuer from a Google
 // session). When present it takes precedence over the anonymous token, so the

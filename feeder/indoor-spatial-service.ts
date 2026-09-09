@@ -48,7 +48,7 @@ function generateVolumetricStarCluster(minX: number, minY: number, minZ: number,
   return stars;
 }
 
-const DB = process.env.SPACETIMEDB_DB ?? "cookingwithcastrollc";
+const DB = process.env.SPACETIMEDB_DB ?? "pentacles1";
 const INDOOR_SECRET = process.env.INDOOR_SERVICE_SECRET || process.env.SPACETIME_TOKEN || "";
 
 // Simple in-memory rate limiter: max 30 requests per 60 seconds per client

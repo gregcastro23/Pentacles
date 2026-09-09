@@ -142,9 +142,9 @@ async function upsertEnv(path, values) {
 async function configureEnvironment(payer, mints) {
   const values = {
     VITE_SPACETIMEDB_URI: 'https://maincloud.spacetimedb.com',
-    VITE_SPACETIMEDB_DB: 'cookingwithcastrollc',
+    VITE_SPACETIMEDB_DB: 'pentacles1',
     SPACETIMEDB_URI: 'https://maincloud.spacetimedb.com',
-    SPACETIMEDB_DB: 'cookingwithcastrollc',
+    SPACETIMEDB_DB: 'pentacles1',
     VITE_SOLANA_RPC_URL: RPC_URL,
     VITE_SOLANA_PROGRAM_ID: PROGRAM_ID.toBase58(),
     SOLANA_RPC_URL: RPC_URL,

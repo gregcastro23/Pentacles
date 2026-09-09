@@ -8,9 +8,9 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-# Pinned to the installed `spacetime` CLI / TS SDK (2.6.x). Keep these in lockstep:
-# server crate, `spacetime` CLI, and the `spacetimedb` npm client SDK all on 2.6.
-spacetimedb = "2.6"
+# Pinned to the installed `spacetime` CLI / TS SDK (2.10.x). Keep these in lockstep:
+# server crate, `spacetime` CLI, and the `spacetimedb` npm client SDK all on 2.10.
+spacetimedb = "2.10"
 log = "0.4"
 sha2 = "0.10" # claim_profile: hash the one-time identity-link code
 ed25519-dalek = { version = "2.1", default-features = false }

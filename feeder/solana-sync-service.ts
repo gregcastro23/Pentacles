@@ -29,7 +29,7 @@ if (process.env.NODE_ENV === "production") {
   }
 }
 
-const DB = process.env.SPACETIMEDB_DB ?? "cookingwithcastrollc";
+const DB = process.env.SPACETIMEDB_DB ?? "pentacles1";
 const SPACETIMEDB_URI = (process.env.SPACETIMEDB_URI ?? "https://maincloud.spacetimedb.com").replace(/\/+$/, "");
 const SPACETIME_TOKEN = process.env.SPACETIME_TOKEN || "";
 

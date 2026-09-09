@@ -13,7 +13,7 @@ import {
   enrichAspects, transitAspects, blendedSMES, poolPressure, footprintsFromMembers, bodyVelocity,
   DEFAULT_WEIGHTS, compute,
 } from "./math.js";
-import { renderSmes, renderPools, renderReading, renderTransitStrip, renderDecans } from "./render-pools.js";
+import { renderSmes, renderPools, renderReading, renderTransitStrip, renderDecans, renderMomentHUD } from "./render-pools.js";
 import { renderScrubber, syncScrubberThumb, setScrubberDate } from "./scrubber.js";
 import { decanCard } from "./decans.js";
 
@@ -83,6 +83,7 @@ class AlchmChartInstance {
 
     const d = this.state.dom;
     d.header = h("div", { class: "ac-header" });
+    d.hud = h("div", { class: "ac-hud" });
     d.track = h("div", { class: "ac-track ac-dome-host" });
     d.transitStrip = h("div", { class: "ac-transit" });
     d.smes = h("div", { class: "ac-smes" });
@@ -91,14 +92,14 @@ class AlchmChartInstance {
     d.pools = h("div", { class: "ac-pools" });
     d.scrubber = h("div", { class: "ac-scrubber" });
     d.pop = h("div", { class: "ac-pop", hidden: true });
-    // app-shell: header / 3-column body [temperament+reading · dome+transit · pools] / scrubber.
-    // The render layer still targets d.smes/d.reading/d.track/etc.; only the wrappers are new.
+    // app-shell: header / hud / 3-column body [temperament · dome+aspects · pools+decans] / scrubber.
     d.empty = h("div", { class: "ac-empty", hidden: true });
-    d.colLeft = h("div", { class: "ac-col ac-col--left", dataset: { pane: "temperament" } }, [d.smes, d.reading, d.decans]);
+    d.colLeft = h("div", { class: "ac-col ac-col--left", dataset: { pane: "temperament" } }, [d.smes]);
     d.colCenter = h("div", { class: "ac-col ac-col--center", dataset: { pane: "dome" } }, [d.track, d.transitStrip, d.empty]);
     d.colRight = h("div", { class: "ac-col ac-col--right", dataset: { pane: "pools" } }, [d.pools]);
     d.body = h("div", { class: "ac-body" }, [d.colLeft, d.colCenter, d.colRight]);
     host.appendChild(d.header);
+    host.appendChild(d.hud);
     host.appendChild(d.body);
     host.appendChild(d.scrubber);
     host.appendChild(d.pop);
@@ -362,6 +363,7 @@ class AlchmChartInstance {
     if (!chart) return;
     if (!chart.byBody) { chart.byBody = {}; chart.positions.forEach((p) => { chart.byBody[p.body] = p; }); }
     const vel = this._velocities(chart);
+    st.velocities = vel;
     if (st.frame === "transit" && chart.natalPositions) {
       chart.aspects = [];
       chart.transitAspects = transitAspects(chart.positions, chart.natalPositions, vel);
@@ -378,10 +380,9 @@ class AlchmChartInstance {
   paint() {
     const st = this.state;
     if (this._dome) this._dome.update(st);
+    renderMomentHUD(st.dom.hud, st);
     renderTransitStrip(st.dom.transitStrip, st);
     renderSmes(st.dom.smes, st);
-    renderReading(st.dom.reading, st);
-    renderDecans(st.dom.decans, st);
     renderPools(st.dom.pools, st);
     this._updateEmptyState();
     this._updateHeader();
@@ -440,10 +441,9 @@ class AlchmChartInstance {
       this.state.date = this._pendingDate;
       this.recompute();
       if (this._dome) this._dome.update(this.state);
+      renderMomentHUD(this.state.dom.hud, this.state);
       renderTransitStrip(this.state.dom.transitStrip, this.state);
       renderSmes(this.state.dom.smes, this.state);
-      renderReading(this.state.dom.reading, this.state);
-      renderDecans(this.state.dom.decans, this.state);
       renderPools(this.state.dom.pools, this.state);
       this._updateHeader();
     });
@@ -497,9 +497,26 @@ class AlchmChartInstance {
     const pg = (this.state.glyphs && this.state.glyphs.planet) || ["☉", "☽", "☿", "♀", "♂", "♃", "♄", "♅", "♆", "♇"];
     const pn = (this.state.glyphs && this.state.glyphs.planetName) || [];
     const dc = decanCard(p.sign, p.degInSign);
-    return h("div", { class: "ac-pop-body" }, [
+
+    let journeyRow = null;
+    try {
+      const { horizons } = compute.computePlanetaryEvents(this.state.chart, this.state.observer, this.state.date);
+      const hItem = (horizons || []).find((h) => h.body === p.body);
+      if (hItem) {
+        journeyRow = h("div", { class: "ac-pop-row", title: `${hItem.progressionText} across journey` }, [
+          h("span", { class: "ac-dim", text: "Journey: " }),
+          h("span", {
+            style: { fontWeight: "600", color: hItem.isRisen ? "#7fd1a8" : "#9ac0f8" },
+            text: `${hItem.progressionText} (${hItem.progressionLabel}) · Rise ${hItem.riseTime} · Set ${hItem.setTime}`,
+          }),
+        ]);
+      }
+    } catch {}
+
+    const rows = [
       h("div", { class: "ac-pop-head", text: `${p.glyph || ""} ${p.name}` }),
       h("div", { class: "ac-pop-row", text: `${p.signGlyph || ""} ${p.signName} ${Math.floor(p.degInSign)}°${p.retrograde ? " ℞" : ""}` }),
+      journeyRow,
       h("div", { class: "ac-pop-row", text: `House ${p.house} · ${p.dignity ? p.dignity.label : "Peregrine"}` }),
       h("div", { class: "ac-pop-row" }, [
         h("span", { style: { color: esms.colors[dc.esms] }, text: `🎴 ${dc.card}` }),
@@ -507,7 +524,9 @@ class AlchmChartInstance {
       ]),
       h("div", { class: "ac-pop-row ac-dim", text: `decan ${dc.range[0]}–${dc.range[1]}° · ruled by ${pg[dc.ruler] || "✦"} ${pn[dc.ruler] || ""}`.trim() }),
       h("div", { class: "ac-pop-row ac-dim", text: `chart weight ${w != null ? w.toFixed(2) : "—"}×` }),
-    ]);
+    ].filter(Boolean);
+
+    return h("div", { class: "ac-pop-body" }, rows);
   }
   _inspectAspect(payload) {
     const a = payload.asp;

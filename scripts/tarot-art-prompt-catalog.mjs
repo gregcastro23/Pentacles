@@ -131,7 +131,7 @@ export const CARD_PROMPT_CATALOG = [
     name: "Justice",
     filename: "11-justice.jpg",
     relativePath: "major/11-justice.jpg",
-    shipped: false,
+    shipped: true,
     prompt: `${ART_STYLE_PREFIX} Major Arcana XI Justice: A dignified cosmic sovereign in crimson robes and emerald mantle seated between two monolithic starlight pillars before an interstellar violet veil. In her right hand she holds an upright double-edged starlight broadsword; in her left she balances a pair of golden scales weighing miniature star clusters against dark matter spheres. Her crown is adorned with a glowing square jewel under an amber coronal halo. ${ART_STYLE_SUFFIX}`
   },
   {
@@ -141,7 +141,7 @@ export const CARD_PROMPT_CATALOG = [
     name: "The Hanged Man",
     filename: "12-the-hanged-man.jpg",
     relativePath: "major/12-the-hanged-man.jpg",
-    shipped: false,
+    shipped: true,
     prompt: `${ART_STYLE_PREFIX} Major Arcana XII The Hanged Man: A peaceful astral figure suspended upside down by one ankle in zero gravity from a living tree of starlight rooted on a floating asteroid. His free leg is crossed behind the other in a numeral four shape. Around his head glows a brilliant golden nimbus halo of cosmic enlightenment. Beneath him swirls an immense planetary vortex and luminous blue nebula clouds. ${ART_STYLE_SUFFIX}`
   },
   {
@@ -151,7 +151,7 @@ export const CARD_PROMPT_CATALOG = [
     name: "Death",
     filename: "13-death.jpg",
     relativePath: "major/13-death.jpg",
-    shipped: false,
+    shipped: true,
     prompt: `${ART_STYLE_PREFIX} Major Arcana XIII Death: A skeletal cosmic knight in polished obsidian armor rides a magnificent armored white celestial horse across an asteroid field during a total solar eclipse. He carries a black silk banner embroidered with a mystical glowing white supernova rose. In the deep-space background, a river of liquid starlight flows between twin planetary spires where a newborn golden star dawns on the horizon. ${ART_STYLE_SUFFIX}`
   },
   {
@@ -161,7 +161,7 @@ export const CARD_PROMPT_CATALOG = [
     name: "Temperance",
     filename: "14-temperance.jpg",
     relativePath: "major/14-temperance.jpg",
-    shipped: false,
+    shipped: true,
     prompt: `${ART_STYLE_PREFIX} Major Arcana XIV Temperance: A magnificent winged celestial angel in white robes with fiery crimson wings stands with one foot in a pool of liquid starlight and one foot on asteroid soil. The angel pours a luminous continuous stream of living stellar water between two golden chalices across twin spiral galaxies without spilling a drop. On the angel's forehead shines a brilliant solar third-eye jewel under a glowing cosmic dawn. ${ART_STYLE_SUFFIX}`
   },
   {
@@ -171,7 +171,7 @@ export const CARD_PROMPT_CATALOG = [
     name: "The Devil",
     filename: "15-the-devil.jpg",
     relativePath: "major/15-the-devil.jpg",
-    shipped: false,
+    shipped: true,
     prompt: `${ART_STYLE_PREFIX} Major Arcana XV The Devil: A horned, winged cosmic shadow titan perched upon a shattered obsidian asteroid throne. An inverted starlight pentagram glows upon his brow, his right hand is raised in a mocking gesture, and in his left hand he holds a burning comet torch pointed downward. Chained loosely by their necks to the pedestal are two astral beings with horns. Dark cosmic void with floating red plasma embers. ${ART_STYLE_SUFFIX}`
   },
   {
@@ -181,7 +181,7 @@ export const CARD_PROMPT_CATALOG = [
     name: "The Tower",
     filename: "16-the-tower.jpg",
     relativePath: "major/16-the-tower.jpg",
-    shipped: false,
+    shipped: true,
     prompt: `${ART_STYLE_PREFIX} Major Arcana XVI The Tower: A tall crystalline cosmic spire floating on an asteroid struck by a ferocious bolt of celestial comet lightning. Fire, smoke, and stardust erupt from the shattered pinnacle as a golden crown is blown into the void. Two astral silhouettes tumble downward through zero gravity amidst showers of burning meteor sparks against a dark turbulent nebula sky. ${ART_STYLE_SUFFIX}`
   },
   {
@@ -191,7 +191,7 @@ export const CARD_PROMPT_CATALOG = [
     name: "The Star",
     filename: "17-the-star.jpg",
     relativePath: "major/17-the-star.jpg",
-    shipped: false,
+    shipped: true,
     prompt: `${ART_STYLE_PREFIX} Major Arcana XVII The Star: A serene celestial maiden draped in a simple white linen tunic kneels on an asteroid beside a pool of liquid starlight in deep space. She pours glowing starlight from two urns—one onto the asteroid soil, nourishing glowing flora, and one into the pool, creating luminous ripples. Above her shines a giant eight-pointed radiant yellow supergiant star surrounded by seven smaller orbiting white stars against an indigo cosmic void. ${ART_STYLE_SUFFIX}`
   },
   {
@@ -201,7 +201,7 @@ export const CARD_PROMPT_CATALOG = [
     name: "The Moon",
     filename: "18-the-moon.jpg",
     relativePath: "major/18-the-moon.jpg",
-    shipped: false,
+    shipped: true,
     prompt: `${ART_STYLE_PREFIX} Major Arcana XVIII The Moon: An enormous luminescent moon with a dreaming facial profile hangs in deep space, sending down sixteen principal rays and golden dew drops. Below on a cratered asteroid, two cosmic wolves howl up at the lunar disk. A glowing celestial crustacean crawls out of an ether pool along a path leading between twin crystalline obelisks toward distant nebula hills under a dark starry cosmos. ${ART_STYLE_SUFFIX}`
   },
   {
@@ -221,7 +221,7 @@ export const CARD_PROMPT_CATALOG = [
     name: "Judgement",
     filename: "20-judgement.jpg",
     relativePath: "major/20-judgement.jpg",
-    shipped: false,
+    shipped: true,
     prompt: `${ART_STYLE_PREFIX} Major Arcana XX Judgement: Archangel Gabriel with magnificent feathered wings emerges from radiant interstellar clouds, blowing a long golden trumpet bearing a white banner with a red solar cross. Below, draped astral figures rise with arms outstretched in joy and awe from floating crystalline tombs drifting on a sea of cosmic starlight, surrounded by planetary rings under a glorious celestial dawn. ${ART_STYLE_SUFFIX}`
   },
   {
@@ -245,15 +245,15 @@ export const CARD_PROMPT_CATALOG = [
     prompt: `${ART_STYLE_PREFIX} Two of Wands: A noble astral traveler in a crimson cloak stands upon the stone battlement of an asteroid observatory looking out over an infinite cosmic sea of stars and orbiting planets. In his right hand he holds a miniature fiery celestial orb glowing like a star; in his left hand he rests upon a tall wooden staff fixed to the stone. A second staff stands beside him. Rich cosmic gouache. ${ART_STYLE_SUFFIX}`
   },
   {
-    id: "wands-03", rank: 3, suit: "wands", name: "Three of Wands", filename: "03-three.jpg", relativePath: "minor/wands/03-three.jpg", shipped: false,
+    id: "wands-03", rank: 3, suit: "wands", name: "Three of Wands", filename: "03-three.jpg", relativePath: "minor/wands/03-three.jpg", shipped: true,
     prompt: `${ART_STYLE_PREFIX} Three of Wands: A robed cosmic navigator in red and green viewed from behind stands on a high asteroid precipice, resting one hand upon one of three tall sprouting staves firmly planted in the rock, watching three solar sailing vessels voyage across a sparkling golden stellar sea beneath a radiant amber nebula. ${ART_STYLE_SUFFIX}`
   },
   {
-    id: "wands-04", rank: 4, suit: "wands", name: "Four of Wands", filename: "04-four.jpg", relativePath: "minor/wands/04-four.jpg", shipped: false,
+    id: "wands-04", rank: 4, suit: "wands", name: "Four of Wands", filename: "04-four.jpg", relativePath: "minor/wands/04-four.jpg", shipped: true,
     prompt: `${ART_STYLE_PREFIX} Four of Wands: Four tall wooden staves draped with luscious garlands of starlight flowers and glowing cosmic fruits form a welcoming arbor on an asteroid terrace; two figures in white raise floral bouquets in celebration before a distant crystalline dome under a bright golden nebula sky. ${ART_STYLE_SUFFIX}`
   },
   {
-    id: "wands-05", rank: 5, suit: "wands", name: "Five of Wands", filename: "05-five.jpg", relativePath: "minor/wands/05-five.jpg", shipped: false,
+    id: "wands-05", rank: 5, suit: "wands", name: "Five of Wands", filename: "05-five.jpg", relativePath: "minor/wands/05-five.jpg", shipped: true,
     prompt: `${ART_STYLE_PREFIX} Five of Wands: Five energetic youths in colorful tunics brandishing sprouting wooden wands in zero-gravity combat, crossing and parrying their staves with fiery plasma sparks in spirited competition amidst floating meteor fragments under a vibrant nebula. ${ART_STYLE_SUFFIX}`
   },
   {
@@ -261,35 +261,35 @@ export const CARD_PROMPT_CATALOG = [
     prompt: `${ART_STYLE_PREFIX} Six of Wands: A proud, crowned astral rider on a magnificent white celestial steed galloping along a luminous stardust path in deep space, holding a tall wooden staff crowned with a glowing golden laurel wreath; celebrating foot soldiers with staves march beside him in triumphant cosmic procession. ${ART_STYLE_SUFFIX}`
   },
   {
-    id: "wands-07", rank: 7, suit: "wands", name: "Seven of Wands", filename: "07-seven.jpg", relativePath: "minor/wands/07-seven.jpg", shipped: false,
+    id: "wands-07", rank: 7, suit: "wands", name: "Seven of Wands", filename: "07-seven.jpg", relativePath: "minor/wands/07-seven.jpg", shipped: true,
     prompt: `${ART_STYLE_PREFIX} Seven of Wands: A determined astral defender in a yellow tunic standing atop a jagged asteroid ridge, wielding a stout solar staff with both hands to defend his ground against six enemy staves thrust upward from the cosmic void, under an intense orange-gold nebula. ${ART_STYLE_SUFFIX}`
   },
   {
-    id: "wands-08", rank: 8, suit: "wands", name: "Eight of Wands", filename: "08-eight.jpg", relativePath: "minor/wands/08-eight.jpg", shipped: false,
+    id: "wands-08", rank: 8, suit: "wands", name: "Eight of Wands", filename: "08-eight.jpg", relativePath: "minor/wands/08-eight.jpg", shipped: true,
     prompt: `${ART_STYLE_PREFIX} Eight of Wands: Eight living wooden staves with glowing green leaf sprouts speeding in swift, orderly unison through the open cosmic void, descending past orbiting moons and a spiral galaxy across an astral horizon. ${ART_STYLE_SUFFIX}`
   },
   {
-    id: "wands-09", rank: 9, suit: "wands", name: "Nine of Wands", filename: "09-nine.jpg", relativePath: "minor/wands/09-nine.jpg", shipped: false,
+    id: "wands-09", rank: 9, suit: "wands", name: "Nine of Wands", filename: "09-nine.jpg", relativePath: "minor/wands/09-nine.jpg", shipped: true,
     prompt: `${ART_STYLE_PREFIX} Nine of Wands: A battle-hardened astral sentinel with a starlight bandage on his head leans firmly upon a tall staff, looking cautiously over his shoulder with eight upright staves forming a glowing defensive palisade behind him on an asteroid outpost under a dark cosmos. ${ART_STYLE_SUFFIX}`
   },
   {
-    id: "wands-10", rank: 10, suit: "wands", name: "Ten of Wands", filename: "10-ten.jpg", relativePath: "minor/wands/10-ten.jpg", shipped: false,
+    id: "wands-10", rank: 10, suit: "wands", name: "Ten of Wands", filename: "10-ten.jpg", relativePath: "minor/wands/10-ten.jpg", shipped: true,
     prompt: `${ART_STYLE_PREFIX} Ten of Wands: A weary astral traveler bent forward under the heavy weight of ten long wooden staves bundled in his arms, trudging resolutely along an asteroid ridge toward a glowing domed citadel on a distant planetary horizon under a violet nebula sky. ${ART_STYLE_SUFFIX}`
   },
   {
-    id: "wands-11", rank: 11, suit: "wands", name: "Page of Wands", filename: "11-page.jpg", relativePath: "minor/wands/11-page.jpg", shipped: false,
+    id: "wands-11", rank: 11, suit: "wands", name: "Page of Wands", filename: "11-page.jpg", relativePath: "minor/wands/11-page.jpg", shipped: true,
     prompt: `${ART_STYLE_PREFIX} Page of Wands: An eager youth in a yellow tunic patterned with fiery salamanders standing on the cratered surface of a moon, holding a tall sprouting wooden staff with both hands, looking up in inspired awe at a swirling stellar nursery nebula. ${ART_STYLE_SUFFIX}`
   },
   {
-    id: "wands-12", rank: 12, suit: "wands", name: "Knight of Wands", filename: "12-knight.jpg", relativePath: "minor/wands/12-knight.jpg", shipped: false,
+    id: "wands-12", rank: 12, suit: "wands", name: "Knight of Wands", filename: "12-knight.jpg", relativePath: "minor/wands/12-knight.jpg", shipped: true,
     prompt: `${ART_STYLE_PREFIX} Knight of Wands: A dashing armored knight wearing a yellow cloak embroidered with salamanders, riding a spirited chestnut celestial steed rearing up on an asteroid edge, holding an upright flowering wand with fiery red helmet plumes trailing sparks against deep space. ${ART_STYLE_SUFFIX}`
   },
   {
-    id: "wands-13", rank: 13, suit: "wands", name: "Queen of Wands", filename: "13-queen.jpg", relativePath: "minor/wands/13-queen.jpg", shipped: false,
+    id: "wands-13", rank: 13, suit: "wands", name: "Queen of Wands", filename: "13-queen.jpg", relativePath: "minor/wands/13-queen.jpg", shipped: true,
     prompt: `${ART_STYLE_PREFIX} Queen of Wands: A confident queen seated on a stone throne carved with lions and sunflowers on a floating asteroid, holding a flowering staff and a golden sunflower; a sleek black star-cat sits calmly at her feet before deep-space nebulae. ${ART_STYLE_SUFFIX}`
   },
   {
-    id: "wands-14", rank: 14, suit: "wands", name: "King of Wands", filename: "14-king.jpg", relativePath: "minor/wands/14-king.jpg", shipped: false,
+    id: "wands-14", rank: 14, suit: "wands", name: "King of Wands", filename: "14-king.jpg", relativePath: "minor/wands/14-king.jpg", shipped: true,
     prompt: `${ART_STYLE_PREFIX} King of Wands: An authoritative monarch on a stone throne carved with lions and biting salamanders on an asteroid overlook, wearing a flame-shaped crown and red-gold mantle, holding a living staff crowned with blossoms, an alert salamander at his feet under blazing solar flares. ${ART_STYLE_SUFFIX}`
   },
 
@@ -299,7 +299,7 @@ export const CARD_PROMPT_CATALOG = [
     prompt: `${ART_STYLE_PREFIX} Ace of Cups: A divine hand emerging from a luminous white nebula cloud holds an ornate golden chalice. From the chalice, five crystalline streams of liquid starlight cascade downward into a tranquil pool filled with blooming white water lilies on a floating asteroid. Above the cup hovers a pure white dove carrying a circular host stamped with a cross. Luminous ripples and sparkling droplets. ${ART_STYLE_SUFFIX}`
   },
   {
-    id: "cups-02", rank: 2, suit: "cups", name: "Two of Cups", filename: "02-two.jpg", relativePath: "minor/cups/02-two.jpg", shipped: false,
+    id: "cups-02", rank: 2, suit: "cups", name: "Two of Cups", filename: "02-two.jpg", relativePath: "minor/cups/02-two.jpg", shipped: true,
     prompt: `${ART_STYLE_PREFIX} Two of Cups: Two astral lovers in white and crimson robes exchange two golden chalices in sacred pledge beneath the floating winged red lion head of a caduceus, set upon a floating asteroid terrace overlooking a ringed blue planet under a calm cosmos. ${ART_STYLE_SUFFIX}`
   },
   {
@@ -307,11 +307,11 @@ export const CARD_PROMPT_CATALOG = [
     prompt: `${ART_STYLE_PREFIX} Three of Cups: Three joyful maidens in flowing pastel gowns dance gracefully in a circle on a garden asteroid, raising three ornate golden chalices in celebration. Ripe purple grapes and abundant harvest fruits surround their feet under a warm golden nebula sun. Expressive black ink linework. ${ART_STYLE_SUFFIX}`
   },
   {
-    id: "cups-04", rank: 4, suit: "cups", name: "Four of Cups", filename: "04-four.jpg", relativePath: "minor/cups/04-four.jpg", shipped: false,
+    id: "cups-04", rank: 4, suit: "cups", name: "Four of Cups", filename: "04-four.jpg", relativePath: "minor/cups/04-four.jpg", shipped: true,
     prompt: `${ART_STYLE_PREFIX} Four of Cups: A contemplative youth seated cross-legged beneath a cosmic starlight tree on an asteroid ledge, arms folded, staring down at three golden cups on the stone, ignoring a fourth glowing chalice offered out of a stardust cloud by a divine hand. ${ART_STYLE_SUFFIX}`
   },
   {
-    id: "cups-05", rank: 5, suit: "cups", name: "Five of Cups", filename: "05-five.jpg", relativePath: "minor/cups/05-five.jpg", shipped: false,
+    id: "cups-05", rank: 5, suit: "cups", name: "Five of Cups", filename: "05-five.jpg", relativePath: "minor/cups/05-five.jpg", shipped: true,
     prompt: `${ART_STYLE_PREFIX} Five of Cups: A cloaked figure in a heavy black mantle standing on an asteroid shore with bowed head, grieving over three overturned golden chalices spilling wine on the stone, oblivious to two upright full chalices standing behind him near an ancient bridge of starlight. ${ART_STYLE_SUFFIX}`
   },
   {
@@ -319,35 +319,35 @@ export const CARD_PROMPT_CATALOG = [
     prompt: `${ART_STYLE_PREFIX} Six of Cups: A gentle youth offering a golden chalice filled with glowing white star-blossoms to a younger companion on an asteroid terrace; four other flower-filled chalices stand around them overlooking Saturn-like planetary rings and soft nebula dust. ${ART_STYLE_SUFFIX}`
   },
   {
-    id: "cups-07", rank: 7, suit: "cups", name: "Seven of Cups", filename: "07-seven.jpg", relativePath: "minor/cups/07-seven.jpg", shipped: false,
+    id: "cups-07", rank: 7, suit: "cups", name: "Seven of Cups", filename: "07-seven.jpg", relativePath: "minor/cups/07-seven.jpg", shipped: true,
     prompt: `${ART_STYLE_PREFIX} Seven of Cups: A dark silhouette of an astral seeker viewed from behind, marveling at seven golden chalices floating upon glowing cosmic clouds, each containing strange mystical visions: an astral castle, jewels, a laurel wreath, a winged dragon, and a glowing celestial head. ${ART_STYLE_SUFFIX}`
   },
   {
-    id: "cups-08", rank: 8, suit: "cups", name: "Eight of Cups", filename: "08-eight.jpg", relativePath: "minor/cups/08-eight.jpg", shipped: false,
+    id: "cups-08", rank: 8, suit: "cups", name: "Eight of Cups", filename: "08-eight.jpg", relativePath: "minor/cups/08-eight.jpg", shipped: true,
     prompt: `${ART_STYLE_PREFIX} Eight of Cups: A cloaked traveler in a crimson mantle with a walking staff hiking away into rugged asteroid mountains, leaving eight neatly stacked golden cups behind on a shore of liquid starlight under a glowing crescent moon and starry void. ${ART_STYLE_SUFFIX}`
   },
   {
-    id: "cups-09", rank: 9, suit: "cups", name: "Nine of Cups", filename: "09-nine.jpg", relativePath: "minor/cups/09-nine.jpg", shipped: false,
+    id: "cups-09", rank: 9, suit: "cups", name: "Nine of Cups", filename: "09-nine.jpg", relativePath: "minor/cups/09-nine.jpg", shipped: true,
     prompt: `${ART_STYLE_PREFIX} Nine of Cups: A prosperous, jovial figure in a blue robe and red cap seated with folded arms on an asteroid bench, smiling with deep contentment before an arched stone table displaying nine gleaming golden chalices filled with starlight in an arc against a starry sky. ${ART_STYLE_SUFFIX}`
   },
   {
-    id: "cups-10", rank: 10, suit: "cups", name: "Ten of Cups", filename: "10-ten.jpg", relativePath: "minor/cups/10-ten.jpg", shipped: false,
+    id: "cups-10", rank: 10, suit: "cups", name: "Ten of Cups", filename: "10-ten.jpg", relativePath: "minor/cups/10-ten.jpg", shipped: true,
     prompt: `${ART_STYLE_PREFIX} Ten of Cups: A loving family with arms raised in joy gazing up at a celestial rainbow arc of ten golden chalices in the cosmic sky; their children dance beside a quaint domed observatory and a stream of liquid starlight on an asteroid meadow. ${ART_STYLE_SUFFIX}`
   },
   {
-    id: "cups-11", rank: 11, suit: "cups", name: "Page of Cups", filename: "11-page.jpg", relativePath: "minor/cups/11-page.jpg", shipped: false,
+    id: "cups-11", rank: 11, suit: "cups", name: "Page of Cups", filename: "11-page.jpg", relativePath: "minor/cups/11-page.jpg", shipped: true,
     prompt: `${ART_STYLE_PREFIX} Page of Cups: A gentle youth in a blue floral tunic standing beside rolling waves of blue cosmic ether on an asteroid shore, gazing with affectionate curiosity at a small silvery star-fish peeking out from a golden chalice held in his hand. ${ART_STYLE_SUFFIX}`
   },
   {
-    id: "cups-12", rank: 12, suit: "cups", name: "Knight of Cups", filename: "12-knight.jpg", relativePath: "minor/cups/12-knight.jpg", shipped: false,
+    id: "cups-12", rank: 12, suit: "cups", name: "Knight of Cups", filename: "12-knight.jpg", relativePath: "minor/cups/12-knight.jpg", shipped: true,
     prompt: `${ART_STYLE_PREFIX} Knight of Cups: A graceful knight in polished armor with winged helmet riding a tranquil white celestial steed across a shallow stream of liquid starlight, carrying an upright golden chalice before him against a backdrop of deep space nebulae. ${ART_STYLE_SUFFIX}`
   },
   {
-    id: "cups-13", rank: 13, suit: "cups", name: "Queen of Cups", filename: "13-queen.jpg", relativePath: "minor/cups/13-queen.jpg", shipped: false,
+    id: "cups-13", rank: 13, suit: "cups", name: "Queen of Cups", filename: "13-queen.jpg", relativePath: "minor/cups/13-queen.jpg", shipped: true,
     prompt: `${ART_STYLE_PREFIX} Queen of Cups: A visionary queen seated on an ornate stone sea-throne sculpted with mermaids by the edge of an interstellar ocean of liquid starlight, holding an intricate hexagonal covered chalice, gazing into the waters beneath glowing nebulae. ${ART_STYLE_SUFFIX}`
   },
   {
-    id: "cups-14", rank: 14, suit: "cups", name: "King of Cups", filename: "14-king.jpg", relativePath: "minor/cups/14-king.jpg", shipped: false,
+    id: "cups-14", rank: 14, suit: "cups", name: "King of Cups", filename: "14-king.jpg", relativePath: "minor/cups/14-king.jpg", shipped: true,
     prompt: `${ART_STYLE_PREFIX} King of Cups: A wise monarch seated on a stone throne floating upon an interstellar ocean, wearing a blue robe and fish collar, holding a golden chalice and lotus scepter as an astral ship sails and a celestial dolphin leaps in the background. ${ART_STYLE_SUFFIX}`
   },
 
@@ -357,7 +357,7 @@ export const CARD_PROMPT_CATALOG = [
     prompt: `${ART_STYLE_PREFIX} Ace of Swords: A divine hand emerging from a swirling white nebula cloud firmly grasps the golden hilt of an upright starlight broadsword. The blade pierces through a golden celestial crown draped with olive branches. Swirling cosmic wind currents and falling golden stardust surround the blade over distant jagged asteroid peaks under a deep cosmos. ${ART_STYLE_SUFFIX}`
   },
   {
-    id: "swords-02", rank: 2, suit: "swords", name: "Two of Swords", filename: "02-two.jpg", relativePath: "minor/swords/02-two.jpg", shipped: false,
+    id: "swords-02", rank: 2, suit: "swords", name: "Two of Swords", filename: "02-two.jpg", relativePath: "minor/swords/02-two.jpg", shipped: true,
     prompt: `${ART_STYLE_PREFIX} Two of Swords: A blindfolded maiden in a pure white gown seated on a stone bench on a quiet asteroid, balancing two long crossed steel swords across her chest under a silver crescent moon and tranquil cosmic sea. ${ART_STYLE_SUFFIX}`
   },
   {
@@ -365,43 +365,43 @@ export const CARD_PROMPT_CATALOG = [
     prompt: `${ART_STYLE_PREFIX} Three of Swords: A brilliant crimson heart suspended in the deep cosmic void, pierced through by three long silver starlight broadswords emitting radiant energy rays against dark swirling storm nebulae with cosmic wind currents. ${ART_STYLE_SUFFIX}`
   },
   {
-    id: "swords-04", rank: 4, suit: "swords", name: "Four of Swords", filename: "04-four.jpg", relativePath: "minor/swords/04-four.jpg", shipped: false,
+    id: "swords-04", rank: 4, suit: "swords", name: "Four of Swords", filename: "04-four.jpg", relativePath: "minor/swords/04-four.jpg", shipped: true,
     prompt: `${ART_STYLE_PREFIX} Four of Swords: A stone sculpture effigy of an astral knight resting in peaceful meditation upon a sarcophagus tomb inside an orbital sanctuary chamber; three swords hang pointing down from the wall, one rests horizontally beneath him beside a stained-glass constellation window. ${ART_STYLE_SUFFIX}`
   },
   {
-    id: "swords-05", rank: 5, suit: "swords", name: "Five of Swords", filename: "05-five.jpg", relativePath: "minor/swords/05-five.jpg", shipped: false,
+    id: "swords-05", rank: 5, suit: "swords", name: "Five of Swords", filename: "05-five.jpg", relativePath: "minor/swords/05-five.jpg", shipped: true,
     prompt: `${ART_STYLE_PREFIX} Five of Swords: A smiling, victorious rogue holding three starlight swords while gathering another from the asteroid floor, looking back at two defeated opponents walking away toward a turbulent cosmic sea under wind-torn nebula clouds. ${ART_STYLE_SUFFIX}`
   },
   {
-    id: "swords-06", rank: 6, suit: "swords", name: "Six of Swords", filename: "06-six.jpg", relativePath: "minor/swords/06-six.jpg", shipped: false,
+    id: "swords-06", rank: 6, suit: "swords", name: "Six of Swords", filename: "06-six.jpg", relativePath: "minor/swords/06-six.jpg", shipped: true,
     prompt: `${ART_STYLE_PREFIX} Six of Swords: A slender astral ferryman guiding a wooden skiff carrying a cloaked traveler and child across a dark cosmic eddy toward a luminous stellar dawn; six upright swords stand rooted in the boat, ferrying them across space. ${ART_STYLE_SUFFIX}`
   },
   {
-    id: "swords-07", rank: 7, suit: "swords", name: "Seven of Swords", filename: "07-seven.jpg", relativePath: "minor/swords/07-seven.jpg", shipped: false,
+    id: "swords-07", rank: 7, suit: "swords", name: "Seven of Swords", filename: "07-seven.jpg", relativePath: "minor/swords/07-seven.jpg", shipped: true,
     prompt: `${ART_STYLE_PREFIX} Seven of Swords: An agile astral thief on tiptoe sneaking away from an orbital expedition camp, carrying five starlight swords in his arms and looking back over his shoulder at two swords left behind stuck in the asteroid rock. ${ART_STYLE_SUFFIX}`
   },
   {
-    id: "swords-08", rank: 8, suit: "swords", name: "Eight of Swords", filename: "08-eight.jpg", relativePath: "minor/swords/08-eight.jpg", shipped: false,
+    id: "swords-08", rank: 8, suit: "swords", name: "Eight of Swords", filename: "08-eight.jpg", relativePath: "minor/swords/08-eight.jpg", shipped: true,
     prompt: `${ART_STYLE_PREFIX} Eight of Swords: A bound and blindfolded woman in a red gown standing trapped on an asteroid crag, encircled by a cage of eight sharp upright steel broadswords, beneath a deep space sky with a distant celestial spire. ${ART_STYLE_SUFFIX}`
   },
   {
-    id: "swords-09", rank: 9, suit: "swords", name: "Nine of Swords", filename: "09-nine.jpg", relativePath: "minor/swords/09-nine.jpg", shipped: false,
+    id: "swords-09", rank: 9, suit: "swords", name: "Nine of Swords", filename: "09-nine.jpg", relativePath: "minor/swords/09-nine.jpg", shipped: true,
     prompt: `${ART_STYLE_PREFIX} Nine of Swords: A weeping figure sitting upright in an orbital chamber with face buried in hands; on the dark wall above hang nine horizontal steel broadswords pointing right, with a quilt decorated with astrological constellations and planetary glyphs. ${ART_STYLE_SUFFIX}`
   },
   {
-    id: "swords-10", rank: 10, suit: "swords", name: "Ten of Swords", filename: "10-ten.jpg", relativePath: "minor/swords/10-ten.jpg", shipped: false,
+    id: "swords-10", rank: 10, suit: "swords", name: "Ten of Swords", filename: "10-ten.jpg", relativePath: "minor/swords/10-ten.jpg", shipped: true,
     prompt: `${ART_STYLE_PREFIX} Ten of Swords: A fallen figure lying on an asteroid shore draped in a crimson cloak, pierced along the spine by ten upright swords; in the background, dark storm nebulae break to reveal a golden sunrise of a new star over calm space waters. ${ART_STYLE_SUFFIX}`
   },
   {
-    id: "swords-11", rank: 11, suit: "swords", name: "Page of Swords", filename: "11-page.jpg", relativePath: "minor/swords/11-page.jpg", shipped: false,
+    id: "swords-11", rank: 11, suit: "swords", name: "Page of Swords", filename: "11-page.jpg", relativePath: "minor/swords/11-page.jpg", shipped: true,
     prompt: `${ART_STYLE_PREFIX} Page of Swords: An alert youth in a green tunic standing on an asteroid crag, holding an upright steel broadsword with both hands, looking warily over his shoulder as cosmic wind currents and stardust sweep across the sky. ${ART_STYLE_SUFFIX}`
   },
   {
-    id: "swords-12", rank: 12, suit: "swords", name: "Knight of Swords", filename: "12-knight.jpg", relativePath: "minor/swords/12-knight.jpg", shipped: false,
+    id: "swords-12", rank: 12, suit: "swords", name: "Knight of Swords", filename: "12-knight.jpg", relativePath: "minor/swords/12-knight.jpg", shipped: true,
     prompt: `${ART_STYLE_PREFIX} Knight of Swords: A fierce armored knight in plate armor galloping at full charge on a white celestial warhorse through solar storm winds, starlight broadsword brandished high, crimson cloak whipping violently against jagged nebula clouds. ${ART_STYLE_SUFFIX}`
   },
   {
-    id: "swords-13", rank: 13, suit: "swords", name: "Queen of Swords", filename: "13-queen.jpg", relativePath: "minor/swords/13-queen.jpg", shipped: false,
+    id: "swords-13", rank: 13, suit: "swords", name: "Queen of Swords", filename: "13-queen.jpg", relativePath: "minor/swords/13-queen.jpg", shipped: true,
     prompt: `${ART_STYLE_PREFIX} Queen of Swords: A dignified, stern queen seated in profile on a carved stone throne with butterfly motifs floating high above planetary clouds, holding an upright broadsword in her right hand and gesturing with open left hand into the cosmos. ${ART_STYLE_SUFFIX}`
   },
   {
@@ -415,19 +415,19 @@ export const CARD_PROMPT_CATALOG = [
     prompt: `${ART_STYLE_PREFIX} Ace of Pentacles: A divine hand emerging from a luminous white nebula cloud holds a massive, intricately engraved golden pentacle coin with an inscribed five-pointed star. Below lies a flourishing enclosed garden with a lush archway of white lilies and red roses on an asteroid terrace, leading out to distant ringed planets under a warm amber sky. Glowing golden geomantic dust particles float softly in zero gravity. ${ART_STYLE_SUFFIX}`
   },
   {
-    id: "pentacles-02", rank: 2, suit: "pentacles", name: "Two of Pentacles", filename: "02-two.jpg", relativePath: "minor/pentacles/02-two.jpg", shipped: false,
+    id: "pentacles-02", rank: 2, suit: "pentacles", name: "Two of Pentacles", filename: "02-two.jpg", relativePath: "minor/pentacles/02-two.jpg", shipped: true,
     prompt: `${ART_STYLE_PREFIX} Two of Pentacles: A lively dancing youth in a tall red hat juggling two large golden pentacle coins enclosed within a continuous glowing green infinity loop ribbon (lemniscate); in the background, two celestial sailing ships toss upon mountainous cosmic waves under a bright starry sky. ${ART_STYLE_SUFFIX}`
   },
   {
-    id: "pentacles-03", rank: 3, suit: "pentacles", name: "Three of Pentacles", filename: "03-three.jpg", relativePath: "minor/pentacles/03-three.jpg", shipped: false,
+    id: "pentacles-03", rank: 3, suit: "pentacles", name: "Three of Pentacles", filename: "03-three.jpg", relativePath: "minor/pentacles/03-three.jpg", shipped: true,
     prompt: `${ART_STYLE_PREFIX} Three of Pentacles: A skilled artisan with hammer and chisel, an architect with orbital plans, and a cosmic astronomer conferring inside an asteroid observatory archway; three carved golden pentacles are set into the stone arch above against deep space. ${ART_STYLE_SUFFIX}`
   },
   {
-    id: "pentacles-04", rank: 4, suit: "pentacles", name: "Four of Pentacles", filename: "04-four.jpg", relativePath: "minor/pentacles/04-four.jpg", shipped: false,
+    id: "pentacles-04", rank: 4, suit: "pentacles", name: "Four of Pentacles", filename: "04-four.jpg", relativePath: "minor/pentacles/04-four.jpg", shipped: true,
     prompt: `${ART_STYLE_PREFIX} Four of Pentacles: A crowned figure in a crimson cloak seated on an asteroid pedestal, clutching one golden pentacle tightly to his chest, resting both feet upon two pentacles, with a fourth pentacle balanced atop his crown, before a distant orbital city skyline. ${ART_STYLE_SUFFIX}`
   },
   {
-    id: "pentacles-05", rank: 5, suit: "pentacles", name: "Five of Pentacles", filename: "05-five.jpg", relativePath: "minor/pentacles/05-five.jpg", shipped: false,
+    id: "pentacles-05", rank: 5, suit: "pentacles", name: "Five of Pentacles", filename: "05-five.jpg", relativePath: "minor/pentacles/05-five.jpg", shipped: true,
     prompt: `${ART_STYLE_PREFIX} Five of Pentacles: Two impoverished wanderers in tattered rags trudging through icy snow on a frozen comet surface, passing beneath an illuminated stained-glass observatory dome glowing brightly with five golden pentacles into the dark cosmos. ${ART_STYLE_SUFFIX}`
   },
   {
@@ -435,35 +435,35 @@ export const CARD_PROMPT_CATALOG = [
     prompt: `${ART_STYLE_PREFIX} Six of Pentacles: A generous cosmic merchant in a purple velvet robe holding a pair of golden scales in his left hand, gently bestowing golden pentacle coins with his right into the open palms of two kneeling supplicants on an asteroid terrace. ${ART_STYLE_SUFFIX}`
   },
   {
-    id: "pentacles-07", rank: 7, suit: "pentacles", name: "Seven of Pentacles", filename: "07-seven.jpg", relativePath: "minor/pentacles/07-seven.jpg", shipped: false,
+    id: "pentacles-07", rank: 7, suit: "pentacles", name: "Seven of Pentacles", filename: "07-seven.jpg", relativePath: "minor/pentacles/07-seven.jpg", shipped: true,
     prompt: `${ART_STYLE_PREFIX} Seven of Pentacles: A patient cosmic farmer in a work tunic resting on a staff, gazing contemplatively at a lush vine bearing seven heavy glowing golden pentacles in an asteroid greenhouse under a starry sky. ${ART_STYLE_SUFFIX}`
   },
   {
-    id: "pentacles-08", rank: 8, suit: "pentacles", name: "Eight of Pentacles", filename: "08-eight.jpg", relativePath: "minor/pentacles/08-eight.jpg", shipped: false,
+    id: "pentacles-08", rank: 8, suit: "pentacles", name: "Eight of Pentacles", filename: "08-eight.jpg", relativePath: "minor/pentacles/08-eight.jpg", shipped: true,
     prompt: `${ART_STYLE_PREFIX} Eight of Pentacles: An industrious artisan in an apron seated on an asteroid workbench, diligently engraving an ornate pentagram into a golden coin with hammer and chisel; six finished golden pentacles are displayed on a stone pillar beside him under a starry sky. ${ART_STYLE_SUFFIX}`
   },
   {
-    id: "pentacles-09", rank: 9, suit: "pentacles", name: "Nine of Pentacles", filename: "09-nine.jpg", relativePath: "minor/pentacles/09-nine.jpg", shipped: false,
+    id: "pentacles-09", rank: 9, suit: "pentacles", name: "Nine of Pentacles", filename: "09-nine.jpg", relativePath: "minor/pentacles/09-nine.jpg", shipped: true,
     prompt: `${ART_STYLE_PREFIX} Nine of Pentacles: An elegant noblewoman in a flowing golden gown standing in a lush garden on an asteroid terrace heavy with ripe purple grapes; a hooded cosmic falcon perches calmly on her gloved hand, surrounded by nine heavy golden pentacles under a starlight sky. ${ART_STYLE_SUFFIX}`
   },
   {
-    id: "pentacles-10", rank: 10, suit: "pentacles", name: "Ten of Pentacles", filename: "10-ten.jpg", relativePath: "minor/pentacles/10-ten.jpg", shipped: false,
+    id: "pentacles-10", rank: 10, suit: "pentacles", name: "Ten of Pentacles", filename: "10-ten.jpg", relativePath: "minor/pentacles/10-ten.jpg", shipped: true,
     prompt: `${ART_STYLE_PREFIX} Ten of Pentacles: A multi-generational family gathered beneath a carved stone archway on an orbital estate: an elderly patriarch in an embroidered coat strokes two white celestial hounds, while a young couple and child play, with ten golden pentacles arranged in the Tree of Life pattern. ${ART_STYLE_SUFFIX}`
   },
   {
-    id: "pentacles-11", rank: 11, suit: "pentacles", name: "Page of Pentacles", filename: "11-page.jpg", relativePath: "minor/pentacles/11-page.jpg", shipped: false,
+    id: "pentacles-11", rank: 11, suit: "pentacles", name: "Page of Pentacles", filename: "11-page.jpg", relativePath: "minor/pentacles/11-page.jpg", shipped: true,
     prompt: `${ART_STYLE_PREFIX} Page of Pentacles: A studious youth in a green tunic walking across a flowering asteroid meadow, reverently holding aloft a single golden pentacle coin on his fingertips, gazing at it in deep concentration under a bright cosmos. ${ART_STYLE_SUFFIX}`
   },
   {
-    id: "pentacles-12", rank: 12, suit: "pentacles", name: "Knight of Pentacles", filename: "12-knight.jpg", relativePath: "minor/pentacles/12-knight.jpg", shipped: false,
+    id: "pentacles-12", rank: 12, suit: "pentacles", name: "Knight of Pentacles", filename: "12-knight.jpg", relativePath: "minor/pentacles/12-knight.jpg", shipped: true,
     prompt: `${ART_STYLE_PREFIX} Knight of Pentacles: A patient, armored knight mounted upon a heavy black celestial draught horse in the middle of furrowed asteroid soil, holding a single golden pentacle before him with serene, unwavering focus against an astral horizon. ${ART_STYLE_SUFFIX}`
   },
   {
-    id: "pentacles-13", rank: 13, suit: "pentacles", name: "Queen of Pentacles", filename: "13-queen.jpg", relativePath: "minor/pentacles/13-queen.jpg", shipped: false,
+    id: "pentacles-13", rank: 13, suit: "pentacles", name: "Queen of Pentacles", filename: "13-queen.jpg", relativePath: "minor/pentacles/13-queen.jpg", shipped: true,
     prompt: `${ART_STYLE_PREFIX} Queen of Pentacles: A bountiful queen seated on a stone throne carved with goats and fruit on a garden asteroid; she cradles a large golden pentacle in her lap with maternal care as an astral hare plays in the grass at her feet under a warm nebula. ${ART_STYLE_SUFFIX}`
   },
   {
-    id: "pentacles-14", rank: 14, suit: "pentacles", name: "King of Pentacles", filename: "14-king.jpg", relativePath: "minor/pentacles/14-king.jpg", shipped: false,
+    id: "pentacles-14", rank: 14, suit: "pentacles", name: "King of Pentacles", filename: "14-king.jpg", relativePath: "minor/pentacles/14-king.jpg", shipped: true,
     prompt: `${ART_STYLE_PREFIX} King of Pentacles: A prosperous monarch seated on a stone throne carved with bull heads, draped in robes embroidered with ripe grapevines on an asteroid terrace; he rests his right hand on a golden scepter and his left on a heavy golden pentacle coin under glowing star clusters. ${ART_STYLE_SUFFIX}`
   }
 ];

@@ -296,10 +296,39 @@ export function thumbFromDate(date, zoom, anchor) {
   return clamp01(0.5 + (date.getTime() - anchor.getTime()) / (2 * (HALF_MS[zoom] || HALF_MS.month)));
 }
 
+import {
+  ALCHEMICAL_PILLARS,
+  CANONICAL_TOKENS,
+  PROTOCOL_BAND,
+  PLANETARY_12_AXES,
+  resolveAlchemicalPillar,
+  computeThermodynamics,
+  computeKineticSpectrum,
+  computeTokenizedQuantities,
+  computeMomentTelemetry,
+  computePlanetaryEvents,
+} from "./thermo-kinetics.js";
+
+export {
+  ALCHEMICAL_PILLARS,
+  CANONICAL_TOKENS,
+  PROTOCOL_BAND,
+  PLANETARY_12_AXES,
+  resolveAlchemicalPillar,
+  computeThermodynamics,
+  computeKineticSpectrum,
+  computeTokenizedQuantities,
+  computeMomentTelemetry,
+  computePlanetaryEvents,
+};
+
 export const compute = {
   shortestSep, bodyVelocity, applyingState, aspectInfluence, enrichAspects, transitAspects,
   chartRuler, blendedBodyWeight, blendedSMES, elementalComposition, compToEsms,
   footprintsFromMembers, poolPressure, dateFromThumb, thumbFromDate,
   ASPECTS, DEFAULT_WEIGHTS, ESMS_OF_ELEMENT, ELEMENT_OF_ESMS, n360, clamp, clamp01,
+  ALCHEMICAL_PILLARS, CANONICAL_TOKENS, PROTOCOL_BAND, PLANETARY_12_AXES,
+  resolveAlchemicalPillar, computeThermodynamics, computeKineticSpectrum,
+  computeTokenizedQuantities, computeMomentTelemetry, computePlanetaryEvents,
 };
 export default compute;

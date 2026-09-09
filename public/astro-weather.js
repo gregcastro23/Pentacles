@@ -215,6 +215,7 @@
         retrograde: retrograde(p.body, date),
         house: houseOf(p.eclLon, cusps),
         alt: p.alt, az: p.az, zone: p.zone, up: p.up,
+        ra: p.ra, dec: p.dec,
       };
     });
     return finishChart({ frame: "mundane", asc, mc, cusps, system, positions, observer: { lat: latDeg, lon: lonDeg }, date });
