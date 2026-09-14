@@ -16,6 +16,7 @@
 //    A dropped socket meant permanently missed events with no error raised.
 
 import { Connection, PublicKey } from "@solana/web3.js";
+import bs58 from "bs58";
 import { CAIP2, CHAINS, chainFor, isMainnet } from "../src/web3/chains.js";
 
 export interface ClusterConfig {
@@ -108,13 +109,39 @@ export interface StreamHandle {
   stop(): Promise<void>;
 }
 
+export interface LogEntry {
+  signature: string;
+  logs: string[];
+  err: unknown;
+}
+
 export interface StreamOptions {
   programId: PublicKey;
   config: ClusterConfig;
-  onLogs(entry: { signature: string; logs: string[]; err: unknown }): Promise<void>;
+  onLogs(entry: LogEntry): Promise<void>;
   /** Polling cadence for the backfill tier, ms. */
   pollIntervalMs?: number;
   commitment?: "confirmed" | "finalized";
+}
+
+/**
+ * Convert one Yellowstone `SubscribeUpdate` into the entry the other tiers deliver.
+ *
+ * Geyser sends the signature as raw bytes. It must become base58, the form the
+ * WebSocket and polling tiers deliver: every reducer's `normalized_solana_signature`
+ * check rejects anything else, and the replay guard only dedupes a transaction
+ * across tiers when the strings match.
+ *
+ * Returns null for updates that carry no transaction (slot updates, pings).
+ */
+export function geyserLogEntry(message: any): LogEntry | null {
+  const tx = message?.transaction?.transaction;
+  if (!tx?.signature?.length) return null;
+  return {
+    signature: bs58.encode(tx.signature),
+    logs: tx.meta?.logMessages ?? [],
+    err: tx.meta?.err ?? null,
+  };
 }
 
 /**
@@ -151,7 +178,7 @@ export async function createResilientLogStream(options: StreamOptions): Promise<
     return true;
   };
 
-  const deliver = async (entry: { signature: string; logs: string[]; err: unknown }) => {
+  const deliver = async (entry: LogEntry) => {
     if (!remember(entry.signature)) return;
     await onLogs(entry);
   };
@@ -186,11 +213,8 @@ export async function createResilientLogStream(options: StreamOptions): Promise<
         );
       });
       stream.on("data", async (message: any) => {
-        const tx = message?.transaction?.transaction;
-        if (!tx) return;
-        const signature = Buffer.from(tx.signature ?? []).toString("base64");
-        const logs: string[] = tx.meta?.logMessages ?? [];
-        await deliver({ signature, logs, err: tx.meta?.err ?? null });
+        const entry = geyserLogEntry(message);
+        if (entry) await deliver(entry);
       });
       stream.on("error", () => {
         if (!stopped) void degrade();
@@ -299,4 +323,10 @@ export async function createResilientLogStream(options: StreamOptions): Promise<
   };
 }
 
-export default { resolveCluster, assertGenesis, connectionsFor, createResilientLogStream };
+export default {
+  resolveCluster,
+  assertGenesis,
+  connectionsFor,
+  createResilientLogStream,
+  geyserLogEntry,
+};
