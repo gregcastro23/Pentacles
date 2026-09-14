@@ -13,7 +13,7 @@
     "test:chart": "node src/alchm-chart/__tests__/math.test.js",
     "test:engine": "node scripts/arcana-trick-engine.test.mjs",
     "test:gameplay": "node scripts/arcana-trick-engine.test.mjs && node scripts/gameplay-contract.test.mjs && node scripts/card-synthesis.test.mjs && bun scripts/starter-deck.test.mjs && bun scripts/pentacles-stardex.test.mjs",
-    "test:solana": "node scripts/dryrun-solana.test.mjs && node scripts/dryrun-star-staking.test.mjs && bun scripts/solana-settlement-e2e.test.mjs && bun test tests/esms-units.test.ts tests/solana-sync-service.test.ts tests/solana-instructions.test.ts",
+    "test:solana": "node scripts/dryrun-solana.test.mjs && node scripts/dryrun-star-staking.test.mjs && bun scripts/solana-settlement-e2e.test.mjs && bun test tests/esms-units.test.ts tests/solana-sync-service.test.ts tests/solana-instructions.test.ts tests/pentacles-solana.test.ts tests/discriminant-faucet.test.ts",
     "build:chart": "vite build --config vite.alchm.config.js",
     "serve": "bun run serve.ts",
     "gen": "spacetime generate --lang typescript --module-path server --out-dir src/module_bindings -y && node scripts/patch-bindings.mjs",
