@@ -1,24 +1,23 @@
 # Pentacles feeder worker — runs the companion services under the
-# feeder/all.ts supervisor (including the omnichain bridge settler)
-# plus the PA/WTEN health probes and the feeders heartbeat.
+# feeder/all.ts supervisor plus the PA/WTEN health probes and the feeders
+# heartbeat.
 #
 # Build context is the REPO ROOT (the feeders import ../src/module_bindings
 # and ../src/net/ws-normalize.js); the Railway service sets
-# dockerfilePath=feeder/Dockerfile. bun.lock is untracked (.gitignore), so
-# installs resolve from package.json / package-lock.json instead of a frozen
-# bun lockfile.
+# dockerfilePath=feeder/Dockerfile. Both installs are frozen to their tracked
+# lockfiles (bun.lock, feeder/bun.lock), so an image built from a clean
+# checkout resolves exactly the versions CI tested.
 FROM oven/bun:1-slim
 
 WORKDIR /app
 
 # Root deps — src/module_bindings resolves the `spacetimedb` SDK from here.
-# (bun install migrates versions from package-lock.json when present.)
-COPY package.json package-lock.json ./
-RUN bun install --production
+COPY package.json bun.lock ./
+RUN bun install --frozen-lockfile --production
 
-# Feeder deps (@anthropic-ai/sdk, @solana/web3.js).
-COPY feeder/package.json ./feeder/
-RUN cd feeder && bun install --production
+# Feeder deps (@anthropic-ai/sdk, @solana/web3.js, the signer SDKs).
+COPY feeder/package.json feeder/bun.lock ./feeder/
+RUN cd feeder && bun install --frozen-lockfile --production
 
 # Source needed by companion services (alchm-chart, web3, net, arcana trick engine)
 COPY src ./src

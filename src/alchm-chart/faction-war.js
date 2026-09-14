@@ -14,7 +14,7 @@ import { h, clear } from "./dom.js";
 import {
   buildZones, computeStandings, factionRoster, deriveEvents, standingsTrend,
   agentIdentitySet, agentByIdentity, buildTables, roundClock, canAccessZone,
-  accessRefusalReason, PLANET_NAMES,
+  accessRefusalReason, PLANET_NAMES, zoneName,
 } from "./war-model.js";
 import { agentDeck, dealHandFromCards, MAJOR_NUMERALS, MAJOR_NAMES, ARCANA_NUMERALS, ARCANA_NAMES, SUIT_GLYPHS, SUIT_COLORS, SUIT_ART, rankName } from "./deck.js";
 import { categoricalChartAnalytics } from "./sign-character.js";

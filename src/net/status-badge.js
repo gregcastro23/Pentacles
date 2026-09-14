@@ -22,16 +22,24 @@ export function initNetBadge() {
   document.body.appendChild(badge)
 
   let first = true
+  // Reconnect backoff cycles CONNECTING → ERROR indefinitely, so the failure
+  // toast fires once per outage: on the first failure of the page session, and
+  // again only after the connection has been LIVE. The badge carries the state
+  // (and the latest error, in its tooltip) in between.
+  let failureToastShown = false
   spacetime.onStatus((s) => {
     const m = LABELS[s] || LABELS[STATUS.OFFLINE]
+    const errorDetail = s === STATUS.ERROR && spacetime.lastError?.message ? ` (${spacetime.lastError.message})` : ''
     badge.className = `pt-net pt-net--${s}`
     badge.innerHTML = `<span class="pt-net__dot" aria-hidden="true">${m.dot}</span><span>${m.text}</span>`
-    badge.title = m.title
-    badge.setAttribute('aria-label', m.title)
+    badge.title = m.title + errorDetail
+    badge.setAttribute('aria-label', m.title + errorDetail)
     if (!first) {
       if (s === STATUS.LIVE) {
+        failureToastShown = false
         window.toast?.('Connected to the live module.', { type: 'success', title: 'SpacetimeDB' })
-      } else if (s === STATUS.ERROR) {
+      } else if (s === STATUS.ERROR && !failureToastShown) {
+        failureToastShown = true
         window.toast?.(
           `Live connection failed — ${spacetime.lastError?.message || 'unreachable'}. Running on local simulation.`,
           { type: 'warn', title: 'SpacetimeDB' }
