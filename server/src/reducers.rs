@@ -2714,10 +2714,7 @@ fn apply_control(ctx: &ReducerContext, zone_id: u8, attacker: Planet, delta: i32
                         );
                         let fp = bounty.to_fixed_points();
                         if let Some(mut jing) = ctx.db.jing_pool().identity().find(&conqueror_id) {
-                            if jing.esms.len() < 4 { jing.esms.resize(4, 0); }
-                            for i in 0..4 {
-                                jing.esms[i] = jing.esms[i].saturating_add((fp[i] / 1000) as u16);
-                            }
+                            credit_pool_fixed_points(&mut jing.esms, &fp);
                             jing.updated_at = ctx.timestamp;
                             ctx.db.jing_pool().identity().update(jing);
                         }
@@ -3503,10 +3500,7 @@ fn melee_settle(ctx: &ReducerContext, table_id: u64) {
             );
             let fp = round_yield.to_fixed_points();
             if let Some(mut jing) = ctx.db.jing_pool().identity().find(&winner.occupant) {
-                if jing.esms.len() < 4 { jing.esms.resize(4, 0); }
-                for i in 0..4 {
-                    jing.esms[i] = jing.esms[i].saturating_add((fp[i] / 1000) as u16);
-                }
+                credit_pool_fixed_points(&mut jing.esms, &fp);
                 jing.updated_at = ctx.timestamp;
                 ctx.db.jing_pool().identity().update(jing);
             }
@@ -6686,12 +6680,7 @@ const YIELD_RATE_SCALE: u128 = 1_000_000;
 /// 10^14 — the exact factor between one Solana atom and one ledger base unit.
 const LEDGER_PER_SOLANA_ATOM: u128 = 100_000_000_000_000;
 
-/// Widen 4-decimal Solana atoms to the 18-decimal ledger. Always exact.
-fn solana_atoms_to_ledger(atoms: u64) -> Result<u128, String> {
-    (atoms as u128)
-        .checked_mul(LEDGER_PER_SOLANA_ATOM)
-        .ok_or_else(|| "ESMS amount overflows the ledger".to_string())
-}
+const _: () = assert!(LEDGER_PER_SOLANA_ATOM * ESMS_SOLANA_ATOMS_PER_TOKEN == ESMS_BASE_UNITS);
 
 /// Narrow an 18-decimal ledger amount to 4-decimal Solana atoms, returning the
 /// remainder that is not representable there.
@@ -6707,21 +6696,62 @@ fn ledger_to_solana_atoms(amount: u128) -> Result<(u64, u128), String> {
     Ok((atoms, dust))
 }
 
-fn esms_game_units(amount: u128) -> u16 {
-    let whole = if amount >= ESMS_BASE_UNITS {
-        amount / ESMS_BASE_UNITS
-    } else {
-        amount
-    };
-    whole.min(u16::MAX as u128) as u16
+/// `jing_pool.esms` counts tenths of an ESMS: 10 units is 1.0 ESMS, and one unit
+/// is 1,000 Solana atoms. Every ESMS amount converted into that column goes
+/// through `solana_atoms_to_pool_units` or `fixed_points_to_pool_units`, so a
+/// unit means the same amount whether it came from Solana, the faucet, a melee
+/// win or a zone capture.
+///
+/// Tenths match what the faucet, melee and zone-capture credits already wrote,
+/// and what `JING_SECONDARY` charges per cast (10, i.e. 1.0 ESMS), so existing
+/// balances keep their meaning.
+const ESMS_ATOMS_PER_POOL_UNIT: u64 = 1_000;
+
+const _: () = assert!(ESMS_SOLANA_ATOMS_PER_TOKEN.is_multiple_of(ESMS_ATOMS_PER_POOL_UNIT as u128));
+
+/// Narrow 4-decimal Solana atoms to `jing_pool.esms` units, returning the
+/// remainder in atoms that is too small to make a whole unit.
+///
+/// The unit count saturates at `u16::MAX`, the ceiling of the pool column.
+fn solana_atoms_to_pool_units(atoms: u64) -> (u16, u64) {
+    let units = atoms / ESMS_ATOMS_PER_POOL_UNIT;
+    let dust = atoms % ESMS_ATOMS_PER_POOL_UNIT;
+    (u16::try_from(units).unwrap_or(u16::MAX), dust)
 }
 
+/// Narrow a 10^4 fixed-point ESMS amount (`FaucetAllocation::to_fixed_points`)
+/// to `jing_pool.esms` units, returning the sub-unit remainder.
+///
+/// 10^4 fixed point and Solana atoms are the same scale — 1.0000 ESMS is 10,000
+/// of either — so this is the atom conversion by construction, and the two
+/// paths cannot drift apart.
+fn fixed_points_to_pool_units(fixed_points: u32) -> (u16, u64) {
+    solana_atoms_to_pool_units(u64::from(fixed_points))
+}
+
+/// Credit a four-axis 10^4 fixed-point grant into a `jing_pool.esms` vector.
+///
+/// The sub-unit remainder is floored away, not carried: carrying it would need
+/// a dust column on `JingPool`, which is a schema change. Flooring can only
+/// under-credit — by less than 0.1 ESMS per axis per grant — and the full
+/// fixed-point amount is still recorded on the `faucet_transaction` audit row.
+fn credit_pool_fixed_points(esms: &mut Vec<u16>, fixed_points: &[u32; 4]) {
+    if esms.len() < 4 {
+        esms.resize(4, 0);
+    }
+    for (pool, &fp) in esms.iter_mut().zip(fixed_points) {
+        let (units, _floored_dust) = fixed_points_to_pool_units(fp);
+        *pool = pool.saturating_add(units);
+    }
+}
+
+/// `atoms` is the Token-2022 amount the feeder observed, in 4-decimal atoms.
 fn apply_esms_event_to_jing_pool(
     ctx: &ReducerContext,
     player: &Player,
     event_type: &str,
     element_id: u8,
-    amount: u128,
+    atoms: u64,
 ) -> Result<(), String> {
     if element_id > 3 {
         return Err("element_id must be between 0 and 3".into());
@@ -6729,7 +6759,16 @@ fn apply_esms_event_to_jing_pool(
     if event_type != "mint" && event_type != "burn" {
         return Err("event_type must be mint or burn".into());
     }
-    let units = esms_game_units(amount);
+    // A burn is worth double. Doubling the atoms before narrowing means a burn
+    // of 0.05 ESMS still earns a unit instead of flooring to zero first.
+    let credited_atoms = if event_type == "burn" {
+        atoms.saturating_mul(2)
+    } else {
+        atoms
+    };
+    // Floored, not carried — see `credit_pool_fixed_points` for why. Flooring
+    // can only under-credit, by less than 0.1 ESMS per event.
+    let (credit, _floored_dust) = solana_atoms_to_pool_units(credited_atoms);
     let mut pool = ctx
         .db
         .jing_pool()
@@ -6744,11 +6783,6 @@ fn apply_esms_event_to_jing_pool(
     if pool.esms.len() < 4 {
         pool.esms.resize(4, 0);
     }
-    let credit = if event_type == "burn" {
-        units.saturating_mul(2)
-    } else {
-        units
-    };
     pool.esms[element_id as usize] = pool.esms[element_id as usize].saturating_add(credit);
     pool.updated_at = ctx.timestamp;
     if ctx.db.jing_pool().identity().find(&player.identity).is_some() {
@@ -6767,8 +6801,8 @@ fn apply_esms_event_to_jing_pool(
 /// it collides with, and vice versa. It must be a Solana variant.
 ///
 /// `amount` arrives in ASOL's 4-decimal atoms — the scale of the Token-2022
-/// mints `asol_program` issues — and is widened here to the module's 18-decimal
-/// ledger. Widening is exact; see `solana_atoms_to_ledger`.
+/// mints `asol_program` issues — and is credited to `jing_pool.esms` in tenths
+/// of an ESMS; see `solana_atoms_to_pool_units`.
 #[reducer]
 pub fn sync_solana_event(
     ctx: &ReducerContext,
@@ -6804,8 +6838,7 @@ pub fn sync_solana_event(
     {
         return Err("Solana event wallet ownership has not been verified".into());
     }
-    let ledger_amount = solana_atoms_to_ledger(amount)?;
-    apply_esms_event_to_jing_pool(ctx, &player, &event_type, element_id, ledger_amount)?;
+    apply_esms_event_to_jing_pool(ctx, &player, &event_type, element_id, amount)?;
     record_processed(ctx, hash, chain.chain_key(), &event_type);
     Ok(())
 }
@@ -7321,12 +7354,7 @@ pub fn claim_daily_faucet(ctx: &ReducerContext) -> Result<(), String> {
             updated_at: ctx.timestamp,
         },
     };
-    if jing.esms.len() < 4 {
-        jing.esms.resize(4, 0);
-    }
-    for i in 0..4 {
-        jing.esms[i] = jing.esms[i].saturating_add((fixed_points[i] / 1000) as u16);
-    }
+    credit_pool_fixed_points(&mut jing.esms, &fixed_points);
     jing.updated_at = ctx.timestamp;
     if ctx.db.jing_pool().identity().find(&player_id).is_some() {
         ctx.db.jing_pool().identity().update(jing);
@@ -7405,6 +7433,94 @@ mod tests {
         should_replace, AgentTurnDirective, COLLECTION_CAP, MAX_CATCHUP_ROUNDS, ROUND_BASE_SECS,
         ZONE_SWING, ZONE_SWING_WINNER_BONUS,
     };
+
+    // ── ESMS pool units ─────────────────────────────────────────────────────
+
+    use super::{
+        credit_pool_fixed_points, fixed_points_to_pool_units, solana_atoms_to_pool_units,
+        ESMS_SOLANA_ATOMS_PER_TOKEN,
+    };
+    use crate::faucet::FaucetAllocation;
+
+    /// One atom is 0.0001 ESMS. It used to credit 65,535 units while a whole
+    /// ESMS credited 1: a ledger amount under one token skipped the division
+    /// and was clamped to u16 as-is.
+    #[test]
+    fn one_atom_is_dust_not_a_full_pool() {
+        assert_eq!(solana_atoms_to_pool_units(1), (0, 1));
+        assert!(solana_atoms_to_pool_units(1).0 < solana_atoms_to_pool_units(10_000).0);
+    }
+
+    #[test]
+    fn just_under_one_esms_floors_to_nine_tenths() {
+        assert_eq!(solana_atoms_to_pool_units(9_999), (9, 999));
+    }
+
+    /// 1.0 ESMS used to credit 1 unit from Solana and 10 from the faucet.
+    #[test]
+    fn one_esms_of_atoms_is_ten_pool_units() {
+        assert_eq!(solana_atoms_to_pool_units(10_000), (10, 0));
+    }
+
+    #[test]
+    fn a_fractional_amount_splits_into_units_and_dust() {
+        let (units, dust) = solana_atoms_to_pool_units(12_345);
+        assert_eq!((units, dust), (12, 345));
+        assert_eq!(
+            units as u64 * 1_000 + dust,
+            12_345,
+            "the split must be lossless"
+        );
+    }
+
+    #[test]
+    fn a_u64_max_amount_saturates_at_the_pool_ceiling() {
+        assert_eq!(
+            solana_atoms_to_pool_units(u64::MAX),
+            (u16::MAX, u64::MAX % 1_000)
+        );
+    }
+
+    /// The faucet protocol band runs 6.0000..=48.0000 ESMS.
+    #[test]
+    fn faucet_fixed_points_convert_on_the_same_scale() {
+        assert_eq!(fixed_points_to_pool_units(60_000), (60, 0));
+        assert_eq!(fixed_points_to_pool_units(480_000), (480, 0));
+        assert_eq!(
+            fixed_points_to_pool_units(u32::MAX),
+            (u16::MAX, u32::MAX as u64 % 1_000)
+        );
+    }
+
+    /// The bug was two credit paths into one column at a 10× different scale.
+    /// Pin both to the same answer for 1.0 ESMS, starting from the faucet's own
+    /// fixed-point encoding rather than a hand-written 10,000.
+    #[test]
+    fn faucet_and_solana_paths_agree_on_one_esms() {
+        let one_esms = FaucetAllocation {
+            spirit: 1.0,
+            essence: 1.0,
+            matter: 1.0,
+            substance: 1.0,
+            total: 4.0,
+            resonance_factor: 1.0,
+        };
+        let from_faucet = fixed_points_to_pool_units(one_esms.to_fixed_points()[0]);
+        let from_solana = solana_atoms_to_pool_units(ESMS_SOLANA_ATOMS_PER_TOKEN as u64);
+        assert_eq!(from_faucet, from_solana);
+        assert_eq!(from_faucet, (10, 0));
+    }
+
+    #[test]
+    fn pool_credit_floors_each_axis_and_saturates() {
+        let mut esms = vec![u16::MAX - 5, 0];
+        credit_pool_fixed_points(&mut esms, &[60_000, 61_234, 999, 480_000]);
+        assert_eq!(
+            esms,
+            vec![u16::MAX, 61, 0, 480],
+            "short pools are widened to four axes"
+        );
+    }
 
     // ── The War Table ───────────────────────────────────────────────────────
 
