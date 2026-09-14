@@ -292,8 +292,9 @@ The ESMS (Spirit 🜂, Essence 🜄, Matter 🜃, Substance 🜁) elements serve
 
 ### 2. In-Game Consciousness Pools (JingPool)
 *   **Purpose**: Mirrored database representations in SpacetimeDB used to cast/counter spells ("Jings") in the Arena.
-*   **Casting Jings**: Each cast drains 10 ESMS of the corresponding element.
-*   **Earning Rewards**: Duel rounds resolve every 3 plays. Upon resolution, an `ELEMENT_POOL` of 100 ESMS is divided among participants of that element pro-rata by their play weight: $\text{share} = (\text{weight} / \text{total\_weight}) \times 100$, and added to their `JingPool` balance.
+*   **Units**: `jing_pool.esms` counts tenths of an ESMS, so 10 units is 1.0 ESMS. A new pool starts at 80 units (8.0 ESMS) per element, whichever reducer creates it.
+*   **Casting Jings**: Each cast drains 10 units (1.0 ESMS) of the corresponding element.
+*   **Earning Rewards**: Duel rounds resolve every 3 plays. Upon resolution, a pot of 100 units (10.0 ESMS, `ROUND_POT_POOL_UNITS`) per element is divided among participants of that element pro-rata by their play weight: $\text{share} = \lfloor \text{weight} \times 100 / \text{total\_weight} \rfloor$, and added to their `JingPool` balance.
 
 ## Notes & accuracy
 
