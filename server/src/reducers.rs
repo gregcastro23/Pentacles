@@ -2713,11 +2713,10 @@ fn apply_control(ctx: &ReducerContext, zone_id: u8, attacker: Planet, delta: i32
                             None,
                         );
                         let fp = bounty.to_fixed_points();
-                        if let Some(mut jing) = ctx.db.jing_pool().identity().find(&conqueror_id) {
-                            credit_pool_fixed_points(&mut jing.esms, &fp);
-                            jing.updated_at = ctx.timestamp;
-                            ctx.db.jing_pool().identity().update(jing);
-                        }
+                        let mut jing = ensure_jing_pool(ctx, conqueror_id);
+                        credit_pool_fixed_points(&mut jing.esms, &fp);
+                        jing.updated_at = ctx.timestamp;
+                        ctx.db.jing_pool().identity().update(jing);
                         ctx.db.faucet_transaction().insert(FaucetTransaction {
                             tx_id: 0,
                             recipient: conqueror_id,
@@ -3499,11 +3498,10 @@ fn melee_settle(ctx: &ReducerContext, table_id: u64) {
                 None,
             );
             let fp = round_yield.to_fixed_points();
-            if let Some(mut jing) = ctx.db.jing_pool().identity().find(&winner.occupant) {
-                credit_pool_fixed_points(&mut jing.esms, &fp);
-                jing.updated_at = ctx.timestamp;
-                ctx.db.jing_pool().identity().update(jing);
-            }
+            let mut jing = ensure_jing_pool(ctx, winner.occupant);
+            credit_pool_fixed_points(&mut jing.esms, &fp);
+            jing.updated_at = ctx.timestamp;
+            ctx.db.jing_pool().identity().update(jing);
             ctx.db.faucet_transaction().insert(FaucetTransaction {
                 tx_id: 0,
                 recipient: winner.occupant,
@@ -5107,16 +5105,24 @@ fn seed_star_agents(ctx: &ReducerContext) {
 const JING_PRIMARY: u16 = 15; // Sacred-7 drain per cast (constants.ts)
 const JING_SECONDARY: u16 = 10; // ESMS drain per cast
 const JING_COOLDOWN_SECS: i64 = 6;
+/// A new pool's balance on every axis. The ESMS figure is in `jing_pool.esms`
+/// units: 80 is 8.0 ESMS, eight casts of `JING_SECONDARY`.
+const JING_STARTER_SACRED7: u16 = 100;
+const JING_STARTER_ESMS: u16 = 80;
 
-/// Lazily create the caller's Sacred-7 + ESMS pools.
+/// Find `who`'s Sacred-7 + ESMS pools, creating them at the starter balance.
+///
+/// Every path that credits or drains a pool gets its row from here, so a new
+/// player starts with the same balance whichever reducer touches the pool
+/// first, and no credit is skipped because the row did not exist yet.
 fn ensure_jing_pool(ctx: &ReducerContext, who: Identity) -> JingPool {
     if let Some(p) = ctx.db.jing_pool().identity().find(&who) {
         return p;
     }
     let p = JingPool {
         identity: who,
-        sacred7: vec![100, 100, 100, 100, 100, 100, 100],
-        esms: vec![80, 80, 80, 80],
+        sacred7: vec![JING_STARTER_SACRED7; 7],
+        esms: vec![JING_STARTER_ESMS; 4],
         updated_at: ctx.timestamp,
     };
     ctx.db.jing_pool().insert(p.clone());
@@ -5840,6 +5846,23 @@ fn daily_rate_per_usdc(
 
 // ── Round Tracking & Yield Distribution Reducer Helpers ──────────────────────
 
+/// Each element's pot per completed duel round, in `jing_pool.esms` units:
+/// 100 is 10.0 ESMS, ten casts of `JING_SECONDARY`. The pot is a game payout,
+/// not an on-chain amount being converted, so it is set in pool units directly.
+const ROUND_POT_POOL_UNITS: u64 = 100;
+
+/// A participant's share of their element's round pot, floored.
+///
+/// Integer arithmetic on purpose: in f64 a 29% share is 28.999999999999996,
+/// which truncates to 28.
+fn round_pot_share(weight: u32, total_weight: u64) -> u16 {
+    if total_weight == 0 {
+        return 0;
+    }
+    let share = u64::from(weight) * ROUND_POT_POOL_UNITS / total_weight;
+    u16::try_from(share).unwrap_or(u16::MAX)
+}
+
 fn record_round_play(
     ctx: &ReducerContext,
     identity: Identity,
@@ -5876,42 +5899,24 @@ fn record_round_play(
             .filter(&round.round_id)
             .collect();
 
-        let mut total_weight = [0u32; 4];
+        let mut total_weight = [0u64; 4];
         for p in &participants {
             if p.element < 4 {
-                total_weight[p.element as usize] += p.weight;
+                total_weight[p.element as usize] += u64::from(p.weight);
             }
         }
 
-        const ELEMENT_POOL: u32 = 100;
-
         for p in &participants {
             if p.element >= 4 { continue; }
-            let tw = total_weight[p.element as usize];
-            if tw > 0 {
-                let share = (p.weight as f64 / tw as f64 * ELEMENT_POOL as f64) as u16;
-                if share > 0 {
-                    let mut pool = match ctx.db.jing_pool().identity().find(&p.identity) {
-                        Some(pl) => pl,
-                        None => {
-                            let new_pool = JingPool {
-                                identity: p.identity,
-                                sacred7: vec![100; 7],
-                                esms: vec![0; 4],
-                                updated_at: ctx.timestamp,
-                            };
-                            ctx.db.jing_pool().insert(new_pool.clone());
-                            new_pool
-                        }
-                    };
-                    
-                    if pool.esms.len() < 4 {
-                        pool.esms.resize(4, 0);
-                    }
-                    pool.esms[p.element as usize] = pool.esms[p.element as usize].saturating_add(share);
-                    pool.updated_at = ctx.timestamp;
-                    ctx.db.jing_pool().identity().update(pool);
+            let share = round_pot_share(p.weight, total_weight[p.element as usize]);
+            if share > 0 {
+                let mut pool = ensure_jing_pool(ctx, p.identity);
+                if pool.esms.len() < 4 {
+                    pool.esms.resize(4, 0);
                 }
+                pool.esms[p.element as usize] = pool.esms[p.element as usize].saturating_add(share);
+                pool.updated_at = ctx.timestamp;
+                ctx.db.jing_pool().identity().update(pool);
             }
         }
 
@@ -6769,27 +6774,13 @@ fn apply_esms_event_to_jing_pool(
     // Floored, not carried — see `credit_pool_fixed_points` for why. Flooring
     // can only under-credit, by less than 0.1 ESMS per event.
     let (credit, _floored_dust) = solana_atoms_to_pool_units(credited_atoms);
-    let mut pool = ctx
-        .db
-        .jing_pool()
-        .identity()
-        .find(&player.identity)
-        .unwrap_or_else(|| JingPool {
-            identity: player.identity,
-            sacred7: vec![100, 100, 100, 100, 100, 100, 100],
-            esms: vec![50, 50, 50, 50],
-            updated_at: ctx.timestamp,
-        });
+    let mut pool = ensure_jing_pool(ctx, player.identity);
     if pool.esms.len() < 4 {
         pool.esms.resize(4, 0);
     }
     pool.esms[element_id as usize] = pool.esms[element_id as usize].saturating_add(credit);
     pool.updated_at = ctx.timestamp;
-    if ctx.db.jing_pool().identity().find(&player.identity).is_some() {
-        ctx.db.jing_pool().identity().update(pool);
-    } else {
-        ctx.db.jing_pool().insert(pool);
-    }
+    ctx.db.jing_pool().identity().update(pool);
     Ok(())
 }
 
@@ -7345,22 +7336,10 @@ pub fn claim_daily_faucet(ctx: &ReducerContext) -> Result<(), String> {
     }
 
     // Credit player's JingPool ESMS balances
-    let mut jing = match ctx.db.jing_pool().identity().find(&player_id) {
-        Some(j) => j,
-        None => JingPool {
-            identity: player_id,
-            sacred7: vec![100, 100, 100, 100, 100, 100, 100],
-            esms: vec![0, 0, 0, 0],
-            updated_at: ctx.timestamp,
-        },
-    };
+    let mut jing = ensure_jing_pool(ctx, player_id);
     credit_pool_fixed_points(&mut jing.esms, &fixed_points);
     jing.updated_at = ctx.timestamp;
-    if ctx.db.jing_pool().identity().find(&player_id).is_some() {
-        ctx.db.jing_pool().identity().update(jing);
-    } else {
-        ctx.db.jing_pool().insert(jing);
-    }
+    ctx.db.jing_pool().identity().update(jing);
 
     // Log immutable audit transaction
     ctx.db.faucet_transaction().insert(FaucetTransaction {
@@ -7437,8 +7416,9 @@ mod tests {
     // ── ESMS pool units ─────────────────────────────────────────────────────
 
     use super::{
-        credit_pool_fixed_points, fixed_points_to_pool_units, solana_atoms_to_pool_units,
-        ESMS_SOLANA_ATOMS_PER_TOKEN,
+        credit_pool_fixed_points, fixed_points_to_pool_units, round_pot_share,
+        solana_atoms_to_pool_units, ESMS_ATOMS_PER_POOL_UNIT, ESMS_SOLANA_ATOMS_PER_TOKEN,
+        JING_SECONDARY, JING_STARTER_ESMS, ROUND_POT_POOL_UNITS,
     };
     use crate::faucet::FaucetAllocation;
 
@@ -7520,6 +7500,33 @@ mod tests {
             vec![u16::MAX, 61, 0, 480],
             "short pools are widened to four axes"
         );
+    }
+
+    /// The pot and the starter balance are set in pool units, not converted.
+    /// Pin what those units mean so neither drifts off the documented scale.
+    #[test]
+    fn round_pot_and_starter_pool_are_whole_esms_amounts() {
+        let atoms = |units: u64| units * ESMS_ATOMS_PER_POOL_UNIT;
+        let esms = ESMS_SOLANA_ATOMS_PER_TOKEN as u64;
+        assert_eq!(atoms(ROUND_POT_POOL_UNITS), 10 * esms);
+        assert_eq!(atoms(u64::from(JING_STARTER_ESMS)), 8 * esms);
+        assert_eq!(ROUND_POT_POOL_UNITS, 10 * u64::from(JING_SECONDARY));
+    }
+
+    #[test]
+    fn round_pot_shares_use_exact_integer_division() {
+        // f64 truncated this share to 28.
+        assert_eq!(round_pot_share(29, 100), 29);
+        assert_eq!(round_pot_share(10, 30), 33);
+        assert_eq!(round_pot_share(20, 30), 66);
+        assert_eq!(round_pot_share(7, 7), 100);
+        assert_eq!(round_pot_share(u32::MAX, u64::from(u32::MAX)), 100);
+    }
+
+    #[test]
+    fn round_pot_share_of_nothing_is_zero() {
+        assert_eq!(round_pot_share(0, 10), 0);
+        assert_eq!(round_pot_share(10, 0), 0);
     }
 
     // ── The War Table ───────────────────────────────────────────────────────
