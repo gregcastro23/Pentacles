@@ -146,27 +146,30 @@ describe("WarLedger & 10-Day Decan Cycle Tracker", () => {
 
     const summary = ledger.getSummary(3.0);
 
-    // Mock client GameState
+    // Mock client GameState. Mirrors public/client.js: the local Sun owns the
+    // active decan, so the ledger never sets it, and round points only apply
+    // when the ledger is scoring that same decan.
     const clientMock = {
       factionRoundPoints: new Array(10).fill(0),
       decanVictories: new Array(10).fill(0),
       decanHistory: [] as any[],
       roundResults: [] as any[],
-      currentDecanId: null as number | null,
+      currentDecanId: 0 as number | null,
       saved: false,
       recalculated: false,
       syncDecanLedger(payload: any) {
         if (!payload) return;
-        if (Array.isArray(payload.factionRoundPoints)) this.factionRoundPoints = [...payload.factionRoundPoints];
+        const ledgerIsCurrent = payload.activeDecan?.absDecan === this.currentDecanId;
+        if (ledgerIsCurrent && Array.isArray(payload.factionRoundPoints)) this.factionRoundPoints = [...payload.factionRoundPoints];
         if (Array.isArray(payload.decanVictories)) this.decanVictories = [...payload.decanVictories];
         if (Array.isArray(payload.decanHistory)) this.decanHistory = [...payload.decanHistory];
         if (Array.isArray(payload.recentRounds)) this.roundResults = [...payload.recentRounds];
-        if (payload.activeDecan) this.currentDecanId = payload.activeDecan.absDecan;
         this.recalculated = true;
         this.saved = true;
       }
     };
 
+    expect(summary.activeDecan.absDecan).toBe(0);
     clientMock.syncDecanLedger(summary);
     expect(clientMock.factionRoundPoints[0]).toBe(190);
     expect(clientMock.roundResults.length).toBe(1);

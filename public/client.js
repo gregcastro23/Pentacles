@@ -1210,9 +1210,16 @@ class GameState {
     return result;
   }
 
+  // Merge the server war ledger. The ledger never sets the active decan — the
+  // local Sun does (advanceDecan) — and its round points only apply when it is
+  // scoring the same decan; a stalled feeder's points belong to a past battle.
   syncDecanLedger(payload) {
     if (!payload) return;
-    if (Array.isArray(payload.factionRoundPoints) && payload.factionRoundPoints.length === 10) {
+    const sunLon = this.sunLongitude();
+    const localDecanId = sunLon !== null ? getDecanInfo(sunLon).absDecan : this.currentDecanId;
+    const ledgerDecanId = payload.activeDecan ? payload.activeDecan.absDecan : null;
+    const ledgerIsCurrent = Number.isInteger(localDecanId) && ledgerDecanId === localDecanId;
+    if (ledgerIsCurrent && Array.isArray(payload.factionRoundPoints) && payload.factionRoundPoints.length === 10) {
       this.factionRoundPoints = [...payload.factionRoundPoints];
     }
     if (Array.isArray(payload.decanVictories) && payload.decanVictories.length === 10) {
@@ -1223,9 +1230,6 @@ class GameState {
     }
     if (Array.isArray(payload.recentRounds) && payload.recentRounds.length > 0) {
       this.roundResults = [...payload.recentRounds];
-    }
-    if (payload.activeDecan && typeof payload.activeDecan.absDecan === "number") {
-      this.currentDecanId = payload.activeDecan.absDecan;
     }
     this.recalculateLeaderboard();
     this.save();
@@ -1495,12 +1499,41 @@ class GameState {
     });
   }
 
+  // The Sun's live ecliptic longitude from the local ephemeris, or null before
+  // the sky has been computed. The only authority for which decan is active.
+  sunLongitude() {
+    const sun = this.planets && this.planets[0];
+    return sun && Number.isFinite(sun.eclLon) ? sun.eclLon : null;
+  }
+
+  // Display-only: falls back to the seasonDegree clock until the ephemeris runs.
+  // Battle conclusions go through advanceDecan(), which never uses the fallback.
   getCurrentDecan() {
-    let sunLon = this.seasonDegree;
-    if (this.planets && this.planets[0] && typeof this.planets[0].eclLon === "number") {
-      sunLon = this.planets[0].eclLon;
+    const sunLon = this.sunLongitude();
+    return getDecanInfo(sunLon !== null ? sunLon : this.seasonDegree);
+  }
+
+  // Move the active decan battle to wherever the Sun is. Concludes a battle
+  // only when the Sun lands exactly one decan ahead (35 wraps to 0). A Sun
+  // further ahead (a returning player, an old save) catches up without
+  // concluding; a Sun behind the active battle is ignored, so the decan never
+  // moves backwards. Returns true when a battle was concluded.
+  advanceDecan() {
+    const sunLon = this.sunLongitude();
+    if (sunLon === null) return false;
+    const decanNow = getDecanInfo(sunLon);
+    if (!Number.isInteger(this.currentDecanId)) {
+      this.currentDecanId = decanNow.absDecan;
+      return false;
     }
-    return getDecanInfo(sunLon);
+    const ahead = (decanNow.absDecan - this.currentDecanId + 36) % 36;
+    if (ahead === 1) {
+      this.concludeDecanBattle(this.currentDecanId, decanNow);
+      this.currentDecanId = decanNow.absDecan;
+      return true;
+    }
+    if (ahead > 1 && ahead <= 18) this.currentDecanId = decanNow.absDecan;
+    return false;
   }
 
   concludeDecanBattle(completedDecanId, nextDecan) {
@@ -1610,14 +1643,8 @@ class GameState {
     // the pentacle zones, and set at the western edge.
     this.recomputeSky();
 
-    // Decan Battle Bounds: check if zodiac degrees have crossed a 10° decan boundary
-    const decanNow = this.getCurrentDecan();
-    if (this.currentDecanId === null) {
-      this.currentDecanId = decanNow.absDecan;
-    } else if (this.currentDecanId !== decanNow.absDecan) {
-      this.concludeDecanBattle(this.currentDecanId, decanNow);
-      this.currentDecanId = decanNow.absDecan;
-    }
+    // Decan Battle Bounds: conclude the battle when the Sun crosses a 10° boundary
+    this.advanceDecan();
 
     // Gentle decay in neutral / uncontrolled zones
     (this.map || []).forEach(zone => {

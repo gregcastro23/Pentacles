@@ -257,12 +257,15 @@ console.log("▶ 9 · Testing Decan Cycle Score Reset & Triumph Archival");
   // - Houses reset to baseline footholds (250)
   assert.equal(state.map[0].control, 250, "House 0 baseline control resets to 250");
 
-  // 4. Now verify tick() triggering decan conclusion when degrees advance across 10° boundary
+  // 4. Now verify tick() triggering decan conclusion when the Sun crosses a 10° boundary.
+  // Conclusions follow the ephemeris Sun only (never the seasonDegree clock); the VM
+  // has no star catalogue, so recomputeSky() leaves this placed Sun in place.
   state.currentDecanId = 1;
-  state.seasonDegree = 21;
+  state.planets = [{ eclLon: 21 }]; // 21° Aries → decan 2
   const historyLenBeforeTick = state.decanHistory.length;
   state.tick();
   assert.equal(state.decanHistory.length, historyLenBeforeTick + 1, "tick() must conclude decan when crossing 10° boundary");
+  state.planets = [];
 
   console.log(`  ✓ Decan transition verified: ${state.decanHistory[0].card} archived, winner credited, and faction round points reset to 0 for the new 10° battle!`);
 }
