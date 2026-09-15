@@ -61,9 +61,10 @@ async function runSettlementE2ETest() {
   // 3. Test Reducer Payload Serialization
   console.log('\n▶ 3 · Testing SpacetimeDB sync_solana_event reducer payload...')
   const reducerPayload = encodeSolanaSyncBody(events[0])
-  const expectedPayload = `[{"tag":"SolanaToken2022"},"${mockTxSignature}","${playerPubkey}","burn",0,30000]`
+  // BridgeChain is a SATS-JSON sum: { "<lowerCamel variant>": [] }.
+  const expectedPayload = `[{"solanaToken2022":[]},"${mockTxSignature}","${playerPubkey}","burn",0,30000]`
   assert.equal(reducerPayload, expectedPayload, 'Reducer serialization must match SpacetimeDB enum and tuple format')
-  console.log('  ✓ Reducer payload formatted with cluster tag and u64 integer')
+  console.log('  ✓ Reducer payload formatted with the cluster enum and a u64 integer')
 
   // 4. Test Idempotent Crediting in SpacetimeDB Mock Engine
   console.log('\n▶ 4 · Testing idempotent credit & double-spend protection...')
@@ -72,7 +73,8 @@ async function runSettlementE2ETest() {
 
   function processSolanaEvent(payloadStr) {
     const [chainObj, sig, player, eventType, elementId, amount] = JSON.parse(payloadStr)
-    const idempotencyKey = `${chainObj.tag}:${sig}`
+    // Mirrors sync_solana_event: one settlement per wallet, element and direction.
+    const idempotencyKey = `${Object.keys(chainObj)[0]}:${sig}:${player}:${elementId}:${eventType}`
 
     if (processedTxs.has(idempotencyKey)) {
       throw new Error(`Duplicate transaction: ${idempotencyKey} has already been settled!`)

@@ -6,7 +6,8 @@
 //   StarVault  → Anchor events emitted by `pentacles_solana`, decoded from the
 //                `Program data:` log line as discriminator + Borsh.
 //   ESMS       → Token-2022 balance deltas on ASOL's four mints, read from a
-//                transaction's pre/post token balances.
+//                transaction's pre/post token balances, and credited only when
+//                the transaction's ASOL instructions are claims or redeems.
 //
 // Both replace regex over `msg!` strings. The previous implementation matched
 // patterns like /Minted (\d+) units of ESMS element (\d+) for (...)/ against log
@@ -16,9 +17,20 @@
 // typed event right beside it.
 
 import { Connection, PublicKey } from "@solana/web3.js";
-import { cliCall } from "./spacetime-cli";
-import { assertGenesis, createResilientLogStream, resolveCluster } from "./solana-cluster";
-import { asolEsmsMints, PENTACLES_PROGRAM_ID } from "../src/web3/chains.js";
+import { cliCall, type CliArg } from "./spacetime-cli";
+import {
+  assertGenesis,
+  createResilientLogStream,
+  resolveCluster,
+  type ExecutedInstruction,
+  type TokenBalance,
+} from "./solana-cluster";
+import {
+  ASOL_PROGRAM_ID,
+  asolEsmsMints,
+  caip2ToBridgeChain,
+  PENTACLES_PROGRAM_ID,
+} from "../src/web3/chains.js";
 
 if (process.env.NODE_ENV === "production") {
   if (!process.env.SPACETIMEDB_DB) {
@@ -41,12 +53,23 @@ const ESMS_MINTS = asolEsmsMints();
 const ESMS_MINT_INDEX = new Map(ESMS_MINTS.map((mint, id) => [mint.toBase58(), id]));
 
 /**
- * The `BridgeChain` variant naming this cluster. It is passed to every reducer
- * so idempotency is scoped per cluster — a base58 signature is valid on devnet
+ * `BridgeChain` as a reducer argument. SpacetimeDB decodes a sum type from
+ * SATS-JSON `{ "<variant>": <payload> }`, with the variant name in lowerCamel
+ * and `[]` as a unit variant's payload. The feeder used to send
+ * `{ "tag": "SolanaToken2022" }`, which the module rejects as unknown variant
+ * `tag`, so every Solana sync reducer call failed to decode.
+ */
+export function bridgeChainArg(caip2: string): Record<string, []> {
+  const variant: string = caip2ToBridgeChain(caip2);
+  return { [variant.charAt(0).toLowerCase() + variant.slice(1)]: [] };
+}
+
+/**
+ * The `BridgeChain` naming this cluster. It is passed to every reducer so
+ * idempotency is scoped per cluster — a base58 signature is valid on devnet
  * and mainnet alike, and an unscoped key lets one block the other.
  */
-const BRIDGE_CHAIN =
-  cluster.caip2 === "solana:mainnet-beta" ? "SolanaMainnetToken2022" : "SolanaToken2022";
+const BRIDGE_CHAIN = bridgeChainArg(cluster.caip2);
 
 const MAX_U64 = (1n << 64n) - 1n;
 
@@ -120,13 +143,23 @@ export function encodeSolanaSyncBody(event: EsmsEvent): string {
     throw new RangeError("Solana event amount must fit in u64");
   }
   return encodeReducerArgs([
-    { tag: BRIDGE_CHAIN },
+    BRIDGE_CHAIN,
     event.signature,
     event.player,
     event.eventType,
     event.elementId,
     event.amount,
   ]);
+}
+
+/**
+ * Reducer arguments for the `spacetime call` fallback. The CLI forwards a value
+ * verbatim only when it is marked raw, and the chain enum is already SATS-JSON.
+ */
+export function cliReducerArgs(args: ReadonlyArray<unknown>): CliArg[] {
+  return args.map((value) =>
+    typeof value === "object" && value !== null ? { raw: JSON.stringify(value) } : (value as CliArg),
+  );
 }
 
 async function callReducer(name: string, args: ReadonlyArray<unknown>): Promise<void> {
@@ -145,7 +178,7 @@ async function callReducer(name: string, args: ReadonlyArray<unknown>): Promise<
     }
     return;
   }
-  await cliCall(DB, name, args as unknown[]);
+  await cliCall(DB, name, cliReducerArgs(args));
 }
 
 // ── Anchor event decoding ───────────────────────────────────────────────────
@@ -255,51 +288,122 @@ export function decodeAnchorEvents(
 
 // ── ESMS supply changes, read from Token-2022 balances ──────────────────────
 
+/** Raw atoms in a token balance, or null when the amount is not a u64 string. */
+function balanceAtoms(balance: TokenBalance): bigint | null {
+  const amount = balance.uiTokenAmount?.amount;
+  return typeof amount === "string" && /^\d+$/.test(amount) ? BigInt(amount) : null;
+}
+
 /**
  * Derive ESMS mint/burn events from a transaction's token balance deltas.
  *
  * ASOL owns ESMS issuance, and Pentacles has no IDL for its events. Balance
  * deltas are the structural alternative: the runtime reports pre- and
  * post-balances for every token account a transaction touched, so a supply
- * change is observable without knowing the instruction that caused it.
+ * change is observable without knowing the instruction that caused it. ASOL's
+ * mints are NonTransferable, so a balance on them moves only by a mint or a
+ * burn.
+ *
+ * Emits at most one event per wallet, element and direction. A single ASOL
+ * redeem burns up to all four elements under one signature, and
+ * `sync_solana_event` settles each of those tuples once.
  */
 export function esmsEventsFromBalances(
   signature: string,
   meta: {
-    preTokenBalances?: Array<{ accountIndex: number; mint: string; owner?: string; uiTokenAmount: { amount: string } }> | null;
-    postTokenBalances?: Array<{ accountIndex: number; mint: string; owner?: string; uiTokenAmount: { amount: string } }> | null;
+    preTokenBalances?: TokenBalance[] | null;
+    postTokenBalances?: TokenBalance[] | null;
   } | null | undefined,
   timestamp: number,
 ): EsmsEvent[] {
-  if (!meta?.postTokenBalances?.length) return [];
-  const before = new Map(
-    (meta.preTokenBalances ?? []).map((entry) => [entry.accountIndex, entry]),
-  );
+  if (!meta) return [];
 
-  const events: EsmsEvent[] = [];
-  for (const post of meta.postTokenBalances) {
-    const elementId = ESMS_MINT_INDEX.get(post.mint);
-    if (elementId === undefined || !post.owner) continue;
-    const priorAmount = BigInt(before.get(post.accountIndex)?.uiTokenAmount.amount ?? "0");
-    const delta = BigInt(post.uiTokenAmount.amount) - priorAmount;
-    if (delta === 0n) continue;
-    events.push({
-      signature,
-      eventType: delta > 0n ? "mint" : "burn",
-      player: post.owner,
-      elementId,
-      amount: delta > 0n ? delta : -delta,
-      timestamp,
-    });
+  // Balances per token account. An account the transaction opened has no pre
+  // entry, and one it closed (a burn, then close) has no post entry; either
+  // missing side is zero. An unreadable amount is null and skips the account.
+  const accounts = new Map<number, { mint: string; owner?: string; pre: bigint | null; post: bigint | null }>();
+  const read = (balances: TokenBalance[] | null | undefined, side: "pre" | "post") => {
+    for (const balance of balances ?? []) {
+      if (!ESMS_MINT_INDEX.has(balance.mint)) continue;
+      const account = accounts.get(balance.accountIndex) ?? { mint: balance.mint, pre: 0n, post: 0n };
+      account[side] = balanceAtoms(balance);
+      account.owner = balance.owner || account.owner;
+      accounts.set(balance.accountIndex, account);
+    }
+  };
+  read(meta.preTokenBalances, "pre");
+  read(meta.postTokenBalances, "post");
+
+  const events = new Map<string, EsmsEvent>();
+  for (const { mint, owner, pre, post } of accounts.values()) {
+    if (pre === null || post === null || !owner || pre === post) continue;
+    const elementId = ESMS_MINT_INDEX.get(mint)!;
+    const eventType = post > pre ? "mint" : "burn";
+    const amount = post > pre ? post - pre : pre - post;
+    const key = `${owner}:${elementId}:${eventType}`;
+    const event = events.get(key);
+    if (event) event.amount += amount;
+    else events.set(key, { signature, eventType, player: owner, elementId, amount, timestamp });
   }
-  return events;
+  return [...events.values()];
+}
+
+const ASOL_PROGRAM = ASOL_PROGRAM_ID.toBase58();
+
+/**
+ * ASOL's instructions that issue or redeem ESMS, by Anchor discriminator
+ * (sha256("global:<name>")[0..8], as in ASOL's IDL). Pinned in
+ * tests/solana-sync-service.test.ts.
+ */
+const ESMS_SUPPLY_INSTRUCTIONS: Record<string, number[]> = {
+  claim_mint_esms: [194, 59, 120, 134, 151, 157, 193, 239],
+  claim_star_yield: [171, 89, 21, 11, 39, 79, 237, 123],
+  redeem_esms: [182, 20, 159, 192, 104, 83, 177, 113],
+  redeem_for_esms: [86, 175, 194, 240, 164, 243, 199, 163],
+};
+
+/**
+ * Whether a transaction's ESMS balance changes are issuance or redemption.
+ *
+ * ASOL's AMM moves ESMS balances with the same mint and burn calls: `swap_esms`
+ * burns the input element and mints the output, `add_liquidity` burns both
+ * sides and `withdraw_liquidity` mints them back. Balance deltas cannot tell
+ * those trades from a claim or a redeem, and crediting them would let a player
+ * farm jing by trading back and forth. So every ASOL instruction in the
+ * transaction, top-level or CPI, must be a claim or a redeem. Only ASOL can
+ * mint or burn ESMS, so a transaction with no ASOL instruction, or with an
+ * unknown instruction list, does not qualify either.
+ */
+export function isEsmsSupplyTransaction(instructions: ExecutedInstruction[] | null | undefined): boolean {
+  const asol = (instructions ?? []).filter((instruction) => instruction.programId === ASOL_PROGRAM);
+  return (
+    asol.length > 0 &&
+    asol.every(({ data }) =>
+      Object.values(ESMS_SUPPLY_INSTRUCTIONS).some((discriminator) =>
+        discriminator.every((byte, index) => data[index] === byte),
+      ),
+    )
+  );
+}
+
+/** The ESMS events a delivered transaction settles: its balance deltas, if it is a claim or a redeem. */
+export function esmsEventsForTransaction(
+  entry: {
+    signature: string;
+    meta?: Parameters<typeof esmsEventsFromBalances>[1];
+    instructions?: ExecutedInstruction[] | null;
+  },
+  timestamp: number,
+): EsmsEvent[] {
+  if (!isEsmsSupplyTransaction(entry.instructions)) return [];
+  return esmsEventsFromBalances(entry.signature, entry.meta, timestamp);
 }
 
 // ── Dispatch ────────────────────────────────────────────────────────────────
 
 export async function syncEsmsEvent(event: EsmsEvent): Promise<void> {
   await callReducer("sync_solana_event", [
-    { tag: BRIDGE_CHAIN },
+    BRIDGE_CHAIN,
     event.signature,
     event.player,
     event.eventType,
@@ -329,7 +433,7 @@ export async function syncTransferHookToSpacetime(event: TransferHookEvent): Pro
 
 export async function syncStarStake(event: StarStakeEvent): Promise<void> {
   await callReducer("record_star_stake", [
-    { tag: BRIDGE_CHAIN },
+    BRIDGE_CHAIN,
     event.signature,
     event.staker,
     event.starId,
@@ -343,7 +447,7 @@ export async function syncStarStake(event: StarStakeEvent): Promise<void> {
 
 export async function syncStarUnstake(event: StarUnstakeEvent): Promise<void> {
   await callReducer("record_star_unstake", [
-    { tag: BRIDGE_CHAIN },
+    BRIDGE_CHAIN,
     event.signature,
     event.staker,
     event.starId,
@@ -360,6 +464,7 @@ export async function handleTransaction(entry: {
   signature: string;
   logs: string[];
   meta?: Parameters<typeof esmsEventsFromBalances>[1];
+  instructions?: ExecutedInstruction[] | null;
 }): Promise<void> {
   const timestamp = Date.now();
 
@@ -404,13 +509,33 @@ export async function handleTransaction(entry: {
     }
   }
 
-  for (const event of esmsEventsFromBalances(entry.signature, entry.meta, timestamp)) {
+  if (!entry.instructions && esmsEventsFromBalances(entry.signature, entry.meta, timestamp).length) {
+    // AMM trades are skipped routinely; an unrecorded instruction list is not
+    // routine, and it silently withholds real claims and redeems.
+    console.warn(
+      `[SolanaSync] ${entry.signature} changed ESMS balances, but the node did not record its instructions; not credited`,
+    );
+  }
+  for (const event of esmsEventsForTransaction(entry, timestamp)) {
     try {
       await syncEsmsEvent(event);
     } catch (err) {
       console.error(`[SolanaSync] ESMS sync failed:`, (err as Error)?.message ?? err);
     }
   }
+}
+
+/**
+ * Every account the ingestion stream watches.
+ *
+ * The Pentacles program emits the StarVault events. ESMS supply changes are
+ * watched on ASOL's four mints instead of on any program: a Token-2022 mint or
+ * burn writes the mint's supply, so every transaction that changes it lists the
+ * mint, whichever program or relayer submitted it. Watching the Pentacles
+ * program alone saw none of them.
+ */
+export function ingestionAddresses(): PublicKey[] {
+  return [PROGRAM_ID, ...ESMS_MINTS];
 }
 
 export async function main(): Promise<void> {
@@ -423,7 +548,7 @@ export async function main(): Promise<void> {
   await assertGenesis(new Connection(cluster.endpoints[0], "confirmed"), cluster);
 
   const stream = await createResilientLogStream({
-    programId: PROGRAM_ID,
+    addresses: ingestionAddresses(),
     config: cluster,
     onLogs: async (entry) => {
       if (entry.err) return;

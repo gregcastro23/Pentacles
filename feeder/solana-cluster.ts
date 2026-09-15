@@ -15,7 +15,7 @@
 //    reconnect, no backfill, and silently truncates logs on large transactions.
 //    A dropped socket meant permanently missed events with no error raised.
 
-import { Connection, PublicKey } from "@solana/web3.js";
+import { Connection, PublicKey, type Logs } from "@solana/web3.js";
 import bs58 from "bs58";
 import { CAIP2, CHAINS, chainFor, isMainnet } from "../src/web3/chains.js";
 
@@ -109,19 +109,104 @@ export interface StreamHandle {
   stop(): Promise<void>;
 }
 
+/**
+ * One SPL token balance. web3.js and Yellowstone use the same field names, but
+ * protobuf has no absent string: Geyser sends `owner: ""` where web3.js omits
+ * the owner.
+ */
+export interface TokenBalance {
+  accountIndex: number;
+  mint: string;
+  owner?: string;
+  uiTokenAmount?: { amount: string };
+}
+
+/** A transaction's SPL token balances before and after it executed. */
+export interface TokenBalances {
+  preTokenBalances: TokenBalance[];
+  postTokenBalances: TokenBalance[];
+}
+
+/** One instruction a transaction executed, top-level or through CPI. */
+export interface ExecutedInstruction {
+  programId: string;
+  data: Uint8Array;
+}
+
 export interface LogEntry {
   signature: string;
   logs: string[];
   err: unknown;
+  /**
+   * ESMS mints and burns are read from these balances, and logs carry no
+   * balance, so a tier that drops them loses every ESMS event without an
+   * error. Null only when the transaction has no status meta.
+   */
+  meta: TokenBalances | null;
+  /**
+   * Every instruction the transaction executed, CPIs included, which is what
+   * says whether a balance moved by a claim or by a trade. Unlike logs these
+   * are never truncated. Null when the node did not record inner instructions,
+   * since a partial list cannot prove what ran.
+   */
+  instructions: ExecutedInstruction[] | null;
 }
 
+/** The RPC calls tiers 2 and 3 make. A web3.js `Connection` provides them. */
+export type StreamConnection = Pick<
+  Connection,
+  "onLogs" | "removeOnLogsListener" | "getSignaturesForAddress" | "getTransaction"
+>;
+
 export interface StreamOptions {
-  programId: PublicKey;
+  /**
+   * Deliver every transaction that lists any of these accounts: a program it
+   * invokes, or a mint whose supply it changes. A transaction listing several
+   * is delivered once.
+   */
+  addresses: PublicKey[];
   config: ClusterConfig;
   onLogs(entry: LogEntry): Promise<void>;
   /** Polling cadence for the backfill tier, ms. */
   pollIntervalMs?: number;
   commitment?: "confirmed" | "finalized";
+  /** Tier 1 endpoint. Defaults to SOLANA_GEYSER_ENDPOINT; blank disables tier 1. */
+  geyserEndpoint?: string;
+  /** Opens the tier 2 and 3 connections. Defaults to web3.js; tests pass a fake. */
+  connect?(endpoint: string, commitment: "confirmed" | "finalized"): StreamConnection;
+}
+
+function tokenBalancesOf(meta: any): TokenBalances | null {
+  if (!meta) return null;
+  return {
+    preTokenBalances: meta.preTokenBalances ?? [],
+    postTokenBalances: meta.postTokenBalances ?? [],
+  };
+}
+
+type CompiledInstruction = { programIdIndex: number; data: Uint8Array | string };
+
+/**
+ * Resolve compiled instructions to their program ids. Account indexes run over
+ * the static keys, then the lookup-table keys loaded writable, then readonly.
+ * An index that resolves to nothing makes the list unknowable, so null.
+ */
+function executedInstructions(
+  keys: Array<string | Uint8Array | { toBase58(): string }>,
+  topLevel: CompiledInstruction[],
+  inner: Array<{ instructions: CompiledInstruction[] }>,
+): ExecutedInstruction[] | null {
+  const accounts = keys.map((key) =>
+    typeof key === "string" ? key : key instanceof Uint8Array ? bs58.encode(key) : key.toBase58(),
+  );
+  const executed: ExecutedInstruction[] = [];
+  for (const { programIdIndex, data } of [...topLevel, ...inner.flatMap((group) => group.instructions)]) {
+    const programId = accounts[programIdIndex];
+    if (programId === undefined) return null;
+    // web3.js returns inner instruction data as base58; everything else is bytes.
+    executed.push({ programId, data: typeof data === "string" ? bs58.decode(data) : data });
+  }
+  return executed;
 }
 
 /**
@@ -137,36 +222,111 @@ export interface StreamOptions {
 export function geyserLogEntry(message: any): LogEntry | null {
   const tx = message?.transaction?.transaction;
   if (!tx?.signature?.length) return null;
+  const compiled = tx.transaction?.message;
+  const meta = tx.meta;
   return {
     signature: bs58.encode(tx.signature),
-    logs: tx.meta?.logMessages ?? [],
-    err: tx.meta?.err ?? null,
+    logs: meta?.logMessages ?? [],
+    err: meta?.err ?? null,
+    meta: tokenBalancesOf(meta),
+    instructions:
+      compiled && meta && !meta.innerInstructionsNone
+        ? executedInstructions(
+            [
+              ...(compiled.accountKeys ?? []),
+              ...(meta.loadedWritableAddresses ?? []),
+              ...(meta.loadedReadonlyAddresses ?? []),
+            ],
+            compiled.instructions ?? [],
+            meta.innerInstructions ?? [],
+          )
+        : null,
+  };
+}
+
+/** Convert a web3.js `getTransaction` response into the entry every tier delivers. */
+export function transactionLogEntry(
+  signature: string,
+  tx: { meta?: any; transaction?: any } | null,
+): LogEntry | null {
+  if (!tx) return null;
+  const compiled = tx.transaction?.message;
+  const meta = tx.meta;
+  return {
+    signature,
+    logs: meta?.logMessages ?? [],
+    err: meta?.err ?? null,
+    meta: tokenBalancesOf(meta),
+    // A missing innerInstructions means the node did not record CPIs, not that
+    // there were none.
+    instructions:
+      compiled && Array.isArray(meta?.innerInstructions)
+        ? executedInstructions(
+            [
+              ...(compiled.staticAccountKeys ?? []),
+              ...(meta.loadedAddresses?.writable ?? []),
+              ...(meta.loadedAddresses?.readonly ?? []),
+            ],
+            compiled.compiledInstructions ?? [],
+            meta.innerInstructions,
+          )
+        : null,
+  };
+}
+
+/** The Yellowstone subscription for every transaction that lists any of `addresses`. */
+export function geyserSubscribeRequest(
+  addresses: PublicKey[],
+  commitment: "confirmed" | "finalized",
+) {
+  return {
+    accounts: {},
+    slots: {},
+    transactions: {
+      pentacles: {
+        // Matches a transaction that lists any one of these.
+        accountInclude: addresses.map((address) => address.toBase58()),
+        accountExclude: [],
+        accountRequired: [],
+      },
+    },
+    blocks: {},
+    blocksMeta: {},
+    entry: {},
+    commitment: commitment === "finalized" ? 2 : 1,
+    accountsDataSlice: [],
   };
 }
 
 /**
- * Subscribe to a program's logs with automatic degradation.
+ * Subscribe to every transaction that lists any of `addresses`, with automatic
+ * degradation.
  *
  *   Tier 1 — Yellowstone gRPC Geyser, when SOLANA_GEYSER_ENDPOINT is set and
  *            @triton-one/yellowstone-grpc is installed. Sub-slot latency.
- *   Tier 2 — WebSocket `onLogs`, reconnecting across the endpoint list with
- *            exponential backoff.
+ *   Tier 2 — WebSocket `onLogs`, one subscription per address, reconnecting
+ *            across the endpoint list with exponential backoff.
  *   Tier 3 — `getSignaturesForAddress` polling. Slower, but it backfills what a
  *            dropped socket missed instead of losing it.
  *
- * Signatures already delivered are remembered so a tier change replays nothing.
+ * Every tier delivers the transaction's token balances along with its logs.
+ * Signatures already delivered are remembered so a tier change, or a
+ * transaction listing several addresses, replays nothing.
  */
 export async function createResilientLogStream(options: StreamOptions): Promise<StreamHandle> {
-  const { programId, config, onLogs } = options;
+  const { addresses, config, onLogs } = options;
   const commitment = options.commitment ?? "confirmed";
   const pollIntervalMs = options.pollIntervalMs ?? 15_000;
+  const geyserEndpoint = (options.geyserEndpoint ?? process.env.SOLANA_GEYSER_ENDPOINT)?.trim();
+  const connect = options.connect ?? ((endpoint: string) => new Connection(endpoint, commitment));
+  if (addresses.length === 0) throw new Error("createResilientLogStream needs at least one address");
 
   const seen = new Set<string>();
   let tier: StreamTier | "down" = "down";
   let stopped = false;
   let poller: ReturnType<typeof setInterval> | undefined;
-  let subscriptionId: number | undefined;
-  let active: Connection | undefined;
+  let subscriptionIds: number[] = [];
+  let active: StreamConnection | undefined;
   let geyserStop: (() => Promise<void>) | undefined;
 
   // Bound the replay-guard set. A run that has processed 50k signatures no
@@ -183,8 +343,28 @@ export async function createResilientLogStream(options: StreamOptions): Promise<
     await onLogs(entry);
   };
 
+  /**
+   * Fetch a transaction as an entry. `onLogs` and `getSignaturesForAddress`
+   * both name a transaction without its token balances.
+   */
+  async function fetchEntry(connection: StreamConnection, signature: string): Promise<LogEntry | null> {
+    const tx = await connection.getTransaction(signature, {
+      commitment,
+      maxSupportedTransactionVersion: 0,
+    });
+    return transactionLogEntry(signature, tx);
+  }
+
+  async function unsubscribe(): Promise<void> {
+    const connection = active;
+    const ids = subscriptionIds;
+    active = undefined;
+    subscriptionIds = [];
+    await Promise.all(ids.map((id) => connection?.removeOnLogsListener(id).catch(() => {})));
+  }
+
   async function startGeyser(): Promise<boolean> {
-    const endpoint = process.env.SOLANA_GEYSER_ENDPOINT?.trim();
+    const endpoint = geyserEndpoint;
     if (!endpoint) return false;
     try {
       const mod: any = await import("@triton-one/yellowstone-grpc");
@@ -193,22 +373,7 @@ export async function createResilientLogStream(options: StreamOptions): Promise<
       const stream = await client.subscribe();
       await new Promise<void>((resolve, reject) => {
         stream.write(
-          {
-            accounts: {},
-            slots: {},
-            transactions: {
-              pentacles: {
-                accountInclude: [programId.toBase58()],
-                accountExclude: [],
-                accountRequired: [],
-              },
-            },
-            blocks: {},
-            blocksMeta: {},
-            entry: {},
-            commitment: commitment === "finalized" ? 2 : 1,
-            accountsDataSlice: [],
-          },
+          geyserSubscribeRequest(addresses, commitment),
           (err: unknown) => (err ? reject(err) : resolve()),
         );
       });
@@ -231,22 +396,43 @@ export async function createResilientLogStream(options: StreamOptions): Promise<
     }
   }
 
+  /**
+   * `onLogs` names a transaction but carries no token balances, so tier 2
+   * fetches the transaction before delivering it. A transaction this node
+   * cannot return yet stays unseen, and the polling tier delivers it instead.
+   */
+  async function onNotification(connection: StreamConnection, logs: Logs): Promise<void> {
+    // A failed transaction changed no balances. Polling skips these too.
+    if (logs.err || seen.has(logs.signature)) return;
+    let entry: LogEntry | null;
+    try {
+      entry = await fetchEntry(connection, logs.signature);
+    } catch (err) {
+      console.warn(
+        `[stream] getTransaction ${logs.signature} failed (${(err as Error)?.message ?? err}); polling will retry`,
+      );
+      return;
+    }
+    if (entry) await deliver(entry);
+  }
+
   async function startWebsocket(): Promise<boolean> {
     for (const endpoint of config.endpoints) {
       try {
-        const connection = new Connection(endpoint, commitment);
-        subscriptionId = connection.onLogs(
-          programId,
-          async (logs) => {
-            await deliver({ signature: logs.signature, logs: logs.logs, err: logs.err });
-          },
-          commitment,
-        );
+        const connection = connect(endpoint, commitment);
         active = connection;
+        for (const address of addresses) {
+          subscriptionIds.push(
+            connection.onLogs(address, (logs) => void onNotification(connection, logs), commitment),
+          );
+        }
         tier = "websocket";
-        console.log(`[stream] tier 2 (WebSocket onLogs) active on ${endpoint}`);
+        console.log(
+          `[stream] tier 2 (WebSocket onLogs) active on ${endpoint} for ${addresses.length} addresses`,
+        );
         return true;
       } catch (err) {
+        await unsubscribe();
         console.warn(`[stream] WebSocket failed on ${endpoint}: ${(err as Error)?.message ?? err}`);
       }
     }
@@ -261,23 +447,27 @@ export async function createResilientLogStream(options: StreamOptions): Promise<
    * Polling finalized signatures is what makes those recoverable.
    */
   function startPolling(): void {
-    const connection = new Connection(config.endpoints[0], commitment);
+    const connection = connect(config.endpoints[0], commitment);
+    let polling = false;
     poller = setInterval(async () => {
-      if (stopped) return;
+      // A pass over every address can outlast the interval. Never run two.
+      if (stopped || polling) return;
+      polling = true;
       try {
-        const signatures = await connection.getSignaturesForAddress(programId, { limit: 50 });
-        for (const entry of signatures.reverse()) {
-          if (entry.err || seen.has(entry.signature)) continue;
-          const tx = await connection.getTransaction(entry.signature, {
-            commitment: commitment === "finalized" ? "finalized" : "confirmed",
-            maxSupportedTransactionVersion: 0,
-          });
-          if (!tx) continue;
-          await deliver({
-            signature: entry.signature,
-            logs: tx.meta?.logMessages ?? [],
-            err: tx.meta?.err ?? null,
-          });
+        // Oldest first across all addresses, so events replay in chain order.
+        const pending = new Map<string, number>();
+        for (const address of addresses) {
+          const signatures = await connection.getSignaturesForAddress(address, { limit: 50 });
+          for (const { signature, slot, err } of signatures.reverse()) {
+            if (!err && !seen.has(signature)) pending.set(signature, slot);
+          }
+        }
+        const ordered = [...pending].sort(([, a], [, b]) => a - b);
+        for (const [signature] of ordered) {
+          if (stopped) break;
+          if (seen.has(signature)) continue;
+          const entry = await fetchEntry(connection, signature);
+          if (entry) await deliver(entry);
         }
         if (tier === "down") {
           tier = "polling";
@@ -285,6 +475,8 @@ export async function createResilientLogStream(options: StreamOptions): Promise<
         }
       } catch (err) {
         console.warn(`[stream] poll failed: ${(err as Error)?.message ?? err}`);
+      } finally {
+        polling = false;
       }
     }, pollIntervalMs);
   }
@@ -293,10 +485,7 @@ export async function createResilientLogStream(options: StreamOptions): Promise<
     tier = "down";
     await geyserStop?.().catch(() => {});
     geyserStop = undefined;
-    if (active && subscriptionId !== undefined) {
-      await active.removeOnLogsListener(subscriptionId).catch(() => {});
-      subscriptionId = undefined;
-    }
+    await unsubscribe();
     for (let attempt = 0; attempt < 6 && !stopped; attempt++) {
       if (await startWebsocket()) return;
       const backoff = Math.min(30_000, 1_000 * 2 ** attempt);
@@ -316,9 +505,7 @@ export async function createResilientLogStream(options: StreamOptions): Promise<
       stopped = true;
       if (poller) clearInterval(poller);
       await geyserStop?.().catch(() => {});
-      if (active && subscriptionId !== undefined) {
-        await active.removeOnLogsListener(subscriptionId).catch(() => {});
-      }
+      await unsubscribe();
     },
   };
 }
@@ -329,4 +516,6 @@ export default {
   connectionsFor,
   createResilientLogStream,
   geyserLogEntry,
+  geyserSubscribeRequest,
+  transactionLogEntry,
 };
