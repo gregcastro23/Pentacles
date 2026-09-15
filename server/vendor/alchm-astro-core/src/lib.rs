@@ -3,6 +3,9 @@
 //! Provides the core definitions, tables, and lookup rules shared between the
 //! web backend (Axum/Next.js) and the game backend (SpacetimeDB).
 
+pub mod circuit;
+pub mod pillars;
+
 /// Faction representation (the ten astrological bodies).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(u8)]

@@ -1,0 +1,5546 @@
+{
+ "version": "1.0.0",
+ "specVersion": "1.0.0",
+ "generator": "python3 tools/pillar_sim.py fixtures --seed 20260915",
+ "tolerance": 1e-09,
+ "charts": [
+  {
+   "id": "c01",
+   "signs": [
+    5,
+    7,
+    5,
+    7,
+    9,
+    11,
+    8,
+    8,
+    9,
+    7
+   ],
+   "ascendantSign": 3,
+   "timeKnown": false
+  },
+  {
+   "id": "c02",
+   "signs": [
+    5,
+    10,
+    4,
+    4,
+    4,
+    3,
+    11,
+    5,
+    7,
+    5
+   ],
+   "ascendantSign": 11,
+   "timeKnown": true
+  },
+  {
+   "id": "c03",
+   "signs": [
+    1,
+    4,
+    2,
+    1,
+    1,
+    6,
+    6,
+    7,
+    8,
+    6
+   ],
+   "ascendantSign": 1,
+   "timeKnown": false
+  },
+  {
+   "id": "c04",
+   "signs": [
+    9,
+    10,
+    9,
+    7,
+    11,
+    3,
+    7,
+    3,
+    6,
+    4
+   ],
+   "ascendantSign": 4,
+   "timeKnown": true
+  },
+  {
+   "id": "c05",
+   "signs": [
+    5,
+    2,
+    6,
+    5,
+    5,
+    11,
+    3,
+    6,
+    8,
+    6
+   ],
+   "ascendantSign": 6,
+   "timeKnown": true
+  },
+  {
+   "id": "c06",
+   "signs": [
+    5,
+    11,
+    4,
+    4,
+    7,
+    1,
+    1,
+    10,
+    10,
+    8
+   ],
+   "ascendantSign": 8,
+   "timeKnown": true
+  },
+  {
+   "id": "c07",
+   "signs": [
+    7,
+    4,
+    7,
+    8,
+    8,
+    8,
+    11,
+    9,
+    9,
+    8
+   ],
+   "ascendantSign": 2,
+   "timeKnown": false
+  },
+  {
+   "id": "c08",
+   "signs": [
+    5,
+    1,
+    4,
+    3,
+    2,
+    6,
+    3,
+    2,
+    6,
+    4
+   ],
+   "ascendantSign": 8,
+   "timeKnown": true
+  },
+  {
+   "id": "c09",
+   "signs": [
+    4,
+    11,
+    5,
+    3,
+    1,
+    6,
+    8,
+    4,
+    7,
+    5
+   ],
+   "ascendantSign": 6,
+   "timeKnown": true
+  },
+  {
+   "id": "c10",
+   "signs": [
+    10,
+    5,
+    10,
+    0,
+    0,
+    10,
+    7,
+    8,
+    9,
+    7
+   ],
+   "ascendantSign": 5,
+   "timeKnown": false
+  },
+  {
+   "id": "c11",
+   "signs": [
+    10,
+    2,
+    9,
+    11,
+    9,
+    1,
+    4,
+    7,
+    8,
+    6
+   ],
+   "ascendantSign": 8,
+   "timeKnown": false
+  },
+  {
+   "id": "c12",
+   "signs": [
+    9,
+    2,
+    9,
+    11,
+    3,
+    6,
+    10,
+    9,
+    9,
+    7
+   ],
+   "ascendantSign": 8,
+   "timeKnown": true
+  },
+  {
+   "id": "c13",
+   "signs": [
+    3,
+    10,
+    4,
+    3,
+    7,
+    1,
+    6,
+    3,
+    6,
+    4
+   ],
+   "ascendantSign": 11,
+   "timeKnown": false
+  },
+  {
+   "id": "c14",
+   "signs": [
+    9,
+    9,
+    9,
+    10,
+    9,
+    9,
+    5,
+    11,
+    10,
+    9
+   ],
+   "ascendantSign": 2,
+   "timeKnown": false
+  },
+  {
+   "id": "c15",
+   "signs": [
+    0,
+    5,
+    11,
+    10,
+    2,
+    11,
+    2,
+    6,
+    8,
+    6
+   ],
+   "ascendantSign": 7,
+   "timeKnown": true
+  },
+  {
+   "id": "c16",
+   "signs": [
+    11,
+    3,
+    10,
+    10,
+    4,
+    8,
+    11,
+    9,
+    9,
+    8
+   ],
+   "ascendantSign": 3,
+   "timeKnown": true
+  },
+  {
+   "id": "c17",
+   "signs": [
+    1,
+    0,
+    1,
+    11,
+    0,
+    10,
+    5,
+    11,
+    10,
+    9
+   ],
+   "ascendantSign": 6,
+   "timeKnown": true
+  },
+  {
+   "id": "c18",
+   "signs": [
+    0,
+    5,
+    1,
+    0,
+    7,
+    9,
+    7,
+    8,
+    9,
+    7
+   ],
+   "ascendantSign": 9,
+   "timeKnown": true
+  },
+  {
+   "id": "c19",
+   "signs": [
+    0,
+    8,
+    11,
+    0,
+    9,
+    10,
+    2,
+    6,
+    8,
+    6
+   ],
+   "ascendantSign": 8,
+   "timeKnown": false
+  },
+  {
+   "id": "c20",
+   "signs": [
+    3,
+    2,
+    3,
+    4,
+    3,
+    3,
+    2,
+    10,
+    10,
+    8
+   ],
+   "ascendantSign": 10,
+   "timeKnown": true
+  },
+  {
+   "id": "c21",
+   "signs": [
+    2,
+    5,
+    3,
+    3,
+    2,
+    6,
+    6,
+    7,
+    8,
+    6
+   ],
+   "ascendantSign": 11,
+   "timeKnown": true
+  },
+  {
+   "id": "c22",
+   "signs": [
+    11,
+    9,
+    0,
+    11,
+    7,
+    0,
+    6,
+    3,
+    6,
+    4
+   ],
+   "ascendantSign": 7,
+   "timeKnown": true
+  },
+  {
+   "id": "c23",
+   "signs": [
+    11,
+    7,
+    11,
+    11,
+    8,
+    11,
+    8,
+    8,
+    9,
+    7
+   ],
+   "ascendantSign": 4,
+   "timeKnown": false
+  },
+  {
+   "id": "c24",
+   "signs": [
+    7,
+    0,
+    7,
+    7,
+    10,
+    11,
+    8,
+    8,
+    9,
+    7
+   ],
+   "ascendantSign": 3,
+   "timeKnown": true
+  },
+  {
+   "id": "c25",
+   "signs": [
+    0,
+    3,
+    2,
+    4,
+    6,
+    8,
+    10,
+    11,
+    7,
+    0
+   ],
+   "ascendantSign": 3,
+   "timeKnown": true
+  },
+  {
+   "id": "c26",
+   "signs": [
+    2,
+    6,
+    2,
+    10,
+    0,
+    4,
+    6,
+    10,
+    5,
+    11
+   ],
+   "ascendantSign": 2,
+   "timeKnown": true
+  }
+ ],
+ "states": [
+  {
+   "chart": "c01",
+   "pools": [
+    80.0,
+    80.0,
+    80.0,
+    80.0
+   ],
+   "expected": {
+    "elementCounts": {
+     "Fire": 2,
+     "Earth": 4,
+     "Air": 0,
+     "Water": 4
+    },
+    "modalityCounts": {
+     "Cardinal": 2,
+     "Fixed": 3,
+     "Mutable": 5
+    },
+    "bodies": 10,
+    "natalEsms": [
+     4.4,
+     7.9,
+     6.6,
+     2.5
+    ],
+    "liveEsms": [
+     4.4,
+     7.9,
+     6.6,
+     2.5
+    ],
+    "heat": 0.037376000000000006,
+    "entropy": 0.058488888888888896,
+    "reactivity": 0.961374154503382,
+    "energy": -0.01885370610339781,
+    "charge": 9.1,
+    "chargeSpent": 0.56875,
+    "current": 0.5467815503737985,
+    "voltage": -0.002071835835538221,
+    "power": -0.0011328416102755826,
+    "potency": 0.01812546576440932,
+    "magnitude": 0.25,
+    "canCast": true,
+    "handDiurnal": [
+     4,
+     5,
+     6,
+     7,
+     9,
+     12
+    ],
+    "handNocturnal": [
+     1,
+     8,
+     10,
+     11,
+     13
+    ]
+   }
+  },
+  {
+   "chart": "c01",
+   "pools": [
+    152.0,
+    31.0,
+    57.0,
+    31.0
+   ],
+   "expected": {
+    "elementCounts": {
+     "Fire": 2,
+     "Earth": 4,
+     "Air": 0,
+     "Water": 4
+    },
+    "modalityCounts": {
+     "Cardinal": 2,
+     "Fixed": 3,
+     "Mutable": 5
+    },
+    "bodies": 10,
+    "natalEsms": [
+     4.4,
+     7.9,
+     6.6,
+     2.5
+    ],
+    "liveEsms": [
+     8.360000000000001,
+     3.0612500000000002,
+     4.7025,
+     0.96875
+    ],
+    "heat": 0.26391352543825713,
+    "entropy": 0.3011240927530464,
+    "reactivity": 1.3230514878610946,
+    "energy": -0.1344891535094832,
+    "charge": 5.67125,
+    "chargeSpent": 0.6444602272727273,
+    "current": 0.852654062560481,
+    "voltage": -0.023714199428606253,
+    "power": -0.02022000848317056,
+    "potency": 0.17793607465190092,
+    "magnitude": 2.0,
+    "canCast": true,
+    "handDiurnal": [
+     4,
+     5,
+     6,
+     7,
+     9,
+     12
+    ],
+    "handNocturnal": [
+     1,
+     8,
+     10,
+     11,
+     13
+    ]
+   }
+  },
+  {
+   "chart": "c02",
+   "pools": [
+    80.0,
+    80.0,
+    80.0,
+    80.0
+   ],
+   "expected": {
+    "elementCounts": {
+     "Fire": 3,
+     "Earth": 3,
+     "Air": 1,
+     "Water": 4
+    },
+    "modalityCounts": {
+     "Cardinal": 1,
+     "Fixed": 5,
+     "Mutable": 5
+    },
+    "bodies": 11,
+    "natalEsms": [
+     4.2,
+     7.2,
+     6.0,
+     2.0
+    ],
+    "liveEsms": [
+     4.2,
+     7.2,
+     6.0,
+     2.0
+    ],
+    "heat": 0.04949464922711058,
+    "entropy": 0.07754141750808745,
+    "reactivity": 1.2281481481481482,
+    "energy": -0.045737699090229414,
+    "charge": 8.0,
+    "chargeSpent": 0.5,
+    "current": 0.6140740740740741,
+    "voltage": -0.005717212386278677,
+    "power": -0.0035107919023889063,
+    "potency": 0.0561726704382225,
+    "magnitude": 0.4082316165568496,
+    "canCast": true,
+    "handDiurnal": [
+     4,
+     5,
+     6,
+     7,
+     9,
+     12
+    ],
+    "handNocturnal": [
+     1,
+     8,
+     10,
+     11,
+     13
+    ]
+   }
+  },
+  {
+   "chart": "c02",
+   "pools": [
+    152.0,
+    31.0,
+    57.0,
+    31.0
+   ],
+   "expected": {
+    "elementCounts": {
+     "Fire": 3,
+     "Earth": 3,
+     "Air": 1,
+     "Water": 4
+    },
+    "modalityCounts": {
+     "Cardinal": 1,
+     "Fixed": 5,
+     "Mutable": 5
+    },
+    "bodies": 11,
+    "natalEsms": [
+     4.2,
+     7.2,
+     6.0,
+     2.0
+    ],
+    "liveEsms": [
+     7.9799999999999995,
+     2.79,
+     4.275,
+     0.775
+    ],
+    "heat": 0.2896722910927456,
+    "entropy": 0.3754900341452113,
+    "reactivity": 1.8528855351259428,
+    "energy": -0.40606776175886283,
+    "charge": 5.050000000000001,
+    "chargeSpent": 0.5738636363636365,
+    "current": 1.063303630952956,
+    "voltage": -0.08040945777403223,
+    "power": -0.08549966841408686,
+    "potency": 0.7523970820439644,
+    "magnitude": 2.0,
+    "canCast": true,
+    "handDiurnal": [
+     4,
+     5,
+     6,
+     7,
+     9,
+     12
+    ],
+    "handNocturnal": [
+     1,
+     8,
+     10,
+     11,
+     13
+    ]
+   }
+  },
+  {
+   "chart": "c03",
+   "pools": [
+    80.0,
+    80.0,
+    80.0,
+    80.0
+   ],
+   "expected": {
+    "elementCounts": {
+     "Fire": 2,
+     "Earth": 3,
+     "Air": 4,
+     "Water": 1
+    },
+    "modalityCounts": {
+     "Cardinal": 3,
+     "Fixed": 5,
+     "Mutable": 2
+    },
+    "bodies": 10,
+    "natalEsms": [
+     4.3,
+     7.4,
+     6.6000000000000005,
+     2.1
+    ],
+    "liveEsms": [
+     4.3,
+     7.4,
+     6.6,
+     2.1
+    ],
+    "heat": 0.03872178509323186,
+    "entropy": 0.1324074074074074,
+    "reactivity": 1.0705295138888888,
+    "energy": -0.10302425239390804,
+    "charge": 8.7,
+    "chargeSpent": 0.54375,
+    "current": 0.5821004231770832,
+    "voltage": -0.011841868091253798,
+    "power": -0.006893156427126034,
+    "potency": 0.11029050283401656,
+    "magnitude": 0.8015298171076785,
+    "canCast": true,
+    "handDiurnal": [
+     3,
+     5,
+     6,
+     7,
+     9,
+     12
+    ],
+    "handNocturnal": [
+     2,
+     8,
+     10,
+     13
+    ]
+   }
+  },
+  {
+   "chart": "c03",
+   "pools": [
+    152.0,
+    31.0,
+    57.0,
+    31.0
+   ],
+   "expected": {
+    "elementCounts": {
+     "Fire": 2,
+     "Earth": 3,
+     "Air": 4,
+     "Water": 1
+    },
+    "modalityCounts": {
+     "Cardinal": 3,
+     "Fixed": 5,
+     "Mutable": 2
+    },
+    "bodies": 10,
+    "natalEsms": [
+     4.3,
+     7.4,
+     6.6000000000000005,
+     2.1
+    ],
+    "liveEsms": [
+     8.17,
+     2.8675,
+     4.702500000000001,
+     0.8137500000000001
+    ],
+    "heat": 0.26356823419966385,
+    "entropy": 0.6529799003510255,
+    "reactivity": 1.628789454184176,
+    "energy": -0.7999985412863206,
+    "charge": 5.51625,
+    "chargeSpent": 0.626846590909091,
+    "current": 1.0210011166640298,
+    "voltage": -0.14502579493067222,
+    "power": -0.14807149856930493,
+    "potency": 1.3030291874098832,
+    "magnitude": 2.0,
+    "canCast": true,
+    "handDiurnal": [
+     3,
+     5,
+     6,
+     7,
+     9,
+     12
+    ],
+    "handNocturnal": [
+     2,
+     8,
+     10,
+     13
+    ]
+   }
+  },
+  {
+   "chart": "c04",
+   "pools": [
+    80.0,
+    80.0,
+    80.0,
+    80.0
+   ],
+   "expected": {
+    "elementCounts": {
+     "Fire": 2,
+     "Earth": 2,
+     "Air": 2,
+     "Water": 5
+    },
+    "modalityCounts": {
+     "Cardinal": 5,
+     "Fixed": 5,
+     "Mutable": 1
+    },
+    "bodies": 11,
+    "natalEsms": [
+     4.2,
+     7.5,
+     6.3,
+     2.0
+    ],
+    "liveEsms": [
+     4.2,
+     7.5,
+     6.3,
+     2.0
+    ],
+    "heat": 0.03518470343392299,
+    "entropy": 0.06850961538461538,
+    "reactivity": 1.609667586006677,
+    "energy": -0.07509300378047673,
+    "charge": 8.3,
+    "chargeSpent": 0.51875,
+    "current": 0.8350150602409637,
+    "voltage": -0.009047349853069485,
+    "power": -0.00755467338258189,
+    "potency": 0.12087477412131024,
+    "magnitude": 0.8784503933234756,
+    "canCast": true,
+    "handDiurnal": [
+     3,
+     4,
+     5,
+     6,
+     7,
+     9,
+     12
+    ],
+    "handNocturnal": [
+     1,
+     2,
+     8,
+     10,
+     11,
+     13
+    ]
+   }
+  },
+  {
+   "chart": "c04",
+   "pools": [
+    152.0,
+    31.0,
+    57.0,
+    31.0
+   ],
+   "expected": {
+    "elementCounts": {
+     "Fire": 2,
+     "Earth": 2,
+     "Air": 2,
+     "Water": 5
+    },
+    "modalityCounts": {
+     "Cardinal": 5,
+     "Fixed": 5,
+     "Mutable": 1
+    },
+    "bodies": 11,
+    "natalEsms": [
+     4.2,
+     7.5,
+     6.3,
+     2.0
+    ],
+    "liveEsms": [
+     7.9799999999999995,
+     2.90625,
+     4.48875,
+     0.775
+    ],
+    "heat": 0.2295738018764019,
+    "entropy": 0.3488196677838984,
+    "reactivity": 2.5111064038380375,
+    "energy": -0.6463494996804022,
+    "charge": 5.26375,
+    "chargeSpent": 0.5981534090909091,
+    "current": 1.5020268560457353,
+    "voltage": -0.12279259077281449,
+    "power": -0.18443776906420112,
+    "potency": 1.6230523677649695,
+    "magnitude": 2.0,
+    "canCast": true,
+    "handDiurnal": [
+     3,
+     4,
+     5,
+     6,
+     7,
+     9,
+     12
+    ],
+    "handNocturnal": [
+     1,
+     2,
+     8,
+     10,
+     11,
+     13
+    ]
+   }
+  },
+  {
+   "chart": "c05",
+   "pools": [
+    80.0,
+    80.0,
+    80.0,
+    80.0
+   ],
+   "expected": {
+    "elementCounts": {
+     "Fire": 1,
+     "Earth": 3,
+     "Air": 5,
+     "Water": 2
+    },
+    "modalityCounts": {
+     "Cardinal": 5,
+     "Fixed": 0,
+     "Mutable": 6
+    },
+    "bodies": 11,
+    "natalEsms": [
+     4.2,
+     7.300000000000001,
+     6.300000000000001,
+     2.0
+    ],
+    "liveEsms": [
+     4.2,
+     7.3,
+     6.300000000000001,
+     2.0
+    ],
+    "heat": 0.028442382812499997,
+    "entropy": 0.13770378078390563,
+    "reactivity": 1.2132038385940571,
+    "energy": -0.13862037262344887,
+    "charge": 8.3,
+    "chargeSpent": 0.51875,
+    "current": 0.6293494912706672,
+    "voltage": -0.016701249713668535,
+    "power": -0.010510923010881669,
+    "potency": 0.1681747681741067,
+    "magnitude": 1.2222003501025196,
+    "canCast": true,
+    "handDiurnal": [
+     3,
+     4,
+     12
+    ],
+    "handNocturnal": [
+     1,
+     2,
+     8,
+     10,
+     11
+    ]
+   }
+  },
+  {
+   "chart": "c05",
+   "pools": [
+    152.0,
+    31.0,
+    57.0,
+    31.0
+   ],
+   "expected": {
+    "elementCounts": {
+     "Fire": 1,
+     "Earth": 3,
+     "Air": 5,
+     "Water": 2
+    },
+    "modalityCounts": {
+     "Cardinal": 5,
+     "Fixed": 0,
+     "Mutable": 6
+    },
+    "bodies": 11,
+    "natalEsms": [
+     4.2,
+     7.300000000000001,
+     6.300000000000001,
+     2.0
+    ],
+    "liveEsms": [
+     7.9799999999999995,
+     2.8287500000000003,
+     4.4887500000000005,
+     0.775
+    ],
+    "heat": 0.1975948105257765,
+    "entropy": 0.5950470949332961,
+    "reactivity": 1.823829189508404,
+    "energy": -0.8876694503457472,
+    "charge": 5.263750000000001,
+    "chargeSpent": 0.5981534090909091,
+    "current": 1.0909296473039616,
+    "voltage": -0.16863822376551832,
+    "power": -0.18397243797448345,
+    "potency": 1.6189574541754546,
+    "magnitude": 2.0,
+    "canCast": true,
+    "handDiurnal": [
+     3,
+     4,
+     12
+    ],
+    "handNocturnal": [
+     1,
+     2,
+     8,
+     10,
+     11
+    ]
+   }
+  },
+  {
+   "chart": "c06",
+   "pools": [
+    80.0,
+    80.0,
+    80.0,
+    80.0
+   ],
+   "expected": {
+    "elementCounts": {
+     "Fire": 4,
+     "Earth": 3,
+     "Air": 2,
+     "Water": 2
+    },
+    "modalityCounts": {
+     "Cardinal": 0,
+     "Fixed": 7,
+     "Mutable": 4
+    },
+    "bodies": 11,
+    "natalEsms": [
+     4.0,
+     7.199999999999999,
+     6.199999999999999,
+     2.0
+    ],
+    "liveEsms": [
+     4.0,
+     7.2,
+     6.199999999999999,
+     2.0
+    ],
+    "heat": 0.06377551020408165,
+    "entropy": 0.11814744801512289,
+    "reactivity": 1.1323251417769378,
+    "energy": -0.07000581562022576,
+    "charge": 8.2,
+    "chargeSpent": 0.5125,
+    "current": 0.5803166351606805,
+    "voltage": -0.00853729458783241,
+    "power": -0.004954334068586394,
+    "potency": 0.0792693450973823,
+    "magnitude": 0.5760853568123714,
+    "canCast": true,
+    "handDiurnal": [
+     3,
+     4,
+     5,
+     6,
+     7,
+     9,
+     12
+    ],
+    "handNocturnal": [
+     1,
+     2,
+     8,
+     10,
+     11,
+     13
+    ]
+   }
+  },
+  {
+   "chart": "c06",
+   "pools": [
+    90.0,
+    9.0,
+    108.0,
+    80.0
+   ],
+   "expected": {
+    "elementCounts": {
+     "Fire": 4,
+     "Earth": 3,
+     "Air": 2,
+     "Water": 2
+    },
+    "modalityCounts": {
+     "Cardinal": 0,
+     "Fixed": 7,
+     "Mutable": 4
+    },
+    "bodies": 11,
+    "natalEsms": [
+     4.0,
+     7.199999999999999,
+     6.199999999999999,
+     2.0
+    ],
+    "liveEsms": [
+     4.5,
+     0.8099999999999999,
+     8.37,
+     2.0
+    ],
+    "heat": 0.10967818454012618,
+    "entropy": 0.2200699847418144,
+    "reactivity": 0.3783050181432259,
+    "energy": 0.02642460496959463,
+    "charge": 10.37,
+    "chargeSpent": 0.551595744680851,
+    "current": 0.20867143819921558,
+    "voltage": 0.002548177914136416,
+    "power": 0.0005317319501303232,
+    "potency": 0.009996560662450076,
+    "magnitude": 0.25,
+    "canCast": true,
+    "handDiurnal": [
+     3,
+     4,
+     5,
+     6,
+     7,
+     9,
+     12
+    ],
+    "handNocturnal": [
+     1,
+     2,
+     8,
+     10,
+     11,
+     13
+    ]
+   }
+  },
+  {
+   "chart": "c07",
+   "pools": [
+    80.0,
+    80.0,
+    80.0,
+    80.0
+   ],
+   "expected": {
+    "elementCounts": {
+     "Fire": 5,
+     "Earth": 2,
+     "Air": 0,
+     "Water": 3
+    },
+    "modalityCounts": {
+     "Cardinal": 2,
+     "Fixed": 3,
+     "Mutable": 5
+    },
+    "bodies": 10,
+    "natalEsms": [
+     4.1,
+     7.3,
+     6.0,
+     2.2
+    ],
+    "liveEsms": [
+     4.1,
+     7.3,
+     6.0,
+     2.2
+    ],
+    "heat": 0.0994883997620464,
+    "entropy": 0.13929947146824329,
+    "reactivity": 1.7021875,
+    "energy": -0.13762541932780395,
+    "charge": 8.2,
+    "chargeSpent": 0.5125,
+    "current": 0.8723710937499999,
+    "voltage": -0.01678358772290292,
+    "power": -0.014641516778877891,
+    "potency": 0.2342642684620463,
+    "magnitude": 1.702501951032313,
+    "canCast": true,
+    "handDiurnal": [
+     4,
+     5,
+     6,
+     7,
+     9,
+     12
+    ],
+    "handNocturnal": [
+     1,
+     8,
+     10,
+     11,
+     13
+    ]
+   }
+  },
+  {
+   "chart": "c07",
+   "pools": [
+    38.0,
+    148.0,
+    119.0,
+    45.0
+   ],
+   "expected": {
+    "elementCounts": {
+     "Fire": 5,
+     "Earth": 2,
+     "Air": 0,
+     "Water": 3
+    },
+    "modalityCounts": {
+     "Cardinal": 2,
+     "Fixed": 3,
+     "Mutable": 5
+    },
+    "bodies": 10,
+    "natalEsms": [
+     4.1,
+     7.3,
+     6.0,
+     2.2
+    ],
+    "liveEsms": [
+     1.9474999999999998,
+     13.504999999999999,
+     8.925,
+     1.2375000000000003
+    ],
+    "heat": 0.035035119108952635,
+    "entropy": 0.04030298380566102,
+    "reactivity": 1.8575512255915878,
+    "energy": -0.0398297378542509,
+    "charge": 10.162500000000001,
+    "chargeSpent": 0.6196646341463414,
+    "current": 1.1510588006142994,
+    "voltage": -0.003919285397712266,
+    "power": -0.004511327949155818,
+    "potency": 0.07398577836615543,
+    "magnitude": 0.5245730173436998,
+    "canCast": true,
+    "handDiurnal": [
+     4,
+     5,
+     6,
+     7,
+     9,
+     12
+    ],
+    "handNocturnal": [
+     1,
+     8,
+     10,
+     11,
+     13
+    ]
+   }
+  },
+  {
+   "chart": "c08",
+   "pools": [
+    80.0,
+    80.0,
+    80.0,
+    80.0
+   ],
+   "expected": {
+    "elementCounts": {
+     "Fire": 3,
+     "Earth": 2,
+     "Air": 4,
+     "Water": 2
+    },
+    "modalityCounts": {
+     "Cardinal": 4,
+     "Fixed": 3,
+     "Mutable": 4
+    },
+    "bodies": 11,
+    "natalEsms": [
+     4.1,
+     7.4,
+     6.500000000000001,
+     2.0
+    ],
+    "liveEsms": [
+     4.1,
+     7.4,
+     6.500000000000002,
+     2.0
+    ],
+    "heat": 0.04518478317956617,
+    "entropy": 0.14297306575949562,
+    "reactivity": 1.4473356401384079,
+    "energy": -0.1617452304740041,
+    "charge": 8.500000000000002,
+    "chargeSpent": 0.5312500000000001,
+    "current": 0.7688970588235293,
+    "voltage": -0.019028850644000478,
+    "power": -0.01463122729296419,
+    "potency": 0.23409963668742706,
+    "magnitude": 1.7013054991818826,
+    "canCast": true,
+    "handDiurnal": [
+     3,
+     4,
+     5,
+     6,
+     7,
+     9,
+     12,
+     14
+    ],
+    "handNocturnal": [
+     1,
+     2,
+     8,
+     10,
+     11,
+     13,
+     14
+    ]
+   }
+  },
+  {
+   "chart": "c08",
+   "pools": [
+    152.0,
+    31.0,
+    57.0,
+    31.0
+   ],
+   "expected": {
+    "elementCounts": {
+     "Fire": 3,
+     "Earth": 2,
+     "Air": 4,
+     "Water": 2
+    },
+    "modalityCounts": {
+     "Cardinal": 4,
+     "Fixed": 3,
+     "Mutable": 4
+    },
+    "bodies": 11,
+    "natalEsms": [
+     4.1,
+     7.4,
+     6.500000000000001,
+     2.0
+    ],
+    "liveEsms": [
+     7.789999999999999,
+     2.8675,
+     4.6312500000000005,
+     0.775
+    ],
+    "heat": 0.26312275958254444,
+    "entropy": 0.6525783410786565,
+    "reactivity": 2.240152222442328,
+    "energy": -1.1987520615025353,
+    "charge": 5.406250000000001,
+    "chargeSpent": 0.614346590909091,
+    "current": 1.3762298809748679,
+    "voltage": -0.22173448536463078,
+    "power": -0.3051576244013894,
+    "potency": 2.6853870947322265,
+    "magnitude": 2.0,
+    "canCast": true,
+    "handDiurnal": [
+     3,
+     4,
+     5,
+     6,
+     7,
+     9,
+     12,
+     14
+    ],
+    "handNocturnal": [
+     1,
+     2,
+     8,
+     10,
+     11,
+     13,
+     14
+    ]
+   }
+  },
+  {
+   "chart": "c09",
+   "pools": [
+    80.0,
+    80.0,
+    80.0,
+    80.0
+   ],
+   "expected": {
+    "elementCounts": {
+     "Fire": 3,
+     "Earth": 3,
+     "Air": 2,
+     "Water": 3
+    },
+    "modalityCounts": {
+     "Cardinal": 3,
+     "Fixed": 4,
+     "Mutable": 4
+    },
+    "bodies": 11,
+    "natalEsms": [
+     4.4,
+     7.1,
+     6.1,
+     2.3
+    ],
+    "liveEsms": [
+     4.4,
+     7.1,
+     6.1,
+     2.3
+    ],
+    "heat": 0.05135355364418289,
+    "entropy": 0.10213216145833336,
+    "reactivity": 1.1720806665861614,
+    "energy": -0.06835357823778593,
+    "charge": 8.399999999999999,
+    "chargeSpent": 0.5249999999999999,
+    "current": 0.6153423499577346,
+    "voltage": -0.008137330742593565,
+    "power": -0.0050072442215308415,
+    "potency": 0.08011590754449346,
+    "magnitude": 0.5822377001780048,
+    "canCast": true,
+    "handDiurnal": [
+     3,
+     4,
+     5,
+     6,
+     7,
+     9,
+     12,
+     14
+    ],
+    "handNocturnal": [
+     1,
+     2,
+     8,
+     10,
+     11,
+     13,
+     14
+    ]
+   }
+  },
+  {
+   "chart": "c09",
+   "pools": [
+    90.0,
+    9.0,
+    108.0,
+    80.0
+   ],
+   "expected": {
+    "elementCounts": {
+     "Fire": 3,
+     "Earth": 3,
+     "Air": 2,
+     "Water": 3
+    },
+    "modalityCounts": {
+     "Cardinal": 3,
+     "Fixed": 4,
+     "Mutable": 4
+    },
+    "bodies": 11,
+    "natalEsms": [
+     4.4,
+     7.1,
+     6.1,
+     2.3
+    ],
+    "liveEsms": [
+     4.950000000000001,
+     0.79875,
+     8.235,
+     2.3
+    ],
+    "heat": 0.08962827103467776,
+    "entropy": 0.18933591874146374,
+    "reactivity": 0.4153726132197429,
+    "energy": 0.010983315690675066,
+    "charge": 10.535,
+    "chargeSpent": 0.560372340425532,
+    "current": 0.23276332341861658,
+    "voltage": 0.0010425548828357917,
+    "power": 0.0002426685393751653,
+    "potency": 0.004562168540253107,
+    "magnitude": 0.25,
+    "canCast": true,
+    "handDiurnal": [
+     3,
+     4,
+     5,
+     6,
+     7,
+     9,
+     12,
+     14
+    ],
+    "handNocturnal": [
+     1,
+     2,
+     8,
+     10,
+     11,
+     13,
+     14
+    ]
+   }
+  },
+  {
+   "chart": "c10",
+   "pools": [
+    80.0,
+    80.0,
+    80.0,
+    80.0
+   ],
+   "expected": {
+    "elementCounts": {
+     "Fire": 3,
+     "Earth": 2,
+     "Air": 3,
+     "Water": 2
+    },
+    "modalityCounts": {
+     "Cardinal": 3,
+     "Fixed": 5,
+     "Mutable": 2
+    },
+    "bodies": 10,
+    "natalEsms": [
+     4.1,
+     7.5,
+     6.300000000000001,
+     2.2
+    ],
+    "liveEsms": [
+     4.1,
+     7.5,
+     6.300000000000001,
+     2.2
+    ],
+    "heat": 0.04879017013232514,
+    "entropy": 0.12514202752177753,
+    "reactivity": 1.4501379010015965,
+    "energy": -0.13268302698518933,
+    "charge": 8.5,
+    "chargeSpent": 0.53125,
+    "current": 0.7703857599070981,
+    "voltage": -0.01560976788061051,
+    "power": -0.01202554289067754,
+    "potency": 0.19240868625084062,
+    "magnitude": 1.3983189407764582,
+    "canCast": true,
+    "handDiurnal": [
+     3,
+     4,
+     5,
+     6,
+     7,
+     9,
+     12
+    ],
+    "handNocturnal": [
+     1,
+     2,
+     8,
+     10,
+     11,
+     13
+    ]
+   }
+  },
+  {
+   "chart": "c10",
+   "pools": [
+    38.0,
+    148.0,
+    119.0,
+    45.0
+   ],
+   "expected": {
+    "elementCounts": {
+     "Fire": 3,
+     "Earth": 2,
+     "Air": 3,
+     "Water": 2
+    },
+    "modalityCounts": {
+     "Cardinal": 3,
+     "Fixed": 5,
+     "Mutable": 2
+    },
+    "bodies": 10,
+    "natalEsms": [
+     4.1,
+     7.5,
+     6.300000000000001,
+     2.2
+    ],
+    "liveEsms": [
+     1.9474999999999998,
+     13.875,
+     9.37125,
+     1.2375000000000003
+    ],
+    "heat": 0.012905986743201035,
+    "entropy": 0.031419016338199414,
+    "reactivity": 1.7001603363473197,
+    "energy": -0.04051137864205401,
+    "charge": 10.60875,
+    "chargeSpent": 0.6468750000000001,
+    "current": 1.0997912175746725,
+    "voltage": -0.0038186759648454346,
+    "power": -0.004199746288900498,
+    "potency": 0.06887583913796816,
+    "magnitude": 0.48834259173261607,
+    "canCast": true,
+    "handDiurnal": [
+     3,
+     4,
+     5,
+     6,
+     7,
+     9,
+     12
+    ],
+    "handNocturnal": [
+     1,
+     2,
+     8,
+     10,
+     11,
+     13
+    ]
+   }
+  },
+  {
+   "chart": "c11",
+   "pools": [
+    80.0,
+    80.0,
+    80.0,
+    80.0
+   ],
+   "expected": {
+    "elementCounts": {
+     "Fire": 2,
+     "Earth": 3,
+     "Air": 3,
+     "Water": 2
+    },
+    "modalityCounts": {
+     "Cardinal": 3,
+     "Fixed": 4,
+     "Mutable": 3
+    },
+    "bodies": 10,
+    "natalEsms": [
+     4.2,
+     7.6000000000000005,
+     6.7,
+     2.0
+    ],
+    "liveEsms": [
+     4.2,
+     7.6,
+     6.7,
+     2.0
+    ],
+    "heat": 0.03664753001744314,
+    "entropy": 0.09299578512174823,
+    "reactivity": 1.0245509618450421,
+    "energy": -0.05863139107657887,
+    "charge": 8.7,
+    "chargeSpent": 0.54375,
+    "current": 0.5570995855032416,
+    "voltage": -0.006739240353629756,
+    "power": -0.0037544280076138564,
+    "potency": 0.0600708481218217,
+    "magnitude": 0.43656139623416934,
+    "canCast": true,
+    "handDiurnal": [
+     3,
+     4,
+     5,
+     6,
+     7,
+     9,
+     12
+    ],
+    "handNocturnal": [
+     1,
+     2,
+     8,
+     10,
+     11,
+     13
+    ]
+   }
+  },
+  {
+   "chart": "c11",
+   "pools": [
+    90.0,
+    9.0,
+    108.0,
+    80.0
+   ],
+   "expected": {
+    "elementCounts": {
+     "Fire": 2,
+     "Earth": 3,
+     "Air": 3,
+     "Water": 2
+    },
+    "modalityCounts": {
+     "Cardinal": 3,
+     "Fixed": 4,
+     "Mutable": 3
+    },
+    "bodies": 10,
+    "natalEsms": [
+     4.2,
+     7.6000000000000005,
+     6.7,
+     2.0
+    ],
+    "liveEsms": [
+     4.725,
+     0.8550000000000001,
+     9.045,
+     2.0
+    ],
+    "heat": 0.06647717229362894,
+    "entropy": 0.17713447592450787,
+    "reactivity": 0.3036671841325622,
+    "energy": 0.012687244776836498,
+    "charge": 11.045,
+    "chargeSpent": 0.5875,
+    "current": 0.17840447067788032,
+    "voltage": 0.0011486867158747396,
+    "power": 0.0002049308455203456,
+    "potency": 0.003852699895782497,
+    "magnitude": 0.25,
+    "canCast": true,
+    "handDiurnal": [
+     3,
+     4,
+     5,
+     6,
+     7,
+     9,
+     12
+    ],
+    "handNocturnal": [
+     1,
+     2,
+     8,
+     10,
+     11,
+     13
+    ]
+   }
+  },
+  {
+   "chart": "c12",
+   "pools": [
+    80.0,
+    80.0,
+    80.0,
+    80.0
+   ],
+   "expected": {
+    "elementCounts": {
+     "Fire": 1,
+     "Earth": 4,
+     "Air": 3,
+     "Water": 3
+    },
+    "modalityCounts": {
+     "Cardinal": 6,
+     "Fixed": 2,
+     "Mutable": 3
+    },
+    "bodies": 11,
+    "natalEsms": [
+     4.1,
+     7.700000000000001,
+     6.6,
+     2.2
+    ],
+    "liveEsms": [
+     4.1,
+     7.700000000000001,
+     6.6,
+     2.2
+    ],
+    "heat": 0.02536133855464578,
+    "entropy": 0.06976129074918996,
+    "reactivity": 0.8894624421502315,
+    "energy": -0.036688709482681076,
+    "charge": 8.8,
+    "chargeSpent": 0.55,
+    "current": 0.4892043431826274,
+    "voltage": -0.004169171532122849,
+    "power": -0.002039576820987867,
+    "potency": 0.032633229135805866,
+    "magnitude": 0.25,
+    "canCast": true,
+    "handDiurnal": [
+     3,
+     4,
+     12
+    ],
+    "handNocturnal": [
+     1,
+     2,
+     8,
+     10,
+     11
+    ]
+   }
+  },
+  {
+   "chart": "c12",
+   "pools": [
+    90.0,
+    9.0,
+    108.0,
+    80.0
+   ],
+   "expected": {
+    "elementCounts": {
+     "Fire": 1,
+     "Earth": 4,
+     "Air": 3,
+     "Water": 3
+    },
+    "modalityCounts": {
+     "Cardinal": 6,
+     "Fixed": 2,
+     "Mutable": 3
+    },
+    "bodies": 11,
+    "natalEsms": [
+     4.1,
+     7.700000000000001,
+     6.6,
+     2.2
+    ],
+    "liveEsms": [
+     4.612499999999999,
+     0.8662500000000002,
+     8.91,
+     2.2
+    ],
+    "heat": 0.04612257919264252,
+    "entropy": 0.12832158621884887,
+    "reactivity": 0.27519090523321493,
+    "energy": 0.01080964572011546,
+    "charge": 11.11,
+    "chargeSpent": 0.5909574468085106,
+    "current": 0.16262611474154348,
+    "voltage": 0.0009729654113515266,
+    "power": 0.00015822958462600643,
+    "potency": 0.002974716190968921,
+    "magnitude": 0.25,
+    "canCast": true,
+    "handDiurnal": [
+     3,
+     4,
+     12
+    ],
+    "handNocturnal": [
+     1,
+     2,
+     8,
+     10,
+     11
+    ]
+   }
+  },
+  {
+   "chart": "c13",
+   "pools": [
+    80.0,
+    80.0,
+    80.0,
+    80.0
+   ],
+   "expected": {
+    "elementCounts": {
+     "Fire": 2,
+     "Earth": 1,
+     "Air": 3,
+     "Water": 4
+    },
+    "modalityCounts": {
+     "Cardinal": 5,
+     "Fixed": 5,
+     "Mutable": 0
+    },
+    "bodies": 10,
+    "natalEsms": [
+     4.2,
+     7.3,
+     6.5,
+     2.0
+    ],
+    "liveEsms": [
+     4.2,
+     7.3,
+     6.5,
+     2.0
+    ],
+    "heat": 0.03820351670079796,
+    "entropy": 0.09800814848347668,
+    "reactivity": 1.8476444444444446,
+    "energy": -0.14288069435498393,
+    "charge": 8.5,
+    "chargeSpent": 0.53125,
+    "current": 0.9815611111111112,
+    "voltage": -0.016809493453527523,
+    "power": -0.016499545071459426,
+    "potency": 0.26399272114335076,
+    "magnitude": 1.9185517524952822,
+    "canCast": true,
+    "handDiurnal": [
+     3,
+     4,
+     5,
+     6,
+     7,
+     9
+    ],
+    "handNocturnal": [
+     1,
+     2,
+     11,
+     13
+    ]
+   }
+  },
+  {
+   "chart": "c13",
+   "pools": [
+    38.0,
+    148.0,
+    119.0,
+    45.0
+   ],
+   "expected": {
+    "elementCounts": {
+     "Fire": 2,
+     "Earth": 1,
+     "Air": 3,
+     "Water": 4
+    },
+    "modalityCounts": {
+     "Cardinal": 5,
+     "Fixed": 5,
+     "Mutable": 0
+    },
+    "bodies": 10,
+    "natalEsms": [
+     4.2,
+     7.3,
+     6.5,
+     2.0
+    ],
+    "liveEsms": [
+     1.9949999999999999,
+     13.504999999999999,
+     9.66875,
+     1.125
+    ],
+    "heat": 0.007649496002885003,
+    "entropy": 0.022986350602377408,
+    "reactivity": 1.903237017429524,
+    "energy": -0.03609897735917311,
+    "charge": 10.79375,
+    "chargeSpent": 0.6581554878048781,
+    "current": 1.2526258876146297,
+    "voltage": -0.00334443333958755,
+    "power": -0.0041893237805688145,
+    "potency": 0.06870491000132854,
+    "magnitude": 0.48713067215916445,
+    "canCast": true,
+    "handDiurnal": [
+     3,
+     4,
+     5,
+     6,
+     7,
+     9
+    ],
+    "handNocturnal": [
+     1,
+     2,
+     11,
+     13
+    ]
+   }
+  },
+  {
+   "chart": "c14",
+   "pools": [
+    80.0,
+    80.0,
+    80.0,
+    80.0
+   ],
+   "expected": {
+    "elementCounts": {
+     "Fire": 0,
+     "Earth": 7,
+     "Air": 2,
+     "Water": 1
+    },
+    "modalityCounts": {
+     "Cardinal": 6,
+     "Fixed": 2,
+     "Mutable": 2
+    },
+    "bodies": 10,
+    "natalEsms": [
+     4.2,
+     7.5,
+     6.3,
+     2.0
+    ],
+    "liveEsms": [
+     4.2,
+     7.5,
+     6.3,
+     2.0
+    ],
+    "heat": 0.02650081124932396,
+    "entropy": 0.0539516875683865,
+    "reactivity": 0.4685963027870428,
+    "energy": 0.001219249925656387,
+    "charge": 8.3,
+    "chargeSpent": 0.51875,
+    "current": 0.24308433207077845,
+    "voltage": 0.00014689758140438397,
+    "power": 3.570850045849748e-05,
+    "potency": 0.0005713360073359597,
+    "magnitude": 0.25,
+    "canCast": true,
+    "handDiurnal": [
+     3,
+     12
+    ],
+    "handNocturnal": [
+     2,
+     8,
+     10
+    ]
+   }
+  },
+  {
+   "chart": "c14",
+   "pools": [
+    38.0,
+    148.0,
+    119.0,
+    45.0
+   ],
+   "expected": {
+    "elementCounts": {
+     "Fire": 0,
+     "Earth": 7,
+     "Air": 2,
+     "Water": 1
+    },
+    "modalityCounts": {
+     "Cardinal": 6,
+     "Fixed": 2,
+     "Mutable": 2
+    },
+    "bodies": 10,
+    "natalEsms": [
+     4.2,
+     7.5,
+     6.3,
+     2.0
+    ],
+    "liveEsms": [
+     1.9949999999999999,
+     13.875,
+     9.37125,
+     1.125
+    ],
+    "heat": 0.0033689545086589587,
+    "entropy": 0.009469818220007418,
+    "reactivity": 0.7565216000761704,
+    "energy": -0.0037951675235715254,
+    "charge": 10.49625,
+    "chargeSpent": 0.640015243902439,
+    "current": 0.48418535639021365,
+    "voltage": -0.00036157365950425396,
+    "power": -0.00017506867118838095,
+    "potency": 0.002871126207489448,
+    "magnitude": 0.25,
+    "canCast": true,
+    "handDiurnal": [
+     3,
+     12
+    ],
+    "handNocturnal": [
+     2,
+     8,
+     10
+    ]
+   }
+  },
+  {
+   "chart": "c15",
+   "pools": [
+    80.0,
+    80.0,
+    80.0,
+    80.0
+   ],
+   "expected": {
+    "elementCounts": {
+     "Fire": 2,
+     "Earth": 1,
+     "Air": 5,
+     "Water": 3
+    },
+    "modalityCounts": {
+     "Cardinal": 3,
+     "Fixed": 2,
+     "Mutable": 6
+    },
+    "bodies": 11,
+    "natalEsms": [
+     4.6,
+     7.1,
+     6.0,
+     2.3
+    ],
+    "liveEsms": [
+     4.6,
+     7.1,
+     6.0,
+     2.3
+    ],
+    "heat": 0.04226014512227896,
+    "entropy": 0.18963099757190244,
+    "reactivity": 2.344081632653061,
+    "energy": -0.4022503932676948,
+    "charge": 8.3,
+    "chargeSpent": 0.51875,
+    "current": 1.2159923469387757,
+    "voltage": -0.04846390280333672,
+    "power": -0.05893173491164213,
+    "potency": 0.942907758586274,
+    "magnitude": 2.0,
+    "canCast": true,
+    "handDiurnal": [
+     3,
+     4,
+     5,
+     6,
+     7,
+     9,
+     14
+    ],
+    "handNocturnal": [
+     1,
+     2,
+     11,
+     13,
+     14
+    ]
+   }
+  },
+  {
+   "chart": "c15",
+   "pools": [
+    152.0,
+    31.0,
+    57.0,
+    31.0
+   ],
+   "expected": {
+    "elementCounts": {
+     "Fire": 2,
+     "Earth": 1,
+     "Air": 5,
+     "Water": 3
+    },
+    "modalityCounts": {
+     "Cardinal": 3,
+     "Fixed": 2,
+     "Mutable": 6
+    },
+    "bodies": 11,
+    "natalEsms": [
+     4.6,
+     7.1,
+     6.0,
+     2.3
+    ],
+    "liveEsms": [
+     8.739999999999998,
+     2.7512499999999998,
+     4.275,
+     0.89125
+    ],
+    "heat": 0.2808773328627446,
+    "entropy": 0.8733632848233557,
+    "reactivity": 4.411448192987578,
+    "energy": -3.571919551792943,
+    "charge": 5.166250000000001,
+    "chargeSpent": 0.5870738636363637,
+    "current": 2.5898459348888725,
+    "voltage": -0.6913950257523238,
+    "power": -1.790606596847043,
+    "potency": 15.757338052253978,
+    "magnitude": 2.0,
+    "canCast": true,
+    "handDiurnal": [
+     3,
+     4,
+     5,
+     6,
+     7,
+     9,
+     14
+    ],
+    "handNocturnal": [
+     1,
+     2,
+     11,
+     13,
+     14
+    ]
+   }
+  },
+  {
+   "chart": "c16",
+   "pools": [
+    80.0,
+    80.0,
+    80.0,
+    80.0
+   ],
+   "expected": {
+    "elementCounts": {
+     "Fire": 3,
+     "Earth": 2,
+     "Air": 2,
+     "Water": 4
+    },
+    "modalityCounts": {
+     "Cardinal": 4,
+     "Fixed": 3,
+     "Mutable": 4
+    },
+    "bodies": 11,
+    "natalEsms": [
+     4.1,
+     7.4,
+     6.1,
+     2.2
+    ],
+    "liveEsms": [
+     4.1,
+     7.4,
+     6.1,
+     2.2
+    ],
+    "heat": 0.045950613327636225,
+    "entropy": 0.09112426035502959,
+    "reactivity": 1.606614845297973,
+    "energy": -0.10045097612555184,
+    "charge": 8.3,
+    "chargeSpent": 0.51875,
+    "current": 0.8334314509983235,
+    "voltage": -0.01210252724404239,
+    "power": -0.010086626841748991,
+    "potency": 0.16138602946798386,
+    "magnitude": 1.1728635862498826,
+    "canCast": true,
+    "handDiurnal": [
+     3,
+     4,
+     5,
+     6,
+     7,
+     9,
+     12,
+     14
+    ],
+    "handNocturnal": [
+     1,
+     2,
+     8,
+     10,
+     11,
+     13,
+     14
+    ]
+   }
+  },
+  {
+   "chart": "c16",
+   "pools": [
+    90.0,
+    9.0,
+    108.0,
+    80.0
+   ],
+   "expected": {
+    "elementCounts": {
+     "Fire": 3,
+     "Earth": 2,
+     "Air": 2,
+     "Water": 4
+    },
+    "modalityCounts": {
+     "Cardinal": 4,
+     "Fixed": 3,
+     "Mutable": 4
+    },
+    "bodies": 11,
+    "natalEsms": [
+     4.1,
+     7.4,
+     6.1,
+     2.2
+    ],
+    "liveEsms": [
+     4.612499999999999,
+     0.8325000000000001,
+     8.235,
+     2.2
+    ],
+    "heat": 0.08155219560223469,
+    "entropy": 0.17229103071904542,
+    "reactivity": 0.5327487244669658,
+    "energy": -0.01023563125043557,
+    "charge": 10.434999999999999,
+    "chargeSpent": 0.5550531914893617,
+    "current": 0.29570387977727597,
+    "voltage": -0.0009808942262036963,
+    "power": -0.000290054228339562,
+    "potency": 0.005453019492783763,
+    "magnitude": 0.25,
+    "canCast": true,
+    "handDiurnal": [
+     3,
+     4,
+     5,
+     6,
+     7,
+     9,
+     12,
+     14
+    ],
+    "handNocturnal": [
+     1,
+     2,
+     8,
+     10,
+     11,
+     13,
+     14
+    ]
+   }
+  },
+  {
+   "chart": "c17",
+   "pools": [
+    80.0,
+    80.0,
+    80.0,
+    80.0
+   ],
+   "expected": {
+    "elementCounts": {
+     "Fire": 2,
+     "Earth": 4,
+     "Air": 3,
+     "Water": 2
+    },
+    "modalityCounts": {
+     "Cardinal": 4,
+     "Fixed": 4,
+     "Mutable": 3
+    },
+    "bodies": 11,
+    "natalEsms": [
+     4.0,
+     7.300000000000001,
+     6.300000000000001,
+     2.0
+    ],
+    "liveEsms": [
+     4.0,
+     7.3,
+     6.300000000000001,
+     2.0
+    ],
+    "heat": 0.033049110978914664,
+    "entropy": 0.08590170762182422,
+    "reactivity": 0.8510698463568666,
+    "energy": -0.04005924212858375,
+    "charge": 8.3,
+    "chargeSpent": 0.51875,
+    "current": 0.44149248279762454,
+    "voltage": -0.004826414714287198,
+    "power": -0.0021308258152216426,
+    "potency": 0.03409321304354629,
+    "magnitude": 0.25,
+    "canCast": true,
+    "handDiurnal": [
+     3,
+     4,
+     5,
+     6,
+     7,
+     9,
+     12
+    ],
+    "handNocturnal": [
+     1,
+     2,
+     8,
+     10,
+     11,
+     13
+    ]
+   }
+  },
+  {
+   "chart": "c17",
+   "pools": [
+    152.0,
+    31.0,
+    57.0,
+    31.0
+   ],
+   "expected": {
+    "elementCounts": {
+     "Fire": 2,
+     "Earth": 4,
+     "Air": 3,
+     "Water": 2
+    },
+    "modalityCounts": {
+     "Cardinal": 4,
+     "Fixed": 4,
+     "Mutable": 3
+    },
+    "bodies": 11,
+    "natalEsms": [
+     4.0,
+     7.300000000000001,
+     6.300000000000001,
+     2.0
+    ],
+    "liveEsms": [
+     7.6,
+     2.8287500000000003,
+     4.4887500000000005,
+     0.775
+    ],
+    "heat": 0.21139568106831827,
+    "entropy": 0.402358549792333,
+    "reactivity": 1.1568658233270663,
+    "energy": -0.25407917390987345,
+    "charge": 5.263750000000001,
+    "chargeSpent": 0.5981534090909091,
+    "current": 0.691983236083846,
+    "voltage": -0.04826961271144591,
+    "power": -0.033401762808580295,
+    "potency": 0.2939355127155066,
+    "magnitude": 2.0,
+    "canCast": true,
+    "handDiurnal": [
+     3,
+     4,
+     5,
+     6,
+     7,
+     9,
+     12
+    ],
+    "handNocturnal": [
+     1,
+     2,
+     8,
+     10,
+     11,
+     13
+    ]
+   }
+  },
+  {
+   "chart": "c18",
+   "pools": [
+    80.0,
+    80.0,
+    80.0,
+    80.0
+   ],
+   "expected": {
+    "elementCounts": {
+     "Fire": 3,
+     "Earth": 5,
+     "Air": 0,
+     "Water": 3
+    },
+    "modalityCounts": {
+     "Cardinal": 5,
+     "Fixed": 4,
+     "Mutable": 2
+    },
+    "bodies": 11,
+    "natalEsms": [
+     4.4,
+     7.700000000000001,
+     6.300000000000001,
+     2.2
+    ],
+    "liveEsms": [
+     4.4,
+     7.700000000000001,
+     6.300000000000001,
+     2.2
+    ],
+    "heat": 0.04842565398538351,
+    "entropy": 0.06859504132231406,
+    "reactivity": 0.7948155689560654,
+    "energy": -0.006094752810776358,
+    "charge": 8.5,
+    "chargeSpent": 0.53125,
+    "current": 0.4222457710079098,
+    "voltage": -0.0007170297424442774,
+    "power": -0.00030276277643398686,
+    "potency": 0.00484420442294379,
+    "magnitude": 0.25,
+    "canCast": true,
+    "handDiurnal": [
+     4,
+     5,
+     6,
+     7,
+     9,
+     12,
+     14
+    ],
+    "handNocturnal": [
+     1,
+     8,
+     10,
+     11,
+     13,
+     14
+    ]
+   }
+  },
+  {
+   "chart": "c18",
+   "pools": [
+    90.0,
+    9.0,
+    108.0,
+    80.0
+   ],
+   "expected": {
+    "elementCounts": {
+     "Fire": 3,
+     "Earth": 5,
+     "Air": 0,
+     "Water": 3
+    },
+    "modalityCounts": {
+     "Cardinal": 5,
+     "Fixed": 4,
+     "Mutable": 2
+    },
+    "bodies": 11,
+    "natalEsms": [
+     4.4,
+     7.700000000000001,
+     6.300000000000001,
+     2.2
+    ],
+    "liveEsms": [
+     4.950000000000001,
+     0.8662500000000002,
+     8.505,
+     2.2
+    ],
+    "heat": 0.08746616532713301,
+    "entropy": 0.12706276016061568,
+    "reactivity": 0.26368880374087733,
+    "energy": 0.053961138100366256,
+    "charge": 10.705000000000002,
+    "chargeSpent": 0.5694148936170214,
+    "current": 0.15014833213011128,
+    "voltage": 0.005040741532028607,
+    "power": 0.0007568589337330773,
+    "potency": 0.014228947954181856,
+    "magnitude": 0.25,
+    "canCast": true,
+    "handDiurnal": [
+     4,
+     5,
+     6,
+     7,
+     9,
+     12,
+     14
+    ],
+    "handNocturnal": [
+     1,
+     8,
+     10,
+     11,
+     13,
+     14
+    ]
+   }
+  },
+  {
+   "chart": "c19",
+   "pools": [
+    80.0,
+    80.0,
+    80.0,
+    80.0
+   ],
+   "expected": {
+    "elementCounts": {
+     "Fire": 4,
+     "Earth": 1,
+     "Air": 4,
+     "Water": 1
+    },
+    "modalityCounts": {
+     "Cardinal": 5,
+     "Fixed": 1,
+     "Mutable": 4
+    },
+    "bodies": 10,
+    "natalEsms": [
+     4.5,
+     7.3,
+     6.3,
+     2.3
+    ],
+    "liveEsms": [
+     4.5,
+     7.3,
+     6.3,
+     2.3
+    ],
+    "heat": 0.07558224390650738,
+    "entropy": 0.236439842209073,
+    "reactivity": 2.0985175455057234,
+    "energy": -0.42059091342583704,
+    "charge": 8.6,
+    "chargeSpent": 0.5375,
+    "current": 1.1279531807093264,
+    "voltage": -0.04890592016579501,
+    "power": -0.055163588206524866,
+    "potency": 0.8826174113043977,
+    "magnitude": 2.0,
+    "canCast": true,
+    "handDiurnal": [
+     3,
+     5,
+     6,
+     7,
+     9,
+     14
+    ],
+    "handNocturnal": [
+     2,
+     13,
+     14
+    ]
+   }
+  },
+  {
+   "chart": "c19",
+   "pools": [
+    90.0,
+    9.0,
+    108.0,
+    80.0
+   ],
+   "expected": {
+    "elementCounts": {
+     "Fire": 4,
+     "Earth": 1,
+     "Air": 4,
+     "Water": 1
+    },
+    "modalityCounts": {
+     "Cardinal": 5,
+     "Fixed": 1,
+     "Mutable": 4
+    },
+    "bodies": 10,
+    "natalEsms": [
+     4.5,
+     7.3,
+     6.3,
+     2.3
+    ],
+    "liveEsms": [
+     5.0625,
+     0.82125,
+     8.504999999999999,
+     2.3
+    ],
+    "heat": 0.1339908521904199,
+    "entropy": 0.4904659672115766,
+    "reactivity": 0.7149630852667318,
+    "energy": -0.2166742089455006,
+    "charge": 10.805,
+    "chargeSpent": 0.5747340425531915,
+    "current": 0.4109136242716509,
+    "voltage": -0.020053142891763128,
+    "power": -0.00824010962369168,
+    "potency": 0.1549140609254036,
+    "magnitude": 0.958152281824614,
+    "canCast": true,
+    "handDiurnal": [
+     3,
+     5,
+     6,
+     7,
+     9,
+     14
+    ],
+    "handNocturnal": [
+     2,
+     13,
+     14
+    ]
+   }
+  },
+  {
+   "chart": "c20",
+   "pools": [
+    80.0,
+    80.0,
+    80.0,
+    80.0
+   ],
+   "expected": {
+    "elementCounts": {
+     "Fire": 2,
+     "Earth": 0,
+     "Air": 5,
+     "Water": 4
+    },
+    "modalityCounts": {
+     "Cardinal": 4,
+     "Fixed": 4,
+     "Mutable": 3
+    },
+    "bodies": 11,
+    "natalEsms": [
+     4.2,
+     7.5,
+     6.300000000000001,
+     2.0
+    ],
+    "liveEsms": [
+     4.2,
+     7.5,
+     6.300000000000001,
+     2.0
+    ],
+    "heat": 0.03518470343392299,
+    "entropy": 0.15982830450700666,
+    "reactivity": 3.0962459057697145,
+    "energy": -0.4596830300220116,
+    "charge": 8.3,
+    "chargeSpent": 0.51875,
+    "current": 1.6061775636180395,
+    "voltage": -0.05538349759301344,
+    "power": -0.08895573122859189,
+    "potency": 1.4232916996574703,
+    "magnitude": 2.0,
+    "canCast": true,
+    "handDiurnal": [
+     3,
+     4,
+     5,
+     6,
+     7,
+     9
+    ],
+    "handNocturnal": [
+     1,
+     2,
+     11,
+     13
+    ]
+   }
+  },
+  {
+   "chart": "c20",
+   "pools": [
+    152.0,
+    31.0,
+    57.0,
+    31.0
+   ],
+   "expected": {
+    "elementCounts": {
+     "Fire": 2,
+     "Earth": 0,
+     "Air": 5,
+     "Water": 4
+    },
+    "modalityCounts": {
+     "Cardinal": 4,
+     "Fixed": 4,
+     "Mutable": 3
+    },
+    "bodies": 11,
+    "natalEsms": [
+     4.2,
+     7.5,
+     6.300000000000001,
+     2.0
+    ],
+    "liveEsms": [
+     7.9799999999999995,
+     2.90625,
+     4.4887500000000005,
+     0.775
+    ],
+    "heat": 0.2295738018764019,
+    "entropy": 0.7183972324143152,
+    "reactivity": 5.842872365480052,
+    "energy": -3.9679295348345507,
+    "charge": 5.263750000000001,
+    "chargeSpent": 0.5981534090909091,
+    "current": 3.4949340242949574,
+    "voltage": -0.7538218066653146,
+    "power": -2.6345574803701033,
+    "potency": 23.184105827256914,
+    "magnitude": 2.0,
+    "canCast": true,
+    "handDiurnal": [
+     3,
+     4,
+     5,
+     6,
+     7,
+     9
+    ],
+    "handNocturnal": [
+     1,
+     2,
+     11,
+     13
+    ]
+   }
+  },
+  {
+   "chart": "c21",
+   "pools": [
+    80.0,
+    80.0,
+    80.0,
+    80.0
+   ],
+   "expected": {
+    "elementCounts": {
+     "Fire": 1,
+     "Earth": 1,
+     "Air": 5,
+     "Water": 4
+    },
+    "modalityCounts": {
+     "Cardinal": 5,
+     "Fixed": 1,
+     "Mutable": 5
+    },
+    "bodies": 11,
+    "natalEsms": [
+     4.2,
+     7.2,
+     6.4,
+     2.0
+    ],
+    "liveEsms": [
+     4.2,
+     7.2,
+     6.4,
+     2.0
+    ],
+    "heat": 0.028442382812499997,
+    "entropy": 0.13770378078390563,
+    "reactivity": 2.1088385682980277,
+    "energy": -0.261952661105057,
+    "charge": 8.4,
+    "chargeSpent": 0.525,
+    "current": 1.1071402483564645,
+    "voltage": -0.03118484060774488,
+    "power": -0.034525992175415424,
+    "potency": 0.5524158748066469,
+    "magnitude": 2.0,
+    "canCast": true,
+    "handDiurnal": [
+     3,
+     4
+    ],
+    "handNocturnal": [
+     1,
+     2,
+     11
+    ]
+   }
+  },
+  {
+   "chart": "c21",
+   "pools": [
+    90.0,
+    9.0,
+    108.0,
+    80.0
+   ],
+   "expected": {
+    "elementCounts": {
+     "Fire": 1,
+     "Earth": 1,
+     "Air": 5,
+     "Water": 4
+    },
+    "modalityCounts": {
+     "Cardinal": 5,
+     "Fixed": 1,
+     "Mutable": 5
+    },
+    "bodies": 11,
+    "natalEsms": [
+     4.2,
+     7.2,
+     6.4,
+     2.0
+    ],
+    "liveEsms": [
+     4.725,
+     0.8099999999999999,
+     8.64,
+     2.0
+    ],
+    "heat": 0.05069658391336711,
+    "entropy": 0.2505986518360651,
+    "reactivity": 0.7423008922883558,
+    "energy": -0.13532301895080306,
+    "charge": 10.64,
+    "chargeSpent": 0.5659574468085107,
+    "current": 0.42011071776319714,
+    "voltage": -0.012718328848759685,
+    "power": -0.005343106261400808,
+    "potency": 0.1004503977143352,
+    "magnitude": 0.6212914257442801,
+    "canCast": true,
+    "handDiurnal": [
+     3,
+     4
+    ],
+    "handNocturnal": [
+     1,
+     2,
+     11
+    ]
+   }
+  },
+  {
+   "chart": "c22",
+   "pools": [
+    80.0,
+    80.0,
+    80.0,
+    80.0
+   ],
+   "expected": {
+    "elementCounts": {
+     "Fire": 3,
+     "Earth": 1,
+     "Air": 2,
+     "Water": 5
+    },
+    "modalityCounts": {
+     "Cardinal": 6,
+     "Fixed": 3,
+     "Mutable": 2
+    },
+    "bodies": 11,
+    "natalEsms": [
+     4.2,
+     7.6000000000000005,
+     6.8,
+     2.0
+    ],
+    "liveEsms": [
+     4.2,
+     7.6,
+     6.8,
+     2.0
+    ],
+    "heat": 0.04474603601182479,
+    "entropy": 0.08323721645520954,
+    "reactivity": 1.9296515450361607,
+    "energy": -0.11587278732547965,
+    "charge": 8.8,
+    "chargeSpent": 0.55,
+    "current": 1.0613083497698885,
+    "voltage": -0.013167362196077231,
+    "power": -0.013974631443141141,
+    "potency": 0.22359410309025826,
+    "magnitude": 1.6249571445512956,
+    "canCast": true,
+    "handDiurnal": [
+     3,
+     4,
+     5,
+     6,
+     7,
+     9
+    ],
+    "handNocturnal": [
+     1,
+     2,
+     11,
+     13
+    ]
+   }
+  },
+  {
+   "chart": "c22",
+   "pools": [
+    38.0,
+    148.0,
+    119.0,
+    45.0
+   ],
+   "expected": {
+    "elementCounts": {
+     "Fire": 3,
+     "Earth": 1,
+     "Air": 2,
+     "Water": 5
+    },
+    "modalityCounts": {
+     "Cardinal": 6,
+     "Fixed": 3,
+     "Mutable": 2
+    },
+    "bodies": 11,
+    "natalEsms": [
+     4.2,
+     7.6000000000000005,
+     6.8,
+     2.0
+    ],
+    "liveEsms": [
+     1.9949999999999999,
+     14.060000000000002,
+     10.114999999999998,
+     1.125
+    ],
+    "heat": 0.01170542163785407,
+    "entropy": 0.020038480309215297,
+    "reactivity": 1.9501615730041058,
+    "energy": -0.027372852642577036,
+    "charge": 11.239999999999998,
+    "chargeSpent": 0.6853658536585365,
+    "current": 1.3365741512540334,
+    "voltage": -0.0024353071746064984,
+    "power": -0.0032549686199425387,
+    "potency": 0.05338148536705763,
+    "magnitude": 0.3784847232491324,
+    "canCast": true,
+    "handDiurnal": [
+     3,
+     4,
+     5,
+     6,
+     7,
+     9
+    ],
+    "handNocturnal": [
+     1,
+     2,
+     11,
+     13
+    ]
+   }
+  },
+  {
+   "chart": "c23",
+   "pools": [
+    80.0,
+    80.0,
+    80.0,
+    80.0
+   ],
+   "expected": {
+    "elementCounts": {
+     "Fire": 3,
+     "Earth": 1,
+     "Air": 0,
+     "Water": 6
+    },
+    "modalityCounts": {
+     "Cardinal": 1,
+     "Fixed": 2,
+     "Mutable": 7
+    },
+    "bodies": 10,
+    "natalEsms": [
+     4.4,
+     7.800000000000001,
+     6.5,
+     2.5
+    ],
+    "liveEsms": [
+     4.4,
+     7.8,
+     6.5,
+     2.5
+    ],
+    "heat": 0.050067085657792526,
+    "entropy": 0.07628556944168925,
+    "reactivity": 2.336888888888889,
+    "energy": -0.12820381395305283,
+    "charge": 9.0,
+    "chargeSpent": 0.5625,
+    "current": 1.3145,
+    "voltage": -0.01424486821700587,
+    "power": -0.018724879271254217,
+    "potency": 0.29959806834006747,
+    "magnitude": 2.0,
+    "canCast": true,
+    "handDiurnal": [
+     4,
+     5,
+     6,
+     7,
+     9
+    ],
+    "handNocturnal": [
+     1,
+     11,
+     13
+    ]
+   }
+  },
+  {
+   "chart": "c23",
+   "pools": [
+    90.0,
+    9.0,
+    108.0,
+    80.0
+   ],
+   "expected": {
+    "elementCounts": {
+     "Fire": 3,
+     "Earth": 1,
+     "Air": 0,
+     "Water": 6
+    },
+    "modalityCounts": {
+     "Cardinal": 1,
+     "Fixed": 2,
+     "Mutable": 7
+    },
+    "bodies": 10,
+    "natalEsms": [
+     4.4,
+     7.800000000000001,
+     6.5,
+     2.5
+    ],
+    "liveEsms": [
+     4.950000000000001,
+     0.8775000000000001,
+     8.775,
+     2.5
+    ],
+    "heat": 0.09133269522214521,
+    "entropy": 0.1433525958406787,
+    "reactivity": 0.8008582492265227,
+    "energy": -0.023472413704898026,
+    "charge": 11.275,
+    "chargeSpent": 0.5997340425531915,
+    "current": 0.4803019553206938,
+    "voltage": -0.002081810528150601,
+    "power": -0.00099989766727794,
+    "potency": 0.01879807614482527,
+    "magnitude": 0.25,
+    "canCast": true,
+    "handDiurnal": [
+     4,
+     5,
+     6,
+     7,
+     9
+    ],
+    "handNocturnal": [
+     1,
+     11,
+     13
+    ]
+   }
+  },
+  {
+   "chart": "c24",
+   "pools": [
+    80.0,
+    80.0,
+    80.0,
+    80.0
+   ],
+   "expected": {
+    "elementCounts": {
+     "Fire": 3,
+     "Earth": 1,
+     "Air": 1,
+     "Water": 6
+    },
+    "modalityCounts": {
+     "Cardinal": 3,
+     "Fixed": 5,
+     "Mutable": 3
+    },
+    "bodies": 11,
+    "natalEsms": [
+     4.1,
+     7.5,
+     6.199999999999999,
+     2.2
+    ],
+    "liveEsms": [
+     4.1,
+     7.5,
+     6.199999999999999,
+     2.2
+    ],
+    "heat": 0.04518478317956619,
+    "entropy": 0.07386403416649164,
+    "reactivity": 2.3900462962962967,
+    "energy": -0.13135367810956028,
+    "charge": 8.399999999999999,
+    "chargeSpent": 0.5249999999999999,
+    "current": 1.2547743055555556,
+    "voltage": -0.01563734263209051,
+    "power": -0.019621335741915654,
+    "potency": 0.31394137187065047,
+    "magnitude": 2.0,
+    "canCast": true,
+    "handDiurnal": [
+     4,
+     5,
+     6,
+     7,
+     9
+    ],
+    "handNocturnal": [
+     1,
+     11,
+     13
+    ]
+   }
+  },
+  {
+   "chart": "c24",
+   "pools": [
+    152.0,
+    31.0,
+    57.0,
+    31.0
+   ],
+   "expected": {
+    "elementCounts": {
+     "Fire": 3,
+     "Earth": 1,
+     "Air": 1,
+     "Water": 6
+    },
+    "modalityCounts": {
+     "Cardinal": 3,
+     "Fixed": 5,
+     "Mutable": 3
+    },
+    "bodies": 11,
+    "natalEsms": [
+     4.1,
+     7.5,
+     6.199999999999999,
+     2.2
+    ],
+    "liveEsms": [
+     7.789999999999999,
+     2.90625,
+     4.4174999999999995,
+     0.8525
+    ],
+    "heat": 0.26630418708946735,
+    "entropy": 0.3480573230341107,
+    "reactivity": 3.9475258571912586,
+    "energy": -1.1076610953724553,
+    "charge": 5.27,
+    "chargeSpent": 0.5988636363636364,
+    "current": 2.364029689477038,
+    "voltage": -0.21018237103841658,
+    "power": -0.49687736533949556,
+    "potency": 4.37252081498756,
+    "magnitude": 2.0,
+    "canCast": true,
+    "handDiurnal": [
+     4,
+     5,
+     6,
+     7,
+     9
+    ],
+    "handNocturnal": [
+     1,
+     11,
+     13
+    ]
+   }
+  },
+  {
+   "chart": "c25",
+   "pools": [
+    80.0,
+    80.0,
+    80.0,
+    80.0
+   ],
+   "expected": {
+    "elementCounts": {
+     "Fire": 4,
+     "Earth": 0,
+     "Air": 3,
+     "Water": 4
+    },
+    "modalityCounts": {
+     "Cardinal": 5,
+     "Fixed": 3,
+     "Mutable": 3
+    },
+    "bodies": 11,
+    "natalEsms": [
+     4.5,
+     7.300000000000001,
+     6.300000000000001,
+     2.1
+    ],
+    "liveEsms": [
+     4.5,
+     7.3,
+     6.300000000000001,
+     2.1
+    ],
+    "heat": 0.07034873566341282,
+    "entropy": 0.16031766528925617,
+    "reactivity": 2.996976568405139,
+    "energy": -0.4101195507099058,
+    "charge": 8.4,
+    "chargeSpent": 0.525,
+    "current": 1.5734126984126982,
+    "voltage": -0.04882375603689355,
+    "power": -0.07681991773265194,
+    "potency": 1.2291186837224308,
+    "magnitude": 2.0,
+    "canCast": true,
+    "handDiurnal": [
+     3,
+     4,
+     5,
+     6,
+     7,
+     9,
+     14
+    ],
+    "handNocturnal": [
+     1,
+     2,
+     11,
+     13,
+     14
+    ]
+   }
+  },
+  {
+   "chart": "c25",
+   "pools": [
+    90.0,
+    9.0,
+    108.0,
+    80.0
+   ],
+   "expected": {
+    "elementCounts": {
+     "Fire": 4,
+     "Earth": 0,
+     "Air": 3,
+     "Water": 4
+    },
+    "modalityCounts": {
+     "Cardinal": 5,
+     "Fixed": 3,
+     "Mutable": 3
+    },
+    "bodies": 11,
+    "natalEsms": [
+     4.5,
+     7.300000000000001,
+     6.300000000000001,
+     2.1
+    ],
+    "liveEsms": [
+     5.0625,
+     0.82125,
+     8.505,
+     2.1
+    ],
+    "heat": 0.12260864194489567,
+    "entropy": 0.30992305343200344,
+    "reactivity": 0.9914057237486263,
+    "energy": -0.1846508471492439,
+    "charge": 10.605,
+    "chargeSpent": 0.5640957446808511,
+    "current": 0.5592477500188395,
+    "voltage": -0.017411678184747186,
+    "power": -0.009737441848871976,
+    "potency": 0.18306390675879314,
+    "magnitude": 1.1322606801013926,
+    "canCast": true,
+    "handDiurnal": [
+     3,
+     4,
+     5,
+     6,
+     7,
+     9,
+     14
+    ],
+    "handNocturnal": [
+     1,
+     2,
+     11,
+     13,
+     14
+    ]
+   }
+  },
+  {
+   "chart": "c26",
+   "pools": [
+    80.0,
+    80.0,
+    80.0,
+    80.0
+   ],
+   "expected": {
+    "elementCounts": {
+     "Fire": 2,
+     "Earth": 1,
+     "Air": 7,
+     "Water": 1
+    },
+    "modalityCounts": {
+     "Cardinal": 3,
+     "Fixed": 3,
+     "Mutable": 5
+    },
+    "bodies": 11,
+    "natalEsms": [
+     4.3,
+     7.299999999999999,
+     6.4,
+     2.2
+    ],
+    "liveEsms": [
+     4.3,
+     7.299999999999999,
+     6.4,
+     2.2
+    ],
+    "heat": 0.03627360849018565,
+    "entropy": 0.3096677349993915,
+    "reactivity": 2.3853177501826144,
+    "energy": -0.7023823364627089,
+    "charge": 8.600000000000001,
+    "chargeSpent": 0.5375000000000001,
+    "current": 1.2821082907231554,
+    "voltage": -0.08167236470496614,
+    "power": -0.1047128159112023,
+    "potency": 1.6754050545792367,
+    "magnitude": 2.0,
+    "canCast": true,
+    "handDiurnal": [
+     3,
+     5,
+     6,
+     7,
+     9
+    ],
+    "handNocturnal": [
+     2,
+     13
+    ]
+   }
+  },
+  {
+   "chart": "c26",
+   "pools": [
+    152.0,
+    31.0,
+    57.0,
+    31.0
+   ],
+   "expected": {
+    "elementCounts": {
+     "Fire": 2,
+     "Earth": 1,
+     "Air": 7,
+     "Water": 1
+    },
+    "modalityCounts": {
+     "Cardinal": 3,
+     "Fixed": 3,
+     "Mutable": 5
+    },
+    "bodies": 11,
+    "natalEsms": [
+     4.3,
+     7.299999999999999,
+     6.4,
+     2.2
+    ],
+    "liveEsms": [
+     8.17,
+     2.8287499999999994,
+     4.5600000000000005,
+     0.8525
+    ],
+    "heat": 0.23800286962965675,
+    "entropy": 1.3667332203364413,
+    "reactivity": 4.188366376368329,
+    "energy": -5.4863765958931,
+    "charge": 5.4125000000000005,
+    "chargeSpent": 0.6150568181818183,
+    "current": 2.5760832968288163,
+    "voltage": -1.0136492555922585,
+    "power": -2.6112449161741806,
+    "potency": 22.97895526233279,
+    "magnitude": 2.0,
+    "canCast": true,
+    "handDiurnal": [
+     3,
+     5,
+     6,
+     7,
+     9
+    ],
+    "handNocturnal": [
+     2,
+     13
+    ]
+   }
+  },
+  {
+   "chart": "c01",
+   "pools": [
+    0.0,
+    40.0,
+    0.0,
+    0.0
+   ],
+   "expected": {
+    "elementCounts": {
+     "Fire": 2,
+     "Earth": 4,
+     "Air": 0,
+     "Water": 4
+    },
+    "modalityCounts": {
+     "Cardinal": 2,
+     "Fixed": 3,
+     "Mutable": 5
+    },
+    "bodies": 10,
+    "natalEsms": [
+     4.4,
+     7.9,
+     6.6,
+     2.5
+    ],
+    "liveEsms": [
+     0.0,
+     3.95,
+     0.0,
+     0.0
+    ],
+    "heat": 0.028010714098142542,
+    "entropy": 0.028010714098142542,
+    "reactivity": 2.22515625,
+    "energy": -0.03431750144430245,
+    "charge": 0.0,
+    "chargeSpent": 0.0,
+    "current": 0.0,
+    "voltage": 0.0,
+    "power": 0.0,
+    "potency": 0.07636180282317362,
+    "magnitude": 0.25,
+    "canCast": false,
+    "handDiurnal": [
+     4,
+     5,
+     6,
+     7,
+     9,
+     12
+    ],
+    "handNocturnal": [
+     1,
+     8,
+     10,
+     11,
+     13
+    ]
+   }
+  },
+  {
+   "chart": "c02",
+   "pools": [
+    120.0,
+    0.0,
+    3.0,
+    4.0
+   ],
+   "expected": {
+    "elementCounts": {
+     "Fire": 3,
+     "Earth": 3,
+     "Air": 1,
+     "Water": 4
+    },
+    "modalityCounts": {
+     "Cardinal": 1,
+     "Fixed": 5,
+     "Mutable": 5
+    },
+    "bodies": 11,
+    "natalEsms": [
+     4.2,
+     7.2,
+     6.0,
+     2.0
+    ],
+    "liveEsms": [
+     6.3,
+     0.0,
+     0.225,
+     0.1
+    ],
+    "heat": 0.702540378216054,
+    "entropy": 0.9520958800780642,
+    "reactivity": 6.316928069226608,
+    "energy": -5.3117808112440805,
+    "charge": 0.325,
+    "chargeSpent": 0.4642857142857143,
+    "current": 2.932859460712354,
+    "voltage": -16.343940957674093,
+    "power": -47.9344818630386,
+    "potency": 33.55413730412702,
+    "magnitude": 2.0,
+    "canCast": false,
+    "handDiurnal": [
+     4,
+     5,
+     6,
+     7,
+     9,
+     12
+    ],
+    "handNocturnal": [
+     1,
+     8,
+     10,
+     11,
+     13
+    ]
+   }
+  }
+ ],
+ "duels": [
+  {
+   "a": {
+    "chart": "c10",
+    "pools": [
+     38.0,
+     148.0,
+     119.0,
+     45.0
+    ],
+    "pillar": 5
+   },
+   "b": {
+    "chart": "c15",
+    "pools": [
+     152.0,
+     31.0,
+     57.0,
+     31.0
+    ],
+    "pillar": 4
+   },
+   "expected": {
+    "magnitudeA": 0.48834259173261607,
+    "magnitudeB": 2.0,
+    "deltaA": [
+     0.6104282396657701,
+     0.6104282396657701,
+     0.6104282396657701,
+     -0.6104282396657701
+    ],
+    "deltaB": [
+     2.5,
+     2.5,
+     -2.5,
+     2.5
+    ],
+    "poolsA": [
+     38.0,
+     148.0,
+     111.7439024390244,
+     42.25609756097561
+    ],
+    "poolsB": [
+     155.11042823966577,
+     34.110428239665765,
+     48.633155512393046,
+     29.366844487606958
+    ],
+    "ratioA": 1.3070159329047406,
+    "ratioB": 2.0031482142269548,
+    "winner": "b"
+   }
+  },
+  {
+   "a": {
+    "chart": "c06",
+    "pools": [
+     80.0,
+     80.0,
+     80.0,
+     80.0
+    ],
+    "pillar": 1
+   },
+   "b": {
+    "chart": "c01",
+    "pools": [
+     80.0,
+     80.0,
+     80.0,
+     80.0
+    ],
+    "pillar": 8
+   },
+   "expected": {
+    "magnitudeA": 0.5760853568123714,
+    "magnitudeB": 0.25,
+    "deltaA": [
+     -0.7201066960154643,
+     0.7201066960154643,
+     0.7201066960154643,
+     -0.7201066960154643
+    ],
+    "deltaB": [
+     0.3125,
+     -0.3125,
+     0.3125,
+     0.3125
+    ],
+    "poolsA": [
+     80.3125,
+     79.6875,
+     75.3125,
+     75.3125
+    ],
+    "poolsB": [
+     79.27989330398454,
+     80.72010669601546,
+     75.72010669601546,
+     74.27989330398454
+    ],
+    "ratioA": 1.2590724073025317,
+    "ratioB": 1.187017854161796,
+    "winner": "a"
+   }
+  },
+  {
+   "a": {
+    "chart": "c11",
+    "pools": [
+     90.0,
+     9.0,
+     108.0,
+     80.0
+    ],
+    "pillar": 12
+   },
+   "b": {
+    "chart": "c07",
+    "pools": [
+     38.0,
+     148.0,
+     119.0,
+     45.0
+    ],
+    "pillar": 9
+   },
+   "expected": {
+    "magnitudeA": 0.25,
+    "magnitudeB": 0.5245730173436998,
+    "deltaA": [
+     -0.3125,
+     -0.3125,
+     0.3125,
+     0.3125
+    ],
+    "deltaB": [
+     0.6557162716796248,
+     0.6557162716796248,
+     -0.6557162716796248,
+     -0.6557162716796248
+    ],
+    "poolsA": [
+     90.0,
+     9.0,
+     102.25531914893617,
+     75.74468085106383
+    ],
+    "poolsB": [
+     38.34321627167962,
+     148.34321627167964,
+     111.40068616734477,
+     41.91288128929599
+    ],
+    "ratioA": 0.8048298169641162,
+    "ratioB": 1.3990490358780205,
+    "winner": "b"
+   }
+  },
+  {
+   "a": {
+    "chart": "c20",
+    "pools": [
+     152.0,
+     31.0,
+     57.0,
+     31.0
+    ],
+    "pillar": 4
+   },
+   "b": {
+    "chart": "c19",
+    "pools": [
+     80.0,
+     80.0,
+     80.0,
+     80.0
+    ],
+    "pillar": 5
+   },
+   "expected": {
+    "magnitudeA": 2.0,
+    "magnitudeB": 2.0,
+    "deltaA": [
+     2.5,
+     2.5,
+     -2.5,
+     2.5
+    ],
+    "deltaB": [
+     2.5,
+     2.5,
+     2.5,
+     -2.5
+    ],
+    "poolsA": [
+     157.0,
+     36.0,
+     50.52272727272727,
+     27.477272727272727
+    ],
+    "poolsB": [
+     80.0,
+     80.0,
+     75.0,
+     75.0
+    ],
+    "ratioA": 1.941724101938992,
+    "ratioB": 1.3053237191972764,
+    "winner": "a"
+   }
+  },
+  {
+   "a": {
+    "chart": "c17",
+    "pools": [
+     80.0,
+     80.0,
+     80.0,
+     80.0
+    ],
+    "pillar": 10
+   },
+   "b": {
+    "chart": "c07",
+    "pools": [
+     80.0,
+     80.0,
+     80.0,
+     80.0
+    ],
+    "pillar": 10
+   },
+   "expected": {
+    "magnitudeA": 0.25,
+    "magnitudeB": 1.702501951032313,
+    "deltaA": [
+     -0.3125,
+     -0.3125,
+     0.3125,
+     0.3125
+    ],
+    "deltaB": [
+     -2.1281274387903912,
+     -2.1281274387903912,
+     2.1281274387903912,
+     2.1281274387903912
+    ],
+    "poolsA": [
+     77.87187256120961,
+     77.87187256120961,
+     77.12812743879039,
+     77.12812743879039
+    ],
+    "poolsB": [
+     79.6875,
+     79.6875,
+     75.3125,
+     75.3125
+    ],
+    "ratioA": 1.0181914958664087,
+    "ratioB": 1.255989652015806,
+    "winner": "b"
+   }
+  },
+  {
+   "a": {
+    "chart": "c24",
+    "pools": [
+     152.0,
+     31.0,
+     57.0,
+     31.0
+    ],
+    "pillar": 1
+   },
+   "b": {
+    "chart": "c14",
+    "pools": [
+     80.0,
+     80.0,
+     80.0,
+     80.0
+    ],
+    "pillar": 10
+   },
+   "expected": {
+    "magnitudeA": 2.0,
+    "magnitudeB": 0.25,
+    "deltaA": [
+     -2.5,
+     2.5,
+     2.5,
+     -2.5
+    ],
+    "deltaB": [
+     -0.3125,
+     -0.3125,
+     0.3125,
+     0.3125
+    ],
+    "poolsA": [
+     151.6875,
+     30.6875,
+     50.83522727272727,
+     27.789772727272727
+    ],
+    "poolsB": [
+     77.5,
+     82.5,
+     77.5,
+     72.5
+    ],
+    "ratioA": 1.5904596288307584,
+    "ratioB": 0.4413975276491103,
+    "winner": "a"
+   }
+  },
+  {
+   "a": {
+    "chart": "c24",
+    "pools": [
+     152.0,
+     31.0,
+     57.0,
+     31.0
+    ],
+    "pillar": 11
+   },
+   "b": {
+    "chart": "c25",
+    "pools": [
+     80.0,
+     80.0,
+     80.0,
+     80.0
+    ],
+    "pillar": 1
+   },
+   "expected": {
+    "magnitudeA": 2.0,
+    "magnitudeB": 2.0,
+    "deltaA": [
+     2.5,
+     2.5,
+     2.5,
+     -2.5
+    ],
+    "deltaB": [
+     -2.5,
+     2.5,
+     2.5,
+     -2.5
+    ],
+    "poolsA": [
+     149.5,
+     33.5,
+     53.02272727272727,
+     24.977272727272727
+    ],
+    "poolsB": [
+     82.5,
+     82.5,
+     77.5,
+     72.5
+    ],
+    "ratioA": 1.2444201160254307,
+    "ratioB": 1.2291761995554318,
+    "winner": "a"
+   }
+  },
+  {
+   "a": {
+    "chart": "c04",
+    "pools": [
+     152.0,
+     31.0,
+     57.0,
+     31.0
+    ],
+    "pillar": 12
+   },
+   "b": {
+    "chart": "c18",
+    "pools": [
+     90.0,
+     9.0,
+     108.0,
+     80.0
+    ],
+    "pillar": 5
+   },
+   "expected": {
+    "magnitudeA": 2.0,
+    "magnitudeB": 0.25,
+    "deltaA": [
+     -2.5,
+     -2.5,
+     2.5,
+     2.5
+    ],
+    "deltaB": [
+     0.3125,
+     0.3125,
+     0.3125,
+     -0.3125
+    ],
+    "poolsA": [
+     152.3125,
+     31.3125,
+     50.83522727272727,
+     27.164772727272727
+    ],
+    "poolsB": [
+     87.5,
+     6.5,
+     104.75531914893617,
+     78.24468085106383
+    ],
+    "ratioA": 1.5411146893855612,
+    "ratioB": 1.0140578052625349,
+    "winner": "a"
+   }
+  },
+  {
+   "a": {
+    "chart": "c04",
+    "pools": [
+     80.0,
+     80.0,
+     80.0,
+     80.0
+    ],
+    "pillar": 1
+   },
+   "b": {
+    "chart": "c07",
+    "pools": [
+     80.0,
+     80.0,
+     80.0,
+     80.0
+    ],
+    "pillar": 8
+   },
+   "expected": {
+    "magnitudeA": 0.8784503933234756,
+    "magnitudeB": 1.702501951032313,
+    "deltaA": [
+     -1.0980629916543445,
+     1.0980629916543445,
+     1.0980629916543445,
+     -1.0980629916543445
+    ],
+    "deltaB": [
+     2.1281274387903912,
+     -2.1281274387903912,
+     2.1281274387903912,
+     2.1281274387903912
+    ],
+    "poolsA": [
+     82.12812743879039,
+     77.87187256120961,
+     77.12812743879039,
+     77.12812743879039
+    ],
+    "poolsB": [
+     78.90193700834566,
+     81.09806299165434,
+     76.09806299165434,
+     73.90193700834566
+    ],
+    "ratioA": 1.149485862302638,
+    "ratioB": 1.2022788686637746,
+    "winner": "b"
+   }
+  },
+  {
+   "a": {
+    "chart": "c15",
+    "pools": [
+     80.0,
+     80.0,
+     80.0,
+     80.0
+    ],
+    "pillar": 9
+   },
+   "b": {
+    "chart": "c19",
+    "pools": [
+     90.0,
+     9.0,
+     108.0,
+     80.0
+    ],
+    "pillar": 9
+   },
+   "expected": {
+    "magnitudeA": 2.0,
+    "magnitudeB": 0.958152281824614,
+    "deltaA": [
+     2.5,
+     2.5,
+     -2.5,
+     -2.5
+    ],
+    "deltaB": [
+     1.1976903522807674,
+     1.1976903522807674,
+     -1.1976903522807674,
+     -1.1976903522807674
+    ],
+    "poolsA": [
+     82.5,
+     82.5,
+     72.5,
+     72.5
+    ],
+    "poolsB": [
+     91.19769035228077,
+     10.197690352280768,
+     101.0576287966554,
+     74.54699049878306
+    ],
+    "ratioA": 1.5816507146176795,
+    "ratioB": 1.4713442073714356,
+    "winner": "a"
+   }
+  },
+  {
+   "a": {
+    "chart": "c25",
+    "pools": [
+     90.0,
+     9.0,
+     108.0,
+     80.0
+    ],
+    "pillar": 14
+   },
+   "b": {
+    "chart": "c19",
+    "pools": [
+     80.0,
+     80.0,
+     80.0,
+     80.0
+    ],
+    "pillar": 14
+   },
+   "expected": {
+    "magnitudeA": 1.1322606801013926,
+    "magnitudeB": 2.0,
+    "deltaA": [
+     1.4153258501267407,
+     1.4153258501267407,
+     1.4153258501267407,
+     1.4153258501267407
+    ],
+    "deltaB": [
+     2.5,
+     2.5,
+     2.5,
+     2.5
+    ],
+    "poolsA": [
+     92.5,
+     11.5,
+     104.75531914893617,
+     78.24468085106383
+    ],
+    "poolsB": [
+     81.41532585012673,
+     81.41532585012673,
+     76.41532585012673,
+     76.41532585012673
+    ],
+    "ratioA": 1.2687611871964881,
+    "ratioB": 1.2634219703680287,
+    "winner": "a"
+   }
+  },
+  {
+   "a": {
+    "chart": "c14",
+    "pools": [
+     38.0,
+     148.0,
+     119.0,
+     45.0
+    ],
+    "pillar": 2
+   },
+   "b": {
+    "chart": "c16",
+    "pools": [
+     80.0,
+     80.0,
+     80.0,
+     80.0
+    ],
+    "pillar": 11
+   },
+   "expected": {
+    "magnitudeA": 0.25,
+    "magnitudeB": 1.1728635862498826,
+    "deltaA": [
+     0.3125,
+     0.3125,
+     -0.3125,
+     0.3125
+    ],
+    "deltaB": [
+     1.4660794828123533,
+     1.4660794828123533,
+     1.4660794828123533,
+     -1.4660794828123533
+    ],
+    "poolsA": [
+     39.778579482812354,
+     149.77857948281235,
+     112.89748192183674,
+     41.10251807816326
+    ],
+    "poolsB": [
+     80.0,
+     80.0,
+     75.0,
+     75.0
+    ],
+    "ratioA": 1.2339331646288638,
+    "ratioB": 1.2638663475270366,
+    "winner": "b"
+   }
+  },
+  {
+   "a": {
+    "chart": "c06",
+    "pools": [
+     80.0,
+     80.0,
+     80.0,
+     80.0
+    ],
+    "pillar": 7
+   },
+   "b": {
+    "chart": "c10",
+    "pools": [
+     38.0,
+     148.0,
+     119.0,
+     45.0
+    ],
+    "pillar": 7
+   },
+   "expected": {
+    "magnitudeA": 0.5760853568123714,
+    "magnitudeB": 0.48834259173261607,
+    "deltaA": [
+     -0.7201066960154643,
+     0.7201066960154643,
+     0.7201066960154643,
+     -0.7201066960154643
+    ],
+    "deltaB": [
+     -0.6104282396657701,
+     0.6104282396657701,
+     0.6104282396657701,
+     -0.6104282396657701
+    ],
+    "poolsA": [
+     79.38957176033423,
+     80.61042823966577,
+     75.61042823966577,
+     74.38957176033423
+    ],
+    "poolsB": [
+     37.27989330398454,
+     148.72010669601548,
+     112.46400913503986,
+     41.53599086496015
+    ],
+    "ratioA": 1.2348015151534135,
+    "ratioB": 1.276378871966475,
+    "winner": "b"
+   }
+  },
+  {
+   "a": {
+    "chart": "c10",
+    "pools": [
+     38.0,
+     148.0,
+     119.0,
+     45.0
+    ],
+    "pillar": 12
+   },
+   "b": {
+    "chart": "c02",
+    "pools": [
+     152.0,
+     31.0,
+     57.0,
+     31.0
+    ],
+    "pillar": 5
+   },
+   "expected": {
+    "magnitudeA": 0.48834259173261607,
+    "magnitudeB": 2.0,
+    "deltaA": [
+     -0.6104282396657701,
+     -0.6104282396657701,
+     0.6104282396657701,
+     0.6104282396657701
+    ],
+    "deltaB": [
+     2.5,
+     2.5,
+     2.5,
+     -2.5
+    ],
+    "poolsA": [
+     40.5,
+     150.5,
+     114.2439024390244,
+     39.75609756097561
+    ],
+    "poolsB": [
+     151.38957176033423,
+     30.38957176033423,
+     51.133155512393046,
+     28.087700966938495
+    ],
+    "ratioA": 1.2585621638590498,
+    "ratioB": 1.4437343845041586,
+    "winner": "b"
+   }
+  },
+  {
+   "a": {
+    "chart": "c14",
+    "pools": [
+     38.0,
+     148.0,
+     119.0,
+     45.0
+    ],
+    "pillar": 3
+   },
+   "b": {
+    "chart": "c21",
+    "pools": [
+     90.0,
+     9.0,
+     108.0,
+     80.0
+    ],
+    "pillar": 3
+   },
+   "expected": {
+    "magnitudeA": 0.25,
+    "magnitudeB": 0.6212914257442801,
+    "deltaA": [
+     0.3125,
+     0.3125,
+     -0.3125,
+     -0.3125
+    ],
+    "deltaB": [
+     0.7766142821803501,
+     0.7766142821803501,
+     -0.7766142821803501,
+     -0.7766142821803501
+    ],
+    "poolsA": [
+     38.3125,
+     148.3125,
+     111.4314024390244,
+     41.94359756097561
+    ],
+    "poolsB": [
+     90.77661428218035,
+     9.77661428218035,
+     101.47870486675582,
+     74.96806656888349
+    ],
+    "ratioA": 1.249591922339512,
+    "ratioB": 1.3776694694793472,
+    "winner": "b"
+   }
+  },
+  {
+   "a": {
+    "chart": "c14",
+    "pools": [
+     38.0,
+     148.0,
+     119.0,
+     45.0
+    ],
+    "pillar": 8
+   },
+   "b": {
+    "chart": "c22",
+    "pools": [
+     38.0,
+     148.0,
+     119.0,
+     45.0
+    ],
+    "pillar": 13
+   },
+   "expected": {
+    "magnitudeA": 0.25,
+    "magnitudeB": 0.3784847232491324,
+    "deltaA": [
+     0.3125,
+     -0.3125,
+     0.3125,
+     0.3125
+    ],
+    "deltaB": [
+     0.4731059040614155,
+     0.4731059040614155,
+     0.4731059040614155,
+     -0.4731059040614155
+    ],
+    "poolsA": [
+     38.47310590406141,
+     148.4731059040614,
+     112.21700834308581,
+     41.7829916569142
+    ],
+    "poolsB": [
+     38.3125,
+     147.6875,
+     112.0564024390244,
+     42.56859756097561
+    ],
+    "ratioA": 1.2208580644782296,
+    "ratioB": 1.3327935274916438,
+    "winner": "b"
+   }
+  },
+  {
+   "a": {
+    "chart": "c26",
+    "pools": [
+     80.0,
+     80.0,
+     80.0,
+     80.0
+    ],
+    "pillar": 6
+   },
+   "b": {
+    "chart": "c20",
+    "pools": [
+     80.0,
+     80.0,
+     80.0,
+     80.0
+    ],
+    "pillar": 3
+   },
+   "expected": {
+    "magnitudeA": 2.0,
+    "magnitudeB": 2.0,
+    "deltaA": [
+     2.5,
+     2.5,
+     2.5,
+     2.5
+    ],
+    "deltaB": [
+     2.5,
+     2.5,
+     -2.5,
+     -2.5
+    ],
+    "poolsA": [
+     80.0,
+     80.0,
+     75.0,
+     75.0
+    ],
+    "poolsB": [
+     85.0,
+     85.0,
+     75.0,
+     75.0
+    ],
+    "ratioA": 1.3000663889403983,
+    "ratioB": 1.5453117450909377,
+    "winner": "b"
+   }
+  },
+  {
+   "a": {
+    "chart": "c04",
+    "pools": [
+     152.0,
+     31.0,
+     57.0,
+     31.0
+    ],
+    "pillar": 12
+   },
+   "b": {
+    "chart": "c19",
+    "pools": [
+     80.0,
+     80.0,
+     80.0,
+     80.0
+    ],
+    "pillar": 14
+   },
+   "expected": {
+    "magnitudeA": 2.0,
+    "magnitudeB": 2.0,
+    "deltaA": [
+     -2.5,
+     -2.5,
+     2.5,
+     2.5
+    ],
+    "deltaB": [
+     2.5,
+     2.5,
+     2.5,
+     2.5
+    ],
+    "poolsA": [
+     154.5,
+     33.5,
+     53.02272727272727,
+     29.977272727272727
+    ],
+    "poolsB": [
+     77.5,
+     77.5,
+     77.5,
+     77.5
+    ],
+    "ratioA": 1.4103351640908568,
+    "ratioB": 1.0544401970721173,
+    "winner": "a"
+   }
+  },
+  {
+   "a": {
+    "chart": "c10",
+    "pools": [
+     38.0,
+     148.0,
+     119.0,
+     45.0
+    ],
+    "pillar": 1
+   },
+   "b": {
+    "chart": "c21",
+    "pools": [
+     80.0,
+     80.0,
+     80.0,
+     80.0
+    ],
+    "pillar": 2
+   },
+   "expected": {
+    "magnitudeA": 0.48834259173261607,
+    "magnitudeB": 2.0,
+    "deltaA": [
+     -0.6104282396657701,
+     0.6104282396657701,
+     0.6104282396657701,
+     -0.6104282396657701
+    ],
+    "deltaB": [
+     2.5,
+     2.5,
+     -2.5,
+     2.5
+    ],
+    "poolsA": [
+     38.0,
+     148.0,
+     111.7439024390244,
+     42.25609756097561
+    ],
+    "poolsB": [
+     81.88957176033423,
+     83.11042823966577,
+     73.11042823966577,
+     76.88957176033423
+    ],
+    "ratioA": 1.3070159329047406,
+    "ratioB": 1.561033686920275,
+    "winner": "b"
+   }
+  },
+  {
+   "a": {
+    "chart": "c07",
+    "pools": [
+     80.0,
+     80.0,
+     80.0,
+     80.0
+    ],
+    "pillar": 1
+   },
+   "b": {
+    "chart": "c03",
+    "pools": [
+     152.0,
+     31.0,
+     57.0,
+     31.0
+    ],
+    "pillar": 10
+   },
+   "expected": {
+    "magnitudeA": 1.702501951032313,
+    "magnitudeB": 2.0,
+    "deltaA": [
+     -2.1281274387903912,
+     2.1281274387903912,
+     2.1281274387903912,
+     -2.1281274387903912
+    ],
+    "deltaB": [
+     -2.5,
+     -2.5,
+     2.5,
+     2.5
+    ],
+    "poolsA": [
+     77.5,
+     77.5,
+     77.5,
+     77.5
+    ],
+    "poolsB": [
+     149.8718725612096,
+     33.12812743879039,
+     52.65085471151767,
+     25.349145288482337
+    ],
+    "ratioA": 1.0244886566467442,
+    "ratioB": 1.2222101682573727,
+    "winner": "b"
+   }
+  },
+  {
+   "a": {
+    "chart": "c12",
+    "pools": [
+     90.0,
+     9.0,
+     108.0,
+     80.0
+    ],
+    "pillar": 8
+   },
+   "b": {
+    "chart": "c20",
+    "pools": [
+     152.0,
+     31.0,
+     57.0,
+     31.0
+    ],
+    "pillar": 13
+   },
+   "expected": {
+    "magnitudeA": 0.25,
+    "magnitudeB": 2.0,
+    "deltaA": [
+     0.3125,
+     -0.3125,
+     0.3125,
+     0.3125
+    ],
+    "deltaB": [
+     2.5,
+     2.5,
+     2.5,
+     -2.5
+    ],
+    "poolsA": [
+     92.5,
+     11.5,
+     104.75531914893617,
+     73.24468085106383
+    ],
+    "poolsB": [
+     152.3125,
+     30.6875,
+     50.83522727272727,
+     27.789772727272727
+    ],
+    "ratioA": 1.1275408454749436,
+    "ratioB": 1.7577910615710965,
+    "winner": "b"
+   }
+  },
+  {
+   "a": {
+    "chart": "c22",
+    "pools": [
+     38.0,
+     148.0,
+     119.0,
+     45.0
+    ],
+    "pillar": 1
+   },
+   "b": {
+    "chart": "c26",
+    "pools": [
+     152.0,
+     31.0,
+     57.0,
+     31.0
+    ],
+    "pillar": 13
+   },
+   "expected": {
+    "magnitudeA": 0.3784847232491324,
+    "magnitudeB": 2.0,
+    "deltaA": [
+     -0.4731059040614155,
+     0.4731059040614155,
+     0.4731059040614155,
+     -0.4731059040614155
+    ],
+    "deltaB": [
+     2.5,
+     2.5,
+     2.5,
+     -2.5
+    ],
+    "poolsA": [
+     40.5,
+     150.5,
+     114.2439024390244,
+     39.75609756097561
+    ],
+    "poolsB": [
+     151.5268940959386,
+     31.473105904061416,
+     50.995833176788686,
+     27.00416682321131
+    ],
+    "ratioA": 1.2957724819040457,
+    "ratioB": 1.5757321242381404,
+    "winner": "b"
+   }
+  },
+  {
+   "a": {
+    "chart": "c11",
+    "pools": [
+     80.0,
+     80.0,
+     80.0,
+     80.0
+    ],
+    "pillar": 7
+   },
+   "b": {
+    "chart": "c04",
+    "pools": [
+     80.0,
+     80.0,
+     80.0,
+     80.0
+    ],
+    "pillar": 6
+   },
+   "expected": {
+    "magnitudeA": 0.43656139623416934,
+    "magnitudeB": 0.8784503933234756,
+    "deltaA": [
+     -0.5457017452927116,
+     0.5457017452927116,
+     0.5457017452927116,
+     -0.5457017452927116
+    ],
+    "deltaB": [
+     1.0980629916543445,
+     1.0980629916543445,
+     1.0980629916543445,
+     1.0980629916543445
+    ],
+    "poolsA": [
+     81.09806299165434,
+     81.09806299165434,
+     76.09806299165434,
+     76.09806299165434
+    ],
+    "poolsB": [
+     79.45429825470728,
+     80.54570174529272,
+     75.54570174529272,
+     74.45429825470728
+    ],
+    "ratioA": 1.266341914571869,
+    "ratioB": 1.2261985140831113,
+    "winner": "a"
+   }
+  },
+  {
+   "a": {
+    "chart": "c04",
+    "pools": [
+     152.0,
+     31.0,
+     57.0,
+     31.0
+    ],
+    "pillar": 6
+   },
+   "b": {
+    "chart": "c16",
+    "pools": [
+     80.0,
+     80.0,
+     80.0,
+     80.0
+    ],
+    "pillar": 6
+   },
+   "expected": {
+    "magnitudeA": 2.0,
+    "magnitudeB": 1.1728635862498826,
+    "deltaA": [
+     2.5,
+     2.5,
+     2.5,
+     2.5
+    ],
+    "deltaB": [
+     1.4660794828123533,
+     1.4660794828123533,
+     1.4660794828123533,
+     1.4660794828123533
+    ],
+    "poolsA": [
+     153.46607948281235,
+     32.466079482812354,
+     51.98880675553963,
+     28.94335221008508
+    ],
+    "poolsB": [
+     82.5,
+     82.5,
+     77.5,
+     77.5
+    ],
+    "ratioA": 1.4707430322546464,
+    "ratioB": 1.2450354087439535,
+    "winner": "a"
+   }
+  },
+  {
+   "a": {
+    "chart": "c22",
+    "pools": [
+     80.0,
+     80.0,
+     80.0,
+     80.0
+    ],
+    "pillar": 9
+   },
+   "b": {
+    "chart": "c20",
+    "pools": [
+     152.0,
+     31.0,
+     57.0,
+     31.0
+    ],
+    "pillar": 9
+   },
+   "expected": {
+    "magnitudeA": 1.6249571445512956,
+    "magnitudeB": 2.0,
+    "deltaA": [
+     2.0311964306891195,
+     2.0311964306891195,
+     -2.0311964306891195,
+     -2.0311964306891195
+    ],
+    "deltaB": [
+     2.5,
+     2.5,
+     -2.5,
+     -2.5
+    ],
+    "poolsA": [
+     82.03119643068912,
+     82.03119643068912,
+     72.96880356931088,
+     72.96880356931088
+    ],
+    "poolsB": [
+     154.5,
+     33.5,
+     48.02272727272727,
+     24.977272727272727
+    ],
+    "ratioA": 1.603927184257935,
+    "ratioB": 2.3720670394817445,
+    "winner": "b"
+   }
+  },
+  {
+   "a": {
+    "chart": "c06",
+    "pools": [
+     80.0,
+     80.0,
+     80.0,
+     80.0
+    ],
+    "pillar": 7
+   },
+   "b": {
+    "chart": "c10",
+    "pools": [
+     80.0,
+     80.0,
+     80.0,
+     80.0
+    ],
+    "pillar": 7
+   },
+   "expected": {
+    "magnitudeA": 0.5760853568123714,
+    "magnitudeB": 1.3983189407764582,
+    "deltaA": [
+     -0.7201066960154643,
+     0.7201066960154643,
+     0.7201066960154643,
+     -0.7201066960154643
+    ],
+    "deltaB": [
+     -1.7478986759705728,
+     1.7478986759705728,
+     1.7478986759705728,
+     -1.7478986759705728
+    ],
+    "poolsA": [
+     78.25210132402943,
+     81.74789867597057,
+     76.74789867597057,
+     73.25210132402943
+    ],
+    "poolsB": [
+     79.27989330398454,
+     80.72010669601546,
+     75.72010669601546,
+     74.27989330398454
+    ],
+    "ratioA": 1.1528402492074157,
+    "ratioB": 1.215227216589337,
+    "winner": "b"
+   }
+  },
+  {
+   "a": {
+    "chart": "c01",
+    "pools": [
+     152.0,
+     31.0,
+     57.0,
+     31.0
+    ],
+    "pillar": 8
+   },
+   "b": {
+    "chart": "c06",
+    "pools": [
+     80.0,
+     80.0,
+     80.0,
+     80.0
+    ],
+    "pillar": 10
+   },
+   "expected": {
+    "magnitudeA": 2.0,
+    "magnitudeB": 0.5760853568123714,
+    "deltaA": [
+     2.5,
+     -2.5,
+     2.5,
+     2.5
+    ],
+    "deltaB": [
+     -0.7201066960154643,
+     -0.7201066960154643,
+     0.7201066960154643,
+     0.7201066960154643
+    ],
+    "poolsA": [
+     151.27989330398452,
+     30.279893303984537,
+     51.24283396874274,
+     28.19737942328819
+    ],
+    "poolsB": [
+     82.5,
+     77.5,
+     77.5,
+     77.5
+    ],
+    "ratioA": 1.516203482465946,
+    "ratioB": 1.1115946075247094,
+    "winner": "a"
+   }
+  },
+  {
+   "a": {
+    "chart": "c14",
+    "pools": [
+     38.0,
+     148.0,
+     119.0,
+     45.0
+    ],
+    "pillar": 3
+   },
+   "b": {
+    "chart": "c07",
+    "pools": [
+     80.0,
+     80.0,
+     80.0,
+     80.0
+    ],
+    "pillar": 5
+   },
+   "expected": {
+    "magnitudeA": 0.25,
+    "magnitudeB": 1.702501951032313,
+    "deltaA": [
+     0.3125,
+     0.3125,
+     -0.3125,
+     -0.3125
+    ],
+    "deltaB": [
+     2.1281274387903912,
+     2.1281274387903912,
+     2.1281274387903912,
+     -2.1281274387903912
+    ],
+    "poolsA": [
+     40.44062743879039,
+     150.4406274387904,
+     113.55952987781478,
+     39.81547012218522
+    ],
+    "poolsB": [
+     80.0,
+     80.0,
+     75.0,
+     75.0
+    ],
+    "ratioA": 1.2136529043521294,
+    "ratioB": 1.2929521464397942,
+    "winner": "b"
+   }
+  },
+  {
+   "a": {
+    "chart": "c26",
+    "pools": [
+     152.0,
+     31.0,
+     57.0,
+     31.0
+    ],
+    "pillar": 9
+   },
+   "b": {
+    "chart": "c14",
+    "pools": [
+     80.0,
+     80.0,
+     80.0,
+     80.0
+    ],
+    "pillar": 3
+   },
+   "expected": {
+    "magnitudeA": 2.0,
+    "magnitudeB": 0.25,
+    "deltaA": [
+     2.5,
+     2.5,
+     -2.5,
+     -2.5
+    ],
+    "deltaB": [
+     0.3125,
+     0.3125,
+     -0.3125,
+     -0.3125
+    ],
+    "poolsA": [
+     154.5,
+     33.5,
+     48.02272727272727,
+     24.977272727272727
+    ],
+    "poolsB": [
+     80.3125,
+     80.3125,
+     74.6875,
+     74.6875
+    ],
+    "ratioA": 2.0930896964284127,
+    "ratioB": 0.2374778241419456,
+    "winner": "a"
+   }
+  },
+  {
+   "a": {
+    "chart": "c08",
+    "pools": [
+     80.0,
+     80.0,
+     80.0,
+     80.0
+    ],
+    "pillar": 6
+   },
+   "b": {
+    "chart": "c22",
+    "pools": [
+     80.0,
+     80.0,
+     80.0,
+     80.0
+    ],
+    "pillar": 7
+   },
+   "expected": {
+    "magnitudeA": 1.7013054991818826,
+    "magnitudeB": 1.6249571445512956,
+    "deltaA": [
+     2.1266318739773533,
+     2.1266318739773533,
+     2.1266318739773533,
+     2.1266318739773533
+    ],
+    "deltaB": [
+     -2.0311964306891195,
+     2.0311964306891195,
+     2.0311964306891195,
+     -2.0311964306891195
+    ],
+    "poolsA": [
+     77.96880356931088,
+     82.03119643068912,
+     77.03119643068912,
+     72.96880356931088
+    ],
+    "poolsB": [
+     82.12663187397736,
+     82.12663187397736,
+     77.12663187397736,
+     77.12663187397736
+    ],
+    "ratioA": 1.1358442946674905,
+    "ratioB": 1.2726442531480702,
+    "winner": "b"
+   }
+  }
+ ],
+ "rooms": [
+  {
+   "magnitude": 1.0382,
+   "receivers": [
+    "c12"
+   ],
+   "expected": [
+    {
+     "share": 1.0,
+     "real": 0.8522637804936927,
+     "kick": 0.8893187274716793,
+     "tension": 0.29643957582389313
+    }
+   ]
+  },
+  {
+   "magnitude": 1.0145,
+   "receivers": [
+    "c09",
+    "c14"
+   ],
+   "expected": [
+    {
+     "share": 0.4925335856474773,
+     "real": 0.494280559207648,
+     "kick": 0.21968024853673246,
+     "tension": 0.29290699804897663
+    },
+    {
+     "share": 0.5074664143525227,
+     "real": 0.3847847613476466,
+     "kick": 0.5130463484635288,
+     "tension": 0.17101544948784295
+    }
+   ]
+  },
+  {
+   "magnitude": 0.6509,
+   "receivers": [
+    "c15",
+    "c20",
+    "c18"
+   ],
+   "expected": [
+    {
+     "share": 0.2300982117270309,
+     "real": 0.14880230840804407,
+     "kick": 0.051017934311329394,
+     "tension": 0.034011956207552936
+    },
+    {
+     "share": 0.3524287245550741,
+     "real": 0.22939585681289776,
+     "kick": 0.15957972647853758,
+     "tension": 0.15957972647853758
+    },
+    {
+     "share": 0.417473063717895,
+     "real": 0.26590448123935356,
+     "kick": 0.27989945393616167,
+     "tension": 0.22391956314892933
+    }
+   ]
+  },
+  {
+   "magnitude": 1.9941,
+   "receivers": [
+    "c05",
+    "c15",
+    "c25",
+    "c22",
+    "c16"
+   ],
+   "expected": [
+    {
+     "share": 0.14143453910781134,
+     "real": 0.2448746198248063,
+     "kick": 0.1399283541856036,
+     "tension": 0.0
+    },
+    {
+     "share": 0.16184387624632404,
+     "real": 0.32064565448453686,
+     "kick": 0.10993565296612691,
+     "tension": 0.07329043531075127
+    },
+    {
+     "share": 0.23412878723984085,
+     "real": 0.4409630891810232,
+     "kick": 0.38344616450523755,
+     "tension": 0.23006769870314253
+    },
+    {
+     "share": 0.2537093502944042,
+     "real": 0.4277512807406446,
+     "kick": 0.5403174072513406,
+     "tension": 0.2701587036256703
+    },
+    {
+     "share": 0.20888344711161952,
+     "real": 0.41203735167069516,
+     "kick": 0.24417028247152306,
+     "tension": 0.18312771185364227
+    }
+   ]
+  },
+  {
+   "magnitude": 0.5747,
+   "receivers": [
+    "c12",
+    "c20",
+    "c01",
+    "c14",
+    "c03",
+    "c23",
+    "c10",
+    "c24"
+   ],
+   "expected": [
+    {
+     "share": 0.11736148380378324,
+     "real": 0.05536812241691546,
+     "kick": 0.05777543208721612,
+     "tension": 0.019258477362405376
+    },
+    {
+     "share": 0.14296593997518764,
+     "real": 0.08216252570374033,
+     "kick": 0.05715653961999328,
+     "tension": 0.05715653961999328
+    },
+    {
+     "share": 0.09876885020202031,
+     "real": 0.056264532290175494,
+     "kick": 0.015003875277380131,
+     "tension": 0.022505812916070195
+    },
+    {
+     "share": 0.12412342137434097,
+     "real": 0.053315494735655944,
+     "kick": 0.07108732631420792,
+     "tension": 0.023695775438069312
+    },
+    {
+     "share": 0.15175809703028129,
+     "real": 0.07969841996567127,
+     "kick": 0.05313227997711417,
+     "tension": 0.08855379996185696
+    },
+    {
+     "share": 0.07823323823945563,
+     "real": 0.044713603651973244,
+     "kick": 0.0047066951212603415,
+     "tension": 0.009413390242520683
+    },
+    {
+     "share": 0.15175809703028129,
+     "real": 0.07969841996567127,
+     "kick": 0.05313227997711417,
+     "tension": 0.08855379996185696
+    },
+    {
+     "share": 0.13503087234464975,
+     "real": 0.07329506930401121,
+     "kick": 0.03824090572383194,
+     "tension": 0.06373484287305321
+    }
+   ]
+  }
+ ]
+}
