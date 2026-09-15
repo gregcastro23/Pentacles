@@ -4332,6 +4332,17 @@ fn record_processed(ctx: &ReducerContext, hash: String, chain: &str, event_type:
     });
 }
 
+/// The `processed_tx` hash for one ESMS balance change within a transaction.
+///
+/// One ASOL `redeem_for_esms` burns up to all four elements under a single
+/// signature. Keyed on the signature alone, the first element settled and every
+/// other one was rejected as a replay. The feeder sends at most one event per
+/// wallet, element and direction in a transaction, so this names each event
+/// uniquely and identically on every redelivery.
+fn esms_event_hash(signature: &str, player_pubkey: &str, element_id: u8, event_type: &str) -> String {
+    format!("{signature}:{player_pubkey}:{element_id}:{event_type}")
+}
+
 fn ensure_horizon_action_unspent(
     ctx: &ReducerContext,
     intent_id: u64,
@@ -6766,6 +6777,9 @@ fn apply_esms_event_to_jing_pool(
 /// idempotency so a devnet signature can never be mistaken for the mainnet one
 /// it collides with, and vice versa. It must be a Solana variant.
 ///
+/// A transaction can carry several events, so each settles once per wallet,
+/// element and direction (`esms_event_hash`) rather than once per signature.
+///
 /// `amount` arrives in ASOL's 4-decimal atoms — the scale of the Token-2022
 /// mints `asol_program` issues — and is widened here to the module's 18-decimal
 /// ledger. Widening is exact; see `solana_atoms_to_ledger`.
@@ -6787,7 +6801,11 @@ pub fn sync_solana_event(
         return Err("sync_solana_event: chain must be a Solana cluster".into());
     }
 
-    let hash = normalized_solana_signature(&tx_hash, "tx_hash")?;
+    let signature = normalized_solana_signature(&tx_hash, "tx_hash")?;
+    // A transaction settled whole, before events were keyed individually,
+    // stays settled.
+    ensure_unprocessed(ctx, chain.chain_key(), &signature)?;
+    let hash = esms_event_hash(&signature, player_pubkey.trim(), element_id, &event_type);
     ensure_unprocessed(ctx, chain.chain_key(), &hash)?;
     let player = ctx
         .db
@@ -7798,6 +7816,30 @@ mod tests {
         assert!(normalized_solana_signature("", "test_sig").is_err());
         assert!(normalized_solana_signature("not_base58_0OIl", "test_sig").is_err());
         assert!(normalized_solana_signature("short", "test_sig").is_err());
+    }
+
+    /// One ASOL redeem burns several elements under one signature. Each needs
+    /// its own `processed_tx` row, and a redelivery must land on the same row.
+    #[test]
+    fn esms_events_in_one_transaction_settle_independently() {
+        use super::esms_event_hash;
+
+        let sig = "5T1bw5onpC2XUx3wh494NudK33zKoL4NHqtkPafsBboJjBafqo5yfbhZ4isiyYdT2HuxHPgDSKdCh5Pd8LXEq4dk";
+        let wallet = "AhNRjjyhJ4dR6ZSvWyJNSpbJFbFnxhkRdUNMY31fJ3S5";
+        let other = "3F5qRPtKg8GhGNnbd3qCj6nVJxWsGxq7pvH84okYLAqf";
+
+        let keys = [
+            esms_event_hash(sig, wallet, 0, "burn"),
+            esms_event_hash(sig, wallet, 2, "burn"),
+            esms_event_hash(sig, wallet, 2, "mint"),
+            esms_event_hash(sig, other, 0, "burn"),
+        ];
+        let distinct: std::collections::HashSet<_> = keys.iter().collect();
+        assert_eq!(distinct.len(), keys.len());
+
+        assert_eq!(keys[0], esms_event_hash(sig, wallet, 0, "burn"));
+        // Never the whole-transaction hash, which the StarVault reducers write.
+        assert!(keys.iter().all(|key| key != sig));
     }
 
     #[test]

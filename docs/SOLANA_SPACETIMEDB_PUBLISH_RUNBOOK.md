@@ -154,7 +154,7 @@ For final acceptance, use an approved devnet wallet and the documented ASOL Toke
 
 1. waits for the required finalized commitment;
 2. validates the program, mint, owner, amount, cluster, and transaction signature;
-3. invokes `sync_solana_event` once;
+3. invokes `sync_solana_event` once per element the transaction minted or burned for the wallet (a redeem can burn several under one signature);
 4. rejects a replay of the same transaction signature without a second credit.
 
 Record the test transaction signature only in the secured release record.
