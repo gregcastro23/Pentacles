@@ -7311,7 +7311,16 @@ pub fn claim_daily_faucet(ctx: &ReducerContext) -> Result<(), String> {
         ctx.db.player_faucet_state().insert(faucet_state);
     }
 
-    // Credit player's JingPool ESMS balances
+    // 1. Credit player's PillarPool ESMS balances (exact float units from daily astrological faucet).
+    // CRITICAL: Call ensure_pillar_pool BEFORE crediting jing_pool so that a new player
+    // seeds from the pre-grant state ([80,80,80,80] or pre-existing jing balance), avoiding
+    // first-claim double-counting and scale mismatch.
+    let pillar_pool = ensure_pillar_pool(ctx, player_id);
+    let curr_esms = pillar_pool_to_esms(&pillar_pool);
+    let updated_esms = compute_faucet_pillar_credit(&curr_esms, &allocation);
+    save_esms_to_pillar_pool(ctx, pillar_pool, &updated_esms);
+
+    // 2. Credit player's JingPool ESMS balances
     let mut jing = match ctx.db.jing_pool().identity().find(&player_id) {
         Some(j) => j,
         None => JingPool {
@@ -7333,18 +7342,6 @@ pub fn claim_daily_faucet(ctx: &ReducerContext) -> Result<(), String> {
     } else {
         ctx.db.jing_pool().insert(jing);
     }
-
-    // Credit player's PillarPool ESMS balances (exact float units from daily astrological faucet)
-    let mut pillar_pool = ensure_pillar_pool(ctx, player_id);
-    if pillar_pool.esms.len() < 4 {
-        pillar_pool.esms.resize(4, 80.0);
-    }
-    pillar_pool.esms[0] += allocation.spirit;
-    pillar_pool.esms[1] += allocation.essence;
-    pillar_pool.esms[2] += allocation.matter;
-    pillar_pool.esms[3] += allocation.substance;
-    pillar_pool.updated_at = ctx.timestamp;
-    ctx.db.pillar_pool().identity().update(pillar_pool);
 
     // Log immutable audit transaction
     ctx.db.faucet_transaction().insert(FaucetTransaction {
@@ -7484,23 +7481,38 @@ fn get_chart_or_archetype(
     Err("chart not found".into())
 }
 
+/// Pure helper: determine initial pillar pool ESMS from optional pre-existing jing pool or canonical default 80.0.
+pub fn compute_initial_pillar_pool(jing_esms: Option<&[u16]>) -> alchm_astro_core::circuit::Esms {
+    match jing_esms {
+        Some(jp) => [
+            jp.get(0).copied().unwrap_or(80) as f64,
+            jp.get(1).copied().unwrap_or(80) as f64,
+            jp.get(2).copied().unwrap_or(80) as f64,
+            jp.get(3).copied().unwrap_or(80) as f64,
+        ],
+        None => [80.0, 80.0, 80.0, 80.0],
+    }
+}
+
 fn ensure_pillar_pool(ctx: &ReducerContext, identity: Identity) -> PillarPool {
-    if let Some(pool) = ctx.db.pillar_pool().identity().find(&identity) {
+    if let Some(mut pool) = ctx.db.pillar_pool().identity().find(&identity) {
+        if pool.esms.len() < 4 {
+            let jp = ctx.db.jing_pool().identity().find(&identity);
+            let seed = compute_initial_pillar_pool(jp.as_ref().map(|j| j.esms.as_slice()));
+            while pool.esms.len() < 4 {
+                let k = pool.esms.len();
+                pool.esms.push(seed[k]);
+            }
+            pool.updated_at = ctx.timestamp;
+            ctx.db.pillar_pool().identity().update(pool.clone());
+        }
         pool
     } else {
-        let initial_esms = if let Some(jp) = ctx.db.jing_pool().identity().find(&identity) {
-            vec![
-                jp.esms.get(0).copied().unwrap_or(80) as f64,
-                jp.esms.get(1).copied().unwrap_or(80) as f64,
-                jp.esms.get(2).copied().unwrap_or(80) as f64,
-                jp.esms.get(3).copied().unwrap_or(80) as f64,
-            ]
-        } else {
-            vec![80.0, 80.0, 80.0, 80.0]
-        };
+        let jp = ctx.db.jing_pool().identity().find(&identity);
+        let initial_esms = compute_initial_pillar_pool(jp.as_ref().map(|j| j.esms.as_slice()));
         ctx.db.pillar_pool().insert(PillarPool {
             identity,
-            esms: initial_esms,
+            esms: initial_esms.to_vec(),
             updated_at: ctx.timestamp,
         })
     }
@@ -7519,6 +7531,19 @@ fn save_esms_to_pillar_pool(ctx: &ReducerContext, mut pool: PillarPool, esms: &[
     pool.esms = esms.to_vec();
     pool.updated_at = ctx.timestamp;
     ctx.db.pillar_pool().identity().update(pool);
+}
+
+/// Pure arithmetic: compute updated pillar pool from faucet allocation credit.
+pub fn compute_faucet_pillar_credit(
+    current_pools: &alchm_astro_core::circuit::Esms,
+    allocation: &faucet::FaucetAllocation,
+) -> alchm_astro_core::circuit::Esms {
+    [
+        current_pools[0] + allocation.spirit,
+        current_pools[1] + allocation.essence,
+        current_pools[2] + allocation.matter,
+        current_pools[3] + allocation.substance,
+    ]
 }
 
 /// Pure arithmetic: compute updated initiator pools from duel resolution delta without wiping intermediate duels.
@@ -8597,12 +8622,16 @@ mod tests {
 
     #[test]
     fn test_daily_faucet_allocation_refills_pillar_pool() {
-        let initial_pillar_pool: [f64; 4] = [80.0, 80.0, 4.8, 0.0];
-        let daily_faucet_grant: [f64; 4] = [6.0, 6.0, 6.0, 6.0]; // Typical balanced daily sign-in yield
-        let mut refilled = initial_pillar_pool;
-        for k in 0..4 {
-            refilled[k] += daily_faucet_grant[k];
-        }
+        let initial_pillar_pool: alchm_astro_core::circuit::Esms = [80.0, 80.0, 4.8, 0.0];
+        let allocation = crate::faucet::FaucetAllocation {
+            spirit: 6.0,
+            essence: 6.0,
+            matter: 6.0,
+            substance: 6.0,
+            total: 24.0,
+            resonance_factor: 1.0,
+        };
+        let refilled = super::compute_faucet_pillar_credit(&initial_pillar_pool, &allocation);
         assert_eq!(refilled[0], 86.0);
         assert_eq!(refilled[1], 86.0);
         assert!((refilled[2] - 10.8f64).abs() < 1e-6);
@@ -8610,5 +8639,40 @@ mod tests {
         // Player now has sufficient Matter + Substance (> 10.0) to cast duels again!
         let total_charge = refilled[2] + refilled[3];
         assert!(total_charge >= alchm_astro_core::circuit::CAST_CHARGE);
+    }
+
+    #[test]
+    fn test_first_claim_seeding_order_yields_default_plus_grant() {
+        // A brand-new player has neither jing_pool nor pillar_pool.
+        // Before crediting jing_pool, ensure_pillar_pool seeds from None (pre-grant state),
+        // yielding the canonical [80.0, 80.0, 80.0, 80.0].
+        let seed = super::compute_initial_pillar_pool(None);
+        assert_eq!(seed, [80.0, 80.0, 80.0, 80.0]);
+
+        let grant = crate::faucet::FaucetAllocation {
+            spirit: 3.0,
+            essence: 3.0,
+            matter: 3.0,
+            substance: 3.0,
+            total: 12.0,
+            resonance_factor: 1.0,
+        };
+
+        // First claim must yield 80.0 + grant = [83.0, 83.0, 83.0, 83.0]
+        let credited_pool = super::compute_faucet_pillar_credit(&seed, &grant);
+        assert_eq!(credited_pool, [83.0, 83.0, 83.0, 83.0]);
+
+        // BUG REGRESSION CHECK:
+        // If jing_pool had been credited first on a new player, fixed_points / 1000 would write [30, 30, 30, 30].
+        // Seeding from that post-grant jing_pool would incorrectly seed [30.0, 30.0, 30.0, 30.0]
+        // and yield [33.0, 33.0, 33.0, 33.0] after the grant.
+        let buggy_post_grant_jing_seed = super::compute_initial_pillar_pool(Some(&[30, 30, 30, 30]));
+        assert_eq!(buggy_post_grant_jing_seed, [30.0, 30.0, 30.0, 30.0]);
+        let buggy_credited_pool = super::compute_faucet_pillar_credit(&buggy_post_grant_jing_seed, &grant);
+        assert_eq!(buggy_credited_pool, [33.0, 33.0, 33.0, 33.0]);
+
+        // Assert that the pre-grant seed (83.0) is strictly distinct from the buggy post-grant seed (33.0),
+        // proving order independence: whether a player duels first or claims first, they receive 80.0 + grant.
+        assert_ne!(credited_pool, buggy_credited_pool);
     }
 }
