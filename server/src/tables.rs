@@ -968,7 +968,7 @@ pub struct JingPool {
     #[primary_key]
     pub identity: Identity,
     pub sacred7: Vec<u16>,        // 7 stats
-    pub esms: Vec<u16>,          // 4 element pools
+    pub esms: Vec<u16>,          // 4 element pools, tenths of an ESMS (ESMS_ATOMS_PER_POOL_UNIT)
     pub updated_at: Timestamp,
 }
 
@@ -990,7 +990,7 @@ pub struct JingRate {
 pub struct PillarPool {
     #[primary_key]
     pub identity: Identity,
-    pub esms: Vec<f64>,
+    pub esms: Vec<f64>, // tenths of an ESMS, same unit as jing_pool.esms
     pub updated_at: Timestamp,
 }
 
