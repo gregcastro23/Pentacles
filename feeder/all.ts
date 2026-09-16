@@ -56,6 +56,7 @@ export const SERVICES: Service[] = [
   { name: "oracle", file: "oracle-service.ts" },
   { name: "duel", file: "duel-service.ts" },
   { name: "jing", file: "jing-service.ts" },
+  { name: "pillar", file: "pillar-service.ts" },
   { name: "ephemeris", file: "push-ephemeris.ts" },
   { name: "solana-sync", file: "solana-sync-service.ts" },
   { name: "historical-agents", file: "historical-agent-service.ts" },

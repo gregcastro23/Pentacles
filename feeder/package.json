@@ -9,6 +9,7 @@
     "oracle": "bun run oracle-service.ts",
     "duel": "bun run duel-service.ts",
     "jing": "bun run jing-service.ts",
+    "pillar": "bun run pillar-service.ts",
     "all": "bun run all.ts"
   },
   "dependencies": {

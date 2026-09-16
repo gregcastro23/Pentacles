@@ -236,3 +236,128 @@ impl JingMove {
         else { None }
     }
 }
+
+// ── The Fourteen Alchemical Pillars ─────────────────────────────────────────
+
+/// Which sky a pillar duel or cast takes place under.
+#[derive(SpacetimeType, Clone, Copy, PartialEq, Eq, Debug)]
+pub enum SkySect {
+    Diurnal,
+    Nocturnal,
+}
+
+impl SkySect {
+    pub fn to_core(self) -> alchm_astro_core::pillars::Sect {
+        match self {
+            SkySect::Diurnal => alchm_astro_core::pillars::Sect::Diurnal,
+            SkySect::Nocturnal => alchm_astro_core::pillars::Sect::Nocturnal,
+        }
+    }
+}
+
+/// The Fourteen Alchemical Pillars (canonical spec v1).
+#[derive(SpacetimeType, Clone, Copy, PartialEq, Eq, Debug)]
+pub enum AlchemicalPillar {
+    Solution,
+    Filtration,
+    Evaporation,
+    Distillation,
+    Separation,
+    Rectification,
+    Calcination,
+    Comixion,
+    Purification,
+    Inhibition,
+    Fermentation,
+    Fixation,
+    Multiplication,
+    Protection,
+}
+
+/// Lifecycle of a live 14-Pillars duel thread.
+#[derive(SpacetimeType, Clone, Copy, PartialEq, Eq, Debug)]
+pub enum PillarDuelState {
+    Open,
+    Resolved,
+    Cancelled,
+}
+
+impl AlchemicalPillar {
+    /// 1-based canonical ID matching spec/pillars.v1.json.
+    pub fn id(self) -> u8 {
+        match self {
+            AlchemicalPillar::Solution => 1,
+            AlchemicalPillar::Filtration => 2,
+            AlchemicalPillar::Evaporation => 3,
+            AlchemicalPillar::Distillation => 4,
+            AlchemicalPillar::Separation => 5,
+            AlchemicalPillar::Rectification => 6,
+            AlchemicalPillar::Calcination => 7,
+            AlchemicalPillar::Comixion => 8,
+            AlchemicalPillar::Purification => 9,
+            AlchemicalPillar::Inhibition => 10,
+            AlchemicalPillar::Fermentation => 11,
+            AlchemicalPillar::Fixation => 12,
+            AlchemicalPillar::Multiplication => 13,
+            AlchemicalPillar::Protection => 14,
+        }
+    }
+
+    /// Resolve an ID (1..=14) to an AlchemicalPillar.
+    pub fn from_id(id: u8) -> Option<Self> {
+        match id {
+            1 => Some(AlchemicalPillar::Solution),
+            2 => Some(AlchemicalPillar::Filtration),
+            3 => Some(AlchemicalPillar::Evaporation),
+            4 => Some(AlchemicalPillar::Distillation),
+            5 => Some(AlchemicalPillar::Separation),
+            6 => Some(AlchemicalPillar::Rectification),
+            7 => Some(AlchemicalPillar::Calcination),
+            8 => Some(AlchemicalPillar::Comixion),
+            9 => Some(AlchemicalPillar::Purification),
+            10 => Some(AlchemicalPillar::Inhibition),
+            11 => Some(AlchemicalPillar::Fermentation),
+            12 => Some(AlchemicalPillar::Fixation),
+            13 => Some(AlchemicalPillar::Multiplication),
+            14 => Some(AlchemicalPillar::Protection),
+            _ => None,
+        }
+    }
+
+    /// Canonical spec key string.
+    pub fn key(self) -> &'static str {
+        match self {
+            AlchemicalPillar::Solution => "Solution",
+            AlchemicalPillar::Filtration => "Filtration",
+            AlchemicalPillar::Evaporation => "Evaporation",
+            AlchemicalPillar::Distillation => "Distillation",
+            AlchemicalPillar::Separation => "Separation",
+            AlchemicalPillar::Rectification => "Rectification",
+            AlchemicalPillar::Calcination => "Calcination",
+            AlchemicalPillar::Comixion => "Comixion",
+            AlchemicalPillar::Purification => "Purification",
+            AlchemicalPillar::Inhibition => "Inhibition",
+            AlchemicalPillar::Fermentation => "Fermentation",
+            AlchemicalPillar::Fixation => "Fixation",
+            AlchemicalPillar::Multiplication => "Multiplication",
+            AlchemicalPillar::Protection => "Protection",
+        }
+    }
+
+    /// ESMS deltas [Spirit, Essence, Matter, Substance].
+    pub fn effects(self) -> [i8; 4] {
+        if let Some(p) = alchm_astro_core::pillars::pillar(self.id()) {
+            p.effects
+        } else {
+            [0, 0, 0, 0]
+        }
+    }
+
+    /// Whether this pillar is self-cast or target-cast.
+    pub fn is_self_cast(self) -> bool {
+        match alchm_astro_core::pillars::pillar(self.id()).map(|p| p.cast_mode) {
+            Some(alchm_astro_core::pillars::CastMode::SelfCast) => true,
+            _ => false,
+        }
+    }
+}
