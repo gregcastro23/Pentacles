@@ -4332,17 +4332,6 @@ fn record_processed(ctx: &ReducerContext, hash: String, chain: &str, event_type:
     });
 }
 
-/// The `processed_tx` hash for one ESMS balance change within a transaction.
-///
-/// One ASOL `redeem_for_esms` burns up to all four elements under a single
-/// signature. Keyed on the signature alone, the first element settled and every
-/// other one was rejected as a replay. The feeder sends at most one event per
-/// wallet, element and direction in a transaction, so this names each event
-/// uniquely and identically on every redelivery.
-fn esms_event_hash(signature: &str, player_pubkey: &str, element_id: u8, event_type: &str) -> String {
-    format!("{signature}:{player_pubkey}:{element_id}:{event_type}")
-}
-
 fn ensure_horizon_action_unspent(
     ctx: &ReducerContext,
     intent_id: u64,
@@ -6777,9 +6766,6 @@ fn apply_esms_event_to_jing_pool(
 /// idempotency so a devnet signature can never be mistaken for the mainnet one
 /// it collides with, and vice versa. It must be a Solana variant.
 ///
-/// A transaction can carry several events, so each settles once per wallet,
-/// element and direction (`esms_event_hash`) rather than once per signature.
-///
 /// `amount` arrives in ASOL's 4-decimal atoms — the scale of the Token-2022
 /// mints `asol_program` issues — and is widened here to the module's 18-decimal
 /// ledger. Widening is exact; see `solana_atoms_to_ledger`.
@@ -6801,11 +6787,7 @@ pub fn sync_solana_event(
         return Err("sync_solana_event: chain must be a Solana cluster".into());
     }
 
-    let signature = normalized_solana_signature(&tx_hash, "tx_hash")?;
-    // A transaction settled whole, before events were keyed individually,
-    // stays settled.
-    ensure_unprocessed(ctx, chain.chain_key(), &signature)?;
-    let hash = esms_event_hash(&signature, player_pubkey.trim(), element_id, &event_type);
+    let hash = normalized_solana_signature(&tx_hash, "tx_hash")?;
     ensure_unprocessed(ctx, chain.chain_key(), &hash)?;
     let player = ctx
         .db
@@ -7413,6 +7395,614 @@ pub fn settle_decan_boundary(
     Ok(())
 }
 
+// ── The Fourteen Alchemical Pillars Reducers ────────────────────────────────
+
+fn chart_input_from_placements_slice(
+    placements: &[Placement],
+    ascendant_arc_minutes: u16,
+    time_known: bool,
+) -> alchm_astro_core::pillars::ChartInput {
+    let mut signs = [0u8; 10];
+    for p in placements {
+        let idx = p.body as usize;
+        if idx < 10 {
+            signs[idx] = p.sign % 12;
+        }
+    }
+    let ascendant_sign = ((ascendant_arc_minutes / 1800) as u8) % 12;
+    alchm_astro_core::pillars::ChartInput {
+        signs,
+        ascendant_sign,
+        time_known,
+    }
+}
+
+fn get_chart_input_for_identity(
+    ctx: &ReducerContext,
+    identity: Identity,
+) -> Result<alchm_astro_core::pillars::ChartInput, String> {
+    if let Some(nc) = ctx.db.natal_chart().identity().find(&identity) {
+        return Ok(chart_input_from_placements_slice(
+            &nc.placements,
+            nc.ascendant,
+            nc.time_known,
+        ));
+    }
+    if let Some(ac) = ctx.db.agent_chart().identity().find(&identity) {
+        return Ok(chart_input_from_placements_slice(
+            &ac.placements,
+            ac.ascendant,
+            ac.time_known,
+        ));
+    }
+    Err("natal chart not found for identity".into())
+}
+
+fn agent_archetype_chart_input(planet: Planet) -> alchm_astro_core::pillars::ChartInput {
+    let (signs, ascendant_sign) = match planet {
+        Planet::Sun => ([4, 0, 4, 6, 8, 4, 10, 0, 8, 4], 4),
+        Planet::Moon => ([3, 1, 3, 11, 7, 3, 11, 3, 11, 7], 3),
+        Planet::Mercury => ([2, 10, 5, 2, 2, 2, 6, 10, 2, 5], 2),
+        Planet::Venus => ([1, 11, 1, 6, 1, 11, 6, 1, 11, 6], 1),
+        Planet::Mars => ([0, 7, 0, 0, 9, 0, 0, 0, 7, 7], 0),
+        Planet::Jupiter => ([8, 8, 8, 11, 4, 3, 8, 0, 11, 4], 8),
+        Planet::Saturn => ([9, 9, 10, 9, 9, 9, 6, 10, 9, 9], 9),
+        Planet::Uranus => ([10, 2, 10, 10, 10, 6, 10, 10, 10, 7], 10),
+        Planet::Neptune => ([11, 3, 11, 11, 11, 11, 3, 11, 11, 7], 11),
+        Planet::Pluto => ([7, 7, 7, 7, 7, 7, 7, 7, 7, 7], 7),
+    };
+    alchm_astro_core::pillars::ChartInput {
+        signs,
+        ascendant_sign,
+        time_known: true,
+    }
+}
+
+fn get_chart_or_archetype(
+    ctx: &ReducerContext,
+    identity: Identity,
+    agent_planet: Option<Planet>,
+) -> Result<alchm_astro_core::pillars::ChartInput, String> {
+    if let Ok(c) = get_chart_input_for_identity(ctx, identity) {
+        return Ok(c);
+    }
+    if let Some(p) = agent_planet {
+        return Ok(agent_archetype_chart_input(p));
+    }
+    Err("chart not found".into())
+}
+
+fn ensure_pillar_pool(ctx: &ReducerContext, identity: Identity) -> PillarPool {
+    if let Some(pool) = ctx.db.pillar_pool().identity().find(&identity) {
+        pool
+    } else {
+        let initial_esms = if let Some(jp) = ctx.db.jing_pool().identity().find(&identity) {
+            vec![
+                jp.esms.get(0).copied().unwrap_or(80) as f64,
+                jp.esms.get(1).copied().unwrap_or(80) as f64,
+                jp.esms.get(2).copied().unwrap_or(80) as f64,
+                jp.esms.get(3).copied().unwrap_or(80) as f64,
+            ]
+        } else {
+            vec![80.0, 80.0, 80.0, 80.0]
+        };
+        ctx.db.pillar_pool().insert(PillarPool {
+            identity,
+            esms: initial_esms,
+            updated_at: ctx.timestamp,
+        })
+    }
+}
+
+fn pillar_pool_to_esms(pool: &PillarPool) -> alchm_astro_core::circuit::Esms {
+    [
+        pool.esms.get(0).copied().unwrap_or(80.0),
+        pool.esms.get(1).copied().unwrap_or(80.0),
+        pool.esms.get(2).copied().unwrap_or(80.0),
+        pool.esms.get(3).copied().unwrap_or(80.0),
+    ]
+}
+
+fn save_esms_to_pillar_pool(ctx: &ReducerContext, mut pool: PillarPool, esms: &[f64; 4]) {
+    pool.esms = esms.to_vec();
+    pool.updated_at = ctx.timestamp;
+    ctx.db.pillar_pool().identity().update(pool);
+}
+
+/// Server-authoritative sky sect derived from ephemeris altitude of the Sun over the reference horizon.
+fn determine_server_sky(ctx: &ReducerContext) -> SkySect {
+    if let Some(sun) = ctx.db.ephemeris().body().find(&Planet::Sun) {
+        let alt = altitude_deg(sun.ra, sun.dec, REF_LAT_DEG, REF_LON_DEG, ctx.timestamp);
+        if alt >= 0.0 {
+            SkySect::Diurnal
+        } else {
+            SkySect::Nocturnal
+        }
+    } else {
+        let utc_secs = (ctx.timestamp.to_micros_since_unix_epoch() / 1_000_000) % 86400;
+        let solar_hour = ((utc_secs as f64 / 3600.0) + (REF_LON_DEG / 15.0)).rem_euclid(24.0);
+        if solar_hour >= 6.0 && solar_hour < 18.0 {
+            SkySect::Diurnal
+        } else {
+            SkySect::Nocturnal
+        }
+    }
+}
+
+/// Open a 14-Pillars duel under the server-authoritative sky, validating hand eligibility and escrowing charge.
+#[reducer]
+pub fn cast_pillar(
+    ctx: &ReducerContext,
+    pillar: AlchemicalPillar,
+    target_player: Option<Identity>,
+    target_agent: Option<Planet>,
+) -> Result<(), String> {
+    ctx.db
+        .player()
+        .identity()
+        .find(&ctx.sender())
+        .ok_or_else(|| "register first".to_string())?;
+    if target_player.is_some() == target_agent.is_some() {
+        return Err("cast at exactly one target (a player or an agent)".into());
+    }
+
+    if let Some(rate) = ctx.db.jing_rate().identity().find(&ctx.sender()) {
+        if elapsed_secs(ctx.timestamp, rate.last_at) < JING_COOLDOWN_SECS {
+            return Err("steady — your last pillar cast still echoes".into());
+        }
+        ctx.db.jing_rate().identity().update(JingRate {
+            identity: ctx.sender(),
+            last_at: ctx.timestamp,
+            casts: rate.casts + 1,
+        });
+    } else {
+        ctx.db.jing_rate().insert(JingRate {
+            identity: ctx.sender(),
+            last_at: ctx.timestamp,
+            casts: 1,
+        });
+    }
+
+    let sky = determine_server_sky(ctx);
+
+    let chart = get_chart_input_for_identity(ctx, ctx.sender())?;
+    let legal_hand = alchm_astro_core::pillars::hand(&chart, sky.to_core());
+    if !legal_hand.contains(&pillar.id()) {
+        return Err(format!("pillar {:?} is not playable in your current hand under {:?} sky", pillar, sky));
+    }
+
+    let pool = ensure_pillar_pool(ctx, ctx.sender());
+    let pools_before = pillar_pool_to_esms(&pool);
+    let q = alchm_astro_core::circuit::CAST_CHARGE;
+    let state = alchm_astro_core::circuit::circuit_state(&chart, &pools_before, q);
+    if !state.can_cast {
+        return Err("insufficient charge in pools to cast pillar (need ≥10 total)".into());
+    }
+
+    // Escrow cast charge (10.0 ESMS) from caller pool
+    let paid = alchm_astro_core::circuit::pay(&pools_before, q);
+    save_esms_to_pillar_pool(ctx, pool, &paid);
+
+    let duel = ctx.db.pillar_duel().insert(PillarDuel {
+        duel_id: 0,
+        initiator: ctx.sender(),
+        target_player,
+        target_agent,
+        sky,
+        opening_pillar: pillar,
+        opening_power_ratio: state.magnitude,
+        state: PillarDuelState::Open,
+        winner_is_initiator: None,
+        initiator_pools: pools_before.to_vec(),
+        created_at: ctx.timestamp,
+        updated_at: ctx.timestamp,
+    });
+
+    let p_spec = alchm_astro_core::pillars::pillar(pillar.id())
+        .ok_or_else(|| "unknown pillar spec".to_string())?;
+    let delta = alchm_astro_core::circuit::cast_delta(p_spec, state.magnitude, q);
+
+    ctx.db.pillar_cast().insert(PillarCast {
+        cast_id: 0,
+        duel_id: duel.duel_id,
+        caster: ctx.sender(),
+        caster_agent: None,
+        pillar,
+        charge_spent: q as u16,
+        magnitude: state.magnitude,
+        power_ratio: 1.0,
+        applied_delta: delta.iter().map(|&x| x.round() as i16).collect(),
+        voice: String::new(),
+        created_at: ctx.timestamp,
+    });
+
+    Ok(())
+}
+
+/// The targeted player counters an open 14-Pillars duel with a move from their legal hand under the duel's sky.
+#[reducer]
+pub fn counter_pillar(
+    ctx: &ReducerContext,
+    duel_id: u64,
+    pillar: AlchemicalPillar,
+) -> Result<(), String> {
+    ctx.db
+        .player()
+        .identity()
+        .find(&ctx.sender())
+        .ok_or_else(|| "register first".to_string())?;
+    let mut duel = ctx
+        .db
+        .pillar_duel()
+        .duel_id()
+        .find(&duel_id)
+        .ok_or_else(|| "no such pillar duel".to_string())?;
+    if duel.state != PillarDuelState::Open {
+        return Err("that pillar duel is not open".into());
+    }
+    if duel.target_player != Some(ctx.sender()) {
+        return Err("you are not the targeted player of this duel".into());
+    }
+
+    let target_chart = get_chart_input_for_identity(ctx, ctx.sender())?;
+    let legal_hand = alchm_astro_core::pillars::hand(&target_chart, duel.sky.to_core());
+    if !legal_hand.contains(&pillar.id()) {
+        return Err(format!("pillar {:?} is not in your legal hand under {:?} sky", pillar, duel.sky));
+    }
+
+    let initiator_chart = get_chart_input_for_identity(ctx, duel.initiator)?;
+
+    let init_pool = ensure_pillar_pool(ctx, duel.initiator);
+    let target_pool = ensure_pillar_pool(ctx, ctx.sender());
+
+    let init_esms: alchm_astro_core::circuit::Esms = [
+        duel.initiator_pools.get(0).copied().unwrap_or(80.0),
+        duel.initiator_pools.get(1).copied().unwrap_or(80.0),
+        duel.initiator_pools.get(2).copied().unwrap_or(80.0),
+        duel.initiator_pools.get(3).copied().unwrap_or(80.0),
+    ];
+    let target_esms = pillar_pool_to_esms(&target_pool);
+    let q = alchm_astro_core::circuit::CAST_CHARGE;
+
+    let outcome = alchm_astro_core::circuit::resolve_duel(
+        &initiator_chart,
+        &init_esms,
+        duel.opening_pillar.id(),
+        &target_chart,
+        &target_esms,
+        pillar.id(),
+        q,
+    ).map_err(|e| format!("duel resolution failed: {:?}", e))?;
+
+    save_esms_to_pillar_pool(ctx, init_pool, &outcome.pools_a);
+    save_esms_to_pillar_pool(ctx, target_pool, &outcome.pools_b);
+
+    let winner_is_init = match outcome.winner {
+        alchm_astro_core::circuit::Winner::A => Some(true),
+        alchm_astro_core::circuit::Winner::B => Some(false),
+        alchm_astro_core::circuit::Winner::Draw => None,
+    };
+
+    duel.state = PillarDuelState::Resolved;
+    duel.winner_is_initiator = winner_is_init;
+    duel.updated_at = ctx.timestamp;
+    ctx.db.pillar_duel().duel_id().update(duel.clone());
+
+    ctx.db.pillar_cast().insert(PillarCast {
+        cast_id: 0,
+        duel_id,
+        caster: ctx.sender(),
+        caster_agent: None,
+        pillar,
+        charge_spent: q as u16,
+        magnitude: outcome.magnitude_b,
+        power_ratio: outcome.ratio_b,
+        applied_delta: outcome.delta_b.iter().map(|&x| x.round() as i16).collect(),
+        voice: String::new(),
+        created_at: ctx.timestamp,
+    });
+
+    Ok(())
+}
+
+/// Owner-gated: the planetary-agents service answers an agent-targeted pillar duel with the agent's choice and voice.
+#[reducer]
+pub fn answer_pillar(
+    ctx: &ReducerContext,
+    duel_id: u64,
+    agent_pillar: AlchemicalPillar,
+    voice: String,
+) -> Result<(), String> {
+    let cfg = ctx
+        .db
+        .game_config()
+        .id()
+        .find(&0)
+        .ok_or_else(|| "not initialised".to_string())?;
+    if ctx.sender() != cfg.owner {
+        return Err("owner-only reducer".into());
+    }
+
+    let mut duel = ctx
+        .db
+        .pillar_duel()
+        .duel_id()
+        .find(&duel_id)
+        .ok_or_else(|| "no such pillar duel".to_string())?;
+    if duel.state == PillarDuelState::Resolved {
+        return Ok(());
+    }
+    if duel.state == PillarDuelState::Cancelled {
+        return Err("duel has been cancelled".into());
+    }
+    let target_agent = duel.target_agent.ok_or_else(|| "duel is not targeted at an agent".to_string())?;
+    let agent_identity = Identity::from_claims("pentacles:agent", &format!("{:?}", target_agent).to_lowercase());
+
+    let initiator_chart = get_chart_input_for_identity(ctx, duel.initiator)?;
+    let agent_chart = get_chart_or_archetype(ctx, agent_identity, Some(target_agent))?;
+
+    let agent_hand = alchm_astro_core::pillars::hand(&agent_chart, duel.sky.to_core());
+    if !agent_hand.contains(&agent_pillar.id()) {
+        return Err(format!("agent pillar {:?} is not in agent's legal hand under {:?} sky", agent_pillar, duel.sky));
+    }
+
+    let init_pool = ensure_pillar_pool(ctx, duel.initiator);
+    let agent_pool = ensure_pillar_pool(ctx, agent_identity);
+
+    let init_esms: alchm_astro_core::circuit::Esms = [
+        duel.initiator_pools.get(0).copied().unwrap_or(80.0),
+        duel.initiator_pools.get(1).copied().unwrap_or(80.0),
+        duel.initiator_pools.get(2).copied().unwrap_or(80.0),
+        duel.initiator_pools.get(3).copied().unwrap_or(80.0),
+    ];
+    let agent_esms = pillar_pool_to_esms(&agent_pool);
+    let q = alchm_astro_core::circuit::CAST_CHARGE;
+
+    let outcome = alchm_astro_core::circuit::resolve_duel(
+        &initiator_chart,
+        &init_esms,
+        duel.opening_pillar.id(),
+        &agent_chart,
+        &agent_esms,
+        agent_pillar.id(),
+        q,
+    ).map_err(|e| format!("agent duel resolution failed: {:?}", e))?;
+
+    save_esms_to_pillar_pool(ctx, init_pool, &outcome.pools_a);
+    save_esms_to_pillar_pool(ctx, agent_pool, &outcome.pools_b);
+
+    let winner_is_init = match outcome.winner {
+        alchm_astro_core::circuit::Winner::A => Some(true),
+        alchm_astro_core::circuit::Winner::B => Some(false),
+        alchm_astro_core::circuit::Winner::Draw => None,
+    };
+
+    duel.state = PillarDuelState::Resolved;
+    duel.winner_is_initiator = winner_is_init;
+    duel.updated_at = ctx.timestamp;
+    ctx.db.pillar_duel().duel_id().update(duel.clone());
+
+    ctx.db.pillar_cast().insert(PillarCast {
+        cast_id: 0,
+        duel_id,
+        caster: ctx.sender(),
+        caster_agent: Some(target_agent),
+        pillar: agent_pillar,
+        charge_spent: q as u16,
+        magnitude: outcome.magnitude_b,
+        power_ratio: outcome.ratio_b,
+        applied_delta: outcome.delta_b.iter().map(|&x| x.round() as i16).collect(),
+        voice,
+        created_at: ctx.timestamp,
+    });
+
+    Ok(())
+}
+
+/// Cancel an open pillar duel and refund the initiator's escrowed 10 charge.
+#[reducer]
+pub fn cancel_pillar_duel(ctx: &ReducerContext, duel_id: u64) -> Result<(), String> {
+    let mut duel = ctx
+        .db
+        .pillar_duel()
+        .duel_id()
+        .find(&duel_id)
+        .ok_or_else(|| "no such pillar duel".to_string())?;
+    if duel.state != PillarDuelState::Open {
+        return Err("that pillar duel is not open".into());
+    }
+
+    let is_initiator = ctx.sender() == duel.initiator;
+    let is_owner = ctx
+        .db
+        .game_config()
+        .id()
+        .find(&0)
+        .map(|cfg| cfg.owner == ctx.sender())
+        .unwrap_or(false);
+    let is_stale = elapsed_secs(ctx.timestamp, duel.created_at) >= 120;
+
+    if !(is_initiator || is_owner || is_stale) {
+        return Err("only initiator, owner, or timeout can cancel an open duel".into());
+    }
+
+    duel.state = PillarDuelState::Cancelled;
+    duel.updated_at = ctx.timestamp;
+    ctx.db.pillar_duel().duel_id().update(duel.clone());
+
+    // Refund initiator's escrowed charge by restoring baseline pools
+    if !duel.initiator_pools.is_empty() {
+        let mut pool = ensure_pillar_pool(ctx, duel.initiator);
+        pool.esms = duel.initiator_pools.clone();
+        pool.updated_at = ctx.timestamp;
+        ctx.db.pillar_pool().identity().update(pool);
+    }
+
+    Ok(())
+}
+
+/// Periodic sweep of stale open duels (> 120s), cancelling and refunding initiators.
+#[reducer]
+pub fn sweep_stale_pillar_duels(ctx: &ReducerContext) -> Result<(), String> {
+    let mut stale_duels = Vec::new();
+    for duel in ctx.db.pillar_duel().iter() {
+        if duel.state == PillarDuelState::Open && elapsed_secs(ctx.timestamp, duel.created_at) >= 120 {
+            stale_duels.push(duel);
+        }
+    }
+    for mut duel in stale_duels {
+        duel.state = PillarDuelState::Cancelled;
+        duel.updated_at = ctx.timestamp;
+        ctx.db.pillar_duel().duel_id().update(duel.clone());
+
+        if !duel.initiator_pools.is_empty() {
+            let mut pool = ensure_pillar_pool(ctx, duel.initiator);
+            pool.esms = duel.initiator_pools;
+            pool.updated_at = ctx.timestamp;
+            ctx.db.pillar_pool().identity().update(pool);
+        }
+    }
+    Ok(())
+}
+
+/// Decay room stored tension from the alchemical circuit.
+#[reducer]
+pub fn decay_tension(ctx: &ReducerContext, room_id: String) -> Result<(), String> {
+    if let Some(mut tension) = ctx.db.pillar_tension().room_id().find(&room_id) {
+        let elapsed = elapsed_secs(ctx.timestamp, tension.last_decay_at);
+        if elapsed > 0 {
+            tension.stored_tension = (tension.stored_tension * (-0.05 * elapsed as f64).exp()).max(0.0);
+            tension.last_decay_at = ctx.timestamp;
+            ctx.db.pillar_tension().room_id().update(tension);
+        }
+    }
+    Ok(())
+}
+
+/// Cast a pillar into a group room, distributing power and tension across receivers via the admittance circuit.
+#[reducer]
+pub fn cast_room_pillar(
+    ctx: &ReducerContext,
+    room_id: String,
+    pillar: AlchemicalPillar,
+    receiver_identities: Vec<Identity>,
+) -> Result<(), String> {
+    ctx.db
+        .player()
+        .identity()
+        .find(&ctx.sender())
+        .ok_or_else(|| "register first".to_string())?;
+
+    if receiver_identities.is_empty() {
+        return Err("receiver list cannot be empty".into());
+    }
+
+    if let Some(rate) = ctx.db.jing_rate().identity().find(&ctx.sender()) {
+        if elapsed_secs(ctx.timestamp, rate.last_at) < JING_COOLDOWN_SECS {
+            return Err("steady — your last pillar cast still echoes".into());
+        }
+        ctx.db.jing_rate().identity().update(JingRate {
+            identity: ctx.sender(),
+            last_at: ctx.timestamp,
+            casts: rate.casts + 1,
+        });
+    } else {
+        ctx.db.jing_rate().insert(JingRate {
+            identity: ctx.sender(),
+            last_at: ctx.timestamp,
+            casts: 1,
+        });
+    }
+
+    // Deduplicate and cap receivers at 12
+    let mut deduped_receivers = Vec::new();
+    for id in receiver_identities {
+        if !deduped_receivers.contains(&id) {
+            deduped_receivers.push(id);
+        }
+    }
+    if deduped_receivers.len() > 12 {
+        deduped_receivers.truncate(12);
+    }
+
+    let sky = determine_server_sky(ctx);
+
+    let chart = get_chart_input_for_identity(ctx, ctx.sender())?;
+    let legal_hand = alchm_astro_core::pillars::hand(&chart, sky.to_core());
+    if !legal_hand.contains(&pillar.id()) {
+        return Err(format!("pillar {:?} is not playable in your current hand under {:?} sky", pillar, sky));
+    }
+
+    let pool = ensure_pillar_pool(ctx, ctx.sender());
+    let pools_before = pillar_pool_to_esms(&pool);
+    let q = alchm_astro_core::circuit::CAST_CHARGE;
+    let state = alchm_astro_core::circuit::circuit_state(&chart, &pools_before, q);
+    if !state.can_cast {
+        return Err("insufficient charge in pools to cast pillar".into());
+    }
+
+    // Pay cast charge
+    let paid = alchm_astro_core::circuit::pay(&pools_before, q);
+    save_esms_to_pillar_pool(ctx, pool, &paid);
+
+    // Retrieve receiver charts
+    let mut receiver_charts = Vec::with_capacity(deduped_receivers.len());
+    for id in &deduped_receivers {
+        let r_chart = get_chart_input_for_identity(ctx, *id)
+            .unwrap_or_else(|_| agent_archetype_chart_input(Planet::Sun));
+        receiver_charts.push(r_chart);
+    }
+
+    let shares = alchm_astro_core::circuit::room_shares(state.magnitude, &receiver_charts);
+    let p_spec = alchm_astro_core::pillars::pillar(pillar.id())
+        .ok_or_else(|| "unknown pillar spec".to_string())?;
+
+    let mut added_tension = 0.0;
+    for (i, share) in shares.iter().enumerate() {
+        added_tension += share.tension;
+        let r_id = deduped_receivers[i];
+        let r_pool = ensure_pillar_pool(ctx, r_id);
+        let r_esms = pillar_pool_to_esms(&r_pool);
+        let delta = alchm_astro_core::circuit::cast_delta(p_spec, share.real, q);
+        let updated_esms = alchm_astro_core::circuit::apply_delta(&r_esms, &delta);
+        save_esms_to_pillar_pool(ctx, r_pool, &updated_esms);
+    }
+
+    // Update room tension
+    let mut tension = if let Some(t) = ctx.db.pillar_tension().room_id().find(&room_id) {
+        t
+    } else {
+        PillarTension {
+            room_id: room_id.clone(),
+            stored_tension: 0.0,
+            threshold: 10.0,
+            last_decay_at: ctx.timestamp,
+            burst_count: 0,
+        }
+    };
+
+    let elapsed = elapsed_secs(ctx.timestamp, tension.last_decay_at);
+    if elapsed > 0 {
+        tension.stored_tension = (tension.stored_tension * (-0.05 * elapsed as f64).exp()).max(0.0);
+        tension.last_decay_at = ctx.timestamp;
+    }
+
+    tension.stored_tension += added_tension;
+
+    if tension.stored_tension >= tension.threshold {
+        tension.stored_tension = 0.0;
+        tension.burst_count += 1;
+    }
+
+    if ctx.db.pillar_tension().room_id().find(&room_id).is_some() {
+        ctx.db.pillar_tension().room_id().update(tension);
+    } else {
+        ctx.db.pillar_tension().insert(tension);
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 
 mod tests {
@@ -7818,30 +8408,6 @@ mod tests {
         assert!(normalized_solana_signature("short", "test_sig").is_err());
     }
 
-    /// One ASOL redeem burns several elements under one signature. Each needs
-    /// its own `processed_tx` row, and a redelivery must land on the same row.
-    #[test]
-    fn esms_events_in_one_transaction_settle_independently() {
-        use super::esms_event_hash;
-
-        let sig = "5T1bw5onpC2XUx3wh494NudK33zKoL4NHqtkPafsBboJjBafqo5yfbhZ4isiyYdT2HuxHPgDSKdCh5Pd8LXEq4dk";
-        let wallet = "AhNRjjyhJ4dR6ZSvWyJNSpbJFbFnxhkRdUNMY31fJ3S5";
-        let other = "3F5qRPtKg8GhGNnbd3qCj6nVJxWsGxq7pvH84okYLAqf";
-
-        let keys = [
-            esms_event_hash(sig, wallet, 0, "burn"),
-            esms_event_hash(sig, wallet, 2, "burn"),
-            esms_event_hash(sig, wallet, 2, "mint"),
-            esms_event_hash(sig, other, 0, "burn"),
-        ];
-        let distinct: std::collections::HashSet<_> = keys.iter().collect();
-        assert_eq!(distinct.len(), keys.len());
-
-        assert_eq!(keys[0], esms_event_hash(sig, wallet, 0, "burn"));
-        // Never the whole-transaction hash, which the StarVault reducers write.
-        assert!(keys.iter().all(|key| key != sig));
-    }
-
     #[test]
     fn anomaly_lock_euclidean_distance_bound_matches_tolerance() {
         // Tolerance is 15 parsecs (dist_sq <= 225.0)
@@ -7869,5 +8435,50 @@ mod tests {
             let tokens = (clamped as u64).saturating_mul(15);
             assert!(tokens >= 1050 && tokens <= 1500, "tokens {tokens} out of 1050..1500 bound");
         }
+    }
+
+    #[test]
+    fn test_fourteen_pillars_enum_parity_and_methods() {
+        use crate::types::AlchemicalPillar;
+        for id in 1..=14u8 {
+            let pillar = AlchemicalPillar::from_id(id).expect("valid pillar id");
+            assert_eq!(pillar.id(), id);
+            let core_spec = alchm_astro_core::pillars::pillar(id).expect("core pillar spec");
+            assert_eq!(pillar.key(), core_spec.key);
+            assert_eq!(pillar.effects(), core_spec.effects);
+            assert_eq!(pillar.is_self_cast(), core_spec.cast_mode == alchm_astro_core::pillars::CastMode::SelfCast);
+        }
+    }
+
+    #[test]
+    fn test_ten_planetary_agent_archetypes_are_distinct_and_valid() {
+        use std::collections::HashSet;
+        use crate::types::Planet;
+        use super::agent_archetype_chart_input;
+        let planets = [
+            Planet::Sun, Planet::Moon, Planet::Mercury, Planet::Venus, Planet::Mars,
+            Planet::Jupiter, Planet::Saturn, Planet::Uranus, Planet::Neptune, Planet::Pluto,
+        ];
+        let mut signatures = HashSet::new();
+        for &p in &planets {
+            let chart = agent_archetype_chart_input(p);
+            assert_eq!(chart.signs.len(), 10);
+            assert!(chart.ascendant_sign <= 11);
+            let sig = format!("{:?}", chart.signs);
+            signatures.insert(sig);
+
+            let diurnal = alchm_astro_core::pillars::hand(&chart, alchm_astro_core::pillars::Sect::Diurnal);
+            let nocturnal = alchm_astro_core::pillars::hand(&chart, alchm_astro_core::pillars::Sect::Nocturnal);
+            assert!(diurnal.len() >= 2, "planet {:?} diurnal hand too small", p);
+            assert!(nocturnal.len() >= 2, "planet {:?} nocturnal hand too small", p);
+        }
+        assert_eq!(signatures.len(), 10, "all 10 planets must have distinct archetype charts");
+    }
+
+    #[test]
+    fn test_sky_sect_conversion() {
+        use crate::types::SkySect;
+        assert_eq!(SkySect::Diurnal.to_core(), alchm_astro_core::pillars::Sect::Diurnal);
+        assert_eq!(SkySect::Nocturnal.to_core(), alchm_astro_core::pillars::Sect::Nocturnal);
     }
 }

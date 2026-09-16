@@ -982,6 +982,72 @@ pub struct JingRate {
     pub casts: u32,
 }
 
+// ── The Fourteen Alchemical Pillars Arena ───────────────────────────────────
+
+/// 14-Pillars pool with exact f64 precision. Preserves fractional deltas without integer truncation.
+#[spacetimedb::table(accessor = pillar_pool, public)]
+#[derive(Clone)]
+pub struct PillarPool {
+    #[primary_key]
+    pub identity: Identity,
+    pub esms: Vec<f64>,
+    pub updated_at: Timestamp,
+}
+
+/// A live 14-Pillars duel thread. Public so both sides and spectators watch it resolve.
+#[spacetimedb::table(accessor = pillar_duel, public)]
+#[derive(Clone)]
+pub struct PillarDuel {
+    #[primary_key]
+    #[auto_inc]
+    pub duel_id: u64,
+    #[index(btree)]
+    pub initiator: Identity,
+    pub target_player: Option<Identity>,
+    pub target_agent: Option<Planet>,
+    pub sky: SkySect,
+    pub opening_pillar: AlchemicalPillar,
+    pub opening_power_ratio: f64,
+    pub state: PillarDuelState,
+    #[default(None::<bool>)]
+    pub winner_is_initiator: Option<bool>,
+    pub initiator_pools: Vec<f64>,
+    pub created_at: Timestamp,
+    pub updated_at: Timestamp,
+}
+
+/// One cast in a 14-Pillars duel or standalone alchemical operation.
+#[spacetimedb::table(accessor = pillar_cast, public)]
+#[derive(Clone)]
+pub struct PillarCast {
+    #[primary_key]
+    #[auto_inc]
+    pub cast_id: u64,
+    #[index(btree)]
+    pub duel_id: u64,
+    pub caster: Identity,
+    pub caster_agent: Option<Planet>,
+    pub pillar: AlchemicalPillar,
+    pub charge_spent: u16,
+    pub magnitude: f64,
+    pub power_ratio: f64,
+    pub applied_delta: Vec<i16>,
+    pub voice: String,
+    pub created_at: Timestamp,
+}
+
+/// Group room stored tension from the P=IV admittance circuit.
+#[spacetimedb::table(accessor = pillar_tension, public)]
+#[derive(Clone)]
+pub struct PillarTension {
+    #[primary_key]
+    pub room_id: String,
+    pub stored_tension: f64,
+    pub threshold: f64,
+    pub last_decay_at: Timestamp,
+    pub burst_count: u32,
+}
+
 // ── Star Staking & Yield Accrual (Solana Bridge integration) ───────────
 
 /// One staker's position on one star. Mirrors the on-chain StarVault stake.

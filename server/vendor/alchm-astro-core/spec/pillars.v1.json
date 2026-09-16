@@ -1,0 +1,57 @@
+{
+  "version": "1.0.0",
+  "source": "WhatToEatNext/src/constants/alchemicalPillars.ts (effects, elements, rulers); sect ratified 2026-09-15; castMode follows whether the pillar raises (self) or lowers (target) receiver potency in tools/pillar_sim.py balance",
+  "conventions": {
+    "esmsOrder": ["Spirit", "Essence", "Matter", "Substance"],
+    "planetOrder": ["Sun", "Moon", "Mercury", "Venus", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune", "Pluto"],
+    "signOrder": ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"],
+    "elementOfSign": "signOrder index % 4 -> [Fire, Earth, Air, Water]",
+    "modalityOfSign": "signOrder index % 3 -> [Cardinal, Fixed, Mutable]",
+    "countedBodies": "the ten planets, plus the Ascendant only when the birth time is known"
+  },
+  "constants": {
+    "poolBaseline": 80,
+    "castCharge": 10,
+    "powerRef": 0.0086,
+    "magnitudeMin": 0.25,
+    "magnitudeMax": 2.0,
+    "deltaScale": 1.25,
+    "minPrimaryPlacements": 2,
+    "minHand": 2,
+    "roomResistanceFloor": 0.25,
+    "epsilon": 1e-9,
+    "tieTolerance": 1e-12
+  },
+  "natal": {
+    "dignityMultiplier": "1 + 0.1 * abs(dignity)  (ASOL lib/alchemizer.ts; detriment and fall also amplify)",
+    "ascendantAlchemy": [0, 0, 0, 0],
+    "planets": [
+      { "planet": "Sun", "alchemy": [1, 0, 0, 0], "dignity": { "Leo": 1, "Aries": 2, "Aquarius": -1, "Libra": -2 } },
+      { "planet": "Moon", "alchemy": [0, 1, 1, 0], "dignity": { "Cancer": 1, "Taurus": 2, "Capricorn": -1, "Scorpio": -2 } },
+      { "planet": "Mercury", "alchemy": [1, 0, 0, 1], "dignity": { "Gemini": 1, "Virgo": 3, "Sagittarius": 1, "Pisces": -3 } },
+      { "planet": "Venus", "alchemy": [0, 1, 1, 0], "dignity": { "Libra": 1, "Taurus": 1, "Pisces": 2, "Aries": -1, "Scorpio": -1, "Virgo": -2 } },
+      { "planet": "Mars", "alchemy": [0, 1, 1, 0], "dignity": { "Aries": 1, "Scorpio": 1, "Capricorn": 2, "Taurus": -1, "Libra": -1, "Cancer": -2 } },
+      { "planet": "Jupiter", "alchemy": [1, 1, 0, 0], "dignity": { "Pisces": 1, "Sagittarius": 1, "Cancer": 2, "Gemini": -1, "Virgo": -1, "Capricorn": -2 } },
+      { "planet": "Saturn", "alchemy": [1, 0, 1, 0], "dignity": { "Aquarius": 1, "Capricorn": 1, "Libra": 2, "Cancer": -1, "Leo": -1, "Aries": -2 } },
+      { "planet": "Uranus", "alchemy": [0, 1, 1, 0], "dignity": { "Aquarius": 1, "Scorpio": 2, "Taurus": -3 } },
+      { "planet": "Neptune", "alchemy": [0, 1, 0, 1], "dignity": { "Pisces": 1, "Cancer": 2, "Virgo": -1, "Capricorn": -2 } },
+      { "planet": "Pluto", "alchemy": [0, 1, 1, 0], "dignity": { "Scorpio": 1, "Leo": 2, "Taurus": -1, "Aquarius": -2 } }
+    ]
+  },
+  "pillars": [
+    { "id": 1, "key": "Solution", "name": "Solution", "effects": [-1, 1, 1, -1], "primary": "Water", "secondary": "Earth", "sect": "nocturnal", "castMode": "target", "rulers": ["Moon", "Neptune"], "k": 1.0, "requiresLuminaryDignity": false },
+    { "id": 2, "key": "Filtration", "name": "Filtration", "effects": [1, 1, -1, 1], "primary": "Air", "secondary": "Water", "sect": "nocturnal", "castMode": "self", "rulers": ["Mercury", "Saturn"], "k": 1.0, "requiresLuminaryDignity": false },
+    { "id": 3, "key": "Evaporation", "name": "Evaporation", "effects": [1, 1, -1, -1], "primary": "Air", "secondary": "Fire", "sect": "diurnal", "castMode": "self", "rulers": ["Mercury", "Uranus"], "k": 1.0, "requiresLuminaryDignity": false },
+    { "id": 4, "key": "Distillation", "name": "Distillation", "effects": [1, 1, -1, 1], "primary": "Water", "secondary": "Air", "sect": "diurnal", "castMode": "self", "rulers": ["Mercury", "Neptune"], "k": 1.0, "requiresLuminaryDignity": false },
+    { "id": 5, "key": "Separation", "name": "Separation", "effects": [1, 1, 1, -1], "primary": "Fire", "secondary": "Water", "sect": "diurnal", "castMode": "target", "rulers": ["Mercury", "Uranus", "Pluto"], "k": 1.0, "requiresLuminaryDignity": false },
+    { "id": 6, "key": "Rectification", "name": "Rectification", "effects": [1, 1, 1, 1], "primary": "Fire", "secondary": null, "sect": "diurnal", "castMode": "target", "rulers": ["Sun", "Jupiter"], "k": 1.0, "requiresLuminaryDignity": false },
+    { "id": 7, "key": "Calcination", "name": "Calcination", "effects": [-1, 1, 1, -1], "primary": "Fire", "secondary": "Earth", "sect": "diurnal", "castMode": "target", "rulers": ["Mars", "Saturn"], "k": 1.0, "requiresLuminaryDignity": false },
+    { "id": 8, "key": "Comixion", "name": "Comixion", "effects": [1, -1, 1, 1], "primary": "Earth", "secondary": "Air", "sect": "nocturnal", "castMode": "target", "rulers": ["Venus", "Jupiter", "Pluto"], "k": 1.0, "requiresLuminaryDignity": false },
+    { "id": 9, "key": "Purification", "name": "Purification", "effects": [1, 1, -1, -1], "primary": "Fire", "secondary": "Air", "sect": "diurnal", "castMode": "self", "rulers": ["Mercury", "Neptune", "Moon"], "k": 1.0, "requiresLuminaryDignity": false },
+    { "id": 10, "key": "Inhibition", "name": "Inhibition", "effects": [-1, -1, 1, 1], "primary": "Earth", "secondary": "Water", "sect": "nocturnal", "castMode": "target", "rulers": ["Saturn", "Pluto"], "k": 1.0, "requiresLuminaryDignity": false },
+    { "id": 11, "key": "Fermentation", "name": "Fermentation", "effects": [1, 1, 1, -1], "primary": "Water", "secondary": "Fire", "sect": "nocturnal", "castMode": "target", "rulers": ["Pluto", "Jupiter", "Mars"], "k": 1.0, "requiresLuminaryDignity": false },
+    { "id": 12, "key": "Fixation", "name": "Fixation", "effects": [-1, -1, 1, 1], "primary": "Earth", "secondary": "Air", "sect": "diurnal", "castMode": "target", "rulers": ["Saturn", "Venus"], "k": 1.0, "requiresLuminaryDignity": false },
+    { "id": 13, "key": "Multiplication", "name": "Multiplication", "effects": [1, 1, 1, -1], "primary": "Fire", "secondary": "Water", "sect": "nocturnal", "castMode": "target", "rulers": ["Jupiter", "Sun", "Uranus"], "k": 1.0, "requiresLuminaryDignity": false },
+    { "id": 14, "key": "Protection", "name": "Protection", "effects": [1, 1, 1, 1], "primary": "Fire", "secondary": "Earth", "sect": "both", "castMode": "target", "rulers": ["Sun", "Moon", "Mercury", "Jupiter"], "k": 1.0, "requiresLuminaryDignity": true }
+  ]
+}
