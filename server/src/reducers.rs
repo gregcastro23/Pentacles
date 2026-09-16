@@ -7509,6 +7509,52 @@ fn save_esms_to_pillar_pool(ctx: &ReducerContext, mut pool: PillarPool, esms: &[
     ctx.db.pillar_pool().identity().update(pool);
 }
 
+fn apply_duel_outcome_to_initiator(
+    ctx: &ReducerContext,
+    initiator: Identity,
+    initiator_pools: &[f64],
+    outcome_pools_a: &alchm_astro_core::circuit::Esms,
+) {
+    let init_pool = ensure_pillar_pool(ctx, initiator);
+    let init_esms: alchm_astro_core::circuit::Esms = [
+        initiator_pools.get(0).copied().unwrap_or(80.0),
+        initiator_pools.get(1).copied().unwrap_or(80.0),
+        initiator_pools.get(2).copied().unwrap_or(80.0),
+        initiator_pools.get(3).copied().unwrap_or(80.0),
+    ];
+    let q = alchm_astro_core::circuit::CAST_CHARGE;
+    let paid = alchm_astro_core::circuit::pay(&init_esms, q);
+    let mut curr = pillar_pool_to_esms(&init_pool);
+    for k in 0..4 {
+        curr[k] = f64::max(0.0, curr[k] + (outcome_pools_a[k] - paid[k]));
+    }
+    save_esms_to_pillar_pool(ctx, init_pool, &curr);
+}
+
+fn refund_initiator_escrow(
+    ctx: &ReducerContext,
+    initiator: Identity,
+    initiator_pools: &[f64],
+) {
+    if initiator_pools.is_empty() {
+        return;
+    }
+    let init_pool = ensure_pillar_pool(ctx, initiator);
+    let init_esms: alchm_astro_core::circuit::Esms = [
+        initiator_pools.get(0).copied().unwrap_or(80.0),
+        initiator_pools.get(1).copied().unwrap_or(80.0),
+        initiator_pools.get(2).copied().unwrap_or(80.0),
+        initiator_pools.get(3).copied().unwrap_or(80.0),
+    ];
+    let q = alchm_astro_core::circuit::CAST_CHARGE;
+    let paid = alchm_astro_core::circuit::pay(&init_esms, q);
+    let mut curr = pillar_pool_to_esms(&init_pool);
+    for k in 0..4 {
+        curr[k] += (init_esms[k] - paid[k]).max(0.0);
+    }
+    save_esms_to_pillar_pool(ctx, init_pool, &curr);
+}
+
 /// Server-authoritative sky sect derived from ephemeris altitude of the Sun over the reference horizon.
 fn determine_server_sky(ctx: &ReducerContext) -> SkySect {
     if let Some(sun) = ctx.db.ephemeris().body().find(&Planet::Sun) {
@@ -7651,8 +7697,6 @@ pub fn counter_pillar(
     }
 
     let initiator_chart = get_chart_input_for_identity(ctx, duel.initiator)?;
-
-    let init_pool = ensure_pillar_pool(ctx, duel.initiator);
     let target_pool = ensure_pillar_pool(ctx, ctx.sender());
 
     let init_esms: alchm_astro_core::circuit::Esms = [
@@ -7674,7 +7718,7 @@ pub fn counter_pillar(
         q,
     ).map_err(|e| format!("duel resolution failed: {:?}", e))?;
 
-    save_esms_to_pillar_pool(ctx, init_pool, &outcome.pools_a);
+    apply_duel_outcome_to_initiator(ctx, duel.initiator, &duel.initiator_pools, &outcome.pools_a);
     save_esms_to_pillar_pool(ctx, target_pool, &outcome.pools_b);
 
     let winner_is_init = match outcome.winner {
@@ -7746,7 +7790,6 @@ pub fn answer_pillar(
         return Err(format!("agent pillar {:?} is not in agent's legal hand under {:?} sky", agent_pillar, duel.sky));
     }
 
-    let init_pool = ensure_pillar_pool(ctx, duel.initiator);
     let agent_pool = ensure_pillar_pool(ctx, agent_identity);
 
     let init_esms: alchm_astro_core::circuit::Esms = [
@@ -7768,7 +7811,7 @@ pub fn answer_pillar(
         q,
     ).map_err(|e| format!("agent duel resolution failed: {:?}", e))?;
 
-    save_esms_to_pillar_pool(ctx, init_pool, &outcome.pools_a);
+    apply_duel_outcome_to_initiator(ctx, duel.initiator, &duel.initiator_pools, &outcome.pools_a);
     save_esms_to_pillar_pool(ctx, agent_pool, &outcome.pools_b);
 
     let winner_is_init = match outcome.winner {
@@ -7830,13 +7873,8 @@ pub fn cancel_pillar_duel(ctx: &ReducerContext, duel_id: u64) -> Result<(), Stri
     duel.updated_at = ctx.timestamp;
     ctx.db.pillar_duel().duel_id().update(duel.clone());
 
-    // Refund initiator's escrowed charge by restoring baseline pools
-    if !duel.initiator_pools.is_empty() {
-        let mut pool = ensure_pillar_pool(ctx, duel.initiator);
-        pool.esms = duel.initiator_pools.clone();
-        pool.updated_at = ctx.timestamp;
-        ctx.db.pillar_pool().identity().update(pool);
-    }
+    // Refund initiator's escrowed charge without rolling back subsequent duels
+    refund_initiator_escrow(ctx, duel.initiator, &duel.initiator_pools);
 
     Ok(())
 }
@@ -7855,12 +7893,7 @@ pub fn sweep_stale_pillar_duels(ctx: &ReducerContext) -> Result<(), String> {
         duel.updated_at = ctx.timestamp;
         ctx.db.pillar_duel().duel_id().update(duel.clone());
 
-        if !duel.initiator_pools.is_empty() {
-            let mut pool = ensure_pillar_pool(ctx, duel.initiator);
-            pool.esms = duel.initiator_pools;
-            pool.updated_at = ctx.timestamp;
-            ctx.db.pillar_pool().identity().update(pool);
-        }
+        refund_initiator_escrow(ctx, duel.initiator, &duel.initiator_pools);
     }
     Ok(())
 }
@@ -8480,5 +8513,55 @@ mod tests {
         use crate::types::SkySect;
         assert_eq!(SkySect::Diurnal.to_core(), alchm_astro_core::pillars::Sect::Diurnal);
         assert_eq!(SkySect::Nocturnal.to_core(), alchm_astro_core::pillars::Sect::Nocturnal);
+    }
+
+    #[test]
+    fn test_initiator_escrow_and_duel_outcome_delta_preserves_subsequent_duels() {
+        let initial_pools = [80.0, 80.0, 80.0, 80.0];
+        let q = alchm_astro_core::circuit::CAST_CHARGE;
+        
+        // When cast_pillar is called, charge is paid from baseline
+        let paid = alchm_astro_core::circuit::pay(&initial_pools, q);
+        let escrow = [
+            initial_pools[0] - paid[0],
+            initial_pools[1] - paid[1],
+            initial_pools[2] - paid[2],
+            initial_pools[3] - paid[3],
+        ];
+        assert_eq!(escrow[0], 0.0);
+        assert_eq!(escrow[1], 0.0);
+        assert!((escrow[2] + escrow[3] - 10.0).abs() < 1e-6);
+
+        // Player's pool after cast
+        let pool_after_cast = paid;
+        assert_eq!(pool_after_cast[2], 75.0);
+        assert_eq!(pool_after_cast[3], 75.0);
+
+        // Subsequent duels occur (e.g. 11 duels against Mars), draining pool:
+        let drained_pool = [80.0, 80.0, 4.8, 0.0];
+
+        // Scenario 1: Open duel is cancelled / swept after 120s
+        // Escrow refund adds the difference to current pool, preserving intermediate losses
+        let mut refunded_pool = drained_pool;
+        for k in 0..4 {
+            refunded_pool[k] += (initial_pools[k] - paid[k]).max(0.0);
+        }
+        assert_eq!(refunded_pool[0], 80.0);
+        assert_eq!(refunded_pool[1], 80.0);
+        assert!((refunded_pool[2] - (4.8 + escrow[2])).abs() < 1e-6);
+        assert!((refunded_pool[3] - (0.0 + escrow[3])).abs() < 1e-6);
+        assert!(refunded_pool[2] < 15.0, "Escrow refund must not restore Matter to 80.0");
+        assert!(refunded_pool[3] < 10.0, "Escrow refund must not restore Substance to 80.0");
+
+        // Scenario 2: Open duel resolves
+        let outcome_pools_a = [82.0, 78.0, 76.0, 74.0];
+        let mut resolved_pool = drained_pool;
+        for k in 0..4 {
+            resolved_pool[k] = f64::max(0.0, resolved_pool[k] + (outcome_pools_a[k] - paid[k]));
+        }
+        assert_eq!(resolved_pool[0], 82.0);
+        assert_eq!(resolved_pool[1], 78.0);
+        assert!((resolved_pool[2] - 5.8).abs() < 1e-6);
+        assert_eq!(resolved_pool[3], 0.0);
     }
 }

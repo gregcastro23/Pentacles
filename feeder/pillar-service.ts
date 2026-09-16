@@ -52,18 +52,18 @@ async function answerPillar(duelId: number, pillar: string, voice: string): Prom
   }
 }
 
-// Fallback pillar selections for each planet under Diurnal and Nocturnal skies
+// Fallback pillar selections for each planet under Diurnal and Nocturnal skies (verified against agent legal hands)
 const AGENT_DEFAULT_PILLARS: Record<string, { diurnal: PillarName; nocturnal: PillarName }> = {
   Sun: { diurnal: "Rectification", nocturnal: "Protection" },
-  Moon: { diurnal: "Purification", nocturnal: "Solution" },
-  Mercury: { diurnal: "Distillation", nocturnal: "Filtration" },
+  Moon: { diurnal: "Distillation", nocturnal: "Solution" },
+  Mercury: { diurnal: "Evaporation", nocturnal: "Filtration" },
   Venus: { diurnal: "Fixation", nocturnal: "Comixion" },
   Mars: { diurnal: "Calcination", nocturnal: "Fermentation" },
   Jupiter: { diurnal: "Rectification", nocturnal: "Multiplication" },
   Saturn: { diurnal: "Fixation", nocturnal: "Inhibition" },
-  Uranus: { diurnal: "Evaporation", nocturnal: "Multiplication" },
+  Uranus: { diurnal: "Evaporation", nocturnal: "Filtration" },
   Neptune: { diurnal: "Distillation", nocturnal: "Solution" },
-  Pluto: { diurnal: "Separation", nocturnal: "Fermentation" },
+  Pluto: { diurnal: "Distillation", nocturnal: "Fermentation" },
 };
 
 function fallbackVoice(planet: string, opening: string, answer: string): string {
@@ -116,7 +116,7 @@ async function processPillarDuel(row: PillarDuelRow): Promise<void> {
   console.log(`[Pillar] Duel #${duelId}: ${planet} faces ${opening} under ${sky} sky`);
 
   const fromBackend = await backendPillarMove(planet, opening, sky);
-  const defaults = AGENT_DEFAULT_PILLARS[planet] ?? { diurnal: "Calcination", nocturnal: "Solution" };
+  const defaults = AGENT_DEFAULT_PILLARS[planet] ?? { diurnal: "Evaporation", nocturnal: "Solution" };
   const pillar = fromBackend?.pillar ?? (sky === "nocturnal" ? defaults.nocturnal : defaults.diurnal);
   const voice = fromBackend?.voice || fallbackVoice(planet, opening, pillar);
 
