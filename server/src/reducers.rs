@@ -7311,36 +7311,40 @@ pub fn claim_daily_faucet(ctx: &ReducerContext) -> Result<(), String> {
         ctx.db.player_faucet_state().insert(faucet_state);
     }
 
-    // 1. Credit player's PillarPool ESMS balances (exact float units from daily astrological faucet).
-    // CRITICAL: Call ensure_pillar_pool BEFORE crediting jing_pool so that a new player
-    // seeds from the pre-grant state ([80,80,80,80] or pre-existing jing balance), avoiding
-    // first-claim double-counting and scale mismatch.
-    let pillar_pool = ensure_pillar_pool(ctx, player_id);
-    let curr_esms = pillar_pool_to_esms(&pillar_pool);
-    let updated_esms = compute_faucet_pillar_credit(&curr_esms, &allocation);
-    save_esms_to_pillar_pool(ctx, pillar_pool, &updated_esms);
+    // Credit PillarPool and JingPool from the rows as loaded; the seeding order
+    // lives in compute_faucet_pool_credit so it is tested without a ReducerContext.
+    let existing_pillar = ctx.db.pillar_pool().identity().find(&player_id);
+    let existing_jing = ctx.db.jing_pool().identity().find(&player_id);
+    let (pillar_esms, jing_esms) = compute_faucet_pool_credit(
+        existing_pillar.as_ref().map(|p| p.esms.as_slice()),
+        existing_jing.as_ref().map(|j| j.esms.as_slice()),
+        &allocation,
+    );
 
-    // 2. Credit player's JingPool ESMS balances
-    let mut jing = match ctx.db.jing_pool().identity().find(&player_id) {
-        Some(j) => j,
-        None => JingPool {
-            identity: player_id,
-            sacred7: vec![100, 100, 100, 100, 100, 100, 100],
-            esms: vec![0, 0, 0, 0],
-            updated_at: ctx.timestamp,
-        },
-    };
-    if jing.esms.len() < 4 {
-        jing.esms.resize(4, 0);
+    match existing_pillar {
+        Some(pool) => save_esms_to_pillar_pool(ctx, pool, &pillar_esms),
+        None => {
+            ctx.db.pillar_pool().insert(PillarPool {
+                identity: player_id,
+                esms: pillar_esms.to_vec(),
+                updated_at: ctx.timestamp,
+            });
+        }
     }
-    for i in 0..4 {
-        jing.esms[i] = jing.esms[i].saturating_add((fixed_points[i] / 1000) as u16);
-    }
-    jing.updated_at = ctx.timestamp;
-    if ctx.db.jing_pool().identity().find(&player_id).is_some() {
-        ctx.db.jing_pool().identity().update(jing);
-    } else {
-        ctx.db.jing_pool().insert(jing);
+    match existing_jing {
+        Some(mut jing) => {
+            jing.esms = jing_esms;
+            jing.updated_at = ctx.timestamp;
+            ctx.db.jing_pool().identity().update(jing);
+        }
+        None => {
+            ctx.db.jing_pool().insert(JingPool {
+                identity: player_id,
+                sacred7: vec![100, 100, 100, 100, 100, 100, 100],
+                esms: jing_esms,
+                updated_at: ctx.timestamp,
+            });
+        }
     }
 
     // Log immutable audit transaction
@@ -7544,6 +7548,36 @@ pub fn compute_faucet_pillar_credit(
         current_pools[2] + allocation.matter,
         current_pools[3] + allocation.substance,
     ]
+}
+
+/// Pure: the pillar and jing ESMS after one daily faucet claim, given each row's
+/// esms as loaded (`None` when the row does not exist yet).
+///
+/// Order matters. A missing pillar pool (or missing pillar slots) is seeded from
+/// the jing pool as it stood BEFORE this grant; only then are both pools credited.
+/// Seeding from the credited jing row would count the grant twice.
+pub fn compute_faucet_pool_credit(
+    pillar: Option<&[f64]>,
+    jing: Option<&[u16]>,
+    allocation: &faucet::FaucetAllocation,
+) -> (alchm_astro_core::circuit::Esms, Vec<u16>) {
+    let seed = compute_initial_pillar_pool(jing);
+    let pillar_base: alchm_astro_core::circuit::Esms = match pillar {
+        Some(p) => [0, 1, 2, 3].map(|k| p.get(k).copied().unwrap_or(seed[k])),
+        None => seed,
+    };
+    let new_pillar = compute_faucet_pillar_credit(&pillar_base, allocation);
+
+    let mut new_jing = jing.map(|j| j.to_vec()).unwrap_or_else(|| vec![0; 4]);
+    if new_jing.len() < 4 {
+        new_jing.resize(4, 0);
+    }
+    let fixed_points = allocation.to_fixed_points();
+    for i in 0..4 {
+        new_jing[i] = new_jing[i].saturating_add((fixed_points[i] / 1000) as u16);
+    }
+
+    (new_pillar, new_jing)
 }
 
 /// Pure arithmetic: compute updated initiator pools from duel resolution delta without wiping intermediate duels.
@@ -8641,38 +8675,54 @@ mod tests {
         assert!(total_charge >= alchm_astro_core::circuit::CAST_CHARGE);
     }
 
-    #[test]
-    fn test_first_claim_seeding_order_yields_default_plus_grant() {
-        // A brand-new player has neither jing_pool nor pillar_pool.
-        // Before crediting jing_pool, ensure_pillar_pool seeds from None (pre-grant state),
-        // yielding the canonical [80.0, 80.0, 80.0, 80.0].
-        let seed = super::compute_initial_pillar_pool(None);
-        assert_eq!(seed, [80.0, 80.0, 80.0, 80.0]);
-
-        let grant = crate::faucet::FaucetAllocation {
+    fn uneven_grant() -> crate::faucet::FaucetAllocation {
+        // Distinct per-axis values so a swapped axis cannot pass.
+        crate::faucet::FaucetAllocation {
             spirit: 3.0,
-            essence: 3.0,
-            matter: 3.0,
-            substance: 3.0,
+            essence: 2.5,
+            matter: 4.0,
+            substance: 2.5,
             total: 12.0,
             resonance_factor: 1.0,
-        };
+        }
+    }
 
-        // First claim must yield 80.0 + grant = [83.0, 83.0, 83.0, 83.0]
-        let credited_pool = super::compute_faucet_pillar_credit(&seed, &grant);
-        assert_eq!(credited_pool, [83.0, 83.0, 83.0, 83.0]);
+    #[test]
+    fn test_faucet_pool_credit_new_player_seeds_default_then_credits_once() {
+        let (pillar, jing) = super::compute_faucet_pool_credit(None, None, &uneven_grant());
+        assert_eq!(pillar, [83.0, 82.5, 84.0, 82.5]);
+        assert_eq!(jing, vec![30, 25, 40, 25]);
+    }
 
-        // BUG REGRESSION CHECK:
-        // If jing_pool had been credited first on a new player, fixed_points / 1000 would write [30, 30, 30, 30].
-        // Seeding from that post-grant jing_pool would incorrectly seed [30.0, 30.0, 30.0, 30.0]
-        // and yield [33.0, 33.0, 33.0, 33.0] after the grant.
-        let buggy_post_grant_jing_seed = super::compute_initial_pillar_pool(Some(&[30, 30, 30, 30]));
-        assert_eq!(buggy_post_grant_jing_seed, [30.0, 30.0, 30.0, 30.0]);
-        let buggy_credited_pool = super::compute_faucet_pillar_credit(&buggy_post_grant_jing_seed, &grant);
-        assert_eq!(buggy_credited_pool, [33.0, 33.0, 33.0, 33.0]);
+    #[test]
+    fn test_faucet_pool_credit_existing_pillar_only_adds_grant() {
+        let (pillar, jing) = super::compute_faucet_pool_credit(
+            Some(&[10.0, 20.0, 4.75, 0.0]),
+            Some(&[80, 80, 80, 80]),
+            &uneven_grant(),
+        );
+        assert_eq!(pillar, [13.0, 22.5, 8.75, 2.5]);
+        assert_eq!(jing, vec![110, 105, 120, 105]);
+    }
 
-        // Assert that the pre-grant seed (83.0) is strictly distinct from the buggy post-grant seed (33.0),
-        // proving order independence: whether a player duels first or claims first, they receive 80.0 + grant.
-        assert_ne!(credited_pool, buggy_credited_pool);
+    #[test]
+    fn test_faucet_pool_credit_seeds_missing_pillar_from_pre_grant_jing() {
+        let (pillar, jing) = super::compute_faucet_pool_credit(
+            None,
+            Some(&[80, 95, 60, 120]),
+            &uneven_grant(),
+        );
+        assert_eq!(pillar, [83.0, 97.5, 64.0, 122.5]);
+        assert_eq!(jing, vec![110, 120, 100, 145]);
+    }
+
+    #[test]
+    fn test_faucet_pool_credit_pads_short_pillar_row_from_pre_grant_jing() {
+        let (pillar, _) = super::compute_faucet_pool_credit(
+            Some(&[50.0, 50.0]),
+            Some(&[80, 90, 100, 110]),
+            &uneven_grant(),
+        );
+        assert_eq!(pillar, [53.0, 52.5, 104.0, 112.5]);
     }
 }
