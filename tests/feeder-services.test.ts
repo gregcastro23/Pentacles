@@ -8,6 +8,7 @@ describe("Feeder supervisor SERVICES registry", () => {
     { name: "oracle", file: "oracle-service.ts" },
     { name: "duel", file: "duel-service.ts" },
     { name: "jing", file: "jing-service.ts" },
+    { name: "pillar", file: "pillar-service.ts" },
     { name: "ephemeris", file: "push-ephemeris.ts" },
     { name: "solana-sync", file: "solana-sync-service.ts" },
     { name: "historical-agents", file: "historical-agent-service.ts" },
@@ -15,8 +16,8 @@ describe("Feeder supervisor SERVICES registry", () => {
     { name: "indoor-spatial", file: "indoor-spatial-service.ts" },
   ];
 
-  test("contains exactly the 8 active supervised companion services", () => {
-    expect(SERVICES.length).toBe(8);
+  test("contains exactly the 9 active supervised companion services", () => {
+    expect(SERVICES.length).toBe(9);
     expect(SERVICES).toEqual(EXPECTED_SERVICES);
   });
 
