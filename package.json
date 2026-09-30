@@ -18,7 +18,7 @@
     "serve": "bun run serve.ts",
     "gen": "spacetime generate --lang typescript --module-path server --out-dir src/module_bindings -y && node scripts/patch-bindings.mjs",
     "test:module": "cargo test --manifest-path server/Cargo.toml",
-    "test:vessel": "bun test tests/vessel-model.test.ts",
+    "test:vessel": "bun test tests/vessel-model.test.ts tests/vessel-drawer.test.ts",
     "test:war": "bun scripts/war-table.test.mjs && bun scripts/agent-round-tracking.test.mjs && bun test tests/war-ledger.test.ts",
     "test:decan": "bun scripts/decan-authority.test.mjs",
     "test:routing": "bun scripts/gate-routing.test.mjs",
