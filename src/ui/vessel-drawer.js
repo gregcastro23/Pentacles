@@ -20,8 +20,7 @@ import { ESMS } from '../web3/esms.js'
 import { VESSEL_STREAMS, foldArenaStats, parseTreasury, streamTotal } from './vessel-model.js'
 import './vessel-drawer.css'
 
-const AGENTS = (import.meta.env.VITE_AGENTS_ORIGIN || 'https://agents.alchm.kitchen').replace(/\/+$/, '')
-const KITCHEN = (import.meta.env.VITE_KITCHEN_ORIGIN || 'https://alchm.kitchen').replace(/\/+$/, '')
+import { AGENTS, KITCHEN } from '../net/origins.js'
 const CACHE_PREFIX = 'pentacles:vessel:v1:'
 const REFRESH_MS = 10_000
 
@@ -143,6 +142,17 @@ export class VesselDrawer {
         this._treasury(),
         this._arena(),
         h('footer', { class: 'pv-foot' }, [
+          h('a', {
+            href: `${KITCHEN}/feed?tab=transmute`,
+            target: '_blank',
+            rel: 'noopener noreferrer',
+            title: 'Opens the Transmutation Circle on alchm.kitchen, where players and agents trade coins. The Vessel never moves tokens itself.',
+            text: 'Transmute ↗',
+            onClick: (e) => {
+              e.preventDefault()
+              window.open(`${KITCHEN}/feed?tab=transmute`, '_blank', 'noopener,noreferrer')
+            },
+          }),
           h('a', { href: `${AGENTS}/profile#alchm-vessel`, target: '_blank', rel: 'noopener noreferrer', text: 'Full Vessel on agents.alchm.kitchen ↗' }),
           h('a', { href: `${KITCHEN}/profile`, target: '_blank', rel: 'noopener noreferrer', text: 'Kitchen ledger ↗' }),
         ]),
