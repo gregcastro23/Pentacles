@@ -139,6 +139,20 @@ describe("Vessel drawer lifecycle", () => {
     expect(drawer!.treasury?.balances.spirit).toBe(123);
   });
 
+  test("treasury keeps refreshing while an arena request is stalled", async () => {
+    const playerRows = deferred<any[]>();
+    spacetime.query = async (sql: string) => sql.includes("FROM player") ? playerRows.promise : [];
+    mount();
+    await flush();
+    expect(drawer!.treasury?.balances.spirit).toBe(123);
+    globalThis.fetch = (async () => response(vessel(456))) as typeof fetch;
+    const refresh = drawer!.refresh();
+    await flush();
+    expect(drawer!.treasury?.balances.spirit).toBe(456);
+    playerRows.resolve([{ identity: ME, tokens: 10, word_wins: 2 }]);
+    await refresh;
+  });
+
   test("reads the server player even when local simulation contains larger balances", async () => {
     mount();
     await drawer!.refresh();
@@ -224,5 +238,19 @@ describe("Vessel drawer keyboard access", () => {
     expect(document.activeElement === opener).toBe(true);
     document.dispatchEvent(escape);
     expect(escape.preventDefault).toHaveBeenCalledTimes(1);
+  });
+
+  test("restores a persistent return target when the My Pentacles launcher is removed", () => {
+    const mainButton = document.createElement("button");
+    mainButton.setAttribute("id", "my-pentacles-btn");
+    const launcher = document.createElement("button");
+    document.body.appendChild(mainButton);
+    document.body.appendChild(launcher);
+    launcher.focus();
+    // My Pentacles destroys its drawer host before opening the Vessel.
+    document.body.removeChild(launcher);
+    openVesselDrawer({ returnTo: mainButton });
+    closeVesselDrawer();
+    expect(document.activeElement === mainButton).toBe(true);
   });
 });

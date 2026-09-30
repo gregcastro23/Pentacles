@@ -86,7 +86,9 @@ export class VesselDrawer {
     this._mounted = false
     this._userKey = undefined
     this._generation = 0
-    this._pending = null
+    this._arenaPending = null
+    this._arenaIdentity = null
+    this._treasuryPending = null
     this._abort = null
     this._folio = null
     this._content = null
@@ -107,7 +109,8 @@ export class VesselDrawer {
     this._generation += 1
     this._abort?.abort()
     this._abort = null
-    this._pending = null
+    this._arenaPending = null
+    this._treasuryPending = null
     this._userKey = undefined
     if (this._timer) clearInterval(this._timer)
     if (this._offAuth) this._offAuth()
@@ -124,35 +127,42 @@ export class VesselDrawer {
     if (key !== this._userKey) {
       this._generation += 1
       this._abort?.abort()
-      this._pending = null
+      this._arenaPending = null
+      this._treasuryPending = null
       this._userKey = key
       this.arena = null
       this.treasury = readCache(key)
       this.treasuryState = key ? 'loading' : 'signed-out'
       this.paint()
     }
-    // Slow responses must be allowed to complete instead of being superseded
-    // by the next timer tick. Account changes start a separate generation.
-    if (this._pending) return this._pending
+    // Deduplicate each source independently: a stalled arena read must not
+    // block treasury polling, and a slow treasury response must not be starved.
     const generation = this._generation
     const identity = spacetime.identity
-    const controller = new AbortController()
-    this._abort = controller
-    const pending = Promise.all([
-      readArena().catch(() => null).then((arena) => {
-        if (!this._isCurrent(key, generation) || identity !== spacetime.identity) return
+    if (identity !== this._arenaIdentity) this._arenaPending = null
+    if (!this._arenaPending) {
+      this._arenaIdentity = identity
+      const pending = readArena().catch(() => null).then((arena) => {
+        if (!this._isCurrent(key, generation) || identity !== spacetime.identity || this._arenaPending !== pending) return
         this.arena = arena
         this.paint()
-      }),
-      this._refreshTreasury(key, generation, controller.signal),
-    ]).finally(() => {
-      if (this._pending === pending) {
-        this._pending = null
-        this._abort = null
-      }
-    })
-    this._pending = pending
-    return pending
+      }).finally(() => {
+        if (this._arenaPending === pending) this._arenaPending = null
+      })
+      this._arenaPending = pending
+    }
+    if (key && !this._treasuryPending) {
+      const controller = new AbortController()
+      this._abort = controller
+      const pending = this._refreshTreasury(key, generation, controller.signal).finally(() => {
+        if (this._treasuryPending === pending) {
+          this._treasuryPending = null
+          this._abort = null
+        }
+      })
+      this._treasuryPending = pending
+    }
+    return Promise.all([this._arenaPending, this._treasuryPending])
   }
 
   _isCurrent(key, generation) {
@@ -319,13 +329,13 @@ let drawer = null
 let keyHandler = null
 let returnFocus = null
 
-export function openVesselDrawer() {
+export function openVesselDrawer({ returnTo = document.activeElement } = {}) {
   let ov = document.getElementById('pv-overlay')
   if (drawer) {
     ov?.querySelector('.pv-close')?.focus()
     return
   }
-  returnFocus = document.activeElement
+  returnFocus = returnTo || document.activeElement
   if (!ov) {
     ov = h('div', { id: 'pv-overlay', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'The Alchm Vessel' }, [
       h('div', { class: 'pv-window' }, [

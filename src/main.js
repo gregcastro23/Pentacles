@@ -362,7 +362,11 @@ function openMyPentacles() {
         // "Tip the Scales" → carry the player into the live war board (deploy lives there).
         onTip: () => { closeMyPentacles(); openFactionWar() },
         // "Alchm Vessel" → the cross-app elemental treasury folio.
-        onVessel: () => { closeMyPentacles(); openVesselDrawer() },
+        onVessel: () => {
+          const returnTo = document.getElementById('my-pentacles-btn')
+          closeMyPentacles()
+          openVesselDrawer({ returnTo })
+        },
         // No chart yet → route to onboarding to forge one.
         onForge: () => {
           closeMyPentacles()
