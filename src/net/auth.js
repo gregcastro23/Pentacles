@@ -17,9 +17,11 @@
 // SpacetimeDB, the app stays on the anonymous identity exactly as before.
 
 import spacetime from './spacetime.js'
+import { KITCHEN } from './origins.js'
+
+export { KITCHEN }
 
 const ISSUER = (import.meta.env.VITE_OIDC_ISSUER || 'https://api.agents.alchm.kitchen').replace(/\/+$/, '')
-const KITCHEN = (import.meta.env.VITE_KITCHEN_ORIGIN || 'https://alchm.kitchen').replace(/\/+$/, '')
 const USER_KEY = 'pentacles_auth_user'
 
 const listeners = new Set()

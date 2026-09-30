@@ -29,6 +29,7 @@ import { ESMS_DECIMALS } from './web3/esms.js'
 import AlchmChart from './alchm-chart/index.js'
 import FactionWar from './alchm-chart/faction-war.js'
 import MyPentacles, { MyCodex } from './alchm-chart/my-pentacles.js'
+import { openVesselDrawer, closeVesselDrawer } from './ui/vessel-drawer.js'
 import AdminTelemetry from './alchm-chart/admin-telemetry.js'
 import { initSingularityShaderCanvas, cleanupSingularityShaderCanvas } from './alchm-chart/singularity-shader.js'
 import { isAdmin, verifyOwnerIdentity, ensureAdmin, sameIdentity } from './net/admin-gate.js'
@@ -360,6 +361,8 @@ function openMyPentacles() {
       hooks: {
         // "Tip the Scales" → carry the player into the live war board (deploy lives there).
         onTip: () => { closeMyPentacles(); openFactionWar() },
+        // "Alchm Vessel" → the cross-app elemental treasury folio.
+        onVessel: () => { closeMyPentacles(); openVesselDrawer() },
         // No chart yet → route to onboarding to forge one.
         onForge: () => {
           closeMyPentacles()
@@ -398,6 +401,12 @@ window.openMyPentacles = openMyPentacles
 window.closeMyPentacles = closeMyPentacles
 Pentacles.openPentacles = openMyPentacles
 Pentacles.openMyPentacles = openMyPentacles
+
+// The Alchm Vessel — cross-app elemental treasury
+window.openAlchmVessel = openVesselDrawer
+window.closeAlchmVessel = closeVesselDrawer
+Pentacles.openVessel = openVesselDrawer
+Pentacles.closeVessel = closeVesselDrawer
 
 // Backwards-compatibility aliases
 window.openMyCodex = openMyPentacles

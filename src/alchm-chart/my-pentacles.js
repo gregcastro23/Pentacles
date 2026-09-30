@@ -157,6 +157,12 @@ export class MyPentaclesInstance {
         ]),
       ]),
       h("div", { class: "mc-head-actions" }, [
+        this.hooks.onVessel ? h("button", {
+          class: "mc-action-pill",
+          text: "⚗ Alchm Vessel",
+          title: "Open your cross-app elemental treasury",
+          onClick: () => this.hooks.onVessel(),
+        }) : null,
         h("button", {
           class: "mc-action-pill",
           text: "📋 Copy Coordinates",
