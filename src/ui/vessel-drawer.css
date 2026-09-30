@@ -1,0 +1,92 @@
+/* ============================================================
+   The Alchm Vessel drawer — illuminated manuscript folio
+   Uses the AlchmChart palette (--ac-*) from alchm-chart.css.
+   ============================================================ */
+
+#pv-overlay { position: fixed; inset: 0; z-index: 125; display: none; align-items: center; justify-content: center;
+  padding: 24px; background: rgba(4,5,10,0.78); backdrop-filter: blur(8px); }
+#pv-overlay.is-open { display: flex; }
+#pv-overlay .pv-window { position: relative; width: min(760px, 96vw); max-height: 92vh; overflow: hidden auto;
+  background:
+    radial-gradient(120% 80% at 50% 0%, rgba(216,180,106,0.08), transparent 60%),
+    rgba(13,16,28,0.94);
+  border: 1px solid rgba(216,180,106,0.28); border-radius: 14px;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.6), inset 0 0 0 6px rgba(216,180,106,0.04); }
+#pv-overlay .pv-close { position: absolute; top: 12px; right: 14px; width: 30px; height: 30px; border-radius: 50%;
+  border: 1px solid rgba(216,180,106,0.25); background: rgba(0,0,0,0.3); color: #f1dba1; cursor: pointer; z-index: 2; }
+#pv-overlay .pv-close:hover { border-color: #f1dba1; }
+
+.pv-vessel { color: var(--ac-text, #e8e3d4); font-family: "Space Grotesk", system-ui, sans-serif; font-size: 13px; }
+.pv-folio { padding: 26px 28px 20px; border-radius: 14px; transition: box-shadow 0.4s; }
+.pv-folio.is-reconnecting { box-shadow: inset 0 0 0 1px rgba(224,162,58,0.45), inset 0 0 40px rgba(224,162,58,0.08); }
+
+.pv-title { display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; padding-right: 36px;
+  border-bottom: 1px solid var(--ac-line, rgba(216,180,106,0.18)); padding-bottom: 14px; margin-bottom: 6px; }
+.pv-title h2 { margin: 0; font-family: "Cormorant Garamond", Georgia, serif; font-size: 26px; font-weight: 600;
+  color: var(--ac-gold-bright, #f1dba1); letter-spacing: 0.02em; }
+.pv-dropcap { display: grid; place-items: center; width: 50px; height: 50px; border-radius: 6px;
+  font-family: "Cormorant Garamond", Georgia, serif; font-size: 36px; font-weight: 600; color: #120e05;
+  background: linear-gradient(145deg, #f1dba1, #9c7e42); box-shadow: 0 0 18px rgba(216,180,106,0.25); }
+.pv-dim { color: var(--ac-dim, #9aa0b0); margin: 2px 0 0; }
+.pv-note { font-style: italic; font-size: 11.5px; margin-top: 10px; }
+
+.pv-chip { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; padding: 4px 10px; border-radius: 999px;
+  border: 1px solid var(--ac-line, rgba(216,180,106,0.18)); color: var(--ac-dim, #9aa0b0); white-space: nowrap; }
+.pv-chip.is-live { color: var(--ac-matter, #5fb37a); border-color: rgba(95,179,122,0.4); }
+.pv-chip.is-warn { color: var(--ac-spirit, #e0a23a); border-color: rgba(224,162,58,0.5); animation: pv-pulse 1.8s ease-in-out infinite; }
+.pv-chip.is-err { color: #e07a6a; border-color: rgba(224,122,106,0.4); }
+@keyframes pv-pulse { 50% { opacity: 0.55; } }
+
+.pv-section { padding: 16px 0 4px; }
+.pv-section h3 { margin: 0 0 10px; font-family: "Cormorant Garamond", Georgia, serif; font-size: 18px; font-weight: 600;
+  color: var(--ac-gold, #d8b46a); }
+
+/* The alembic: each layer's height is its real share of the holdings. */
+.pv-flask { display: flex; flex-direction: column-reverse; height: 190px; border-radius: 10px 10px 40px 40px; overflow: hidden;
+  border: 1px solid rgba(216,180,106,0.3); background: rgba(0,0,0,0.25); }
+.pv-layer { display: flex; align-items: center; gap: 8px; min-height: 22px; padding: 0 14px; flex-basis: 0;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--c) 34%, transparent), color-mix(in srgb, var(--c) 14%, transparent));
+  border-top: 1px solid color-mix(in srgb, var(--c) 45%, transparent); transition: flex-grow 0.8s ease; }
+.pv-layer b { margin-left: auto; font-family: "JetBrains Mono", monospace; font-weight: 500; color: #fff; }
+.pv-glyph { color: var(--c); font-size: 16px; }
+
+.pv-streams, .pv-ledger { list-style: none; margin: 12px 0 0; padding: 0; }
+.pv-streams li, .pv-ledger li { display: grid; grid-template-columns: auto 1fr auto auto; gap: 10px; align-items: center;
+  padding: 7px 0; border-bottom: 1px dashed rgba(216,180,106,0.12); }
+.pv-ledger li { grid-template-columns: auto 1fr auto; font-size: 12px; }
+.pv-stream-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pv-esms { display: flex; gap: 8px; font-family: "JetBrains Mono", monospace; font-size: 11px; }
+.pv-esms i { font-style: normal; color: var(--c); }
+.pv-streams b, .pv-ledger b { font-family: "JetBrains Mono", monospace; font-weight: 500; color: var(--ac-gold-bright, #f1dba1); }
+
+.pv-tag { font-size: 9.5px; letter-spacing: 0.1em; text-transform: uppercase; padding: 2px 7px; border-radius: 4px;
+  border: 1px solid rgba(216,180,106,0.25); color: var(--ac-gold, #d8b46a); }
+.pv-tag--jingDuels { color: #e07a6a; border-color: rgba(224,122,106,0.35); }
+.pv-tag--staking { color: var(--ac-matter, #5fb37a); border-color: rgba(95,179,122,0.35); }
+.pv-tag--pentaclesMelee { color: var(--ac-gold-bright, #f1dba1); }
+.pv-tag--kitchenAchievements { color: var(--ac-spirit, #e0a23a); border-color: rgba(224,162,58,0.35); }
+.pv-tag--other { color: var(--ac-dim, #9aa0b0); border-color: rgba(154,160,176,0.25); }
+
+.pv-stats { display: grid; grid-template-columns: max-content 1fr; gap: 6px 18px; margin: 0; }
+.pv-stats dt { color: var(--ac-dim, #9aa0b0); }
+.pv-stats dd { margin: 0; font-family: "JetBrains Mono", monospace; font-size: 12px; }
+
+.pv-empty { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px;
+  border: 1px dashed rgba(216,180,106,0.25); border-radius: 8px; }
+.pv-empty p { margin: 0; }
+.pv-btn { padding: 7px 14px; border-radius: 999px; border: 1px solid var(--ac-gold, #d8b46a); background: transparent;
+  color: var(--ac-gold-bright, #f1dba1); cursor: pointer; font: inherit; }
+.pv-btn:hover { background: rgba(216,180,106,0.12); }
+
+.pv-foot { display: flex; flex-wrap: wrap; gap: 16px; justify-content: flex-end; margin-top: 16px; padding-top: 12px;
+  border-top: 1px solid var(--ac-line, rgba(216,180,106,0.18)); }
+.pv-foot a { color: var(--ac-gold, #d8b46a); text-decoration: none; font-size: 12px; }
+.pv-foot a:hover { color: var(--ac-gold-bright, #f1dba1); }
+
+@media (max-width: 560px) {
+  .pv-folio { padding: 20px 16px 16px; }
+  .pv-title { grid-template-columns: auto 1fr; }
+  .pv-title .pv-chip { grid-column: 1 / -1; justify-self: start; }
+  .pv-streams li { grid-template-columns: auto 1fr auto; }
+  .pv-esms { display: none; }
+}
