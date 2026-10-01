@@ -52,24 +52,22 @@ async function tryQuery(sql) {
 async function readArena() {
   const identity = spacetime.identity
   if (!identity) return null
-  const statePlayer = typeof window !== 'undefined' ? window.state?.player : null
+  const me = String(identity).replace(/^0x/i, '').toLowerCase()
   const [players, jingDuels, pillarDuels, seats, pillarPool] = await Promise.all([
-    statePlayer ? Promise.resolve(null) : tryQuery('SELECT identity, tokens, word_wins FROM player'),
-    tryQuery('SELECT duel_id, initiator, target_player, winner_is_initiator FROM jing_duel'),
-    tryQuery('SELECT duel_id, initiator, target_player, winner_is_initiator FROM pillar_duel'),
+    tryQuery(`SELECT identity, tokens, word_wins FROM player WHERE identity = 0x${me}`),
+    tryQuery('SELECT duel_id, initiator, target_player, state, winner_is_initiator FROM jing_duel'),
+    tryQuery('SELECT duel_id, initiator, target_player, state, winner_is_initiator FROM pillar_duel'),
     tryQuery('SELECT table_id, occupant, counters, melds_value, score FROM melee_seat'),
     tryQuery('SELECT identity, esms FROM pillar_pool'),
   ])
   const player =
-    statePlayer ||
-    (players || []).find((p) => String(p.identity?.__identity__ ?? p.identity).replace(/^0x/, '').toLowerCase() ===
-      String(identity).replace(/^0x/, '').toLowerCase()) ||
+    (players || []).find((p) => String(p.identity?.__identity__ ?? p.identity).replace(/^0x/i, '').toLowerCase() === me) ||
     null
   return foldArenaStats({ identity, player, jingDuels, pillarDuels, seats, pillarPool })
 }
 
-async function readTreasury() {
-  const res = await fetch(`${AGENTS}/api/vessel/summary`, { credentials: 'include', headers: { accept: 'application/json' } })
+async function readTreasury(signal) {
+  const res = await fetch(`${AGENTS}/api/vessel/summary`, { signal, credentials: 'include', headers: { accept: 'application/json' } })
   if (res.status === 401) return { signedOut: true }
   const body = await res.json().catch(() => null)
   const vessel = parseTreasury(body)
@@ -85,79 +83,151 @@ export class VesselDrawer {
     this.treasuryState = 'loading' // loading | live | reconnecting | signed-out | error
     this._timer = null
     this._offAuth = null
+    this._mounted = false
+    this._userKey = undefined
+    this._generation = 0
+    this._arenaPending = null
+    this._arenaIdentity = null
+    this._treasuryPending = null
+    this._abort = null
+    this._folio = null
+    this._content = null
   }
 
   mount() {
+    if (this._mounted) return this
+    this._mounted = true
     this.el.classList.add('pv-vessel')
-    this.treasury = readCache(userKey())
-    this._offAuth = onAuth(() => this.refresh())
     this._timer = setInterval(() => this.refresh(), REFRESH_MS)
+    this._offAuth = onAuth(() => this.refresh())
     this.paint()
     return this
   }
 
   destroy() {
+    this._mounted = false
+    this._generation += 1
+    this._abort?.abort()
+    this._abort = null
+    this._arenaPending = null
+    this._treasuryPending = null
+    this._userKey = undefined
     if (this._timer) clearInterval(this._timer)
     if (this._offAuth) this._offAuth()
     this._timer = null
     this._offAuth = null
     clear(this.el)
+    this._folio = null
+    this._content = null
   }
 
-  async refresh() {
+  refresh() {
+    if (!this._mounted) return Promise.resolve()
     const key = userKey()
-    const [arena] = await Promise.all([readArena().catch(() => null), this._refreshTreasury(key)])
-    this.arena = arena
-    if (this._timer) this.paint() // skip if destroyed mid-flight
+    if (key !== this._userKey) {
+      this._generation += 1
+      this._abort?.abort()
+      this._arenaPending = null
+      this._treasuryPending = null
+      this._userKey = key
+      this.arena = null
+      this.treasury = readCache(key)
+      this.treasuryState = key ? 'loading' : 'signed-out'
+      this.paint()
+    }
+    // Deduplicate each source independently: a stalled arena read must not
+    // block treasury polling, and a slow treasury response must not be starved.
+    const generation = this._generation
+    const identity = spacetime.identity
+    if (identity !== this._arenaIdentity) this._arenaPending = null
+    if (!this._arenaPending) {
+      this._arenaIdentity = identity
+      const pending = readArena().catch(() => null).then((arena) => {
+        if (!this._isCurrent(key, generation) || identity !== spacetime.identity || this._arenaPending !== pending) return
+        this.arena = arena
+        this.paint()
+      }).finally(() => {
+        if (this._arenaPending === pending) this._arenaPending = null
+      })
+      this._arenaPending = pending
+    }
+    if (key && !this._treasuryPending) {
+      const controller = new AbortController()
+      this._abort = controller
+      const pending = this._refreshTreasury(key, generation, controller.signal).finally(() => {
+        if (this._treasuryPending === pending) {
+          this._treasuryPending = null
+          this._abort = null
+        }
+      })
+      this._treasuryPending = pending
+    }
+    return Promise.all([this._arenaPending, this._treasuryPending])
   }
 
-  async _refreshTreasury(key) {
-    if (!key) {
-      this.treasury = null
-      this.treasuryState = 'signed-out'
-      return
-    }
+  _isCurrent(key, generation) {
+    return this._mounted && this._generation === generation && key === userKey()
+  }
+
+  async _refreshTreasury(key, generation, signal) {
+    if (!key) return
     try {
-      const got = await readTreasury()
+      const got = await readTreasury(signal)
+      if (!this._isCurrent(key, generation)) return
       if (got.signedOut) {
         writeCache(key, null)
         this.treasury = null
         this.treasuryState = 'signed-out'
+        this.paint()
         return
       }
       this.treasury = got.vessel
       writeCache(key, got.vessel)
       this.treasuryState = 'live'
     } catch {
+      if (!this._isCurrent(key, generation)) return
       this.treasury = this.treasury || readCache(key)
       this.treasuryState = this.treasury ? 'reconnecting' : 'error'
     }
+    this.paint()
   }
 
   paint() {
-    clear(this.el)
-    this.el.appendChild(
-      h('div', { class: `pv-folio${this.treasuryState === 'reconnecting' ? ' is-reconnecting' : ''}` }, [
-        this._title(),
-        this._treasury(),
-        this._arena(),
-        h('footer', { class: 'pv-foot' }, [
-          h('a', {
-            href: `${KITCHEN}/feed?tab=transmute`,
-            target: '_blank',
-            rel: 'noopener noreferrer',
-            title: 'Opens the Transmutation Circle on alchm.kitchen, where players and agents trade coins. The Vessel never moves tokens itself.',
-            text: 'Transmute ↗',
-            onClick: (e) => {
-              e.preventDefault()
-              window.open(`${KITCHEN}/feed?tab=transmute`, '_blank', 'noopener,noreferrer')
-            },
-          }),
-          h('a', { href: `${AGENTS}/profile#alchm-vessel`, target: '_blank', rel: 'noopener noreferrer', text: 'Full Vessel on agents.alchm.kitchen ↗' }),
-          h('a', { href: `${KITCHEN}/profile`, target: '_blank', rel: 'noopener noreferrer', text: 'Kitchen ledger ↗' }),
-        ]),
-      ]),
-    )
+    if (!this._mounted) return
+    if (!this._folio) {
+      this._content = h('div', { class: 'pv-content' })
+      this._folio = h('div', { class: 'pv-folio' }, [this._content, this._handOffs()])
+      this.el.appendChild(this._folio)
+    }
+    this._folio.classList.toggle('is-reconnecting', this.treasuryState === 'reconnecting')
+    const focused = document.activeElement
+    const focusKey = this._content.contains(focused) ? focused.getAttribute('data-vessel-focus') : null
+    clear(this._content)
+    for (const section of [this._title(), this._treasury(), this._arena()]) this._content.appendChild(section)
+    if (focusKey) {
+      const replacement = this._content.querySelector(`[data-vessel-focus="${focusKey}"]`)
+      ;(replacement || this.el.closest('[role="dialog"]')?.querySelector('.pv-close'))?.focus()
+    }
+  }
+
+  _handOffs() {
+    // Keep these controls mounted while data refreshes so keyboard focus and
+    // native link interactions survive both arena and treasury updates.
+    return h('footer', { class: 'pv-foot' }, [
+      h('a', {
+        href: `${KITCHEN}/feed?tab=transmute`,
+        target: '_blank',
+        rel: 'noopener noreferrer',
+        title: 'Opens the Transmutation Circle on alchm.kitchen, where players and agents trade coins. The Vessel never moves tokens itself.',
+        text: 'Transmute ↗',
+        onClick: (e) => {
+          e.preventDefault()
+          window.open(`${KITCHEN}/feed?tab=transmute`, '_blank', 'noopener,noreferrer')
+        },
+      }),
+      h('a', { href: `${AGENTS}/profile#alchm-vessel`, target: '_blank', rel: 'noopener noreferrer', text: 'Full Vessel on agents.alchm.kitchen ↗' }),
+      h('a', { href: `${KITCHEN}/profile`, target: '_blank', rel: 'noopener noreferrer', text: 'Kitchen ledger ↗' }),
+    ])
   }
 
   _title() {
@@ -186,7 +256,7 @@ export class VesselDrawer {
         this.treasuryState === 'signed-out'
           ? h('div', { class: 'pv-empty' }, [
               h('p', { text: 'Sign in with your Alchm account to unseal the cross-app treasury.' }),
-              h('button', { class: 'pv-btn', text: 'Sign in', onClick: () => signIn() }),
+              h('button', { class: 'pv-btn', 'data-vessel-focus': 'sign-in', text: 'Sign in', onClick: () => signIn() }),
             ])
           : h('p', { class: 'pv-dim', text: this.treasuryState === 'error' ? 'The treasury could not be read right now.' : 'Unsealing the treasury…' }),
       ])
@@ -256,10 +326,16 @@ export class VesselDrawer {
 
 // ── overlay wiring (mirrors My Pentacles in main.js) ──
 let drawer = null
-let escHandler = null
+let keyHandler = null
+let returnFocus = null
 
-export function openVesselDrawer() {
+export function openVesselDrawer({ returnTo = document.activeElement } = {}) {
   let ov = document.getElementById('pv-overlay')
+  if (drawer) {
+    ov?.querySelector('.pv-close')?.focus()
+    return
+  }
+  returnFocus = returnTo || document.activeElement
   if (!ov) {
     ov = h('div', { id: 'pv-overlay', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'The Alchm Vessel' }, [
       h('div', { class: 'pv-window' }, [
@@ -270,16 +346,35 @@ export function openVesselDrawer() {
     ov.addEventListener('click', (e) => { if (e.target === ov) closeVesselDrawer() })
     document.body.appendChild(ov)
   }
-  if (drawer) drawer.destroy()
   // mount() subscribes to auth, which fires immediately and runs the first refresh.
   drawer = new VesselDrawer(document.getElementById('pv-host')).mount()
   ov.classList.add('is-open')
-  escHandler = (e) => { if (e.key === 'Escape') closeVesselDrawer() }
-  document.addEventListener('keydown', escHandler)
+  ov.querySelector('.pv-close')?.focus()
+  keyHandler = (e) => {
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      e.stopPropagation()
+      closeVesselDrawer()
+    } else if (e.key === 'Tab') {
+      const controls = [...ov.querySelectorAll('a[href],button:not([disabled]),[tabindex]:not([tabindex="-1"])')]
+        .filter((el) => el.getClientRects().length)
+      const first = controls[0]
+      const last = controls[controls.length - 1]
+      if (!first) return
+      const outside = !ov.contains(document.activeElement)
+      if (outside || (e.shiftKey ? document.activeElement === first : document.activeElement === last)) {
+        e.preventDefault()
+        ;(e.shiftKey ? last : first).focus()
+      }
+    }
+  }
+  document.addEventListener('keydown', keyHandler)
 }
 
 export function closeVesselDrawer() {
   document.getElementById('pv-overlay')?.classList.remove('is-open')
   if (drawer) { drawer.destroy(); drawer = null }
-  if (escHandler) { document.removeEventListener('keydown', escHandler); escHandler = null }
+  if (keyHandler) { document.removeEventListener('keydown', keyHandler); keyHandler = null }
+  if (returnFocus?.isConnected && returnFocus.getClientRects().length) returnFocus.focus()
+  returnFocus = null
 }

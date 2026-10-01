@@ -7,17 +7,27 @@ const THEM = "b".repeat(64);
 describe("foldDuelRows", () => {
   test("credits wins from either side and skips other players' duels", () => {
     const rows = [
-      { duel_id: 1, initiator: { __identity__: `0x${ME}` }, winner_is_initiator: true },
-      { duel_id: 2, initiator: THEM, target_player: ME, winner_is_initiator: false },
-      { duel_id: 3, initiator: THEM, target_player: ME, winner_is_initiator: true },
-      { duel_id: 4, initiator: ME, winner_is_initiator: null },
-      { duel_id: 5, initiator: THEM, winner_is_initiator: true },
+      { duel_id: 1, initiator: { __identity__: `0x${ME}` }, state: "Resolved", winner_is_initiator: true },
+      { duel_id: 2, initiator: THEM, target_player: ME, state: "Resolved", winner_is_initiator: false },
+      { duel_id: 3, initiator: THEM, target_player: ME, state: "Resolved", winner_is_initiator: true },
+      { duel_id: 4, initiator: ME, state: "Pending", winner_is_initiator: null },
+      { duel_id: 5, initiator: THEM, state: "Resolved", winner_is_initiator: true },
     ];
     expect(foldDuelRows(rows, ME)).toEqual({ wins: 2, resolved: 3, fought: 4 });
   });
 
   test("an unreadable table stays null rather than zero", () => {
     expect(foldDuelRows(null, ME)).toBeNull();
+  });
+
+  test("counts completed draws without counting pending or cancelled duels", () => {
+    const rows = [
+      { initiator: ME, state: "Resolved", winner_is_initiator: null },
+      { initiator: THEM, target_player: ME, state: "Resolved", winner_is_initiator: false },
+      { initiator: ME, state: "Pending", winner_is_initiator: null },
+      { initiator: ME, state: "Cancelled", winner_is_initiator: null },
+    ];
+    expect(foldDuelRows(rows, ME)).toEqual({ wins: 1, resolved: 2, fought: 4 });
   });
 });
 

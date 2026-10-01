@@ -33,9 +33,10 @@ export function foldDuelRows(rows, identity) {
     const asTarget = !asInitiator && hex(row.target_player) === me
     if (!me || (!asInitiator && !asTarget)) continue
     fought += 1
+    if (row.state !== 'Resolved') continue
+    resolved += 1
     const outcome = row.winner_is_initiator
     if (typeof outcome !== 'boolean') continue
-    resolved += 1
     if (asInitiator ? outcome : !outcome) wins += 1
   }
   return { wins, resolved, fought }
