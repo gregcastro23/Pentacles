@@ -339,6 +339,11 @@ window.closeMeleeManifold = closeFactionWar
 Pentacles.openWar = openFactionWar
 Pentacles.openMeleeManifold = openFactionWar
 
+// ── ✦ Planetary Faction Dossier Pages ──
+Pentacles.openFactionPage = (id) => (typeof window.openFactionPage === 'function' ? window.openFactionPage(id) : null)
+Pentacles.closeFactionPage = () => (typeof window.closeFactionPage === 'function' ? window.closeFactionPage() : null)
+
+
 // ── ✦ My Pentacles: the player's natal profile, celestial deck, and loadout manager ──
 let myPentaclesInst = null, myPentaclesEsc = null
 function openMyPentacles() {
