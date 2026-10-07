@@ -440,6 +440,7 @@
                 <div class="faction-choice-sigil" style="color: ${color}">${glyph}</div>
                 <div class="faction-choice-name">${name}</div>
                 <div style="font-size:9px; color:var(--dim); margin-top:4px">Score: ${pick.score}</div>
+                <button type="button" class="btn" style="padding: 2px 7px; font-size: 9px; margin-top: 6px; border-color: rgba(216,180,106,0.3);" onclick="event.stopPropagation(); if(typeof openFactionPage==='function')openFactionPage(${pick.id})" title="Inspect ${name} Faction Dossier">✦ Dossier ↗</button>
               </div>
             `;
           });
@@ -938,7 +939,7 @@
             </div>
             <div style="display:flex; justify-content:space-between; align-items:center; color: var(--dim); font-size: 10px; margin-bottom: 6px;">
               <span>${decan.startDeg}°–${decan.endDeg}° ${decan.signName} (10-day round)</span>
-              <span style="color: ${rulerCol}; font-weight: 600;">Ruler: ${decan.rulerGlyph} ${decan.rulerName}</span>
+              <span style="color: ${rulerCol}; font-weight: 600; cursor: pointer;" onclick="if(typeof openFactionPage==='function')openFactionPage(${decan.rulerFaction})" title="Open ${decan.rulerName} Faction Dossier">Ruler: ${decan.rulerGlyph} ${decan.rulerName} ↗</span>
             </div>
             <div style="width: 100%; height: 5px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden;">
               <div style="width: ${decan.progressPct}%; height: 100%; background: linear-gradient(90deg, #d8b46a, #ffd700); border-radius: 3px; transition: width 0.3s ease;"></div>
@@ -964,10 +965,17 @@
         const decanWins = (state.decanVictories && state.decanVictories[item.id]) || 0;
         
         container.innerHTML += `
-          <div class="standings-item ${isMe ? 'me' : ''}">
+          <div class="standings-item ${isMe ? 'me' : ''} interactive"
+               onclick="if(typeof openFactionPage==='function')openFactionPage(${item.id})"
+               onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();if(typeof openFactionPage==='function')openFactionPage(${item.id})}"
+               tabindex="0"
+               role="button"
+               aria-label="Inspect ${name} Faction Dossier"
+               title="Inspect ${name} Faction Dossier (Members, Tarot, Planet Profile)">
             <div style="display:flex; align-items:center; gap:6px;">
               <span>#${index + 1} &nbsp; ${glyph} ${name}</span>
               ${decanWins > 0 ? `<span style="font-size:9.5px; color:#ffd700; background:rgba(255,215,0,0.15); padding:1px 5px; border-radius:10px; border:1px solid rgba(255,215,0,0.3);" title="${decanWins} Decan Victories">👑 ${decanWins}</span>` : ''}
+              <span class="standings-item-arrow" aria-hidden="true">↗</span>
             </div>
             <span>${item.score} pts</span>
           </div>
