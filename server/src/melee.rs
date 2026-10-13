@@ -1354,14 +1354,23 @@ mod tests {
         ];
         assert_eq!(detect_melds(&tens, Suit::Wands, &NEUTRAL_LADDER), 80);
 
-        // Lightning Flash in Pentacles: 4-5-6-7
+        // Lightning Flash in Pentacles: 3-4-5-6 (ranks 3..6 avoid Decan Trines of Taurus [5,6,7] and Capricorn [2,3,4])
         let flash = vec![
+            minor(1, Suit::Pentacles, 3),
+            minor(2, Suit::Pentacles, 4),
+            minor(3, Suit::Pentacles, 5),
+            minor(4, Suit::Pentacles, 6),
+        ];
+        assert_eq!(detect_melds(&flash, Suit::Wands, &NEUTRAL_LADDER), 50);
+
+        // 4-5-6-7 in Pentacles stacks with Taurus Decan Trine (5-6-7 = 40): 40 + 50 = 90
+        let flash_stacked = vec![
             minor(1, Suit::Pentacles, 4),
             minor(2, Suit::Pentacles, 5),
             minor(3, Suit::Pentacles, 6),
             minor(4, Suit::Pentacles, 7),
         ];
-        assert_eq!(detect_melds(&flash, Suit::Wands, &NEUTRAL_LADDER), 50);
+        assert_eq!(detect_melds(&flash_stacked, Suit::Wands, &NEUTRAL_LADDER), 90);
     }
 
     // ── Dealing ─────────────────────────────────────────────────────────────

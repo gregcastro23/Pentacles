@@ -1,19 +1,19 @@
 // ============================================================================
-// Pentacles — Interactive Tree of Life Meld Map & Rules Codex
+// Pentacles — Interactive Tree of Life Meld Map, Suggester & Rules Codex
 // ============================================================================
 
 (function () {
   const SEPHIROTH = [
-    { id: 1, name: "Kether", title: "The Crown", x: 200, y: 45, pip: "Aces (1)", color: "#ffffff", stroke: "#e6c35c", planet: "Primum Mobile", glyph: "☉" },
-    { id: 2, name: "Chokmah", title: "Wisdom", x: 320, y: 115, pip: "Twos (2)", color: "#9ca3af", stroke: "#cbd5e1", planet: "Uranus / Zodiac", glyph: "♅" },
-    { id: 3, name: "Binah", title: "Understanding", x: 80, y: 115, pip: "Threes (3)", color: "#1e1b4b", stroke: "#6366f1", planet: "Saturn", glyph: "♄" },
-    { id: 4, name: "Chesed", title: "Mercy", x: 320, y: 235, pip: "Fours (4)", color: "#1e3a8a", stroke: "#3b82f6", planet: "Jupiter", glyph: "♃" },
-    { id: 5, name: "Geburah", title: "Strength", x: 80, y: 235, pip: "Fives (5)", color: "#7f1d1d", stroke: "#ef4444", planet: "Mars", glyph: "♂" },
-    { id: 6, name: "Tiphareth", title: "Beauty & Harmony", x: 200, y: 310, pip: "Sixes (6)", color: "#ca8a04", stroke: "#facc15", planet: "Sun", glyph: "☉" },
-    { id: 7, name: "Netzach", title: "Victory", x: 320, y: 430, pip: "Sevens (7)", color: "#14532d", stroke: "#22c55e", planet: "Venus", glyph: "♀" },
-    { id: 8, name: "Hod", title: "Splendor", x: 80, y: 430, pip: "Eights (8)", color: "#7c2d12", stroke: "#f97316", planet: "Mercury", glyph: "☿" },
-    { id: 9, name: "Yesod", title: "Foundation", x: 200, y: 520, pip: "Nines (9)", color: "#581c87", stroke: "#a855f7", planet: "Moon", glyph: "☽" },
-    { id: 10, name: "Malkuth", title: "The Kingdom", x: 200, y: 630, pip: "Tens (10)", color: "#1c1917", stroke: "#d97706", planet: "Earth", glyph: "♁" }
+    { id: 1, name: "Kether", title: "The Crown", hebrew: "כתר", x: 200, y: 45, pip: "Aces (1)", color: "#ffffff", stroke: "#e6c35c", planet: "Primum Mobile", glyph: "☉", arcana: "Fool (0), Magician (I), Priestess (II)" },
+    { id: 2, name: "Chokmah", title: "Wisdom", hebrew: "חכמה", x: 320, y: 115, pip: "Twos (2)", color: "#9ca3af", stroke: "#cbd5e1", planet: "Zodiac / Uranus", glyph: "♅", arcana: "Empress (III), Emperor (IV), Hierophant (V)" },
+    { id: 3, name: "Binah", title: "Understanding", hebrew: "בינה", x: 80, y: 115, pip: "Threes (3)", color: "#1e1b4b", stroke: "#6366f1", planet: "Saturn", glyph: "♄", arcana: "Lovers (VI), Chariot (VII)" },
+    { id: 4, name: "Chesed", title: "Mercy", hebrew: "חסד", x: 320, y: 235, pip: "Fours (4)", color: "#1e3a8a", stroke: "#3b82f6", planet: "Jupiter", glyph: "♃", arcana: "Strength (VIII), Hermit (IX), Wheel (X)" },
+    { id: 5, name: "Geburah", title: "Strength", hebrew: "גבורה", x: 80, y: 235, pip: "Fives (5)", color: "#7f1d1d", stroke: "#ef4444", planet: "Mars", glyph: "♂", arcana: "Justice (XI), Hanged Man (XII)" },
+    { id: 6, name: "Tiphareth", title: "Beauty & Harmony", hebrew: "תפארת", x: 200, y: 310, pip: "Sixes (6)", color: "#ca8a04", stroke: "#facc15", planet: "Sun", glyph: "☉", arcana: "Death (XIII), Temperance (XIV), Devil (XV)" },
+    { id: 7, name: "Netzach", title: "Victory", hebrew: "נצח", x: 320, y: 430, pip: "Sevens (7)", color: "#14532d", stroke: "#22c55e", planet: "Venus", glyph: "♀", arcana: "Tower (XVI), Star (XVII), Moon (XVIII)" },
+    { id: 8, name: "Hod", title: "Splendor", hebrew: "הוד", x: 80, y: 430, pip: "Eights (8)", color: "#7c2d12", stroke: "#f97316", planet: "Mercury", glyph: "☿", arcana: "Sun (XIX), Judgement (XX)" },
+    { id: 9, name: "Yesod", title: "Foundation", hebrew: "יסוד", x: 200, y: 520, pip: "Nines (9)", color: "#581c87", stroke: "#a855f7", planet: "Moon", glyph: "☽", arcana: "The World (XXI)" },
+    { id: 10, name: "Malkuth", title: "The Kingdom", hebrew: "מלכות", x: 200, y: 630, pip: "Tens (10)", color: "#1c1917", stroke: "#d97706", planet: "Earth", glyph: "♁", arcana: "The 4 Worlds Manifest" }
   ];
 
   const PATHS = [
@@ -249,8 +249,102 @@
     }
   ];
 
-  let currentTab = "tree";
+  // Interactive Practice Hands for Seeker Training
+  const PRACTICE_HANDS = {
+    middle_pillar: {
+      name: "The Middle Pillar Alignment",
+      desc: "Demonstrates central vertical equilibrium and Pinochle synergy.",
+      trump: "wands",
+      hand: [
+        { card_id: 1, is_major: true, rank: 2, title: "The High Priestess (II)" },
+        { card_id: 2, is_major: true, rank: 14, title: "Temperance (XIV)" },
+        { card_id: 3, suit: "cups", rank: 6, is_major: false, title: "6 of Cups" },
+        { card_id: 4, suit: "wands", rank: 6, is_major: false, title: "6 of Wands" },
+        { card_id: 5, suit: "swords", rank: 13, is_major: false, title: "Queen of Swords" },
+        { card_id: 6, suit: "wands", rank: 1, is_major: false, title: "Ace of Wands" },
+        { card_id: 7, suit: "pentacles", rank: 1, is_major: false, title: "Ace of Pentacles" }
+      ]
+    },
+    supernal_triad: {
+      name: "The Supernal Ascendant",
+      desc: "Demonstrates Crown cards above the Abyss and Pillar of Severity.",
+      trump: "swords",
+      hand: [
+        { card_id: 10, is_major: true, rank: 0, title: "The Fool (0)" },
+        { card_id: 11, is_major: true, rank: 1, title: "The Magician (I)" },
+        { card_id: 12, suit: "swords", rank: 3, is_major: false, title: "3 of Swords" },
+        { card_id: 13, suit: "swords", rank: 5, is_major: false, title: "5 of Swords" },
+        { card_id: 14, suit: "swords", rank: 8, is_major: false, title: "8 of Swords" },
+        { card_id: 15, suit: "wands", rank: 14, is_major: false, title: "King of Wands" },
+        { card_id: 16, suit: "pentacles", rank: 7, is_major: false, title: "7 of Pentacles" }
+      ]
+    },
+    court_pinochle: {
+      name: "Court of Swords & Pinochle",
+      desc: "Demonstrates complete court sets, marriages, and cross-suit Pinochle.",
+      trump: "swords",
+      hand: [
+        { card_id: 20, suit: "swords", rank: 13, is_major: false, title: "Queen of Swords" },
+        { card_id: 21, suit: "swords", rank: 14, is_major: false, title: "King of Swords" },
+        { card_id: 22, suit: "swords", rank: 11, is_major: false, title: "Page of Swords" },
+        { card_id: 23, suit: "pentacles", rank: 12, is_major: false, title: "Knight of Pentacles" },
+        { card_id: 24, suit: "cups", rank: 5, is_major: false, title: "5 of Cups" },
+        { card_id: 25, suit: "cups", rank: 6, is_major: false, title: "6 of Cups" },
+        { card_id: 26, suit: "cups", rank: 7, is_major: false, title: "7 of Cups" }
+      ]
+    },
+    four_worlds: {
+      name: "Quartet & Grand Cross",
+      desc: "Demonstrates 4-of-a-kind elemental alignments across all realms.",
+      trump: "wands",
+      hand: [
+        { card_id: 30, suit: "wands", rank: 10, is_major: false, title: "10 of Wands" },
+        { card_id: 31, suit: "cups", rank: 10, is_major: false, title: "10 of Cups" },
+        { card_id: 32, suit: "swords", rank: 10, is_major: false, title: "10 of Swords" },
+        { card_id: 33, suit: "wands", rank: 1, is_major: false, title: "Ace of Wands" },
+        { card_id: 34, suit: "cups", rank: 1, is_major: false, title: "Ace of Cups" },
+        { card_id: 35, suit: "swords", rank: 1, is_major: false, title: "Ace of Swords" }
+      ]
+    },
+    decan_lightning: {
+      name: "Taurus Decan & Lightning Strike",
+      desc: "Demonstrates consecutive pip cadence and Decan Trines.",
+      trump: "pentacles",
+      hand: [
+        { card_id: 40, suit: "pentacles", rank: 4, is_major: false, title: "4 of Pentacles" },
+        { card_id: 41, suit: "pentacles", rank: 5, is_major: false, title: "5 of Pentacles" },
+        { card_id: 42, suit: "pentacles", rank: 6, is_major: false, title: "6 of Pentacles" },
+        { card_id: 43, suit: "pentacles", rank: 7, is_major: false, title: "7 of Pentacles" },
+        { card_id: 44, suit: "wands", rank: 6, is_major: false, title: "6 of Wands" },
+        { card_id: 45, suit: "cups", rank: 6, is_major: false, title: "6 of Cups" }
+      ]
+    }
+  };
+
+  let currentTab = "advisor"; // Default to advisor to directly teach players
   let activeMeldId = "the_middle_pillar";
+  let activePracticeKey = "middle_pillar";
+  let inspectedNodeId = null;
+  let inspectedPathId = null;
+  let targetNodeIds = [];
+  let targetPathIds = [];
+
+  function getActiveHandData() {
+    if (activePracticeKey === "live" && typeof window !== "undefined" && window.melee && Array.isArray(window.melee.playerHand) && window.melee.playerHand.length > 0) {
+      return {
+        name: "⚡ Live Game Hand",
+        desc: "Your live 12-card hand currently seated in the Melee War Table.",
+        trump: window.melee.trumpSuit || "wands",
+        hand: window.melee.playerHand,
+        ladder: window.melee.arcanaLadder || {}
+      };
+    }
+    const preset = PRACTICE_HANDS[activePracticeKey] || PRACTICE_HANDS.middle_pillar;
+    return {
+      ...preset,
+      ladder: { 0: 50, 1: 80, 2: 70, 14: 65, 21: 95 }
+    };
+  }
 
   function renderTreeSvg(selectedMeld) {
     const activeNodes = selectedMeld ? selectedMeld.sephiroth || [] : [];
@@ -262,31 +356,45 @@
       const toNode = SEPHIROTH.find((s) => s.id === p.to);
       if (!fromNode || !toNode) return "";
       const isLit = activePaths.includes(p.id);
-      const strokeColor = isLit ? "#ffd700" : "rgba(255, 255, 255, 0.12)";
-      const strokeWidth = isLit ? 3.5 : 1.2;
-      const glow = isLit ? `filter="url(#glow)"` : "";
+      const isTarget = targetPathIds.includes(p.id);
+      let strokeColor = "rgba(255, 255, 255, 0.12)";
+      let strokeWidth = 1.2;
+      let glow = "";
+      if (isLit) {
+        strokeColor = "#ffd700";
+        strokeWidth = 3.5;
+        glow = `filter="url(#glow)"`;
+      } else if (isTarget) {
+        strokeColor = "#38bdf8";
+        strokeWidth = 3.0;
+        glow = `filter="url(#cyanGlow)"`;
+      }
       return `
         <line x1="${fromNode.x}" y1="${fromNode.y}" x2="${toNode.x}" y2="${toNode.y}" 
               stroke="${strokeColor}" stroke-width="${strokeWidth}" stroke-linecap="round" ${glow} 
-              data-path="${p.id}" class="tol-path ${isLit ? 'lit' : ''}" />
+              data-path="${p.id}" class="tol-path ${isLit ? 'lit' : ''} ${isTarget ? 'target' : ''}"
+              onclick="MeldMapUI.inspectPath(${p.id})" style="cursor:pointer;" />
         ${isLit ? `<circle cx="${(fromNode.x + toNode.x) / 2}" cy="${(fromNode.y + toNode.y) / 2}" r="4" fill="#ffd700" />` : ''}
+        ${isTarget ? `<circle cx="${(fromNode.x + toNode.x) / 2}" cy="${(fromNode.y + toNode.y) / 2}" r="4.5" fill="#38bdf8" class="pulse-ring" />` : ''}
       `;
     }).join("");
 
     // Draw Sephiroth (circles)
     const nodesSvg = SEPHIROTH.map((s) => {
       const isLit = activeNodes.includes(s.id);
-      const r = isLit ? 26 : 22;
-      const strokeW = isLit ? 3 : 1.5;
-      const strokeCol = isLit ? "#ffd700" : s.stroke;
-      const fillCol = isLit ? "rgba(250, 204, 21, 0.25)" : "rgba(15, 23, 42, 0.85)";
+      const isTarget = targetNodeIds.includes(s.id);
+      const isInspected = inspectedNodeId === s.id;
+      const r = isLit || isTarget ? 26 : 22;
+      const strokeW = isLit || isTarget ? 3 : (isInspected ? 2.5 : 1.5);
+      let strokeCol = isLit ? "#ffd700" : (isTarget ? "#38bdf8" : (isInspected ? "#fff" : s.stroke));
+      let fillCol = isLit ? "rgba(250, 204, 21, 0.25)" : (isTarget ? "rgba(56, 189, 248, 0.25)" : "rgba(15, 23, 42, 0.85)");
       const textCol = isLit ? "#ffffff" : "#e2e8f0";
       return `
-        <g class="tol-node ${isLit ? 'lit' : ''}" transform="translate(${s.x}, ${s.y})" data-node="${s.id}">
-          <circle r="${r + 4}" fill="none" stroke="${isLit ? 'rgba(250, 204, 21, 0.4)' : 'transparent'}" stroke-width="1.5" class="pulse-ring" />
+        <g class="tol-node ${isLit ? 'lit' : ''} ${isTarget ? 'target-node' : ''}" transform="translate(${s.x}, ${s.y})" data-node="${s.id}" onclick="MeldMapUI.inspectNode(${s.id})" style="cursor:pointer;">
+          <circle r="${r + 4}" fill="none" stroke="${isLit ? 'rgba(250, 204, 21, 0.4)' : (isTarget ? 'rgba(56, 189, 248, 0.5)' : 'transparent')}" stroke-width="1.5" class="${isLit || isTarget ? 'pulse-ring' : ''}" />
           <circle r="${r}" fill="${fillCol}" stroke="${strokeCol}" stroke-width="${strokeW}" />
           <text text-anchor="middle" dy="-3" fill="${textCol}" font-size="10" font-weight="bold" font-family="'Space Grotesk', sans-serif">${s.id}</text>
-          <text text-anchor="middle" dy="9" fill="${isLit ? '#ffd700' : 'rgba(216, 180, 106, 0.8)'}" font-size="7.5" font-family="'Cinzel', serif">${s.name}</text>
+          <text text-anchor="middle" dy="9" fill="${isLit ? '#ffd700' : (isTarget ? '#38bdf8' : 'rgba(216, 180, 106, 0.8)')}" font-size="7.5" font-family="'Cinzel', serif">${s.name}</text>
         </g>
       `;
     }).join("");
@@ -296,6 +404,10 @@
         <defs>
           <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
             <feGaussianBlur stdDeviation="3" result="blur" />
+            <feComposite in="SourceGraphic" in2="blur" operator="over" />
+          </filter>
+          <filter id="cyanGlow" x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur stdDeviation="3.5" result="blur" />
             <feComposite in="SourceGraphic" in2="blur" operator="over" />
           </filter>
         </defs>
@@ -338,6 +450,12 @@
         <div class="mm-tip-box">
           <b style="color:var(--gold-bright);">✦ Strategy &amp; Mechanics:</b> ${meld.tips}
         </div>
+
+        <div style="margin-top:14px; display:flex; gap:8px;">
+          <button type="button" class="btn mm-action-btn" onclick="MeldMapUI.setTab('advisor');" style="font-size:10.5px; padding:5px 12px; background:rgba(216,180,106,0.15); border:1px solid var(--gold-bright); color:var(--gold-bright); cursor:pointer; border-radius:4px;">
+            🔮 Test Hand in Advisor
+          </button>
+        </div>
       </div>
     `;
   }
@@ -356,6 +474,125 @@
         </div>
       `;
     }).join("");
+  }
+
+  function renderAdvisorView() {
+    const handData = getActiveHandData();
+    const engine = typeof window !== "undefined" && window.ArcanaTrickEngine ? window.ArcanaTrickEngine : null;
+    const analysis = engine && typeof engine.analyzeMeldOpportunities === "function"
+      ? engine.analyzeMeldOpportunities(handData.hand, handData.trump, handData.ladder)
+      : { activeMelds: [], totalMeldScore: 0, opportunities: [], cardRoles: {} };
+
+    const activeMeldsHTML = analysis.activeMelds.length > 0
+      ? analysis.activeMelds.map(m => `
+          <div class="mm-adv-active-pill" onclick="MeldMapUI.selectMeld('${m.id}')" title="Click to view sacred geometry on the Tree">
+            <span style="color:#ffd700; font-weight:bold;">✦ ${m.name}</span>
+            <span class="mm-adv-pts">+${m.value} PTS</span>
+          </div>
+        `).join('')
+      : `<div style="font-size:11.5px; color:var(--dim); font-style:italic;">No complete melds formed in this hand yet. Check Opportunities below!</div>`;
+
+    const oppsHTML = analysis.opportunities.length > 0
+      ? analysis.opportunities.map(opp => {
+          const pct = Math.round((opp.progress.held / opp.progress.needed) * 100);
+          return `
+            <div class="mm-opp-card" onclick="MeldMapUI.highlightOpportunity('${opp.targetMeldId}')">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px;">
+                <div>
+                  <div style="display:flex; align-items:center; gap:6px;">
+                    <span class="mm-opp-badge">1 CARD AWAY</span>
+                    <b style="font-size:13px; color:#fff;">${opp.name}</b>
+                  </div>
+                  <div style="font-size:11px; color:#38bdf8; margin-top:2px; font-weight:500;">
+                    🎯 Needs: <b>${opp.missing}</b>
+                  </div>
+                </div>
+                <div style="font-size:13px; color:#ffd700; font-weight:bold; font-family:var(--mono);">+${opp.potentialPoints} PTS</div>
+              </div>
+
+              <!-- Progress Bar -->
+              <div class="mm-progress-bar">
+                <div class="mm-progress-fill" style="width:${pct}%;"></div>
+              </div>
+              <div style="display:flex; justify-content:space-between; font-size:10px; color:var(--dim); margin:4px 0 8px 0;">
+                <span>Cards Held: <b>${opp.progress.held} / ${opp.progress.needed}</b></span>
+                <span>${pct}% Complete</span>
+              </div>
+
+              <div class="mm-opp-hint">
+                💡 <b>Tactical Advice:</b> ${opp.hint}
+              </div>
+            </div>
+          `;
+        }).join('')
+      : `<div style="font-size:12px; color:var(--dim); font-style:italic; padding:10px;">No near-melds detected. Experiment with other practice loadouts!</div>`;
+
+    const cardsHTML = handData.hand.map(c => {
+      const cid = c.card_id !== undefined ? String(c.card_id) : `${c.suit || 'major'}_${c.rank}`;
+      const role = analysis.cardRoles[cid] || { active: [], potential: [] };
+      const hasActive = role.active.length > 0;
+      const hasPotential = role.potential.length > 0;
+      return `
+        <div class="mm-hand-chip ${hasActive ? 'active-meld' : ''} ${hasPotential ? 'potential-meld' : ''}" title="${hasActive ? 'Active in ' + role.active.map(a => a.name).join(', ') : (hasPotential ? 'Near ' + role.potential.map(p => p.name).join(', ') : 'Standard card')}">
+          <div style="font-size:11px; font-weight:bold; color:${c.is_major ? '#ffd700' : '#fff'};">
+            ${c.is_major ? c.title : `${c.rank} of ${(c.suit || '').toUpperCase()}`}
+          </div>
+          <div style="display:flex; gap:4px; margin-top:3px; flex-wrap:wrap;">
+            ${hasActive ? `<span class="mm-chip-tag active">✦ MELD (${role.active.length})</span>` : ''}
+            ${hasPotential ? `<span class="mm-chip-tag potential">💡 OPP (${role.potential.length})</span>` : ''}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    return `
+      <div class="mm-advisor-pane">
+        <!-- Practice Hand Selector -->
+        <div class="mm-hand-selector-bar">
+          <span style="font-size:10.5px; font-weight:bold; color:var(--gold-bright); text-transform:uppercase; letter-spacing:0.5px;">Loadout:</span>
+          ${typeof window !== "undefined" && window.melee && window.melee.playerHand ? `<button class="mm-preset-btn ${activePracticeKey === 'live' ? 'active' : ''}" onclick="MeldMapUI.setPracticeHand('live')">⚡ Live Game Hand</button>` : ''}
+          <button class="mm-preset-btn ${activePracticeKey === 'middle_pillar' ? 'active' : ''}" onclick="MeldMapUI.setPracticeHand('middle_pillar')">👑 Middle Pillar</button>
+          <button class="mm-preset-btn ${activePracticeKey === 'supernal_triad' ? 'active' : ''}" onclick="MeldMapUI.setPracticeHand('supernal_triad')">🌟 Supernal Triad</button>
+          <button class="mm-preset-btn ${activePracticeKey === 'court_pinochle' ? 'active' : ''}" onclick="MeldMapUI.setPracticeHand('court_pinochle')">⚔️ Court &amp; Pinochle</button>
+          <button class="mm-preset-btn ${activePracticeKey === 'four_worlds' ? 'active' : ''}" onclick="MeldMapUI.setPracticeHand('four_worlds')">🌍 Four Worlds</button>
+          <button class="mm-preset-btn ${activePracticeKey === 'decan_lightning' ? 'active' : ''}" onclick="MeldMapUI.setPracticeHand('decan_lightning')">⚡ Taurus &amp; Cadence</button>
+        </div>
+
+        <div style="margin:10px 0 14px 0; font-size:11px; color:#cbd5e1; background:rgba(0,0,0,0.3); padding:8px 12px; border-radius:6px; border:1px solid rgba(255,255,255,0.06);">
+          <b>${handData.name}:</b> ${handData.desc} (Trump: <span style="color:var(--gold-bright); font-weight:bold;">${handData.trump.toUpperCase()}</span>)
+        </div>
+
+        <!-- Active Scored Melds -->
+        <div class="mm-adv-section">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <span style="font-size:12px; font-weight:bold; color:var(--gold-bright); letter-spacing:0.5px;">✦ ACTIVE MELDS SCORED</span>
+            <span style="font-size:12px; color:#ffd700; font-weight:bold; font-family:var(--mono);">TOTAL: +${analysis.totalMeldScore} PTS</span>
+          </div>
+          <div class="mm-adv-active-list">
+            ${activeMeldsHTML}
+          </div>
+        </div>
+
+        <!-- Proactive Suggestions / Near-Melds -->
+        <div class="mm-adv-section" style="margin-top:16px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <span style="font-size:12px; font-weight:bold; color:#38bdf8; letter-spacing:0.5px;">🔮 MELD OPPORTUNITIES (1 CARD AWAY)</span>
+            <span style="font-size:11px; color:var(--dim);">Click to trace on Tree</span>
+          </div>
+          <div class="mm-opps-list">
+            ${oppsHTML}
+          </div>
+        </div>
+
+        <!-- Cards Roster -->
+        <div class="mm-adv-section" style="margin-top:16px;">
+          <div style="font-size:12px; font-weight:bold; color:#e2e8f0; margin-bottom:8px; letter-spacing:0.5px;">🎴 CARDS IN HAND &amp; MELD ROLES</div>
+          <div class="mm-hand-chips-grid">
+            ${cardsHTML}
+          </div>
+        </div>
+      </div>
+    `;
   }
 
   function renderRulesView() {
@@ -422,19 +659,77 @@
     `;
   }
 
+  function renderInspectorBox() {
+    if (inspectedNodeId) {
+      const s = SEPHIROTH.find(node => node.id === inspectedNodeId);
+      if (!s) return "";
+      const meldsUsing = MELDS_CATALOG.filter(m => (m.sephiroth || []).includes(s.id));
+      return `
+        <div class="mm-inspect-card">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <b style="color:var(--gold-bright); font-size:12px;">Sephirah ${s.id}: ${s.name} (${s.hebrew})</b>
+            <span style="font-size:10px; color:var(--dim); cursor:pointer;" onclick="MeldMapUI.clearInspect()">✕ Close</span>
+          </div>
+          <div style="font-size:11px; color:#cbd5e1; margin-top:3px;">
+            <b>${s.title}</b> · Planet: <b>${s.planet} ${s.glyph}</b> · Minor Pips: <b>${s.pip}</b>
+          </div>
+          <div style="font-size:10px; color:var(--dim); margin-top:4px;">
+            Associated Major Paths: ${s.arcana}
+          </div>
+          <div style="font-size:10px; color:var(--gold-bright); margin-top:6px;">
+            ✦ Key Melds: ${meldsUsing.slice(0, 4).map(m => m.name).join(', ')}
+          </div>
+        </div>
+      `;
+    }
+    if (inspectedPathId) {
+      const p = PATHS.find(path => path.id === inspectedPathId);
+      if (!p) return "";
+      const meldsUsing = MELDS_CATALOG.filter(m => (m.paths || []).includes(p.id));
+      return `
+        <div class="mm-inspect-card">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <b style="color:var(--gold-bright); font-size:12px;">${p.title}</b>
+            <span style="font-size:10px; color:var(--dim); cursor:pointer;" onclick="MeldMapUI.clearInspect()">✕ Close</span>
+          </div>
+          <div style="font-size:11px; color:#cbd5e1; margin-top:3px;">
+            Tarot Major: <b style="color:#ffd700;">${p.name} (Arcana ${p.major})</b> · Hebrew: <b>${p.letter}</b>
+          </div>
+          <div style="font-size:10px; color:var(--gold-bright); margin-top:6px;">
+            ✦ Melds Utilizing This Path: ${meldsUsing.map(m => m.name).join(', ') || 'Elemental & Astrological Transitions'}
+          </div>
+        </div>
+      `;
+    }
+    return "";
+  }
+
   function updateUI() {
     const container = document.getElementById("meld-map-content");
     if (!container) return;
 
     const selMeld = MELDS_CATALOG.find((m) => m.id === activeMeldId) || MELDS_CATALOG[0];
 
+    let rightPaneHTML = "";
     if (currentTab === "rules") {
-      container.innerHTML = `
+      rightPaneHTML = `
         <div class="mm-layout-rules">
           ${renderRulesView()}
         </div>
       `;
-      return;
+    } else if (currentTab === "advisor") {
+      rightPaneHTML = renderAdvisorView();
+    } else {
+      rightPaneHTML = `
+        <div class="mm-catalog-split">
+          <div class="mm-list-container">
+            ${renderMeldList(currentTab)}
+          </div>
+          <div class="mm-detail-container">
+            ${renderMeldDetails(selMeld)}
+          </div>
+        </div>
+      `;
     }
 
     container.innerHTML = `
@@ -448,14 +743,16 @@
           <div class="mm-svg-wrap">
             ${renderTreeSvg(selMeld)}
           </div>
+          ${renderInspectorBox()}
           <div style="font-size:9.5px; color:var(--dim); text-align:center; padding-top:6px;">
-            Gold nodes &amp; paths illuminate cards in the selected Meld
+            Click any Sephirah or Path to inspect divine attributes · Gold = Melds · Cyan = Opportunities
           </div>
         </div>
 
-        <!-- Right: Meld Catalog & Breakdown -->
+        <!-- Right: Meld Catalog, Advisor & Breakdown -->
         <div class="mm-catalog-pane">
           <div class="mm-tabs">
+            <button class="mm-tab-btn mm-tab-advisor ${currentTab === 'advisor' ? 'active' : ''}" onclick="MeldMapUI.setTab('advisor')">🔮 Meld Suggester / Advisor</button>
             <button class="mm-tab-btn ${currentTab === 'tree' ? 'active' : ''}" onclick="MeldMapUI.setTab('tree')">🌟 Tree Alignments</button>
             <button class="mm-tab-btn ${currentTab === 'sephiric' ? 'active' : ''}" onclick="MeldMapUI.setTab('sephiric')">🏛️ Sephiric &amp; Numbers</button>
             <button class="mm-tab-btn ${currentTab === 'court' ? 'active' : ''}" onclick="MeldMapUI.setTab('court')">👑 Court Pairs</button>
@@ -464,13 +761,8 @@
             <button class="mm-tab-btn mm-tab-rules ${currentTab === 'rules' ? 'active' : ''}" onclick="MeldMapUI.setTab('rules')">📖 Rules &amp; Math</button>
           </div>
 
-          <div class="mm-catalog-split">
-            <div class="mm-list-container">
-              ${renderMeldList(currentTab)}
-            </div>
-            <div class="mm-detail-container">
-              ${renderMeldDetails(selMeld)}
-            </div>
+          <div class="mm-pane-body">
+            ${rightPaneHTML}
           </div>
         </div>
       </div>
@@ -479,7 +771,26 @@
 
   const api = {
     open(meldId) {
-      if (meldId) activeMeldId = meldId;
+      if (meldId) {
+        activeMeldId = meldId;
+        const matched = MELDS_CATALOG.find(m => m.id === meldId);
+        if (matched) currentTab = matched.category || "tree";
+      }
+      targetNodeIds = [];
+      targetPathIds = [];
+      inspectedNodeId = null;
+      inspectedPathId = null;
+      const modal = typeof document !== "undefined" ? document.getElementById("meld-map-modal") : null;
+      if (modal) modal.style.display = "flex";
+      updateUI();
+    },
+    openAdvisor(practiceKey = null) {
+      currentTab = "advisor";
+      if (practiceKey) activePracticeKey = practiceKey;
+      targetNodeIds = [];
+      targetPathIds = [];
+      inspectedNodeId = null;
+      inspectedPathId = null;
       const modal = typeof document !== "undefined" ? document.getElementById("meld-map-modal") : null;
       if (modal) modal.style.display = "flex";
       updateUI();
@@ -490,17 +801,62 @@
     },
     setTab(tab) {
       currentTab = tab;
-      const first = MELDS_CATALOG.find((m) => tab === "all" || m.category === tab);
-      if (first) activeMeldId = first.id;
+      targetNodeIds = [];
+      targetPathIds = [];
+      if (tab !== "advisor" && tab !== "rules") {
+        const first = MELDS_CATALOG.find((m) => tab === "all" || m.category === tab);
+        if (first) activeMeldId = first.id;
+      }
       updateUI();
     },
     selectMeld(id) {
       activeMeldId = id;
+      targetNodeIds = [];
+      targetPathIds = [];
+      inspectedNodeId = null;
+      inspectedPathId = null;
+      const matched = MELDS_CATALOG.find(m => m.id === id);
+      if (matched && currentTab === "advisor") {
+        // keep advisor but illuminate meld
+      } else if (matched && currentTab !== "advisor") {
+        currentTab = matched.category || "tree";
+      }
+      updateUI();
+    },
+    highlightOpportunity(targetMeldId) {
+      const meld = MELDS_CATALOG.find(m => m.id === targetMeldId);
+      if (meld) {
+        activeMeldId = meld.id;
+        targetNodeIds = meld.sephiroth || [];
+        targetPathIds = meld.paths || [];
+        updateUI();
+      }
+    },
+    inspectNode(nodeId) {
+      inspectedNodeId = nodeId;
+      inspectedPathId = null;
+      updateUI();
+    },
+    inspectPath(pathId) {
+      inspectedPathId = pathId;
+      inspectedNodeId = null;
+      updateUI();
+    },
+    clearInspect() {
+      inspectedNodeId = null;
+      inspectedPathId = null;
+      updateUI();
+    },
+    setPracticeHand(key) {
+      activePracticeKey = key;
+      targetNodeIds = [];
+      targetPathIds = [];
       updateUI();
     },
     MELDS_CATALOG,
     SEPHIROTH,
-    PATHS
+    PATHS,
+    PRACTICE_HANDS
   };
 
   if (typeof window !== "undefined") window.MeldMapUI = api;

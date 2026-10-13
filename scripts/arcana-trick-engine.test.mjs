@@ -314,7 +314,29 @@ assert.ok(triadMeldIds.includes("the_three_mothers"), "Must detect The Three Mot
 assert.ok(triadMeldIds.includes("the_solar_heart"), "Must detect The Solar Heart (60 pts)");
 assert.ok(triadMeldIds.includes("quartet_6"), "Must detect Quartet of the Four Worlds (80 pts)");
 
-console.log("  ✓ Melds detection validated (including Tree of Life & Sephiric alignments)");
+// Test Meld Opportunities / Suggestions (Near-Melds & Proactive Teaching)
+const nearHand = [
+  // 2 of 3 for The Middle Pillar (II High Priestess + XIV Temperance, missing XXI The World)
+  { card_id: 1, is_major: true, rank: 2, title: "The High Priestess" },
+  { card_id: 2, is_major: true, rank: 14, title: "Temperance" },
+  // 1 of 2 for Pinochle (holds Queen of Swords, missing Knight of Pentacles)
+  { card_id: 3, suit: "swords", rank: 13, is_major: false, title: "Queen of Swords" },
+  // 2 of 3 for Solar Heart (two 6s, needs 3rd 6)
+  { card_id: 4, suit: "wands", rank: 6, is_major: false, title: "6 of Wands" },
+  { card_id: 5, suit: "cups", rank: 6, is_major: false, title: "6 of Cups" },
+  // 2 of 3 for Pillar of Severity in Swords (3 and 5, missing 8)
+  { card_id: 6, suit: "swords", rank: 3, is_major: false, title: "3 of Swords" },
+  { card_id: 7, suit: "swords", rank: 5, is_major: false, title: "5 of Swords" }
+];
+
+const analysis = Engine.analyzeMeldOpportunities(nearHand, "wands", testLadder);
+assert.ok(analysis.opportunities.length > 0, "Must detect meld opportunities");
+assert.ok(analysis.opportunities.some(o => o.targetMeldId === "the_middle_pillar"), "Must suggest The Middle Pillar");
+assert.ok(analysis.opportunities.some(o => o.targetMeldId === "pinochle"), "Must suggest Pinochle");
+assert.ok(analysis.opportunities.some(o => o.targetMeldId === "the_solar_heart"), "Must suggest The Solar Heart");
+assert.ok(analysis.cardRoles["3"].potential.some(p => p.id === "opp_pinochle"), "Queen of Swords must map to Pinochle opportunity");
+
+console.log("  ✓ Melds detection & proactive suggestions validated (including Tree of Life & Sephiric alignments)");
 
 console.log("▶ Testing Section 8: Full Melee Match Simulation");
 

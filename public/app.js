@@ -2484,13 +2484,26 @@
         melee.arcanaLadder
       ) : melee.playerHand.map(c => ({ card: c, legal: true }));
 
+      // Meld analysis & opportunities (near-melds)
+      const meldAnalysis = (Engine && typeof Engine.analyzeMeldOpportunities === "function")
+        ? Engine.analyzeMeldOpportunities(melee.playerHand, melee.trumpSuit, melee.arcanaLadder)
+        : { activeMelds: melee.playerMelds || [], totalMeldScore: 0, opportunities: [], cardRoles: {} };
+
       // Melds pills HTML
       let meldsHTML = "";
-      if (melee.playerMelds && melee.playerMelds.length > 0) {
-        meldsHTML = melee.playerMelds.map(m => `<span class="melee-meld-pill" style="cursor:pointer;" onclick="if(window.MeldMapUI) window.MeldMapUI.open('${m.id}');" title="${m.name} — Click to inspect in Tree of Life Meld Map">✦ ${m.name} (+${m.value})</span>`).join("");
-      } else {
-        meldsHTML = `<span style="color:var(--dim); font-size:10px; cursor:pointer;" onclick="if(window.MeldMapUI) window.MeldMapUI.open();" title="Click to view all possible melds in the Meld Map">No starting melds in current deal · <u>View Meld Map ↗</u></span>`;
+      const activePills = (melee.playerMelds && melee.playerMelds.length > 0)
+        ? melee.playerMelds.map(m => `<span class="melee-meld-pill" style="cursor:pointer;" onclick="if(window.MeldMapUI) window.MeldMapUI.open('${m.id}');" title="${m.name} — Click to inspect in Tree of Life Meld Map">✦ ${m.name} (+${m.value})</span>`).join("")
+        : `<span style="color:var(--dim); font-size:10px;">No starting melds scored</span>`;
+
+      // Top near-meld opportunity suggestion pill
+      let oppPill = "";
+      if (meldAnalysis.opportunities && meldAnalysis.opportunities.length > 0) {
+        const topOpp = meldAnalysis.opportunities[0];
+        oppPill = `<span class="melee-meld-pill melee-opp-pill" style="cursor:pointer;" onclick="if(window.MeldMapUI) window.MeldMapUI.openAdvisor('live');" title="1 Card Away: ${topOpp.name} — Click to open Meld Advisor">💡 1 Away: ${topOpp.name} (+${topOpp.potentialPoints})</span>`;
       }
+
+      const advisorBtn = `<button type="button" class="btn melee-advisor-btn" onclick="if(window.MeldMapUI) window.MeldMapUI.openAdvisor('live');" title="Open Meld Advisor &amp; Hand Suggester">🔮 Advisor</button>`;
+      meldsHTML = `<div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">${activePills}${oppPill}${advisorBtn}</div>`;
 
       // Trick cards played on table
       const playsToRender = (melee.currentTrick && melee.currentTrick.length > 0) ? melee.currentTrick : (melee.lastTrickPlays || []);
@@ -2578,14 +2591,27 @@
         const pot = c.is_major && melee.arcanaLadder ? (melee.arcanaLadder[c.rank] || 50) : null;
         const counters = Engine ? Engine.counterValue(c) : 0;
 
+        const cid = c.card_id !== undefined ? String(c.card_id) : `${c.suit || 'major'}_${c.rank}`;
+        const roles = meldAnalysis.cardRoles ? (meldAnalysis.cardRoles[cid] || { active: [], potential: [] }) : { active: [], potential: [] };
+        const hasActiveMeld = roles.active && roles.active.length > 0;
+        const hasPotentialMeld = roles.potential && roles.potential.length > 0;
+        const meldBadgeHTML = hasActiveMeld
+          ? `<span class="meld-role-badge active" title="Active Meld: ${roles.active.map(a => a.name).join(', ')}">✦ MELD</span>`
+          : (hasPotentialMeld
+              ? `<span class="meld-role-badge potential" title="Opportunity: ${roles.potential.map(p => p.name).join(', ')} (Keep this card!)">💡 OPP</span>`
+              : '');
+
         handHTML += `
-          <div class="melee-card-chip ${legal ? 'legal' : 'illegal'} ${cSuit}"
+          <div class="melee-card-chip ${legal ? 'legal' : 'illegal'} ${cSuit} ${hasActiveMeld ? 'has-active-meld' : ''} ${hasPotentialMeld ? 'has-near-meld' : ''}"
                data-reason="${reason}"
                ${legal ? `onclick="window.playCardIntoRitual(${c.card_id}, '${targetType}', ${targetId})"` : ''}
                title="${legal ? 'Click to Play' : reason}">
             <div style="display:flex; justify-content:space-between; width:100%; align-items:center;">
               ${suitImg && !c.is_major ? `<img src="${suitImg}" style="width:13px; height:13px; object-fit:contain;" />` : `<span style="font-size:11px;"><span class="sr-only">${suitName}</span><span aria-hidden="true">${glyph}</span></span>`}
-              ${counters > 0 ? `<span style="font-size:8.5px; font-weight:bold; color:#ffd700;">★${counters}</span>` : ''}
+              <div style="display:flex; align-items:center; gap:2px;">
+                ${meldBadgeHTML}
+                ${counters > 0 ? `<span style="font-size:8.5px; font-weight:bold; color:#ffd700;">★${counters}</span>` : ''}
+              </div>
             </div>
             <div style="font-size:9.5px; font-weight:bold; text-align:center; line-height:1.1; color:${c.is_major ? '#ffd700' : (isTrump ? 'var(--gold-bright)' : '#fff')};">
               ${c.is_major ? c.title : rankName(c.rank)}
@@ -2688,7 +2714,10 @@
         <div style="display:flex; flex-direction:column; gap:2px;">
           <div style="display:flex; justify-content:space-between; align-items:center;">
             <span style="font-size:8.5px; font-weight:bold; color:var(--dim); text-transform:uppercase; letter-spacing:0.5px;">Your Starting Melds &amp; Honours</span>
-            <button type="button" class="btn" style="font-size:8.5px; padding:1px 8px; border-color:var(--gold-bright); color:var(--gold-bright); background:rgba(216,180,106,0.12); cursor:pointer;" onclick="if(window.MeldMapUI) window.MeldMapUI.open();" title="Open Tree of Life Meld Map &amp; Rules">✦ Meld Map &amp; Rules</button>
+            <div style="display:flex; gap:6px;">
+              <button type="button" class="btn" style="font-size:8.5px; padding:1px 8px; border-color:#38bdf8; color:#38bdf8; background:rgba(56,189,248,0.12); cursor:pointer;" onclick="if(window.MeldMapUI) window.MeldMapUI.openAdvisor('live');" title="Open Meld Advisor &amp; Hand Suggester">🔮 Advisor</button>
+              <button type="button" class="btn" style="font-size:8.5px; padding:1px 8px; border-color:var(--gold-bright); color:var(--gold-bright); background:rgba(216,180,106,0.12); cursor:pointer;" onclick="if(window.MeldMapUI) window.MeldMapUI.open();" title="Open Tree of Life Meld Map &amp; Rules">✦ Meld Map &amp; Rules</button>
+            </div>
           </div>
           <div class="melee-melds-strip">
             ${meldsHTML}
