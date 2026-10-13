@@ -182,13 +182,20 @@ describe("War archive values", () => {
     expect(seatRecords(result(8, T0, { isVoid: true })).some((s) => s.is_winner)).toBe(false);
   });
 
-  test("a missing NOT NULL value is never archived as zero", () => {
+  test("a missing NOT NULL value is never archived as zero or false", () => {
     const row = result(9, T0);
     delete row.zone_id;
+    delete row.is_void;
     delete row.seats[0].score;
-    // NaN serialises to null, which the NOT NULL column rejects, failing the batch loudly.
-    expect(JSON.parse(JSON.stringify(resultRecord(row))).zone_id).toBeNull();
-    expect(JSON.parse(JSON.stringify(seatRecords(row)[0])).score).toBeNull();
+    delete row.seats[0].is_human;
+    // NaN and null serialise to null, which the NOT NULL column rejects, failing the batch loudly.
+    const rec = JSON.parse(JSON.stringify(resultRecord(row)));
+    expect(rec.zone_id).toBeNull();
+    expect(rec.is_void).toBeNull();
+    const s0 = JSON.parse(JSON.stringify(seatRecords(row)[0]));
+    expect(s0.score).toBeNull();
+    expect(s0.is_human).toBeNull();
+    expect(() => seatRecords({ ...row, seats: undefined })).toThrow("seats is not an array");
   });
 });
 
@@ -378,10 +385,10 @@ describe("War archiver", () => {
     h.chain.agent_melee_turn.push(turn(1, T0 - 3 * HOUR), turn(2, T0 - 5 * MIN));
     await pollUntilCaughtUp(h.archiver);
     expect(h.store.ids("agent_melee_turn", "turn_id")).toEqual([1]);
-    h.clock.ms += 3600_000; // still inside the 75-minute settle
+    h.clock.ms += 20 * 60_000; // its window [T0-1h, T0) is not 30 minutes old yet
     await pollUntilCaughtUp(h.archiver);
     expect(h.store.ids("agent_melee_turn", "turn_id")).toEqual([1]);
-    h.clock.ms += 3600_000;
+    h.clock.ms += 40 * 60_000;
     await pollUntilCaughtUp(h.archiver);
     expect(h.store.ids("agent_melee_turn", "turn_id")).toEqual([1, 2]);
   });
@@ -395,16 +402,42 @@ describe("War archiver", () => {
     expect(h.chain.queries).toEqual([]);
   });
 
-  test("a re-created database (new identity) is archived as a separate source", async () => {
-    let source = SOURCE;
-    const h = harness({ source: async () => source });
-    h.chain.melee_result.push(result(1, T0 - 10 * S));
-    await pollUntilCaughtUp(h.archiver);
-    source = { ...SOURCE, sourceDb: `0x${"d4".repeat(32)}` };
-    h.clock.ms += 15_000;
-    await pollUntilCaughtUp(h.archiver);
-    expect(h.store.rows.melee_result.size).toBe(2); // the same table, under each identity
-    expect(h.archiver.stats.sourceDb).toBe(source.sourceDb);
+  test("reads go to the identity the rows are filed under, even while the name is cached", async () => {
+    // pentacles1 is deleted and re-created as a new database while the old
+    // identity is still cached. No row of the new database may land under the old id.
+    const A = SOURCE.sourceDb;
+    const B = `0x${"d4".repeat(32)}`;
+    const dbs: Record<string, FakeChain> = { [A]: new FakeChain(), [B]: new FakeChain() };
+    const clock = { ms: T0 / 1000 };
+    let named = A;
+    const store = new MemoryStore();
+    const archiver = new WarArchiver({
+      query: (sql, source) => dbs[source.sourceDb].query(sql),
+      store,
+      source: cachedSource(async () => ({ ...SOURCE, sourceDb: named }), 60_000, () => clock.ms),
+      now: () => clock.ms,
+      log: silent,
+    });
+    dbs[A].melee_result.push(result(1, T0 - 10 * S));
+    await pollUntilCaughtUp(archiver);
+
+    named = B;
+    dbs[A].fail = /./; // the old database is gone
+    dbs[B].melee_result.push(result(1, T0 + 5 * S), result(2, T0 + 6 * S));
+    dbs[B].war_epoch.push(epoch(1, T0 + 7 * S));
+    clock.ms += 15_000; // inside the cache TTL: still labelled A, so it reads A
+    const stale = await archiver.pollOnce();
+    expect(stale.errors.length).toBeGreaterThan(0);
+    expect([...store.rows.melee_result.keys()].every((k) => k.startsWith(`${A}/1@`))).toBe(true);
+    expect(store.rows.war_epoch.size).toBe(0);
+
+    clock.ms += 60_000; // the name is resolved again
+    await pollUntilCaughtUp(archiver);
+    const keys = [...store.rows.melee_result.keys()];
+    expect(keys.filter((k) => k.startsWith(A))).toHaveLength(1);
+    expect(keys.filter((k) => k.startsWith(B))).toHaveLength(2);
+    expect([...store.rows.war_epoch.keys()].every((k) => k.startsWith(B))).toBe(true);
+    expect(archiver.stats.sourceDb).toBe(B);
   });
 });
 
@@ -439,6 +472,8 @@ describe("War archive plumbing", () => {
     await archiver.pollOnce();
     expect((await api("/api/v1/war/archive/status")).body).toMatchObject({ success: true, sourceDb: SOURCE.sourceDb, archive: { results: 3 } });
     expect((await api("/api/v1/war/archive/win-rates?by=elo;drop")).status).toBe(400);
+    expect((await api("/api/v1/war/archive/win-rates?by=constructor")).status).toBe(400);
+    expect((await api("/api/v1/war/archive/win-rates?by=__proto__")).status).toBe(400);
     expect((await api("/api/v1/war/archive/nope")).status).toBe(404);
     await api("/api/v1/war/archive/win-rates?by=zone&days=99999");
     await api("/api/v1/war/archive/ratings?limit=0&humans=1");
@@ -446,6 +481,26 @@ describe("War archive plumbing", () => {
       { sourceDb: SOURCE.sourceDb, by: "zone", days: 3650 },
       { sourceDb: SOURCE.sourceDb, limit: 1, humans: true },
     ]);
+    // Answers are cached, so a burst of identical requests reads Postgres once.
+    await api("/api/v1/war/archive/win-rates?by=zone&days=99999");
+    expect(seen).toHaveLength(2);
+  });
+
+  test("archiveApi reports a failed start, and /status survives a Postgres outage", async () => {
+    const failed = await archiveApi({ startError: "Invalid URL" }, new URL("http://x/api/v1/war/archive/status"));
+    expect(failed.status).toBe(503);
+    expect(failed.body.error).toContain("failed to start: Invalid URL");
+
+    const archiver = new WarArchiver({ query: async () => [], store: new MemoryStore(), source: async () => SOURCE, log: silent });
+    await archiver.pollOnce();
+    const down: ArchiveReader = {
+      status: async () => { throw new Error("Connection closed"); },
+      winRates: async () => [],
+      ratings: async () => [],
+    };
+    const r = await archiveApi({ archiver, store: down }, new URL("http://x/api/v1/war/archive/status"));
+    expect(r.status).toBe(200);
+    expect(r.body).toMatchObject({ success: true, sourceDb: SOURCE.sourceDb, polls: 1, archive: null, archive_error: "Connection closed" });
   });
 });
 
@@ -555,6 +610,34 @@ describe.skipIf(!PG_URL)("War archive on Postgres", () => {
     const status = await store.status(src.sourceDb);
     expect(status.results).toBe(7);
     expect(status.epochs).toBe(2);
+  });
+
+  test("views are left alone on restart, and a view that cannot be replaced never blocks archiving", async () => {
+    const warnings: string[] = [];
+    const quiet = new PostgresArchiveStore(pg, { log: { warn: (m: string) => warnings.push(m) } });
+    // Someone builds on a view; restarts must not drop it (or its grants).
+    await pg.query("CREATE OR REPLACE VIEW test_war_weekly AS SELECT * FROM war_daily");
+    await quiet.init();
+    await pg.query("UPDATE war_archive_meta SET value = 'old' WHERE key = 'views'");
+    await quiet.init(); // definitions "changed": CREATE OR REPLACE keeps the dependent view
+    expect(warnings).toEqual([]);
+    expect((await pg.query("SELECT to_regclass('test_war_weekly') IS NOT NULL AS ok"))[0].ok).toBe(true);
+    await pg.query("DROP VIEW test_war_weekly");
+
+    // An incompatible definition is reported, and init still succeeds.
+    await pg.query("DROP VIEW war_daily");
+    await pg.query("CREATE VIEW war_daily AS SELECT 1 AS x");
+    await pg.query("UPDATE war_archive_meta SET value = 'old' WHERE key = 'views'");
+    await quiet.init();
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain("analysis views not updated");
+    // (void, so it rates no one and the rebuild check below is unaffected)
+    expect(await quiet.commit(src, "melee_result", [result(900, T0 + 4 * DAY, { isVoid: true })], { position: T0 + 4 * DAY })).toBe(1);
+    await pg.query("DELETE FROM war_melee_result WHERE source_db = $1 AND table_id = 900", [src.sourceDb]);
+    await pg.query("DROP VIEW war_daily");
+    await pg.query("UPDATE war_archive_meta SET value = 'old' WHERE key = 'views'");
+    await quiet.init();
+    expect((await pg.query("SELECT count(*)::int AS n FROM war_daily WHERE source_db = $1", [src.sourceDb]))[0].n).toBeGreaterThan(0);
   });
 
   test("rebuild-ratings replays the archive to the same ratings", async () => {

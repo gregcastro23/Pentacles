@@ -92,17 +92,23 @@ How it stays complete:
   `resolved_at >= cursor` every 15 s, with the cursor 60 s behind the newest
   row, so a table settled within the last minute is never skipped.
   A new table reaches the archive within one poll.
-- **Turns** are archived once their window closed 75 minutes ago. By then ASOL
-  or the fallback has decided each turn, or its stalled table has been voided
-  (at 1 h).
+- **Turns** are archived once their window closed 30 minutes ago. A turn row
+  stops changing within about 10 minutes of its table opening. ASOL or the
+  fallback decides it within seconds. A turn still open when its stalled table
+  is settled (at 10 minutes) stays unresolved, and is archived with
+  `resolved_at` null.
 - **Epochs** are read by `epoch_id`. The cursor also stores the cursor row's
   `settled_at`, so a reset database (whose ids restart at 1) is detected and
   re-read from the start.
 - **Keyed by database identity,** not name, and every key includes the row's own
   timestamp (`opened_us`, `settled_at`, `requested_at`). Wiping and re-publishing
-  `pentacles1` therefore never collides with archived rows.
-- **First run** backfills the 8 days the chain still holds. If the feeder is
-  down for more than 7 days, results from the gap are pruned before they can be
+  `pentacles1` therefore never collides with archived rows, whether or not it
+  keeps its identity. Reads go to `/v1/database/<identity>/sql`, the same id the
+  rows are filed under. A database re-created under the same name is therefore
+  never read under the old label. The name is re-resolved every minute.
+- **First run** backfills what the chain still holds: 8 days of results and 2
+  days of turns. If the feeder is down longer than the chain keeps rows (7 days
+  for results, 1 day for turns), rows from the gap are pruned before they can be
   archived. The archive logs a warning naming the cutoff.
 - **Two containers during a redeploy** are safe: writes for a source take a
   Postgres advisory lock.
@@ -132,7 +138,14 @@ HTTP, on the feeder's public port (rate-limited, read-only):
 SQL views, for psql: `war_faction_win_rate` (faction × zone × trump suit ×
 seat count), `war_seat_win_rate` (does seat order matter?), `war_daily`
 (volume, void rate, captures, ESMS paid, ASOL fallback count) and
-`war_leaderboard`. For example:
+`war_leaderboard`. `war_melee_result.winner_esms` is the chain's 10⁴ fixed
+point; `war_daily.esms_paid` is already in ESMS.
+
+The views are redefined, with `CREATE OR REPLACE`, only when their
+definitions change in code. Grants and views you build on top of them survive
+restarts. To rename or retype a view's column, drop that view by hand before
+deploying. If a view cannot be updated, the archive logs it and keeps
+archiving. For example:
 
 ```sql
 -- Factions that win well above par at six-seat tables, last 30 days
@@ -152,8 +165,13 @@ ratings in settle order, for example after changing K, run:
 WAR_ARCHIVE_DATABASE_URL=… bun run feeder/war-archive.ts rebuild-ratings
 ```
 
-Size: about 2.5 KB per table including indexes. At the module's maximum pace
-(about 16k tables a day) that is roughly 40 MB a day, or 14 GB a year.
+Size, including indexes: about 3 KB per six-seat table, plus about 0.45 KB per
+ASOL turn. At the module's maximum pace (about 16k tables a day) results alone
+take roughly 50 MB a day, or 17 GB a year. Each ASOL seat adds up to 12 turns
+per table.
+
+The public endpoints use their own two-connection pool, a 5 s statement
+timeout and a 30 s answer cache, so traffic cannot starve the archiver.
 
 ## Not done here
 

@@ -34,7 +34,10 @@
 import { SQL } from "bun";
 
 export type Row = Record<string, any>;
-export type Query = (sql: string) => Promise<Row[]>;
+/** Runs one read against the database the rows will be filed under. It is
+ *  addressed by `source.sourceDb` (the identity), never by name, so a database
+ *  re-created under the same name cannot be read under the old label. */
+export type Query = (sql: string, source: ArchiveSource) => Promise<Row[]>;
 export type StreamName = "melee_result" | "war_epoch" | "agent_melee_turn";
 
 const MICROS = 1_000_000;
@@ -47,10 +50,11 @@ export const ARCHIVE_DEFAULTS = {
   /** A window is closed once its end is this far behind the feeder clock.
    *  It covers clock skew between the feeder and the database. */
   settleUs: 600 * MICROS,
-  /** Turns are archived later. ASOL or the fallback decides a turn within
-   *  seconds. One left open on a stalled table stays open until that table is
-   *  voided at 1 h (MELEE_STALE_VOID_SECS), so this waits past that. */
-  turnSettleUs: 4_500 * MICROS,
+  /** Turns are archived later. A turn row stops changing within about 10 min
+   *  of its table opening: ASOL or the fallback decides it within seconds, and
+   *  a stalled table is settled at 600 s (MELEE_STALE_SETTLE_SECS), which
+   *  leaves any open turn unresolved for good. */
+  turnSettleUs: 1_800 * MICROS,
   /** At the head, the cursor trails the newest resolved_at by this much. */
   lagUs: 60 * MICROS,
   /** First run: melee_result is kept 7 days on chain, agent_melee_turn 1. */
@@ -58,23 +62,25 @@ export const ARCHIVE_DEFAULTS = {
   turnBackfillUs: 2 * DAY_US,
   maxWindowsPerPoll: 96,
   /** How long a resolved database identity is trusted before re-checking. */
-  sourceTtlMs: 10 * 60_000,
+  sourceTtlMs: 60_000,
   eloK: 24,
   eloBase: 1500,
 };
 
-/** The module's melee_result retention (MELEE_RESULT_TTL_SECS). */
-const RESULT_RETENTION_US = 7 * DAY_US;
+/** The module's retention (MELEE_RESULT_TTL_SECS, AGENT_MELEE_TURN_TTL_SECS). */
+const RETENTION_US = { melee_result: 7 * DAY_US, agent_melee_turn: DAY_US };
 
 // ── Values ──────────────────────────────────────────────────────────────────
 //
 // Rows arrive through sqlOneShot (feeder/stdb-feed.ts): Timestamp → µs number,
 // enum → PascalCase string, Option → value | null, Identity → "0x…", and
 // Vec<struct> → array of objects. A missing NOT NULL value becomes NaN or null
-// here, so Postgres rejects the batch loudly instead of archiving a zero.
+// here, so Postgres rejects the batch loudly instead of archiving a zero or a
+// false.
 
 const num = (v: unknown): number => (v === null || v === undefined ? NaN : Number(v));
 const optNum = (v: unknown): number | null => (v === null || v === undefined ? null : Number(v));
+const bool = (v: unknown): boolean | null => (typeof v === "boolean" ? v : null);
 const tag = (v: unknown): string | null =>
   typeof v === "string" ? v : v && typeof v === "object" && typeof (v as any).tag === "string" ? (v as any).tag : null;
 const optIso = (v: unknown): string | null => (v === null || v === undefined ? null : microsToIso(num(v)));
@@ -130,7 +136,7 @@ const RESULT_COLS: Col[] = [
   ["zone_control_after", "INTEGER"],
   ["captured", "BOOLEAN"],
   ["flux_active", "BOOLEAN"],
-  ["winner_esms", "BIGINT"],
+  ["winner_esms", "BIGINT"], // fixed point, ESMS × 10^4, as on chain
   ["agent_turns", "INTEGER"],
   ["fallback_turns", "INTEGER"],
 ];
@@ -204,6 +210,10 @@ const recordset = (cols: Col[]) => cols.map(([n, t]) => `${n} ${t}`).join(", ");
 /** Idempotent. A later schema change adds columns with ALTER TABLE … ADD
  *  COLUMN IF NOT EXISTS here; CREATE TABLE IF NOT EXISTS never alters. */
 export const ARCHIVE_DDL: string[] = [
+  `CREATE TABLE IF NOT EXISTS war_archive_meta (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+  )`,
   `CREATE TABLE IF NOT EXISTS war_archive_source (
     source_db TEXT PRIMARY KEY,
     db_name TEXT NOT NULL,
@@ -225,7 +235,6 @@ export const ARCHIVE_DDL: string[] = [
     archived_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     PRIMARY KEY (source_db, table_id, opened_us)
   )`,
-  `CREATE INDEX IF NOT EXISTS war_melee_result_resolved ON war_melee_result (source_db, resolved_us)`,
   `CREATE TABLE IF NOT EXISTS war_melee_seat (
     source_db TEXT NOT NULL,
     ${colDefs(SEAT_COLS)},
@@ -233,7 +242,6 @@ export const ARCHIVE_DDL: string[] = [
     FOREIGN KEY (source_db, table_id, opened_us)
       REFERENCES war_melee_result (source_db, table_id, opened_us) ON DELETE CASCADE
   )`,
-  `CREATE INDEX IF NOT EXISTS war_melee_seat_occupant ON war_melee_seat (source_db, occupant)`,
   `CREATE TABLE IF NOT EXISTS war_epoch_history (
     source_db TEXT NOT NULL,
     ${colDefs(EPOCH_COLS)},
@@ -246,7 +254,6 @@ export const ARCHIVE_DDL: string[] = [
     archived_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     PRIMARY KEY (source_db, turn_id, requested_at)
   )`,
-  `CREATE INDEX IF NOT EXISTS war_agent_turn_table ON war_agent_turn (source_db, table_id)`,
   `CREATE TABLE IF NOT EXISTS war_rating (
     source_db TEXT NOT NULL,
     ${colDefs(RATING_COLS)},
@@ -254,9 +261,20 @@ export const ARCHIVE_DDL: string[] = [
   )`,
 ];
 
+/** Created only when missing: CREATE INDEX IF NOT EXISTS still takes a
+ *  ShareLock on its table, which would block writers on every restart. */
+export const ARCHIVE_INDEXES: Array<[name: string, ddl: string]> = [
+  ["war_melee_result_resolved", "CREATE INDEX IF NOT EXISTS war_melee_result_resolved ON war_melee_result (source_db, resolved_us)"],
+  ["war_melee_seat_occupant", "CREATE INDEX IF NOT EXISTS war_melee_seat_occupant ON war_melee_seat (source_db, occupant)"],
+  ["war_agent_turn_table", "CREATE INDEX IF NOT EXISTS war_agent_turn_table ON war_agent_turn (source_db, table_id)"],
+];
+
 /** Analysis views, for psql (the HTTP endpoints add a time filter). They are
- *  dropped and re-created on every start, so a definition can change freely;
- *  they hold no data. */
+ *  (re)defined with CREATE OR REPLACE only when these definitions change
+ *  (war_archive_meta 'views'). An ordinary restart therefore takes no lock on
+ *  them and keeps their grants and any views built on top. CREATE OR REPLACE
+ *  can only append columns: to rename or retype one, DROP the view by hand
+ *  before deploying. */
 export const ARCHIVE_VIEWS: Record<string, string> = {
   // Faction win rate by zone, trump suit and seat count. par_rate is the win
   // rate a perfectly balanced table would give (1 / seats).
@@ -289,7 +307,7 @@ export const ARCHIVE_VIEWS: Record<string, string> = {
          count(*) FILTER (WHERE is_void) AS void_tables,
          count(*) FILTER (WHERE captured) AS captures,
          count(*) FILTER (WHERE winner_is_human AND NOT is_void) AS human_wins,
-         sum(winner_esms) AS esms_paid,
+         round(sum(winner_esms) / 10000.0, 4) AS esms_paid,
          sum(agent_turns) AS agent_turns,
          sum(fallback_turns) AS fallback_turns
   FROM war_melee_result
@@ -342,12 +360,12 @@ export function resultRecord(r: Row): ResultRecord {
     decan_id: optNum(r.decan_id),
     seat_count: num(r.seat_count),
     tricks_played: num(r.tricks_played),
-    refereed: Boolean(r.refereed),
-    is_void: Boolean(r.is_void),
+    refereed: bool(r.refereed),
+    is_void: bool(r.is_void),
     winner_seat_id: num(r.winner_seat_id),
     winner_faction: tag(r.winner_faction),
     winner_occupant: r.winner_occupant ?? null,
-    winner_is_human: Boolean(r.winner_is_human),
+    winner_is_human: bool(r.winner_is_human),
     winner_handle: r.winner_handle ?? null,
     winning_score: num(r.winning_score),
     winner_control_delta: num(r.winner_control_delta),
@@ -355,8 +373,8 @@ export function resultRecord(r: Row): ResultRecord {
     zone_control_before: num(r.zone_control_before),
     zone_owner_after: tag(r.zone_owner_after),
     zone_control_after: num(r.zone_control_after),
-    captured: Boolean(r.captured),
-    flux_active: Boolean(r.flux_active),
+    captured: bool(r.captured),
+    flux_active: bool(r.flux_active),
     winner_esms: num(r.winner_esms),
     agent_turns: num(r.agent_turns),
     fallback_turns: num(r.fallback_turns),
@@ -365,7 +383,8 @@ export function resultRecord(r: Row): ResultRecord {
 
 /** One record per entry of melee_result.seats. A void table has no winner. */
 export function seatRecords(r: Row): SeatRecord[] {
-  const seats: any[] = Array.isArray(r.seats) ? r.seats : [];
+  if (!Array.isArray(r.seats)) throw new Error(`melee_result ${r.table_id}: seats is not an array`);
+  const seats: any[] = r.seats;
   const winner = num(r.winner_seat_id);
   return seats.map((s, i) => ({
     table_id: num(r.table_id),
@@ -375,13 +394,13 @@ export function seatRecords(r: Row): SeatRecord[] {
     faction: tag(s?.faction) as string,
     occupant: s?.occupant ?? null,
     handle: s?.handle ?? null,
-    is_human: Boolean(s?.is_human),
+    is_human: bool(s?.is_human),
     claim: num(s?.claim),
     counters: num(s?.counters),
     melds_value: num(s?.melds_value),
     score: num(s?.score),
     tricks_won: num(s?.tricks_won),
-    took_final_trick: Boolean(s?.took_final_trick),
+    took_final_trick: bool(s?.took_final_trick),
     control_delta: num(s?.control_delta),
     is_winner: !r.is_void && num(s?.seat_id) === winner,
     rating_before: null,
@@ -393,7 +412,7 @@ export function epochRecord(r: Row): Row {
   return {
     epoch_id: num(r.epoch_id),
     kind: tag(r.kind),
-    is_decan: Boolean(r.is_decan),
+    is_decan: bool(r.is_decan),
     decan_id: optNum(r.decan_id),
     season_number: optNum(r.season_number),
     champion: tag(r.champion),
@@ -418,7 +437,7 @@ export function turnRecord(r: Row): Row {
     selected_card_id: optNum(r.selected_card_id),
     answered_at: optIso(r.answered_at),
     resolved_at: optIso(r.resolved_at),
-    fallback_used: Boolean(r.fallback_used),
+    fallback_used: bool(r.fallback_used),
   };
 }
 
@@ -586,23 +605,64 @@ const RATING_UPSERT = `INSERT INTO war_rating (source_db, ${colNames(RATING_COLS
     rating = EXCLUDED.rating, tables = EXCLUDED.tables, wins = EXCLUDED.wins,
     last_table_id = EXCLUDED.last_table_id, last_resolved_at = EXCLUDED.last_resolved_at`;
 
+/** Changes whenever a view definition does. */
+const VIEWS_VERSION = Bun.hash(JSON.stringify(ARCHIVE_VIEWS)).toString(16);
+
 export class PostgresArchiveStore implements ArchiveStore, ArchiveReader {
   private k: number;
   private base: number;
+  private readTimeoutMs: number;
+  private log: Pick<Console, "warn">;
 
-  constructor(private pg: PgExec, opts: { eloK?: number; eloBase?: number } = {}) {
+  constructor(
+    private pg: PgExec,
+    opts: { eloK?: number; eloBase?: number; readTimeoutMs?: number; log?: Pick<Console, "warn"> } = {},
+  ) {
     this.k = opts.eloK ?? ARCHIVE_DEFAULTS.eloK;
     this.base = opts.eloBase ?? ARCHIVE_DEFAULTS.eloBase;
+    this.readTimeoutMs = opts.readTimeoutMs ?? 5_000;
+    this.log = opts.log ?? console;
   }
 
   async init(): Promise<void> {
     await this.pg.transaction(async (tx) => {
+      // Fail fast and retry on the next poll rather than queue behind another
+      // session's lock.
+      await tx.query("SET LOCAL lock_timeout = '5s'");
       await tx.query("SELECT pg_advisory_xact_lock(hashtext('war_archive:ddl'))");
       for (const stmt of ARCHIVE_DDL) await tx.query(stmt);
-      for (const [name, select] of Object.entries(ARCHIVE_VIEWS)) {
-        await tx.query(`DROP VIEW IF EXISTS ${name}`);
-        await tx.query(`CREATE VIEW ${name} AS ${select}`);
+      for (const [name, ddl] of ARCHIVE_INDEXES) {
+        const [present] = await tx.query("SELECT to_regclass($1) IS NOT NULL AS ok", [name]);
+        if (!present?.ok) await tx.query(ddl);
       }
+    });
+    // A view that cannot be replaced is reported, never fatal: the tables are
+    // what must keep filling before the chain prunes.
+    try {
+      await this.pg.transaction(async (tx) => {
+        await tx.query("SET LOCAL lock_timeout = '5s'");
+        await tx.query("SELECT pg_advisory_xact_lock(hashtext('war_archive:ddl'))");
+        const [meta] = await tx.query("SELECT value FROM war_archive_meta WHERE key = 'views'");
+        if (meta?.value === VIEWS_VERSION) return;
+        for (const [name, select] of Object.entries(ARCHIVE_VIEWS)) await tx.query(`CREATE OR REPLACE VIEW ${name} AS ${select}`);
+        await tx.query(
+          "INSERT INTO war_archive_meta (key, value) VALUES ('views', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
+          [VIEWS_VERSION],
+        );
+      });
+    } catch (err) {
+      this.log.warn(
+        `[war-archive] analysis views not updated (${errText(err)}). Archiving continues. ` +
+          "If a view's columns changed, DROP that view and restart the feeder.",
+      );
+    }
+  }
+
+  /** Read-only work for the HTTP endpoints, cut off after readTimeoutMs. */
+  private read<T>(fn: (tx: PgExec) => Promise<T>): Promise<T> {
+    return this.pg.transaction(async (tx) => {
+      await tx.query(`SET LOCAL statement_timeout = ${Math.max(1, Math.floor(this.readTimeoutMs))}`);
+      return fn(tx);
     });
   }
 
@@ -617,6 +677,9 @@ export class PostgresArchiveStore implements ArchiveStore, ArchiveReader {
 
   async commit(source: ArchiveSource, stream: StreamName, rows: Row[], cursor: Cursor): Promise<number> {
     return this.pg.transaction(async (tx) => {
+      // A rating rebuild holds the source lock for a while; time out and retry
+      // on the next poll rather than pile up waiting transactions.
+      await tx.query("SET LOCAL lock_timeout = '30s'");
       await lockSource(tx, source.sourceDb);
       await tx.query(
         `INSERT INTO war_archive_source (source_db, db_name, uri) VALUES ($1, $2, $3)
@@ -738,37 +801,42 @@ export class PostgresArchiveStore implements ArchiveStore, ArchiveReader {
   }
 
   async status(sourceDb: string): Promise<Row> {
-    const [cursors, results, epochs, turns, rated] = await Promise.all([
-      this.pg.query("SELECT stream, position, marker, updated_at FROM war_archive_cursor WHERE source_db = $1 ORDER BY stream", [sourceDb]),
-      this.pg.query(
-        `SELECT count(*)::bigint AS n, min(resolved_at) AS oldest, max(resolved_at) AS newest
-         FROM war_melee_result WHERE source_db = $1`, [sourceDb]),
-      this.pg.query("SELECT count(*)::bigint AS n FROM war_epoch_history WHERE source_db = $1", [sourceDb]),
-      this.pg.query("SELECT count(*)::bigint AS n FROM war_agent_turn WHERE source_db = $1", [sourceDb]),
-      this.pg.query("SELECT count(*)::bigint AS n FROM war_rating WHERE source_db = $1", [sourceDb]),
-    ]);
-    return {
-      cursors: cursors.map((c) => ({
-        stream: c.stream,
-        position: Number(c.position),
-        at: c.stream === "war_epoch" ? null : microsToIso(Number(c.position)),
-        updated_at: c.updated_at,
-      })),
-      results: Number(results[0]?.n ?? 0),
-      oldest_result: results[0]?.oldest ?? null,
-      newest_result: results[0]?.newest ?? null,
-      epochs: Number(epochs[0]?.n ?? 0),
-      agent_turns: Number(turns[0]?.n ?? 0),
-      rated_occupants: Number(rated[0]?.n ?? 0),
-    };
+    return this.read(async (tx) => {
+      const one = async (text: string) => (await tx.query(text, [sourceDb]))[0] ?? {};
+      const cursors = await tx.query(
+        "SELECT stream, position, updated_at FROM war_archive_cursor WHERE source_db = $1 ORDER BY stream",
+        [sourceDb],
+      );
+      // Oldest/newest come off the (source_db, resolved_us) index.
+      const span = await one(
+        `SELECT (SELECT resolved_us FROM war_melee_result WHERE source_db = $1 ORDER BY resolved_us LIMIT 1) AS oldest,
+                (SELECT resolved_us FROM war_melee_result WHERE source_db = $1 ORDER BY resolved_us DESC LIMIT 1) AS newest`,
+      );
+      const count = async (table: string) => Number((await one(`SELECT count(*)::bigint AS n FROM ${table} WHERE source_db = $1`)).n ?? 0);
+      const at = (us: unknown) => (us === null || us === undefined ? null : microsToIso(Number(us)));
+      return {
+        cursors: cursors.map((c) => ({
+          stream: c.stream,
+          position: Number(c.position),
+          at: c.stream === "war_epoch" ? null : at(c.position),
+          updated_at: c.updated_at,
+        })),
+        results: await count("war_melee_result"),
+        oldest_result: at(span.oldest),
+        newest_result: at(span.newest),
+        epochs: await count("war_epoch_history"),
+        agent_turns: await count("war_agent_turn"),
+        rated_occupants: await count("war_rating"),
+      };
+    });
   }
 
   async winRates(opts: { sourceDb: string; by: string; days: number; nowMs?: number }): Promise<Row[]> {
-    const groups = WIN_RATE_GROUPS[opts.by];
+    const groups = Object.hasOwn(WIN_RATE_GROUPS, opts.by) ? WIN_RATE_GROUPS[opts.by] : null;
     if (!groups) throw new Error(`unknown grouping "${opts.by}"`);
     const sinceUs = Math.floor(((opts.nowMs ?? Date.now()) - opts.days * 86_400_000) * 1000);
     const g = groups.join(", ");
-    return this.pg.query(
+    return this.read((tx) => tx.query(
       `SELECT ${g},
               count(*)::int AS seats_played,
               count(*) FILTER (WHERE s.is_winner)::int AS wins,
@@ -780,18 +848,18 @@ export class PostgresArchiveStore implements ArchiveStore, ArchiveReader {
        WHERE r.source_db = $1 AND NOT r.is_void AND r.resolved_us >= $2::bigint
        GROUP BY ${g} ORDER BY ${g}`,
       [opts.sourceDb, String(sinceUs)],
-    );
+    ));
   }
 
   async ratings(opts: { sourceDb: string; limit: number; humans: boolean | null }): Promise<Row[]> {
-    const rows = await this.pg.query(
+    const rows = await this.read((tx) => tx.query(
       `SELECT occupant, handle, faction, is_human, round(rating::numeric, 1)::float8 AS rating,
               tables, wins, round(wins::numeric / NULLIF(tables, 0), 4)::float8 AS win_rate, last_resolved_at
        FROM war_rating
        WHERE source_db = $1 AND ($3::boolean IS NULL OR is_human = $3::boolean)
        ORDER BY rating DESC, occupant LIMIT $2::int`,
       [opts.sourceDb, opts.limit, opts.humans],
-    );
+    ));
     return rows.map((r) => ({ ...r, tables: Number(r.tables), wins: Number(r.wins) }));
   }
 }
@@ -883,7 +951,7 @@ export class WarArchiver {
   private inflight: Promise<PollReport> | null = null;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private running = false;
-  private warnedGap = false;
+  private warnedGap = new Set<string>();
   private lastLogged = { text: "", at: 0 };
   // Head rows already committed (key → resolved µs), so an idle head does not
   // re-commit the same lag-zone rows on every poll.
@@ -1018,11 +1086,12 @@ export class WarArchiver {
     const nowUs = this.now() * 1000;
     const stored = await this.store.cursor(source.sourceDb, stream);
     let cursor = stored ? stored.position : Math.floor(nowUs - spec.backfillUs);
-    if (stored && stream === "melee_result" && stored.position < nowUs - RESULT_RETENTION_US && !this.warnedGap) {
-      this.warnedGap = true;
+    const retention = RETENTION_US[stream];
+    if (stored && stored.position < nowUs - retention && !this.warnedGap.has(stream)) {
+      this.warnedGap.add(stream);
       this.log.warn(
-        `[war-archive] the melee_result cursor is ${((nowUs - stored.position) / DAY_US).toFixed(1)} days old. ` +
-          `Results settled before ${microsToIso(nowUs - RESULT_RETENTION_US)} were pruned on chain and are missing from the archive.`,
+        `[war-archive] the ${stream} cursor is ${((nowUs - stored.position) / DAY_US).toFixed(1)} days old. ` +
+          `Rows from before ${microsToIso(nowUs - retention)} were pruned on chain and are missing from the archive.`,
       );
     }
     const where = (from: number, to?: number) =>
@@ -1033,7 +1102,7 @@ export class WarArchiver {
       const end = cursor + this.windowUs;
       if (end <= nowUs - spec.settleUs) {
         // A closed window: everything in it has committed, so it is final.
-        const rows = await this.query(where(cursor, end));
+        const rows = await this.query(where(cursor, end), source);
         report.queries++;
         report[spec.count] += await this.store.commit(source, stream, rows, { position: end });
         cursor = end;
@@ -1046,7 +1115,7 @@ export class WarArchiver {
   }
 
   private async pollHead(source: ArchiveSource, stream: "melee_result", cursor: number, sql: string, report: PollReport): Promise<void> {
-    const rows = await this.query(sql);
+    const rows = await this.query(sql, source);
     report.queries++;
     let next = cursor;
     for (const r of rows) {
@@ -1068,7 +1137,7 @@ export class WarArchiver {
       // war_epoch is never pruned, so the cursor row is always on chain with
       // the settled_at we saved. If not, the database was reset and its ids
       // restarted: read it from the start (keys include settled_at).
-      const here = await this.query(`SELECT epoch_id, settled_at FROM war_epoch WHERE epoch_id = ${stored.position}`);
+      const here = await this.query(`SELECT epoch_id, settled_at FROM war_epoch WHERE epoch_id = ${stored.position}`, source);
       report.queries++;
       const same = here.length > 0 && (stored.marker == null || num(here[0].settled_at) === stored.marker);
       if (!same) {
@@ -1077,7 +1146,7 @@ export class WarArchiver {
       }
     }
     // epoch_id is a u64: 0 means "from the start" (a negative literal is a SQL error).
-    const rows = await this.query(`SELECT * FROM war_epoch WHERE epoch_id > ${from}`);
+    const rows = await this.query(`SELECT * FROM war_epoch WHERE epoch_id > ${from}`, source);
     report.queries++;
     if (!rows.length && from === (stored?.position ?? 0)) return;
     let last: Row | null = null;
@@ -1093,41 +1162,75 @@ export class WarArchiver {
 
 export interface ArchiveHandle {
   archiver: WarArchiver;
+  /** Its own small pool, so slow public reads never take the archiver's connections. */
   store: ArchiveReader;
 }
+
+/** What indoor-spatial holds: a running archive, the reason it failed to
+ *  start, or null when WAR_ARCHIVE_DATABASE_URL is not set. */
+export type ArchiveState = ArchiveHandle | { startError: string } | null;
 
 const intParam = (v: string | null, dflt: number, min: number, max: number) => {
   const n = Number.parseInt(v ?? "", 10);
   return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : dflt;
 };
 
+// Public, uncached aggregates over months of rows would let anonymous traffic
+// load Postgres. Each answer is reused for API_CACHE_MS.
+const API_CACHE_MS = 30_000;
+const apiCache = new WeakMap<object, Map<string, { at: number; value: unknown }>>();
+async function cachedRead<T>(owner: object, key: string, read: () => Promise<T>): Promise<T> {
+  let entries = apiCache.get(owner);
+  if (!entries) apiCache.set(owner, (entries = new Map()));
+  const now = Date.now();
+  const hit = entries.get(key);
+  if (hit && now - hit.at < API_CACHE_MS) return hit.value as T;
+  const value = await read();
+  if (entries.size > 256) entries.clear();
+  entries.set(key, { at: now, value });
+  return value;
+}
+
 /** GET /api/v1/war/archive/{status | win-rates | ratings}. */
-export async function archiveApi(archive: ArchiveHandle | null, url: URL): Promise<{ status: number; body: Row }> {
+export async function archiveApi(archive: ArchiveState, url: URL): Promise<{ status: number; body: Row }> {
   if (!archive) {
     return { status: 503, body: { success: false, error: "The War Table archive is off (WAR_ARCHIVE_DATABASE_URL is not set)." } };
+  }
+  if ("startError" in archive) {
+    return { status: 503, body: { success: false, error: `The War Table archive failed to start: ${archive.startError}` } };
   }
   const route = url.pathname.replace(/^\/api\/v1\/war\/archive\/?/, "");
   const sourceDb = archive.archiver.stats.sourceDb;
   if (route === "status") {
-    return {
-      status: 200,
-      body: { success: true, ...archive.archiver.stats, archive: sourceDb ? await archive.store.status(sourceDb) : null },
-    };
+    // The archiver's own health is in memory and is always returned; the
+    // Postgres summary is extra, and its failure is reported, not a 500.
+    let summary: Row | null = null;
+    let archiveError: string | null = null;
+    if (sourceDb) {
+      try {
+        summary = await cachedRead(archive.store, `status:${sourceDb}`, () => archive.store.status(sourceDb));
+      } catch (err) {
+        archiveError = errText(err);
+      }
+    }
+    return { status: 200, body: { success: true, ...archive.archiver.stats, archive: summary, archive_error: archiveError } };
   }
   if (route !== "win-rates" && route !== "ratings") return { status: 404, body: { success: false, error: "Not Found" } };
   if (!sourceDb) return { status: 503, body: { success: false, error: "The archive has not connected yet." } };
   if (route === "win-rates") {
     const by = url.searchParams.get("by") ?? "faction";
-    if (!WIN_RATE_GROUPS[by]) {
+    if (!Object.hasOwn(WIN_RATE_GROUPS, by)) {
       return { status: 400, body: { success: false, error: `by must be one of: ${Object.keys(WIN_RATE_GROUPS).join(", ")}` } };
     }
     const days = intParam(url.searchParams.get("days"), 30, 1, 3650);
-    return { status: 200, body: { success: true, by, days, rows: await archive.store.winRates({ sourceDb, by, days }) } };
+    const rows = await cachedRead(archive.store, `win:${sourceDb}:${by}:${days}`, () => archive.store.winRates({ sourceDb, by, days }));
+    return { status: 200, body: { success: true, by, days, rows } };
   }
   const limit = intParam(url.searchParams.get("limit"), 50, 1, 500);
   const h = url.searchParams.get("humans");
   const humans = h === "1" || h === "true" ? true : h === "0" || h === "false" ? false : null;
-  return { status: 200, body: { success: true, rows: await archive.store.ratings({ sourceDb, limit, humans }) } };
+  const rows = await cachedRead(archive.store, `ratings:${sourceDb}:${limit}:${humans}`, () => archive.store.ratings({ sourceDb, limit, humans }));
+  return { status: 200, body: { success: true, rows } };
 }
 
 // ── Maintenance CLI ─────────────────────────────────────────────────────────
