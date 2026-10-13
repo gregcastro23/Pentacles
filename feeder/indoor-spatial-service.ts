@@ -11,7 +11,7 @@ import { sqlOneShot } from "./stdb-feed";
 import { WarLedgerReader } from "./war-ledger";
 import {
   ARCHIVE_DEFAULTS,
-  type ArchiveHandle,
+  type ArchiveState,
   archiveApi,
   bunPg,
   cachedSource,
@@ -78,7 +78,7 @@ function warLedger(): WarLedgerReader {
 // into Postgres before the module prunes them (docs/WAR_RESULTS_LIFECYCLE.md).
 // It is off unless WAR_ARCHIVE_DATABASE_URL is set, and a failure here never
 // takes the HTTP server down.
-function startWarArchive(): ArchiveHandle | null {
+function startWarArchive(): ArchiveState {
   const url = (process.env.WAR_ARCHIVE_DATABASE_URL ?? "").trim();
   if (!url) {
     console.log("[war-archive] off (set WAR_ARCHIVE_DATABASE_URL to archive War Table results).");
@@ -86,20 +86,22 @@ function startWarArchive(): ArchiveHandle | null {
   }
   try {
     const { db, uri, token } = resolveFeederEnv();
-    const store = new PostgresArchiveStore(bunPg(url), {
-      eloK: Number(process.env.WAR_ARCHIVE_ELO_K) || undefined,
-    });
+    const eloK = Number(process.env.WAR_ARCHIVE_ELO_K) || undefined;
     const archiver = new WarArchiver({
-      query: (q) => sqlOneShot(uri, db, token || undefined, q),
-      store,
+      // Read the database by its identity, the same id the rows are filed
+      // under, so a database re-created under this name is never read as the old one.
+      query: (q, source) => sqlOneShot(uri, source.sourceDb.replace(/^0x/, ""), token || undefined, q),
+      store: new PostgresArchiveStore(bunPg(url, 3), { eloK }),
       source: cachedSource(() => fetchSourceIdentity(uri, db, token || undefined)),
     });
     archiver.start(Number(process.env.WAR_ARCHIVE_POLL_MS) || ARCHIVE_DEFAULTS.pollMs);
     console.log(`[war-archive] archiving ${db} to Postgres.`);
-    return { archiver, store };
+    // The public endpoints get their own small pool and a statement timeout.
+    return { archiver, store: new PostgresArchiveStore(bunPg(url, 2), { eloK }) };
   } catch (err) {
-    console.error("[war-archive] failed to start:", (err as Error).message);
-    return null;
+    const message = (err as Error).message;
+    console.error("[war-archive] failed to start:", message);
+    return { startError: message };
   }
 }
 const warArchive = startWarArchive();
