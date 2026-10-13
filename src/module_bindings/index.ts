@@ -46,14 +46,18 @@ import AnswerAgentMeleeTurnReducer from "./answer_agent_melee_turn_reducer";
 import AnswerDuelReducer from "./answer_duel_reducer";
 import AnswerJingReducer from "./answer_jing_reducer";
 import AnswerOracleReducer from "./answer_oracle_reducer";
+import AnswerPillarReducer from "./answer_pillar_reducer";
 import AnswerTraceReducer from "./answer_trace_reducer";
 import AskOracleReducer from "./ask_oracle_reducer";
 import BackfillDecansReducer from "./backfill_decans_reducer";
 import BindSolanaWalletReducer from "./bind_solana_wallet_reducer";
+import CancelPillarDuelReducer from "./cancel_pillar_duel_reducer";
 import CancelStaleClaimReducer from "./cancel_stale_claim_reducer";
 import CancelTradeReducer from "./cancel_trade_reducer";
 import CaptureArConstellationReducer from "./capture_ar_constellation_reducer";
 import CastJingReducer from "./cast_jing_reducer";
+import CastPillarReducer from "./cast_pillar_reducer";
+import CastRoomPillarReducer from "./cast_room_pillar_reducer";
 import CastWordReducer from "./cast_word_reducer";
 import ClaimDailyFaucetReducer from "./claim_daily_faucet_reducer";
 import ClaimDuelTimeoutReducer from "./claim_duel_timeout_reducer";
@@ -63,7 +67,9 @@ import CommitDuelReducer from "./commit_duel_reducer";
 import ConfirmTradeReducer from "./confirm_trade_reducer";
 import ConfirmYieldClaimReducer from "./confirm_yield_claim_reducer";
 import CounterJingReducer from "./counter_jing_reducer";
+import CounterPillarReducer from "./counter_pillar_reducer";
 import CreatePlayerReducer from "./create_player_reducer";
+import DecayTensionReducer from "./decay_tension_reducer";
 import DeletePlayerDataReducer from "./delete_player_data_reducer";
 import DeployCardReducer from "./deploy_card_reducer";
 import EnqueueDuelReducer from "./enqueue_duel_reducer";
@@ -91,6 +97,7 @@ import StardexClaimConstellationReducer from "./stardex_claim_constellation_redu
 import StardexFortifyNodeReducer from "./stardex_fortify_node_reducer";
 import StrikeStarSingleReducer from "./strike_star_single_reducer";
 import SubmitMeleeResultReducer from "./submit_melee_result_reducer";
+import SweepStalePillarDuelsReducer from "./sweep_stale_pillar_duels_reducer";
 import SyncSolanaEventReducer from "./sync_solana_event_reducer";
 import SyncStardexEphemerisReducer from "./sync_stardex_ephemeris_reducer";
 import TraceConstellationReducer from "./trace_constellation_reducer";
@@ -119,18 +126,26 @@ import DuelChallengeRow from "./duel_challenge_table";
 import DuelQueueRow from "./duel_queue_table";
 import DuelRoundRow from "./duel_round_table";
 import EphemerisRow from "./ephemeris_table";
+import FactionWarStandingRow from "./faction_war_standing_table";
 import FaucetTransactionRow from "./faucet_transaction_table";
 import GameConfigRow from "./game_config_table";
 import HorizonActionReceiptRow from "./horizon_action_receipt_table";
 import JingCastRow from "./jing_cast_table";
 import JingDuelRow from "./jing_duel_table";
+import MeleeCareerRow from "./melee_career_table";
 import MeleePlayRow from "./melee_play_table";
 import MeleeQueueRow from "./melee_queue_table";
+import MeleeResultRow from "./melee_result_table";
 import MeleeSeatRow from "./melee_seat_table";
 import MeleeTableRow from "./melee_table_table";
 import MeleeTrickRow from "./melee_trick_table";
+import MyMeleeHandRow from "./my_melee_hand_table";
 import NatalDecanRow from "./natal_decan_table";
 import OracleCacheRow from "./oracle_cache_table";
+import PillarCastRow from "./pillar_cast_table";
+import PillarDuelRow from "./pillar_duel_table";
+import PillarPoolRow from "./pillar_pool_table";
+import PillarTensionRow from "./pillar_tension_table";
 import PlayerRow from "./player_table";
 import PlayerFaucetStateRow from "./player_faucet_state_table";
 import ProcessedTxRow from "./processed_tx_table";
@@ -142,6 +157,8 @@ import StarNodeRow from "./star_node_table";
 import StarStakePoolRow from "./star_stake_pool_table";
 import TradeRow from "./trade_table";
 import VerifiedSolanaWalletRow from "./verified_solana_wallet_table";
+import WarEpochRow from "./war_epoch_table";
+import WarStateRow from "./war_state_table";
 import WordDuelRow from "./word_duel_table";
 import ZoneRow from "./zone_table";
 
@@ -165,6 +182,9 @@ const tablesSchema = __schema({
     indexes: [
       { accessor: 'occupant', name: 'agent_melee_turn_occupant_idx_btree', algorithm: 'btree', columns: [
         'occupant',
+      ] },
+      { accessor: 'requested_at', name: 'agent_melee_turn_requested_at_idx_btree', algorithm: 'btree', columns: [
+        'requestedAt',
       ] },
       { accessor: 'seat_id', name: 'agent_melee_turn_seat_id_idx_btree', algorithm: 'btree', columns: [
         'seatId',
@@ -194,8 +214,15 @@ const tablesSchema = __schema({
   battle: __table({
     name: 'battle',
     indexes: [
+      { accessor: 'battle_attacker_at', name: 'battle_attacker_created_at_idx_btree', algorithm: 'btree', columns: [
+        'attacker',
+        'createdAt',
+      ] },
       { accessor: 'battle_id', name: 'battle_battle_id_idx_btree', algorithm: 'btree', columns: [
         'battleId',
+      ] },
+      { accessor: 'created_at', name: 'battle_created_at_idx_btree', algorithm: 'btree', columns: [
+        'createdAt',
       ] },
     ],
     constraints: [
@@ -383,6 +410,17 @@ const tablesSchema = __schema({
       { name: 'ephemeris_body_key', constraint: 'unique', columns: ['body'] },
     ],
   }, EphemerisRow),
+  factionWarStanding: __table({
+    name: 'faction_war_standing',
+    indexes: [
+      { accessor: 'faction_idx', name: 'faction_war_standing_faction_idx_idx_btree', algorithm: 'btree', columns: [
+        'factionIdx',
+      ] },
+    ],
+    constraints: [
+      { name: 'faction_war_standing_faction_idx_key', constraint: 'unique', columns: ['factionIdx'] },
+    ],
+  }, FactionWarStandingRow),
   faucetTransaction: __table({
     name: 'faucet_transaction',
     indexes: [
@@ -450,6 +488,17 @@ const tablesSchema = __schema({
       { name: 'jing_duel_duel_id_key', constraint: 'unique', columns: ['duelId'] },
     ],
   }, JingDuelRow),
+  meleeCareer: __table({
+    name: 'melee_career',
+    indexes: [
+      { accessor: 'identity', name: 'melee_career_identity_idx_btree', algorithm: 'btree', columns: [
+        'identity',
+      ] },
+    ],
+    constraints: [
+      { name: 'melee_career_identity_key', constraint: 'unique', columns: ['identity'] },
+    ],
+  }, MeleeCareerRow),
   meleePlay: __table({
     name: 'melee_play',
     indexes: [
@@ -478,6 +527,24 @@ const tablesSchema = __schema({
       { name: 'melee_queue_identity_key', constraint: 'unique', columns: ['identity'] },
     ],
   }, MeleeQueueRow),
+  meleeResult: __table({
+    name: 'melee_result',
+    indexes: [
+      { accessor: 'resolved_at', name: 'melee_result_resolved_at_idx_btree', algorithm: 'btree', columns: [
+        'resolvedAt',
+      ] },
+      { accessor: 'table_id', name: 'melee_result_table_id_idx_btree', algorithm: 'btree', columns: [
+        'tableId',
+      ] },
+      { accessor: 'zone_resolved', name: 'melee_result_zone_id_resolved_at_idx_btree', algorithm: 'btree', columns: [
+        'zoneId',
+        'resolvedAt',
+      ] },
+    ],
+    constraints: [
+      { name: 'melee_result_table_id_key', constraint: 'unique', columns: ['tableId'] },
+    ],
+  }, MeleeResultRow),
   meleeSeat: __table({
     name: 'melee_seat',
     indexes: [
@@ -498,6 +565,12 @@ const tablesSchema = __schema({
   meleeTable: __table({
     name: 'melee_table',
     indexes: [
+      { accessor: 'opened_at', name: 'melee_table_opened_at_idx_btree', algorithm: 'btree', columns: [
+        'openedAt',
+      ] },
+      { accessor: 'state', name: 'melee_table_state_idx_btree', algorithm: 'btree', columns: [
+        'state',
+      ] },
       { accessor: 'table_id', name: 'melee_table_table_id_idx_btree', algorithm: 'btree', columns: [
         'tableId',
       ] },
@@ -548,6 +621,56 @@ const tablesSchema = __schema({
       { name: 'oracle_cache_qhash_key', constraint: 'unique', columns: ['qhash'] },
     ],
   }, OracleCacheRow),
+  pillarCast: __table({
+    name: 'pillar_cast',
+    indexes: [
+      { accessor: 'cast_id', name: 'pillar_cast_cast_id_idx_btree', algorithm: 'btree', columns: [
+        'castId',
+      ] },
+      { accessor: 'duel_id', name: 'pillar_cast_duel_id_idx_btree', algorithm: 'btree', columns: [
+        'duelId',
+      ] },
+    ],
+    constraints: [
+      { name: 'pillar_cast_cast_id_key', constraint: 'unique', columns: ['castId'] },
+    ],
+  }, PillarCastRow),
+  pillarDuel: __table({
+    name: 'pillar_duel',
+    indexes: [
+      { accessor: 'duel_id', name: 'pillar_duel_duel_id_idx_btree', algorithm: 'btree', columns: [
+        'duelId',
+      ] },
+      { accessor: 'initiator', name: 'pillar_duel_initiator_idx_btree', algorithm: 'btree', columns: [
+        'initiator',
+      ] },
+    ],
+    constraints: [
+      { name: 'pillar_duel_duel_id_key', constraint: 'unique', columns: ['duelId'] },
+    ],
+  }, PillarDuelRow),
+  pillarPool: __table({
+    name: 'pillar_pool',
+    indexes: [
+      { accessor: 'identity', name: 'pillar_pool_identity_idx_btree', algorithm: 'btree', columns: [
+        'identity',
+      ] },
+    ],
+    constraints: [
+      { name: 'pillar_pool_identity_key', constraint: 'unique', columns: ['identity'] },
+    ],
+  }, PillarPoolRow),
+  pillarTension: __table({
+    name: 'pillar_tension',
+    indexes: [
+      { accessor: 'room_id', name: 'pillar_tension_room_id_idx_btree', algorithm: 'btree', columns: [
+        'roomId',
+      ] },
+    ],
+    constraints: [
+      { name: 'pillar_tension_room_id_key', constraint: 'unique', columns: ['roomId'] },
+    ],
+  }, PillarTensionRow),
   player: __table({
     name: 'player',
     indexes: [
@@ -682,6 +805,31 @@ const tablesSchema = __schema({
       { name: 'verified_solana_wallet_solana_pubkey_key', constraint: 'unique', columns: ['solanaPubkey'] },
     ],
   }, VerifiedSolanaWalletRow),
+  warEpoch: __table({
+    name: 'war_epoch',
+    indexes: [
+      { accessor: 'epoch_id', name: 'war_epoch_epoch_id_idx_btree', algorithm: 'btree', columns: [
+        'epochId',
+      ] },
+      { accessor: 'is_decan', name: 'war_epoch_is_decan_idx_btree', algorithm: 'btree', columns: [
+        'isDecan',
+      ] },
+    ],
+    constraints: [
+      { name: 'war_epoch_epoch_id_key', constraint: 'unique', columns: ['epochId'] },
+    ],
+  }, WarEpochRow),
+  warState: __table({
+    name: 'war_state',
+    indexes: [
+      { accessor: 'id', name: 'war_state_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'war_state_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, WarStateRow),
   wordDuel: __table({
     name: 'word_duel',
     indexes: [
@@ -707,6 +855,13 @@ const tablesSchema = __schema({
       { name: 'zone_zone_id_key', constraint: 'unique', columns: ['zoneId'] },
     ],
   }, ZoneRow),
+  myMeleeHand: __table({
+    name: 'my_melee_hand',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, MyMeleeHandRow),
 });
 
 /** The schema information for all reducers in this module. This is defined the same way as the reducers would have been defined in the server, except the body of the reducer is omitted in code generation. */
@@ -723,14 +878,18 @@ const reducersSchema = __reducers(
   __reducerSchema("answer_duel", AnswerDuelReducer),
   __reducerSchema("answer_jing", AnswerJingReducer),
   __reducerSchema("answer_oracle", AnswerOracleReducer),
+  __reducerSchema("answer_pillar", AnswerPillarReducer),
   __reducerSchema("answer_trace", AnswerTraceReducer),
   __reducerSchema("ask_oracle", AskOracleReducer),
   __reducerSchema("backfill_decans", BackfillDecansReducer),
   __reducerSchema("bind_solana_wallet", BindSolanaWalletReducer),
+  __reducerSchema("cancel_pillar_duel", CancelPillarDuelReducer),
   __reducerSchema("cancel_stale_claim", CancelStaleClaimReducer),
   __reducerSchema("cancel_trade", CancelTradeReducer),
   __reducerSchema("capture_ar_constellation", CaptureArConstellationReducer),
   __reducerSchema("cast_jing", CastJingReducer),
+  __reducerSchema("cast_pillar", CastPillarReducer),
+  __reducerSchema("cast_room_pillar", CastRoomPillarReducer),
   __reducerSchema("cast_word", CastWordReducer),
   __reducerSchema("claim_daily_faucet", ClaimDailyFaucetReducer),
   __reducerSchema("claim_duel_timeout", ClaimDuelTimeoutReducer),
@@ -740,7 +899,9 @@ const reducersSchema = __reducers(
   __reducerSchema("confirm_trade", ConfirmTradeReducer),
   __reducerSchema("confirm_yield_claim", ConfirmYieldClaimReducer),
   __reducerSchema("counter_jing", CounterJingReducer),
+  __reducerSchema("counter_pillar", CounterPillarReducer),
   __reducerSchema("create_player", CreatePlayerReducer),
+  __reducerSchema("decay_tension", DecayTensionReducer),
   __reducerSchema("delete_player_data", DeletePlayerDataReducer),
   __reducerSchema("deploy_card", DeployCardReducer),
   __reducerSchema("enqueue_duel", EnqueueDuelReducer),
@@ -768,6 +929,7 @@ const reducersSchema = __reducers(
   __reducerSchema("stardex_fortify_node", StardexFortifyNodeReducer),
   __reducerSchema("strike_star_single", StrikeStarSingleReducer),
   __reducerSchema("submit_melee_result", SubmitMeleeResultReducer),
+  __reducerSchema("sweep_stale_pillar_duels", SweepStalePillarDuelsReducer),
   __reducerSchema("sync_solana_event", SyncSolanaEventReducer),
   __reducerSchema("sync_stardex_ephemeris", SyncStardexEphemerisReducer),
   __reducerSchema("trace_constellation", TraceConstellationReducer),
@@ -806,6 +968,8 @@ type __SchemaWithTableAccessorAliases = Omit<typeof tablesSchema.schemaType, "ta
     readonly "duel_queue": Omit<typeof tablesSchema.schemaType.tables["duelQueue"], "accessorName"> & { readonly accessorName: "duel_queue" };
     /** @deprecated Use `duelRound` instead. This alias will be removed in the next major version. */
     readonly "duel_round": Omit<typeof tablesSchema.schemaType.tables["duelRound"], "accessorName"> & { readonly accessorName: "duel_round" };
+    /** @deprecated Use `factionWarStanding` instead. This alias will be removed in the next major version. */
+    readonly "faction_war_standing": Omit<typeof tablesSchema.schemaType.tables["factionWarStanding"], "accessorName"> & { readonly accessorName: "faction_war_standing" };
     /** @deprecated Use `faucetTransaction` instead. This alias will be removed in the next major version. */
     readonly "faucet_transaction": Omit<typeof tablesSchema.schemaType.tables["faucetTransaction"], "accessorName"> & { readonly accessorName: "faucet_transaction" };
     /** @deprecated Use `gameConfig` instead. This alias will be removed in the next major version. */
@@ -816,10 +980,14 @@ type __SchemaWithTableAccessorAliases = Omit<typeof tablesSchema.schemaType, "ta
     readonly "jing_cast": Omit<typeof tablesSchema.schemaType.tables["jingCast"], "accessorName"> & { readonly accessorName: "jing_cast" };
     /** @deprecated Use `jingDuel` instead. This alias will be removed in the next major version. */
     readonly "jing_duel": Omit<typeof tablesSchema.schemaType.tables["jingDuel"], "accessorName"> & { readonly accessorName: "jing_duel" };
+    /** @deprecated Use `meleeCareer` instead. This alias will be removed in the next major version. */
+    readonly "melee_career": Omit<typeof tablesSchema.schemaType.tables["meleeCareer"], "accessorName"> & { readonly accessorName: "melee_career" };
     /** @deprecated Use `meleePlay` instead. This alias will be removed in the next major version. */
     readonly "melee_play": Omit<typeof tablesSchema.schemaType.tables["meleePlay"], "accessorName"> & { readonly accessorName: "melee_play" };
     /** @deprecated Use `meleeQueue` instead. This alias will be removed in the next major version. */
     readonly "melee_queue": Omit<typeof tablesSchema.schemaType.tables["meleeQueue"], "accessorName"> & { readonly accessorName: "melee_queue" };
+    /** @deprecated Use `meleeResult` instead. This alias will be removed in the next major version. */
+    readonly "melee_result": Omit<typeof tablesSchema.schemaType.tables["meleeResult"], "accessorName"> & { readonly accessorName: "melee_result" };
     /** @deprecated Use `meleeSeat` instead. This alias will be removed in the next major version. */
     readonly "melee_seat": Omit<typeof tablesSchema.schemaType.tables["meleeSeat"], "accessorName"> & { readonly accessorName: "melee_seat" };
     /** @deprecated Use `meleeTable` instead. This alias will be removed in the next major version. */
@@ -830,6 +998,14 @@ type __SchemaWithTableAccessorAliases = Omit<typeof tablesSchema.schemaType, "ta
     readonly "natal_decan": Omit<typeof tablesSchema.schemaType.tables["natalDecan"], "accessorName"> & { readonly accessorName: "natal_decan" };
     /** @deprecated Use `oracleCache` instead. This alias will be removed in the next major version. */
     readonly "oracle_cache": Omit<typeof tablesSchema.schemaType.tables["oracleCache"], "accessorName"> & { readonly accessorName: "oracle_cache" };
+    /** @deprecated Use `pillarCast` instead. This alias will be removed in the next major version. */
+    readonly "pillar_cast": Omit<typeof tablesSchema.schemaType.tables["pillarCast"], "accessorName"> & { readonly accessorName: "pillar_cast" };
+    /** @deprecated Use `pillarDuel` instead. This alias will be removed in the next major version. */
+    readonly "pillar_duel": Omit<typeof tablesSchema.schemaType.tables["pillarDuel"], "accessorName"> & { readonly accessorName: "pillar_duel" };
+    /** @deprecated Use `pillarPool` instead. This alias will be removed in the next major version. */
+    readonly "pillar_pool": Omit<typeof tablesSchema.schemaType.tables["pillarPool"], "accessorName"> & { readonly accessorName: "pillar_pool" };
+    /** @deprecated Use `pillarTension` instead. This alias will be removed in the next major version. */
+    readonly "pillar_tension": Omit<typeof tablesSchema.schemaType.tables["pillarTension"], "accessorName"> & { readonly accessorName: "pillar_tension" };
     /** @deprecated Use `playerFaucetState` instead. This alias will be removed in the next major version. */
     readonly "player_faucet_state": Omit<typeof tablesSchema.schemaType.tables["playerFaucetState"], "accessorName"> & { readonly accessorName: "player_faucet_state" };
     /** @deprecated Use `processedTx` instead. This alias will be removed in the next major version. */
@@ -848,8 +1024,14 @@ type __SchemaWithTableAccessorAliases = Omit<typeof tablesSchema.schemaType, "ta
     readonly "star_stake_pool": Omit<typeof tablesSchema.schemaType.tables["starStakePool"], "accessorName"> & { readonly accessorName: "star_stake_pool" };
     /** @deprecated Use `verifiedSolanaWallet` instead. This alias will be removed in the next major version. */
     readonly "verified_solana_wallet": Omit<typeof tablesSchema.schemaType.tables["verifiedSolanaWallet"], "accessorName"> & { readonly accessorName: "verified_solana_wallet" };
+    /** @deprecated Use `warEpoch` instead. This alias will be removed in the next major version. */
+    readonly "war_epoch": Omit<typeof tablesSchema.schemaType.tables["warEpoch"], "accessorName"> & { readonly accessorName: "war_epoch" };
+    /** @deprecated Use `warState` instead. This alias will be removed in the next major version. */
+    readonly "war_state": Omit<typeof tablesSchema.schemaType.tables["warState"], "accessorName"> & { readonly accessorName: "war_state" };
     /** @deprecated Use `wordDuel` instead. This alias will be removed in the next major version. */
     readonly "word_duel": Omit<typeof tablesSchema.schemaType.tables["wordDuel"], "accessorName"> & { readonly accessorName: "word_duel" };
+    /** @deprecated Use `myMeleeHand` instead. This alias will be removed in the next major version. */
+    readonly "my_melee_hand": Omit<typeof tablesSchema.schemaType.tables["myMeleeHand"], "accessorName"> & { readonly accessorName: "my_melee_hand" };
   };
 };
 
@@ -880,18 +1062,25 @@ const tableAccessorAliases = {
   "duel_challenge": "duelChallenge",
   "duel_queue": "duelQueue",
   "duel_round": "duelRound",
+  "faction_war_standing": "factionWarStanding",
   "faucet_transaction": "faucetTransaction",
   "game_config": "gameConfig",
   "horizon_action_receipt": "horizonActionReceipt",
   "jing_cast": "jingCast",
   "jing_duel": "jingDuel",
+  "melee_career": "meleeCareer",
   "melee_play": "meleePlay",
   "melee_queue": "meleeQueue",
+  "melee_result": "meleeResult",
   "melee_seat": "meleeSeat",
   "melee_table": "meleeTable",
   "melee_trick": "meleeTrick",
   "natal_decan": "natalDecan",
   "oracle_cache": "oracleCache",
+  "pillar_cast": "pillarCast",
+  "pillar_duel": "pillarDuel",
+  "pillar_pool": "pillarPool",
+  "pillar_tension": "pillarTension",
   "player_faucet_state": "playerFaucetState",
   "processed_tx": "processedTx",
   "round_participant": "roundParticipant",
@@ -901,7 +1090,10 @@ const tableAccessorAliases = {
   "star_node": "starNode",
   "star_stake_pool": "starStakePool",
   "verified_solana_wallet": "verifiedSolanaWallet",
+  "war_epoch": "warEpoch",
+  "war_state": "warState",
   "word_duel": "wordDuel",
+  "my_melee_hand": "myMeleeHand",
 } as const;
 
 function __withTableAccessorAliases<T extends object>(target: T, freeze = false): T {
@@ -946,6 +1138,8 @@ export type DbView = __DbViewBase & {
   readonly "duel_queue": __DbViewBase["duelQueue"];
   /** @deprecated Use `duelRound` instead. This alias will be removed in the next major version. */
   readonly "duel_round": __DbViewBase["duelRound"];
+  /** @deprecated Use `factionWarStanding` instead. This alias will be removed in the next major version. */
+  readonly "faction_war_standing": __DbViewBase["factionWarStanding"];
   /** @deprecated Use `faucetTransaction` instead. This alias will be removed in the next major version. */
   readonly "faucet_transaction": __DbViewBase["faucetTransaction"];
   /** @deprecated Use `gameConfig` instead. This alias will be removed in the next major version. */
@@ -956,10 +1150,14 @@ export type DbView = __DbViewBase & {
   readonly "jing_cast": __DbViewBase["jingCast"];
   /** @deprecated Use `jingDuel` instead. This alias will be removed in the next major version. */
   readonly "jing_duel": __DbViewBase["jingDuel"];
+  /** @deprecated Use `meleeCareer` instead. This alias will be removed in the next major version. */
+  readonly "melee_career": __DbViewBase["meleeCareer"];
   /** @deprecated Use `meleePlay` instead. This alias will be removed in the next major version. */
   readonly "melee_play": __DbViewBase["meleePlay"];
   /** @deprecated Use `meleeQueue` instead. This alias will be removed in the next major version. */
   readonly "melee_queue": __DbViewBase["meleeQueue"];
+  /** @deprecated Use `meleeResult` instead. This alias will be removed in the next major version. */
+  readonly "melee_result": __DbViewBase["meleeResult"];
   /** @deprecated Use `meleeSeat` instead. This alias will be removed in the next major version. */
   readonly "melee_seat": __DbViewBase["meleeSeat"];
   /** @deprecated Use `meleeTable` instead. This alias will be removed in the next major version. */
@@ -970,6 +1168,14 @@ export type DbView = __DbViewBase & {
   readonly "natal_decan": __DbViewBase["natalDecan"];
   /** @deprecated Use `oracleCache` instead. This alias will be removed in the next major version. */
   readonly "oracle_cache": __DbViewBase["oracleCache"];
+  /** @deprecated Use `pillarCast` instead. This alias will be removed in the next major version. */
+  readonly "pillar_cast": __DbViewBase["pillarCast"];
+  /** @deprecated Use `pillarDuel` instead. This alias will be removed in the next major version. */
+  readonly "pillar_duel": __DbViewBase["pillarDuel"];
+  /** @deprecated Use `pillarPool` instead. This alias will be removed in the next major version. */
+  readonly "pillar_pool": __DbViewBase["pillarPool"];
+  /** @deprecated Use `pillarTension` instead. This alias will be removed in the next major version. */
+  readonly "pillar_tension": __DbViewBase["pillarTension"];
   /** @deprecated Use `playerFaucetState` instead. This alias will be removed in the next major version. */
   readonly "player_faucet_state": __DbViewBase["playerFaucetState"];
   /** @deprecated Use `processedTx` instead. This alias will be removed in the next major version. */
@@ -988,8 +1194,14 @@ export type DbView = __DbViewBase & {
   readonly "star_stake_pool": __DbViewBase["starStakePool"];
   /** @deprecated Use `verifiedSolanaWallet` instead. This alias will be removed in the next major version. */
   readonly "verified_solana_wallet": __DbViewBase["verifiedSolanaWallet"];
+  /** @deprecated Use `warEpoch` instead. This alias will be removed in the next major version. */
+  readonly "war_epoch": __DbViewBase["warEpoch"];
+  /** @deprecated Use `warState` instead. This alias will be removed in the next major version. */
+  readonly "war_state": __DbViewBase["warState"];
   /** @deprecated Use `wordDuel` instead. This alias will be removed in the next major version. */
   readonly "word_duel": __DbViewBase["wordDuel"];
+  /** @deprecated Use `myMeleeHand` instead. This alias will be removed in the next major version. */
+  readonly "my_melee_hand": __DbViewBase["myMeleeHand"];
 };
 
 type __TablesBase = __QueryBuilder<typeof tablesSchema.schemaType>;
@@ -1018,6 +1230,8 @@ export type Tables = __TablesBase & {
   readonly "duel_queue": __TablesBase["duelQueue"];
   /** @deprecated Use `duelRound` instead. This alias will be removed in the next major version. */
   readonly "duel_round": __TablesBase["duelRound"];
+  /** @deprecated Use `factionWarStanding` instead. This alias will be removed in the next major version. */
+  readonly "faction_war_standing": __TablesBase["factionWarStanding"];
   /** @deprecated Use `faucetTransaction` instead. This alias will be removed in the next major version. */
   readonly "faucet_transaction": __TablesBase["faucetTransaction"];
   /** @deprecated Use `gameConfig` instead. This alias will be removed in the next major version. */
@@ -1028,10 +1242,14 @@ export type Tables = __TablesBase & {
   readonly "jing_cast": __TablesBase["jingCast"];
   /** @deprecated Use `jingDuel` instead. This alias will be removed in the next major version. */
   readonly "jing_duel": __TablesBase["jingDuel"];
+  /** @deprecated Use `meleeCareer` instead. This alias will be removed in the next major version. */
+  readonly "melee_career": __TablesBase["meleeCareer"];
   /** @deprecated Use `meleePlay` instead. This alias will be removed in the next major version. */
   readonly "melee_play": __TablesBase["meleePlay"];
   /** @deprecated Use `meleeQueue` instead. This alias will be removed in the next major version. */
   readonly "melee_queue": __TablesBase["meleeQueue"];
+  /** @deprecated Use `meleeResult` instead. This alias will be removed in the next major version. */
+  readonly "melee_result": __TablesBase["meleeResult"];
   /** @deprecated Use `meleeSeat` instead. This alias will be removed in the next major version. */
   readonly "melee_seat": __TablesBase["meleeSeat"];
   /** @deprecated Use `meleeTable` instead. This alias will be removed in the next major version. */
@@ -1042,6 +1260,14 @@ export type Tables = __TablesBase & {
   readonly "natal_decan": __TablesBase["natalDecan"];
   /** @deprecated Use `oracleCache` instead. This alias will be removed in the next major version. */
   readonly "oracle_cache": __TablesBase["oracleCache"];
+  /** @deprecated Use `pillarCast` instead. This alias will be removed in the next major version. */
+  readonly "pillar_cast": __TablesBase["pillarCast"];
+  /** @deprecated Use `pillarDuel` instead. This alias will be removed in the next major version. */
+  readonly "pillar_duel": __TablesBase["pillarDuel"];
+  /** @deprecated Use `pillarPool` instead. This alias will be removed in the next major version. */
+  readonly "pillar_pool": __TablesBase["pillarPool"];
+  /** @deprecated Use `pillarTension` instead. This alias will be removed in the next major version. */
+  readonly "pillar_tension": __TablesBase["pillarTension"];
   /** @deprecated Use `playerFaucetState` instead. This alias will be removed in the next major version. */
   readonly "player_faucet_state": __TablesBase["playerFaucetState"];
   /** @deprecated Use `processedTx` instead. This alias will be removed in the next major version. */
@@ -1060,8 +1286,14 @@ export type Tables = __TablesBase & {
   readonly "star_stake_pool": __TablesBase["starStakePool"];
   /** @deprecated Use `verifiedSolanaWallet` instead. This alias will be removed in the next major version. */
   readonly "verified_solana_wallet": __TablesBase["verifiedSolanaWallet"];
+  /** @deprecated Use `warEpoch` instead. This alias will be removed in the next major version. */
+  readonly "war_epoch": __TablesBase["warEpoch"];
+  /** @deprecated Use `warState` instead. This alias will be removed in the next major version. */
+  readonly "war_state": __TablesBase["warState"];
   /** @deprecated Use `wordDuel` instead. This alias will be removed in the next major version. */
   readonly "word_duel": __TablesBase["wordDuel"];
+  /** @deprecated Use `myMeleeHand` instead. This alias will be removed in the next major version. */
+  readonly "my_melee_hand": __TablesBase["myMeleeHand"];
 };
 
 /** The tables available in this remote SpacetimeDB module. Each table reference doubles as a query builder. */

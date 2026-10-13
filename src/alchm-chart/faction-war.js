@@ -135,8 +135,10 @@ export class FactionWarInstance {
     sub("melee_queue", "queue");
     sub("melee_play", "plays");
     // Dealt hands and resolved tricks: the module writes both now that it
-    // referees, and the arena animates straight off them.
-    sub("melee_hand", "hands");
+    // referees, and the arena animates straight off them. `melee_hand` itself is
+    // private (subscribing to it fails the WHOLE combined subscription); the
+    // `my_melee_hand` view returns exactly this player's own cards.
+    sub("my_melee_hand", "hands");
     sub("melee_trick", "tricks");
   }
 

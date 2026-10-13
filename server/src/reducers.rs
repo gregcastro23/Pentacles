@@ -4,7 +4,7 @@
 use crate::tables::*;
 use crate::types::*;
 use crate::{catalog, chart, combat, faucet, melee, words};
-use spacetimedb::{reducer, Identity, ReducerContext, ScheduleAt, Table, Timestamp};
+use spacetimedb::{reducer, Identity, ReducerContext, ScheduleAt, Table, Timestamp, ViewContext};
 use std::time::Duration;
 
 const FLIP_THRESHOLD: i32 = 600;
@@ -77,9 +77,66 @@ const TRADE_OPEN_TTL_SECS: i64 = 30 * 24 * 3600;
 const TRACE_TTL_SECS: i64 = 7 * 24 * 3600;
 /// A matchmaking ticket nobody ever paired with — the seeker is gone after a day.
 const DUEL_TICKET_TTL_SECS: i64 = 24 * 3600;
-/// Per-card ASOL handoffs are high-volume audit telemetry; one day is enough for
-/// operator diagnosis while keeping public subscription state bounded.
-const AGENT_MELEE_TURN_TTL_SECS: i64 = 5 * 60;
+/// Per-card ASOL handoffs are the audit trail of agent-vs-fallback decisions; one
+/// day is enough for operator diagnosis while keeping public subscription state
+/// bounded. (Was 5 minutes, contradicting this comment; the per-table counts also
+/// survive in `melee_result.agent_turns` / `fallback_turns`.)
+const AGENT_MELEE_TURN_TTL_SECS: i64 = 24 * 3600;
+/// `agent_war` writes up to ten faction-agent raids per 10 s tick. Those keep an
+/// hour; a human's battle keeps the full `BATTLE_TTL_SECS` week.
+const AGENT_RAID_TTL_SECS: i64 = 3600;
+/// How far one `prune_war_history` call advances the agent-raid expiry cursor.
+const BATTLE_PRUNE_WINDOW_SECS: i64 = 30 * 60;
+/// Where the agent-raid cursor starts on a fresh `war_state`: just past the week
+/// the old full-scan prune already kept.
+const BATTLE_PRUNE_START_SECS: i64 = 8 * 24 * 3600;
+/// A settled War Table's raw rows (seats, plays, tricks) stay this long after
+/// `resolved_at`: long enough for the client to animate the last trick and show
+/// the settlement, and longer than `MELEE_PUSH_SUPPRESSION_MICROS`. After that the
+/// `melee_result` row is the record. Every subscribed browser re-reads these whole
+/// tables on each delta, so this is minutes on purpose.
+const MELEE_RAW_TTL_SECS: i64 = 180;
+/// `melee_result` retention. The permanent value lives in `melee_career`,
+/// `faction_war_standing` and `war_epoch`; a week of per-table rows is for replays,
+/// the ticker and the feeder's ledger.
+const MELEE_RESULT_TTL_SECS: i64 = 7 * 24 * 3600;
+/// Tables `prune_war_history` may purge in one call (each is ~5 index deletes).
+/// Bounds both the reducer and the delete broadcast to whole-table subscribers.
+const MELEE_PRUNE_TABLES_PER_CALL: usize = 100;
+/// ...and rows: a run of six-seat tables is ~160 rows each, so the table cap
+/// alone does not bound the delete broadcast.
+const MELEE_PRUNE_ROWS_PER_CALL: u64 = 6_000;
+/// The one-time backlog drain walks `opened_at` in windows this wide, so no call
+/// copies more than one window of history out of the host.
+const MELEE_DRAIN_WINDOW_SECS: i64 = 3600;
+/// Empty windows the drain may skip through per call (a fresh cursor starts well
+/// before the first table ever opened).
+const MELEE_DRAIN_WINDOWS_PER_CALL: usize = 48;
+/// The drain only touches tables opened before now − this. A table settles at
+/// most ~610 s after opening (the stalled-table sweep in `tick_sky`), so anything
+/// older is resolved and past `MELEE_RAW_TTL_SECS`.
+const MELEE_DRAIN_HORIZON_SECS: i64 = 15 * 60;
+/// Where the drain cursor starts on a fresh `war_state` — before the War Table existed.
+const MELEE_DRAIN_START_SECS: i64 = 120 * 24 * 3600;
+/// Faction points for a won table that also captured the zone (on top of the
+/// winning score) — the bonus the old feeder ledger used, now on real results.
+const DECAN_CAPTURE_BONUS: u64 = 50;
+/// A table open this long has stalled; `tick_sky` settles it instead of waiting.
+const MELEE_STALE_SETTLE_SECS: i64 = 600;
+/// A table stalled this long is settled VOID (no control, no ESMS, no credit).
+const MELEE_STALE_VOID_SECS: i64 = 3600;
+/// Upper bound on stalled-table settles per `tick_sky`, so a backlog of stalled
+/// tables drains over a few ticks instead of running one tick out of fuel.
+const MELEE_STALE_SETTLES_PER_TICK: usize = 16;
+/// A decan rolls over only FORWARD by one or two steps. Anything else (an
+/// out-of-order or bogus Sun push, or the far side of a long feeder outage) is
+/// held as pending and only re-anchors the clock after it persists.
+const DECAN_MAX_FORWARD_STEP: u8 = 2;
+/// How long a non-adjacent Sun reading must persist before the decan clock
+/// re-anchors to it (the feeder pushes every 15 min, so ~8 consistent pushes).
+const DECAN_REANCHOR_CONFIRM_SECS: i64 = 2 * 3600;
+/// A Sun row older than this is too stale to roll the decan on.
+const SUN_STALE_SECS: i64 = 6 * 3600;
 /// Word Duels of the Spheres: pace duels and size the (massive) token reward.
 const WORD_DUEL_COOLDOWN_SECS: i64 = 20;
 const TOKEN_PER_POINT: u64 = 50; // word_score × this is the base token reward
@@ -1462,26 +1519,20 @@ fn elapsed_secs(later: Timestamp, earlier: Timestamp) -> i64 {
     (micros / 1_000_000).max(0)
 }
 
-/// Bound the append-only history tables. Battle logs, answered (and abandoned)
-/// Oracle Q&A, finished duels of every kind, settled trades, spent trace intents,
-/// agent melee handoffs and stale matchmaking tickets are transient telemetry;
-/// past their TTL they only cost storage and subscription bandwidth. One global pass per `tick_sky` — each
+/// Bound the append-only history tables. Answered (and abandoned) Oracle Q&A,
+/// finished duels of every kind, settled trades, spent trace intents, agent melee
+/// handoffs and stale matchmaking tickets are transient telemetry; past their TTL
+/// they only cost storage and subscription bandwidth. One global pass per `tick_sky` — each
 /// scan is linear in the *retained* window (which the prune itself keeps bounded),
 /// not the quadratic per-player scan #1 removed. Two tables are intentionally
 /// permanent: `oracle_cache` (the answer cache is the asset we want to keep) and
 /// `constellation_block` (the append-only trophy ledger of raised resolution).
+///
+/// War history (`battle`, the War Table's raw rows, `melee_result`,
+/// `agent_melee_turn`) is pruned by `prune_war_history` instead, with index
+/// range deletes rather than scans.
 fn prune_stale(ctx: &ReducerContext) {
     let now = ctx.timestamp;
-    let stale_battles: Vec<u64> = ctx
-        .db
-        .battle()
-        .iter()
-        .filter(|b| elapsed_secs(now, b.created_at) > BATTLE_TTL_SECS)
-        .map(|b| b.battle_id)
-        .collect();
-    for id in stale_battles {
-        ctx.db.battle().battle_id().delete(&id);
-    }
 
     let stale_reqs: Vec<u64> = ctx
         .db
@@ -1628,20 +1679,8 @@ fn prune_stale(ctx: &ReducerContext) {
         ctx.db.duel_queue().ticket_id().delete(&id);
     }
 
-    let stale_agent_turns: Vec<u64> = ctx
-        .db
-        .agent_melee_turn()
-        .iter()
-        .filter(|turn| {
-            turn.resolved_at
-                .map(|resolved| elapsed_secs(now, resolved) > AGENT_MELEE_TURN_TTL_SECS)
-                .unwrap_or(false)
-        })
-        .map(|turn| turn.turn_id)
-        .collect();
-    for id in stale_agent_turns {
-        ctx.db.agent_melee_turn().turn_id().delete(&id);
-    }
+    // (agent_melee_turn is range-deleted on its `requested_at` index by
+    // `prune_war_history` — a full scan here would grow with its 1-day TTL.)
 
     // Identity-link grants that were opened but never claimed.
     let stale_grants: Vec<String> = ctx
@@ -1681,6 +1720,10 @@ fn has_loadout(ctx: &ReducerContext, owner: Identity, card_id: u64, loadout: Loa
 /// stalled duels, advances the Great Wheel, and lets unmanned factions raid.
 #[reducer]
 pub fn tick_sky(ctx: &ReducerContext, _timer: SkyTickTimer) {
+    // Roll the decan FIRST, so every table settled in this tick credits the decan
+    // it is stamped with.
+    war_decan_tick(ctx); // crown the decan champion when the Sun crosses 10°
+
     // 0. Drive any War Table that is mid-play.
     //
     // This covers both kinds of deliberate pause: a seated human who stopped
@@ -1688,19 +1731,22 @@ pub fn tick_sky(ctx: &ReducerContext, _timer: SkyTickTimer) {
     // before the applicable deadline, then applies the deterministic fallback,
     // so this is safe to run every tick. Collected first: the loop writes to the
     // tables it would otherwise be iterating.
+    //
+    // Stalled tables are settled at most MELEE_STALE_SETTLES_PER_TICK a tick, so a
+    // backlog can never make this reducer run out of fuel and roll back the whole
+    // sky. One stalled past MELEE_STALE_VOID_SECS is voided rather than played
+    // out: applying a game from hours ago would move today's map on stale scores.
     let now = ctx.timestamp;
-    let live: Vec<u64> = ctx
-        .db
-        .melee_table()
-        .iter()
-        .filter(|t| t.state != MeleeState::Resolved)
-        .map(|t| t.table_id)
-        .collect();
+    let live = live_melee_table_ids(ctx);
+    let mut stale_settles = 0usize;
     for table_id in live {
         if let Some(table) = ctx.db.melee_table().table_id().find(&table_id) {
-            // Settle tables that have been stalled/open for > 10 minutes to drain old backlog.
-            if elapsed_secs(now, table.opened_at) > 600 {
-                melee_settle(ctx, table_id);
+            let age = elapsed_secs(now, table.opened_at);
+            if age > MELEE_STALE_SETTLE_SECS {
+                if stale_settles < MELEE_STALE_SETTLES_PER_TICK {
+                    melee_settle(ctx, table_id, age > MELEE_STALE_VOID_SECS);
+                    stale_settles += 1;
+                }
             } else {
                 melee_advance(ctx, table_id);
             }
@@ -1745,6 +1791,9 @@ pub fn tick_sky(ctx: &ReducerContext, _timer: SkyTickTimer) {
                     champion = Some(Planet::from_idx(i as u8));
                 }
             }
+
+            // Persist the season before the reset wipes the map it was scored on.
+            record_war_season(ctx, &standings, champion, max_score);
 
             // Soft Map Reset: clear stars
             for mut star in ctx.db.star_node().iter() {
@@ -1823,6 +1872,7 @@ pub fn tick_sky(ctx: &ReducerContext, _timer: SkyTickTimer) {
     sweep_stale_duels(ctx); // B — auto-resolve abandoned duels
     prune_stale(ctx); // C — bound the append-only history tables
     agent_war(ctx); // D — continuous faction war: agents (and humans) push their zones
+    ensure_war_prune_timer(ctx); // E — war history pruning runs on its own schedule
 
     // Star Staking Yield Accrual. The ephemeris-derived rate inputs (element
     // dominance, transit dignity) are the same for every stake this tick, so they
@@ -2669,6 +2719,15 @@ fn get_ar_multiplier(ctx: &ReducerContext, zone_id: u8, actor: Identity) -> f32 
 
 /// Single-meter tug-of-war: positive `control` = the current `owner`'s hold.
 fn apply_control(ctx: &ReducerContext, zone_id: u8, attacker: Planet, delta: i32) {
+    apply_control_as(ctx, zone_id, attacker, delta, ctx.sender());
+}
+
+/// `apply_control` on behalf of a named `actor`: whose AR captures multiply the
+/// push, and who earns the capture bounty if it flips the zone. A War Table
+/// settle passes each seat's own occupant — otherwise whoever's reducer call
+/// happened to close the table (the last human to play, or the scheduler) got
+/// every seat's AR multiplier and every capture bounty.
+fn apply_control_as(ctx: &ReducerContext, zone_id: u8, attacker: Planet, delta: i32, actor: Identity) {
     if let Some(mut z) = ctx.db.zone().zone_id().find(&zone_id) {
         // Expiry check on zone flux
         if z.in_flux {
@@ -2682,26 +2741,34 @@ fn apply_control(ctx: &ReducerContext, zone_id: u8, attacker: Planet, delta: i32
         }
 
         let flux_mult = if z.in_flux { 2.5f32 } else { 1.0f32 };
-        let ar_mult = get_ar_multiplier(ctx, zone_id, ctx.sender());
+        let ar_mult = get_ar_multiplier(ctx, zone_id, actor);
         let effective_delta = ((delta as f32) * flux_mult * ar_mult) as i32;
 
         match z.owner {
             None => {
-                z.owner = Some(attacker);
-                z.control = effective_delta.clamp(0, 1000);
+                // A negative share (a War Table loser being pushed back) cannot
+                // claim a neutral zone. It used to hand the loser the zone at
+                // control 0, after which the next loser's negative share raised it.
+                if effective_delta > 0 {
+                    z.owner = Some(attacker);
+                    z.control = effective_delta.min(1000);
+                }
             }
             Some(o) if o == attacker => {
                 z.control = (z.control + effective_delta).clamp(0, 1000);
+                if z.control == 0 {
+                    z.owner = None; // an emptied hold is neutral, exactly as decay leaves it
+                }
             }
             Some(_) => {
-                z.control -= effective_delta;
+                z.control = (z.control - effective_delta).min(1000);
                 if z.control <= 0 {
                     z.owner = Some(attacker);
                     let overshoot = -z.control;
                     z.control = overshoot.clamp(0, FLIP_THRESHOLD);
 
                     // ADR-014 Zone Capture Bounty
-                    let conqueror_id = ctx.sender();
+                    let conqueror_id = actor;
                     if let Some(chart) = ctx.db.natal_chart().identity().find(&conqueror_id) {
                         let is_ingress = zone_id == (((chart.ascendant / 1800) % 11) as u8);
                         let bounty = faucet::compute_zone_capture_yield(
@@ -3076,14 +3143,7 @@ fn melee_control_deltas(scores: &[u16], zone_swing: i32) -> Vec<i32> {
             out[i] = ((share - mean) * zone_swing as f32).round() as i32;
         }
     }
-    // Winner. On a tie the earliest seat takes it — the same "first played wins"
-    // tie-break the trick engine uses, so the two can never disagree.
-    let mut best = 0usize;
-    for i in 1..n {
-        if scores[i] > scores[best] {
-            best = i;
-        }
-    }
+    let best = melee_winner_index(scores).unwrap_or(0);
     // Rounding each share independently leaves a residual of a point or two. Park
     // it on the winner so the non-bonus half of the split is EXACTLY zero-sum —
     // otherwise every round leaks a little control into the world and zones drift
@@ -3093,19 +3153,53 @@ fn melee_control_deltas(scores: &[u16], zone_swing: i32) -> Vec<i32> {
     out
 }
 
+/// The winning seat of a table: the first strictly-highest score. On a tie the
+/// earliest seat takes it — the same "first played wins" tie-break the trick
+/// engine uses, so the two can never disagree. With every score at zero that is
+/// seat 0, exactly as `melee_control_deltas` has always paid the bonus. The ESMS
+/// yield, the `melee_result` winner and the career win all read this one helper.
+fn melee_winner_index(scores: &[u16]) -> Option<usize> {
+    if scores.is_empty() {
+        return None;
+    }
+    let mut best = 0usize;
+    for i in 1..scores.len() {
+        if scores[i] > scores[best] {
+            best = i;
+        }
+    }
+    Some(best)
+}
+
+/// Every table still Mustering or Seated. Two point reads on the `state` index —
+/// proportional to live tables, never to history.
+fn live_melee_tables(ctx: &ReducerContext) -> Vec<MeleeTable> {
+    let mut live: Vec<MeleeTable> = ctx.db.melee_table().state().filter(&MeleeState::Mustering).collect();
+    live.extend(ctx.db.melee_table().state().filter(&MeleeState::Seated));
+    live
+}
+
+fn live_melee_table_ids(ctx: &ReducerContext) -> Vec<u64> {
+    live_melee_tables(ctx).into_iter().map(|t| t.table_id).collect()
+}
+
 /// Did this zone already resolve a melee in the current window? `agent_war`'s
 /// coarse per-faction push must stand down when it did, or control is applied
 /// twice and zones flip in seconds.
+///
+/// A live table owns the zone outright. A recent settle is read from
+/// `melee_result`'s (zone_id, resolved_at) index as a narrow range, so this stays
+/// cheap however much history exists — it used to scan every table the zone ever ran.
 fn zone_ran_melee(ctx: &ReducerContext, zone_id: u8) -> bool {
-    let now = ctx.timestamp.to_micros_since_unix_epoch();
-    ctx.db.melee_table().zone_id().filter(&zone_id).any(|t| match t.state {
-        MeleeState::Resolved => t
-            .resolved_at
-            .map(|r| now - r.to_micros_since_unix_epoch() < MELEE_PUSH_SUPPRESSION_MICROS)
-            .unwrap_or(false),
-        // A table still mustering or mid-play owns the zone this round.
-        _ => true,
-    })
+    if live_melee_tables(ctx).iter().any(|t| t.zone_id == zone_id) {
+        return true;
+    }
+    let since = Timestamp::from_micros_since_unix_epoch(
+        ctx.timestamp.to_micros_since_unix_epoch() - MELEE_PUSH_SUPPRESSION_MICROS,
+    );
+    // A void table moved no control, so there is nothing to double-count: it
+    // must not freeze the zone either.
+    ctx.db.melee_result().zone_resolved().filter((zone_id, since..)).any(|r| !r.is_void)
 }
 
 
@@ -3441,9 +3535,45 @@ fn melee_close_trick(
     });
 }
 
+/// A table nobody actually played: no trick resolved, or every seat scored zero.
+/// It moves no control, pays nothing and is no one's win.
+fn melee_is_void(tricks_played: usize, scores: &[u16]) -> bool {
+    tricks_played == 0 || scores.iter().all(|s| *s == 0)
+}
+
+/// The control push one settled table makes, as a SINGLE net push by the
+/// winner, signed for `apply_control_as(zone, winner, push)`.
+///
+/// Every seat's share still counts — positive shares erode the holder, negative
+/// shares (below-average seats) shore it up, exactly as the per-seat loop meant
+/// — but summed first. The per-seat loop applied them in seat order (ecliptic
+/// longitude), so a zone could flip several times inside one settle, end with
+/// the runner-up holding it, and pay a capture bounty per flip. Summed, there is
+/// at most one flip, only the top scorer can take the zone, and the order of
+/// the seats no longer matters. On a neutral zone only the winner's share can
+/// claim it; nobody's negative share can.
+fn melee_net_push(owner: Option<Planet>, seats: &[MeleeSeat], deltas: &[i32], winner_idx: usize) -> i32 {
+    let winner = seats[winner_idx].faction;
+    match owner {
+        None => deltas[winner_idx],
+        Some(o) => {
+            let toward_owner: i32 = seats
+                .iter()
+                .zip(deltas)
+                .map(|(s, d)| if s.faction == o { *d } else { -*d })
+                .sum();
+            if o == winner { toward_owner } else { -toward_owner }
+        }
+    }
+}
+
 /// Settle a refereed table: score every seat from the counters it actually
 /// harvested, move zone control, and close the row. No feeder report involved.
-fn melee_settle(ctx: &ReducerContext, table_id: u64) {
+///
+/// `force_void` settles WITHOUT effects — no control, no ESMS, no career or
+/// standings credit — for a table so long stalled that applying it now would
+/// move today's map on a stale game (the backlog cleanup in `tick_sky`).
+fn melee_settle(ctx: &ReducerContext, table_id: u64, force_void: bool) {
     let Some(mut table) = ctx.db.melee_table().table_id().find(&table_id) else {
         return;
     };
@@ -3452,28 +3582,40 @@ fn melee_settle(ctx: &ReducerContext, table_id: u64) {
     }
     let mut seats = melee_seats(ctx, table_id);
     let mut scores: Vec<u16> = Vec::with_capacity(seats.len());
-    let mut winning_seat_idx = 0;
-    let mut max_score = 0u16;
-    for (i, seat) in seats.iter_mut().enumerate() {
+    for seat in seats.iter_mut() {
         // The climax ten is already banked inside the last trick's counters, so
         // `took_final_trick` is false here — passing it again would pay it twice.
         seat.score = seat_score(seat.counters, seat.melds_value, false);
         scores.push(seat.score);
-        if seat.score > max_score {
-            max_score = seat.score;
-            winning_seat_idx = i;
-        }
         ctx.db.melee_seat().seat_id().update(seat.clone());
     }
 
-    for (seat, delta) in seats.iter().zip(melee_control_deltas(&scores, ZONE_SWING)) {
-        if delta != 0 {
-            apply_control(ctx, table.zone_id, seat.faction, delta);
+    let tricks_played = ctx.db.melee_trick().table_id().filter(&table_id).count();
+    let is_void = force_void || melee_is_void(tricks_played, &scores);
+    let zone_before = ctx.db.zone().zone_id().find(&table.zone_id);
+    let deltas = if is_void { vec![0; seats.len()] } else { melee_control_deltas(&scores, ZONE_SWING) };
+    let winner_idx = melee_winner_index(&scores);
+    if let (false, Some(wi)) = (is_void, winner_idx) {
+        let owner = zone_before.as_ref().and_then(|z| z.owner);
+        let push = melee_net_push(owner, &seats, &deltas, wi);
+        let holder_seat = owner.and_then(|o| seats.iter().find(|s| s.faction == o));
+        match holder_seat {
+            // The shares net out in a seated rival holder's favour: that is the
+            // holder reinforcing its own hold, so it is applied as the holder,
+            // with the holder's AR — not scaled by the winner's.
+            Some(h) if push < 0 && h.faction != seats[wi].faction => {
+                apply_control_as(ctx, table.zone_id, h.faction, -push, h.occupant);
+            }
+            _ if push != 0 => {
+                apply_control_as(ctx, table.zone_id, seats[wi].faction, push, seats[wi].occupant);
+            }
+            _ => {}
         }
     }
 
     // ADR-014 Melee Round Winner ESMS Yield Distribution
-    if !seats.is_empty() {
+    let mut winner_esms = 0u32;
+    if let (false, Some(winning_seat_idx)) = (is_void, winner_idx) {
         let winner = &seats[winning_seat_idx];
         if let Some(chart) = ctx.db.natal_chart().identity().find(&winner.occupant) {
             let is_clean_sweep = winner.counters >= 120;
@@ -3502,6 +3644,7 @@ fn melee_settle(ctx: &ReducerContext, table_id: u64) {
             credit_pool_fixed_points(&mut jing.esms, &fp);
             jing.updated_at = ctx.timestamp;
             ctx.db.jing_pool().identity().update(jing);
+            winner_esms = (round_yield.total * 10_000.0).round() as u32;
             ctx.db.faucet_transaction().insert(FaucetTransaction {
                 tx_id: 0,
                 recipient: winner.occupant,
@@ -3510,7 +3653,7 @@ fn melee_settle(ctx: &ReducerContext, table_id: u64) {
                 essence: fp[1],
                 matter: fp[2],
                 substance: fp[3],
-                total: (round_yield.total * 10_000.0).round() as u32,
+                total: winner_esms,
                 created_at: ctx.timestamp,
             });
         }
@@ -3518,7 +3661,284 @@ fn melee_settle(ctx: &ReducerContext, table_id: u64) {
 
     table.state = MeleeState::Resolved;
     table.resolved_at = Some(ctx.timestamp);
-    ctx.db.melee_table().table_id().update(table);
+    ctx.db.melee_table().table_id().update(table.clone());
+
+    melee_record_result(ctx, &table, &seats, &deltas, zone_before, winner_esms, true, is_void);
+    // A spent hand has no reader left (every trick is closed). The table is
+    // private, so this broadcasts nothing.
+    ctx.db.melee_hand().table_id().delete(&table_id);
+}
+
+/// The Sun's decan (0..35) from the live ephemeris: its true ecliptic longitude,
+/// recovered from RA/Dec, in 10° (600 arc-minute) steps. None until the feeder
+/// has pushed a Sun row. (Not `ra` itself — RA strays up to ~2.5° from ecliptic
+/// longitude, which put the old feeder ledger in the wrong decan ~15% of the year.)
+fn sun_decan(ctx: &ReducerContext) -> Option<u8> {
+    ctx.db
+        .ephemeris()
+        .body()
+        .find(&Planet::Sun)
+        .filter(|e| elapsed_secs(ctx.timestamp, e.tick) <= SUN_STALE_SECS)
+        .map(|e| ((chart::equatorial_to_ecliptic_min(e.ra, e.dec) / 600) as u8).min(35))
+}
+
+/// A display name for an occupant: their player handle, else the agent chart's.
+fn occupant_handle(ctx: &ReducerContext, who: Identity) -> String {
+    if let Some(p) = ctx.db.player().identity().find(&who) {
+        return p.handle;
+    }
+    ctx.db
+        .agent_chart()
+        .identity()
+        .find(&who)
+        .map(|a| a.handle)
+        .unwrap_or_default()
+}
+
+fn micros_ago(ctx: &ReducerContext, secs: i64) -> Timestamp {
+    Timestamp::from_micros_since_unix_epoch(
+        ctx.timestamp.to_micros_since_unix_epoch() - secs * 1_000_000,
+    )
+}
+
+/// The war's singleton clock, created on first use (an upgrade never runs `init`).
+fn ensure_war_state(ctx: &ReducerContext) -> WarState {
+    if let Some(s) = ctx.db.war_state().id().find(&0) {
+        return s;
+    }
+    ctx.db.war_state().insert(WarState {
+        id: 0,
+        current_decan: None,
+        decan_started_at: ctx.timestamp,
+        decan_tables: 0,
+        season_number: 0,
+        season_started_at: ctx.timestamp,
+        season_tables: 0,
+        last_round_index: 0,
+        pending_decan: None,
+        pending_since: ctx.timestamp,
+    })
+}
+
+/// The pruner's private cursors, created on first use.
+fn ensure_war_prune_state(ctx: &ReducerContext) -> WarPruneState {
+    if let Some(s) = ctx.db.war_prune_state().id().find(&0) {
+        return s;
+    }
+    ctx.db.war_prune_state().insert(WarPruneState {
+        id: 0,
+        melee_prune_cursor: micros_ago(ctx, MELEE_DRAIN_START_SECS),
+        melee_backlog_drained: false,
+        battle_prune_cursor: micros_ago(ctx, BATTLE_PRUNE_START_SECS),
+    })
+}
+
+fn ensure_faction_standing(ctx: &ReducerContext, faction: Planet) -> FactionWarStanding {
+    let idx = faction.idx() as u8;
+    if let Some(s) = ctx.db.faction_war_standing().faction_idx().find(&idx) {
+        return s;
+    }
+    ctx.db.faction_war_standing().insert(FactionWarStanding {
+        faction_idx: idx,
+        faction,
+        decan_points: 0,
+        decan_tables_won: 0,
+        lifetime_points: 0,
+        tables_played: 0,
+        tables_won: 0,
+        zones_captured: 0,
+        decan_crowns: 0,
+        season_crowns: 0,
+        updated_at: ctx.timestamp,
+    })
+}
+
+/// Write everything a settled table leaves behind — its `melee_result`, every
+/// seat's `melee_career`, the factions' `faction_war_standing` — in the settle's
+/// own transaction, from the values that were actually applied. `deltas` are the
+/// `melee_control_deltas` shares in seat order; `zone_before` is the zone as it
+/// stood before those deltas landed.
+#[allow(clippy::too_many_arguments)]
+fn melee_record_result(
+    ctx: &ReducerContext,
+    table: &MeleeTable,
+    seats: &[MeleeSeat],
+    deltas: &[i32],
+    zone_before: Option<Zone>,
+    winner_esms: u32,
+    refereed: bool,
+    is_void: bool,
+) {
+    let scores: Vec<u16> = seats.iter().map(|s| s.score).collect();
+    let Some(wi) = melee_winner_index(&scores) else {
+        return; // no seats: nothing was played, nothing to record
+    };
+    if ctx.db.melee_result().table_id().find(&table.table_id).is_some() {
+        return; // settle is guarded by state, but never write a table twice
+    }
+    let now = ctx.timestamp;
+    let winner = &seats[wi];
+    let tricks: Vec<MeleeTrick> = ctx.db.melee_trick().table_id().filter(&table.table_id).collect();
+    let (agent_turns, fallback_turns) = ctx
+        .db
+        .agent_melee_turn()
+        .table_id()
+        .filter(&table.table_id)
+        .fold((0u16, 0u16), |(n, f), t| {
+            (n.saturating_add(1), f.saturating_add(t.fallback_used as u16))
+        });
+
+    let zone_after = ctx.db.zone().zone_id().find(&table.zone_id);
+    let owner_before = zone_before.as_ref().and_then(|z| z.owner);
+    let owner_after = zone_after.as_ref().and_then(|z| z.owner);
+    // A capture is taking the zone FROM a rival. Claiming a neutral zone (most
+    // of them after every hourly season reset) is not one, and earns no bonus.
+    let captured = !is_void
+        && matches!(owner_before, Some(o) if o != winner.faction)
+        && owner_after == Some(winner.faction);
+    let final_trick_seat = tricks.iter().max_by_key(|t| t.trick_number).map(|t| t.winner_seat);
+    // Stamp the decan the points are CREDITED to (the war clock), not whatever
+    // the ephemeris says this instant — so per-decan results always add up to
+    // that decan's epoch standings.
+    let mut ws = ensure_war_state(ctx);
+    let flux_active = zone_before
+        .as_ref()
+        .map(|z| z.in_flux && z.flux_expires_at.map(|exp| now < exp).unwrap_or(true))
+        .unwrap_or(false);
+
+    let outcomes: Vec<MeleeSeatOutcome> = seats
+        .iter()
+        .enumerate()
+        .map(|(i, s)| MeleeSeatOutcome {
+            seat_id: s.seat_id,
+            faction: s.faction,
+            occupant: s.occupant,
+            handle: occupant_handle(ctx, s.occupant),
+            is_human: s.is_human,
+            claim: s.claim,
+            counters: s.counters,
+            melds_value: s.melds_value,
+            score: s.score,
+            tricks_won: tricks.iter().filter(|t| t.winner_seat == s.seat_id).count() as u8,
+            took_final_trick: final_trick_seat == Some(s.seat_id),
+            control_delta: deltas.get(i).copied().unwrap_or(0),
+        })
+        .collect();
+
+    ctx.db.melee_result().insert(MeleeResult {
+        table_id: table.table_id,
+        zone_id: table.zone_id,
+        round_index: table.round_index,
+        opened_at: table.opened_at,
+        resolved_at: now,
+        trump_suit: table.trump_suit,
+        decan_id: ws.current_decan,
+        seat_count: seats.len() as u8,
+        tricks_played: tricks.len() as u8,
+        refereed,
+        is_void,
+        winner_seat_id: winner.seat_id,
+        winner_faction: winner.faction,
+        winner_occupant: winner.occupant,
+        winner_is_human: winner.is_human,
+        winner_handle: outcomes[wi].handle.clone(),
+        winning_score: winner.score,
+        winner_control_delta: deltas.get(wi).copied().unwrap_or(0),
+        seats: outcomes.clone(),
+        zone_owner_before: owner_before,
+        zone_control_before: zone_before.as_ref().map(|z| z.control).unwrap_or(0),
+        zone_owner_after: owner_after,
+        zone_control_after: zone_after.as_ref().map(|z| z.control).unwrap_or(0),
+        captured,
+        flux_active,
+        winner_esms,
+        agent_turns,
+        fallback_turns,
+    });
+
+    if is_void {
+        // Nobody played: there is a record of the table, but no one's career or
+        // faction tally moves.
+        return;
+    }
+
+    // Careers: one upsert per seat (2..6), keyed by occupant.
+    for (i, o) in outcomes.iter().enumerate() {
+        let won = i == wi;
+        let existing = ctx.db.melee_career().identity().find(&o.occupant);
+        let is_new = existing.is_none();
+        let mut c = existing.unwrap_or(MeleeCareer {
+            identity: o.occupant,
+            handle: String::new(),
+            faction: o.faction,
+            is_human: o.is_human,
+            tables_played: 0,
+            wins: 0,
+            total_score: 0,
+            total_counters: 0,
+            total_melds: 0,
+            tricks_won: 0,
+            best_score: 0,
+            zones_captured: 0,
+            esms_earned: 0,
+            last_table_id: 0,
+            last_score: 0,
+            last_counters: 0,
+            last_melds: 0,
+            last_played_at: now,
+        });
+        if !o.handle.is_empty() {
+            c.handle = o.handle.clone();
+        }
+        c.faction = o.faction;
+        c.is_human = o.is_human;
+        c.tables_played = c.tables_played.saturating_add(1);
+        c.total_score = c.total_score.saturating_add(o.score as u64);
+        c.total_counters = c.total_counters.saturating_add(o.counters as u64);
+        c.total_melds = c.total_melds.saturating_add(o.melds_value as u64);
+        c.tricks_won = c.tricks_won.saturating_add(o.tricks_won as u32);
+        c.best_score = c.best_score.max(o.score);
+        if won {
+            c.wins = c.wins.saturating_add(1);
+            c.esms_earned = c.esms_earned.saturating_add(winner_esms as u64);
+            if captured {
+                c.zones_captured = c.zones_captured.saturating_add(1);
+            }
+        }
+        c.last_table_id = table.table_id;
+        c.last_score = o.score;
+        c.last_counters = o.counters;
+        c.last_melds = o.melds_value;
+        c.last_played_at = now;
+        if is_new {
+            ctx.db.melee_career().insert(c);
+        } else {
+            ctx.db.melee_career().identity().update(c);
+        }
+    }
+
+    // Faction standings. One seat per faction per table, so each seat is one
+    // faction's whole share of this table.
+    for (i, o) in outcomes.iter().enumerate() {
+        let mut st = ensure_faction_standing(ctx, o.faction);
+        st.tables_played = st.tables_played.saturating_add(1);
+        if i == wi {
+            let points = o.score as u64 + if captured { DECAN_CAPTURE_BONUS } else { 0 };
+            st.tables_won = st.tables_won.saturating_add(1);
+            st.decan_tables_won = st.decan_tables_won.saturating_add(1);
+            st.decan_points = st.decan_points.saturating_add(points);
+            st.lifetime_points = st.lifetime_points.saturating_add(points);
+            if captured {
+                st.zones_captured = st.zones_captured.saturating_add(1);
+            }
+        }
+        st.updated_at = now;
+        ctx.db.faction_war_standing().faction_idx().update(st);
+    }
+
+    ws.decan_tables = ws.decan_tables.saturating_add(1);
+    ws.season_tables = ws.season_tables.saturating_add(1);
+    ctx.db.war_state().id().update(ws);
 }
 
 /// Drive a table forward: play every autonomous seat that is on turn, close each
@@ -3544,7 +3964,7 @@ fn melee_advance(ctx: &ReducerContext, table_id: u64) -> usize {
         }
         let (trick_no, trick_plays) = melee_open_trick(ctx, table_id);
         if trick_no > melee::TOTAL_TRICKS {
-            melee_settle(ctx, table_id);
+            melee_settle(ctx, table_id, false);
             break;
         }
         let leader = melee_leader(ctx, table_id, &seats, trick_no);
@@ -3556,12 +3976,12 @@ fn melee_advance(ctx: &ReducerContext, table_id: u64) -> usize {
                     // No seat holds a card and none has played: there is nothing
                     // left to referee. Settle rather than break, or the row sits
                     // Seated forever and `zone_ran_melee` keeps skipping the zone.
-                    melee_settle(ctx, table_id);
+                    melee_settle(ctx, table_id, false);
                     break;
                 }
                 melee_close_trick(ctx, &table, trick_no, leader, &trick_plays, &ladder);
                 if trick_no >= melee::TOTAL_TRICKS {
-                    melee_settle(ctx, table_id);
+                    melee_settle(ctx, table_id, false);
                     break;
                 }
             }
@@ -3814,12 +4234,7 @@ pub fn open_melee_round(
         return Err("open_melee_round: zone_id must be 0..=10".into());
     }
     // One active table per zone at a time so backlog cannot recur.
-    let active_exists = ctx
-        .db
-        .melee_table()
-        .zone_id()
-        .filter(&zone_id)
-        .any(|t| t.state != MeleeState::Resolved);
+    let active_exists = live_melee_tables(ctx).iter().any(|t| t.zone_id == zone_id);
     if active_exists {
         return Err(format!("open_melee_round: zone {} already has an active melee", zone_id));
     }
@@ -3854,6 +4269,12 @@ pub fn open_melee_round(
         .iter()
         .filter_map(|f| seats.iter().find(|s| s.faction == *f).cloned())
         .collect();
+
+    let mut ws = ensure_war_state(ctx);
+    if round_index > ws.last_round_index {
+        ws.last_round_index = round_index;
+        ctx.db.war_state().id().update(ws);
+    }
 
     let table = ctx.db.melee_table().insert(MeleeTable {
         table_id: 0,
@@ -3937,68 +4358,32 @@ pub fn open_melee_round(
     Ok(())
 }
 
-/// Settle a played table: score each seat, move zone control, close the row.
-/// Owner-gated: the feeder.
+/// RETIRED. Settled a table from a feeder's report of each seat's counters.
+///
+/// The module referees every table itself now (`melee_advance` → `melee_settle`):
+/// it plays agent seats the moment they are on turn, and settles a table with no
+/// cards to play inside `open_melee_round`. The only tables a feeder report could
+/// still reach are human tables part-way through their first trick, where it
+/// would override a game in progress — and the result would land in permanent
+/// standings. Kept as a reducer (same signature) so existing callers get a clear
+/// error instead of an unknown-reducer failure.
 #[reducer]
 pub fn submit_melee_result(
     ctx: &ReducerContext,
     table_id: u64,
-    results: Vec<SeatResult>,
+    _results: Vec<SeatResult>,
 ) -> Result<(), String> {
     let cfg = ctx.db.game_config().id().find(&0).ok_or("game not initialised")?;
     if ctx.sender() != cfg.owner {
         return Err("submit_melee_result: admin only".into());
     }
-    let mut table = ctx
-        .db
-        .melee_table()
-        .table_id()
-        .find(&table_id)
-        .ok_or("submit_melee_result: no such table")?;
-    // The module now referees its own tables (`melee_advance` → `melee_settle`),
-    // so a feeder report for a table that already played out on chain is stale,
-    // not hostile. Accept it as a no-op rather than erroring, and keep the hard
-    // refusal for a genuine double-submit of a table the module never played.
-    let refereed = ctx.db.melee_trick().table_id().filter(&table_id).count() > 0;
-    if refereed {
-        return Ok(());
-    }
-    if table.state == MeleeState::Resolved {
-        return Err("submit_melee_result: table already resolved".into());
-    }
-    // Exactly one seat takes the final trick.
-    if results.iter().filter(|r| r.took_final_trick).count() > 1 {
-        return Err("submit_melee_result: more than one seat took the final trick".into());
-    }
-
-    let mut seats: Vec<MeleeSeat> = ctx.db.melee_seat().table_id().filter(&table_id).collect();
-    seats.sort_by_key(|s| s.seat_id);
-
-    // Score every seat HERE, from counters + melds + climax. The feeder reports the
-    // components; the module owns the arithmetic.
-    let mut scores: Vec<u16> = Vec::with_capacity(seats.len());
-    for seat in seats.iter_mut() {
-        let r = results.iter().find(|r| r.seat_id == seat.seat_id);
-        let (counters, melds, final_trick) =
-            r.map(|r| (r.counters, r.melds_value, r.took_final_trick)).unwrap_or((0, 0, false));
-        seat.counters = counters;
-        seat.melds_value = melds;
-        seat.score = seat_score(counters, melds, final_trick);
-        scores.push(seat.score);
-        ctx.db.melee_seat().seat_id().update(seat.clone());
-    }
-
-    // Bounded, zero-sum control. `apply_control` then layers flux ×2.5 and AR on top.
-    for (seat, delta) in seats.iter().zip(melee_control_deltas(&scores, ZONE_SWING)) {
-        if delta != 0 {
-            apply_control(ctx, table.zone_id, seat.faction, delta);
+    // A stale report for a table the module already played stays a harmless no-op.
+    if let Some(t) = ctx.db.melee_table().table_id().find(&table_id) {
+        if t.state == MeleeState::Resolved {
+            return Ok(());
         }
     }
-
-    table.state = MeleeState::Resolved;
-    table.resolved_at = Some(ctx.timestamp);
-    ctx.db.melee_table().table_id().update(table);
-    Ok(())
+    Err("submit_melee_result: retired — the module referees and settles its own tables".into())
 }
 
 /// Play a card from your dealt hand into the live trick. Player-callable.
@@ -4073,7 +4458,7 @@ pub fn play_melee_card(
     if melee_turn(ctx, &seats, leader, &filled).is_none() {
         melee_close_trick(ctx, &table, expected_trick, leader, &filled, &ladder);
         if expected_trick >= melee::TOTAL_TRICKS {
-            melee_settle(ctx, table_id);
+            melee_settle(ctx, table_id, false);
             return Ok(());
         }
     }
@@ -4138,8 +4523,18 @@ pub fn join_melee_queue(ctx: &ReducerContext, zone_id: u8) -> Result<(), String>
             )
         });
     }
-    // Already seated somewhere this round? Then there is nothing to queue for.
-    if ctx.db.melee_seat().occupant().filter(&ctx.sender()).next().is_some() {
+    // Already seated at a table still in play? Then there is nothing to queue for.
+    // Only LIVE tables count: this used to match any seat ever held, so a human
+    // who had played one melee could never queue again.
+    let seated_live = ctx.db.melee_seat().occupant().filter(&ctx.sender()).any(|s| {
+        ctx.db
+            .melee_table()
+            .table_id()
+            .find(&s.table_id)
+            .map(|t| t.state != MeleeState::Resolved)
+            .unwrap_or(false)
+    });
+    if seated_live {
         return Err("join_melee_queue: you are already seated at a table".into());
     }
 
@@ -4163,6 +4558,394 @@ pub fn join_melee_queue(ctx: &ReducerContext, zone_id: u8) -> Result<(), String>
 pub fn leave_melee_queue(ctx: &ReducerContext) -> Result<(), String> {
     ctx.db.melee_queue().identity().delete(&ctx.sender());
     Ok(())
+}
+
+/// The caller's own dealt cards at any table still in play — and nobody else's.
+///
+/// `melee_hand` is private, so before this a seated human's client could not see
+/// the twelve cards the referee checks every play against (it fell back to the
+/// Active loadout, which never shrinks). A per-sender view is the 2.x way to hand
+/// each connection exactly its own rows of a private table. Views read through
+/// indexes only: seats by occupant, the table by id, hands by seat.
+#[spacetimedb::view(accessor = my_melee_hand, public, primary_key = hand_id)]
+pub fn my_melee_hand(ctx: &ViewContext) -> Vec<MeleeHand> {
+    let mut out = Vec::new();
+    for seat in ctx.db.melee_seat().occupant().filter(ctx.sender()) {
+        let live = ctx
+            .db
+            .melee_table()
+            .table_id()
+            .find(seat.table_id)
+            .map(|t| t.state != MeleeState::Resolved)
+            .unwrap_or(false);
+        if live {
+            out.extend(ctx.db.melee_hand().seat_id().filter(seat.seat_id));
+        }
+    }
+    out
+}
+
+// ── War results: decans, seasons and retention ──────────────────────────────
+
+/// Record a decan's treasury distribution row. Shared by the automatic decan
+/// settle in `war_decan_tick` and the owner's manual `settle_decan_boundary`.
+/// As before, this RECORDS the computed retention dividends + the 500-ESMS
+/// sovereign treasury; it does not credit any pool.
+fn record_decan_distribution(ctx: &ReducerContext, decan_id: u16, sign_index: u8, winner_faction: Planet) {
+    let mut total_distributed = 0u64;
+
+    for zone in ctx.db.zone().iter() {
+        if let Some(_owner_faction) = zone.owner {
+            if zone.control > 0 {
+                let dividend_base = match zone.zone_id {
+                    0..=4 => faucet::DECAN_RETENTION_HOUSE,
+                    5..=9 => faucet::DECAN_RETENTION_SPIRE,
+                    _ => faucet::DECAN_RETENTION_CROWN,
+                };
+                let control_mult = (zone.control as f64 / 500.0).clamp(0.20, 2.00);
+                let payout = ((dividend_base * control_mult) * 10_000.0) as u64;
+                total_distributed += payout;
+            }
+        }
+    }
+
+    // Sovereign champion treasury (500 ESMS)
+    total_distributed += (faucet::DECAN_CHAMPION_SOVEREIGN_TREASURY * 10_000.0) as u64;
+
+    ctx.db.decan_yield_distribution().insert(DecanYieldDistribution {
+        distribution_id: 0,
+        decan_id,
+        sign_index,
+        winner_faction,
+        total_esms_distributed: total_distributed,
+        settled_at: ctx.timestamp,
+    });
+}
+
+/// Per-faction points as a ten-entry vector, by `Planet::idx()`.
+fn faction_points(ctx: &ReducerContext, pick: impl Fn(&FactionWarStanding) -> u64) -> Vec<u64> {
+    ALL_PLANETS
+        .iter()
+        .map(|f| {
+            ctx.db
+                .faction_war_standing()
+                .faction_idx()
+                .find(&(f.idx() as u8))
+                .map(|s| pick(&s))
+                .unwrap_or(0)
+        })
+        .collect()
+}
+
+/// First strictly-highest entry, or None when nobody scored.
+fn epoch_champion(points: &[u64]) -> (Option<Planet>, u64) {
+    let mut champion = None;
+    let mut best = 0u64;
+    for (i, p) in points.iter().enumerate() {
+        if *p > best {
+            best = *p;
+            champion = Some(Planet::from_idx(i as u8));
+        }
+    }
+    (champion, best)
+}
+
+/// What the decan clock should do with one Sun reading. Pure, so the sequences
+/// that matter (a stray push, a flip-flop at a boundary, a long outage) are unit
+/// tested without a database.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum DecanMove {
+    /// First sighting: remember the decan, crown nobody.
+    Init,
+    /// Same decan as the clock (or still waiting on a pending reading).
+    Hold,
+    /// Back on the clock's decan after a stray reading: forget the stray.
+    ClearPending,
+    /// The next decan (or the one after): crown the one that ended.
+    Crown,
+    /// A non-adjacent reading seen for the first time: remember it, change nothing.
+    Pend,
+    /// A non-adjacent reading that has persisted. Forward (an outage) crowns the
+    /// decan the points were earned in first; backward (a correction) keeps the
+    /// points for the decan the clock moves to.
+    Reanchor { crown_first: bool },
+}
+
+fn decan_decision(current: Option<u8>, reading: u8, pending: Option<u8>, pending_age_secs: i64) -> DecanMove {
+    let Some(cur) = current else {
+        return DecanMove::Init;
+    };
+    let step = (reading as i16 - cur as i16).rem_euclid(36) as u8;
+    if step == 0 {
+        return if pending.is_some() { DecanMove::ClearPending } else { DecanMove::Hold };
+    }
+    if (1..=DECAN_MAX_FORWARD_STEP).contains(&step) {
+        return DecanMove::Crown;
+    }
+    match pending {
+        Some(p) if p == reading && pending_age_secs >= DECAN_REANCHOR_CONFIRM_SECS => {
+            DecanMove::Reanchor { crown_first: step <= 18 }
+        }
+        Some(p) if p == reading => DecanMove::Hold,
+        _ => DecanMove::Pend,
+    }
+}
+
+/// Conclude decan `prev`: write its epoch, crown its champion (if anyone
+/// scored), record the treasury row, and start everyone from zero.
+fn conclude_decan(ctx: &ReducerContext, ws: &mut WarState, prev: u8) {
+    let points = faction_points(ctx, |s| s.decan_points);
+    let (champion, champion_score) = epoch_champion(&points);
+    ctx.db.war_epoch().insert(WarEpoch {
+        epoch_id: 0,
+        kind: WarEpochKind::Decan,
+        is_decan: true,
+        decan_id: Some(prev),
+        season_number: None,
+        champion,
+        champion_score,
+        standings: points,
+        tables_settled: ws.decan_tables,
+        started_at: ws.decan_started_at,
+        settled_at: ctx.timestamp,
+    });
+    if let Some(champ) = champion {
+        let mut st = ensure_faction_standing(ctx, champ);
+        st.decan_crowns = st.decan_crowns.saturating_add(1);
+        ctx.db.faction_war_standing().faction_idx().update(st);
+        record_decan_distribution(ctx, prev as u16, prev / 3, champ);
+        log::info!("Decan {} concluded: {:?} crowned with {} pts", prev, champ, champion_score);
+    }
+    // A new decan starts from zero for everyone.
+    for f in ALL_PLANETS {
+        let mut st = ensure_faction_standing(ctx, f);
+        if st.decan_points != 0 || st.decan_tables_won != 0 {
+            st.decan_points = 0;
+            st.decan_tables_won = 0;
+            st.updated_at = ctx.timestamp;
+            ctx.db.faction_war_standing().faction_idx().update(st);
+        }
+    }
+    ws.decan_started_at = ctx.timestamp;
+    ws.decan_tables = 0;
+}
+
+/// Crown the decan champion when the Sun crosses a 10° boundary. Runs every
+/// `tick_sky`; does nothing until the feeder has pushed a fresh Sun row. The
+/// champion is the faction with the most War Table points this decan —
+/// computed here from settled results, never passed in by a feeder. The clock
+/// never moves backwards on a single reading (see `decan_decision`).
+fn war_decan_tick(ctx: &ReducerContext) {
+    let Some(decan) = sun_decan(ctx) else {
+        return;
+    };
+    let mut ws = ensure_war_state(ctx);
+    let pending_age = elapsed_secs(ctx.timestamp, ws.pending_since);
+    match decan_decision(ws.current_decan, decan, ws.pending_decan, pending_age) {
+        DecanMove::Hold => return,
+        DecanMove::Init => {
+            ws.current_decan = Some(decan);
+            ws.decan_started_at = ctx.timestamp;
+        }
+        DecanMove::ClearPending => {
+            ws.pending_decan = None;
+        }
+        DecanMove::Pend => {
+            log::warn!(
+                "decan clock: Sun reads decan {} but the clock is on {:?}; holding until it persists",
+                decan, ws.current_decan
+            );
+            ws.pending_decan = Some(decan);
+            ws.pending_since = ctx.timestamp;
+        }
+        DecanMove::Crown | DecanMove::Reanchor { crown_first: true } => {
+            if let Some(prev) = ws.current_decan {
+                conclude_decan(ctx, &mut ws, prev);
+            }
+            ws.current_decan = Some(decan);
+            ws.pending_decan = None;
+        }
+        DecanMove::Reanchor { crown_first: false } => {
+            log::warn!("decan clock re-anchored back to {} after the reading persisted; no crown", decan);
+            ws.current_decan = Some(decan);
+            ws.pending_decan = None;
+        }
+    }
+    ctx.db.war_state().id().update(ws);
+}
+
+/// Persist a Great Wheel season (called by `tick_sky` at the wrap, before the
+/// soft reset). `standings` are zone weights (House 1, Spire 2, Crown 3).
+fn record_war_season(ctx: &ReducerContext, standings: &[u32; 10], champion: Option<Planet>, max_score: u32) {
+    let mut ws = ensure_war_state(ctx);
+    ctx.db.war_epoch().insert(WarEpoch {
+        epoch_id: 0,
+        kind: WarEpochKind::Season,
+        is_decan: false,
+        decan_id: None,
+        season_number: Some(ws.season_number),
+        champion,
+        champion_score: max_score as u64,
+        standings: standings.iter().map(|s| *s as u64).collect(),
+        tables_settled: ws.season_tables,
+        started_at: ws.season_started_at,
+        settled_at: ctx.timestamp,
+    });
+    if let Some(champ) = champion {
+        let mut st = ensure_faction_standing(ctx, champ);
+        st.season_crowns = st.season_crowns.saturating_add(1);
+        st.updated_at = ctx.timestamp;
+        ctx.db.faction_war_standing().faction_idx().update(st);
+    }
+    ws.season_number = ws.season_number.saturating_add(1);
+    ws.season_started_at = ctx.timestamp;
+    ws.season_tables = 0;
+    ctx.db.war_state().id().update(ws);
+}
+
+/// Seed the `prune_war_history` schedule if it is missing (a module update does
+/// not re-run `init`, so an upgraded database starts without it).
+fn ensure_war_prune_timer(ctx: &ReducerContext) {
+    if ctx.db.war_prune_timer().iter().next().is_none() {
+        ctx.db.war_prune_timer().insert(WarPruneTimer {
+            scheduled_id: 0,
+            scheduled_at: ScheduleAt::Interval(Duration::from_secs(5).into()),
+        });
+    }
+}
+
+/// Delete one settled table and its play-by-play; returns the rows removed.
+/// Every child delete is a single index range delete. `agent_melee_turn` rows
+/// are left to their own 1-day TTL — they are the agent audit trail.
+fn melee_purge_table(ctx: &ReducerContext, table_id: u64) -> u64 {
+    let mut rows = 0u64;
+    rows += ctx.db.melee_play().table_id().delete(&table_id);
+    rows += ctx.db.melee_trick().table_id().delete(&table_id);
+    rows += ctx.db.melee_hand().table_id().delete(&table_id);
+    rows += ctx.db.melee_seat().table_id().delete(&table_id);
+    if ctx.db.melee_table().table_id().delete(&table_id) {
+        rows += 1;
+    }
+    rows
+}
+
+/// The ten faction-agent identities `agent_war` attributes its raids to.
+fn faction_agent_ids() -> Vec<Identity> {
+    ALL_PLANETS
+        .iter()
+        .map(|f| Identity::from_claims("pentacles:faction", &format!("{:?}", f).to_lowercase()))
+        .collect()
+}
+
+/// Bound the war's history. Scheduled every 5 s, separately from `tick_sky`, so
+/// a slow prune can never stall or roll back the sky.
+///
+///   1. War Table raw rows. Until the never-pruned backlog is gone, walk
+///      `opened_at` in narrow windows from the cursor (no call ever copies the
+///      whole backlog out of the host). After that, purge Resolved tables
+///      `MELEE_RAW_TTL_SECS` after they settled — a read of the small Resolved
+///      set on the `state` index.
+///      The newest table at each zone is always kept, so the board shows a
+///      zone's last real result even while the feeder is down.
+///   2. `melee_result` after `MELEE_RESULT_TTL_SECS` and `agent_melee_turn`
+///      after `AGENT_MELEE_TURN_TTL_SECS` — one range delete each.
+///   3. `battle`: everything after a week (range delete on `created_at`), and
+///      faction-agent raids after an hour (range deletes per agent on
+///      `battle_attacker_at`, advancing a cursor so each call is a thin slice).
+#[reducer]
+pub fn prune_war_history(ctx: &ReducerContext, _timer: WarPruneTimer) {
+    // Scheduled reducers must be driven only by the scheduler, never a client.
+    if ctx.sender() != ctx.database_identity() {
+        return;
+    }
+    let mut ps = ensure_war_prune_state(ctx);
+    let mut tables_left = MELEE_PRUNE_TABLES_PER_CALL;
+    let mut rows_left = MELEE_PRUNE_ROWS_PER_CALL;
+
+    if !ps.melee_backlog_drained {
+        let horizon = micros_ago(ctx, MELEE_DRAIN_HORIZON_SECS);
+        let window = MELEE_DRAIN_WINDOW_SECS * 1_000_000;
+        let mut windows = 0usize;
+        while tables_left > 0 && rows_left > 0 && windows < MELEE_DRAIN_WINDOWS_PER_CALL {
+            let start = ps.melee_prune_cursor;
+            if start >= horizon {
+                ps.melee_backlog_drained = true;
+                log::info!("War Table backlog drained");
+                break;
+            }
+            let end = Timestamp::from_micros_since_unix_epoch(
+                (start.to_micros_since_unix_epoch() + window).min(horizon.to_micros_since_unix_epoch()),
+            );
+            let in_window: Vec<MeleeTable> = ctx.db.melee_table().opened_at().filter(start..end).collect();
+            // A live table this old is a stalled one `tick_sky` is about to settle
+            // (it settles anything open past MELEE_STALE_SETTLE_SECS). Wait for it
+            // rather than skip past it.
+            if in_window.iter().any(|t| t.state != MeleeState::Resolved) {
+                break;
+            }
+            let total = in_window.len();
+            let mut purged = 0usize;
+            for t in in_window {
+                if tables_left == 0 || rows_left == 0 {
+                    break;
+                }
+                rows_left = rows_left.saturating_sub(melee_purge_table(ctx, t.table_id));
+                tables_left -= 1;
+                purged += 1;
+            }
+            if purged < total {
+                break; // window not finished: the rest of it goes next call
+            }
+            ps.melee_prune_cursor = end;
+            windows += 1;
+        }
+    } else {
+        // Keep the newest table at every zone whatever its age, so the War board
+        // never loses a zone's last real result to the TTL (e.g. while the feeder
+        // is restarting); it goes once a newer table opens there.
+        let cutoff = micros_ago(ctx, MELEE_RAW_TTL_SECS);
+        let resolved: Vec<MeleeTable> = ctx.db.melee_table().state().filter(&MeleeState::Resolved).collect();
+        let mut newest_at_zone = [0u64; 11];
+        for t in &resolved {
+            let z = (t.zone_id as usize).min(10);
+            newest_at_zone[z] = newest_at_zone[z].max(t.table_id);
+        }
+        for t in live_melee_tables(ctx) {
+            let z = (t.zone_id as usize).min(10);
+            newest_at_zone[z] = newest_at_zone[z].max(t.table_id);
+        }
+        for t in resolved {
+            if tables_left == 0 || rows_left == 0 {
+                break;
+            }
+            let stale = t.resolved_at.map(|r| r < cutoff).unwrap_or(true);
+            if stale && newest_at_zone[(t.zone_id as usize).min(10)] != t.table_id {
+                rows_left = rows_left.saturating_sub(melee_purge_table(ctx, t.table_id));
+                tables_left -= 1;
+            }
+        }
+    }
+
+    ctx.db.melee_result().resolved_at().delete(..micros_ago(ctx, MELEE_RESULT_TTL_SECS));
+    ctx.db.agent_melee_turn().requested_at().delete(..micros_ago(ctx, AGENT_MELEE_TURN_TTL_SECS));
+
+    let week_ago = micros_ago(ctx, BATTLE_TTL_SECS);
+    ctx.db.battle().created_at().delete(..week_ago);
+    let raid_cutoff = micros_ago(ctx, AGENT_RAID_TTL_SECS);
+    let start = if ps.battle_prune_cursor < week_ago { week_ago } else { ps.battle_prune_cursor };
+    let end = Timestamp::from_micros_since_unix_epoch(
+        (start.to_micros_since_unix_epoch() + BATTLE_PRUNE_WINDOW_SECS * 1_000_000)
+            .min(raid_cutoff.to_micros_since_unix_epoch()),
+    );
+    if end > start {
+        for id in faction_agent_ids() {
+            ctx.db.battle().battle_attacker_at().delete((id, start..end));
+        }
+        ps.battle_prune_cursor = end;
+    }
+
+    // Private table: this write is broadcast to no one.
+    ctx.db.war_prune_state().id().update(ps);
 }
 
 fn compute_ecliptic(ra_deg: f64, dec_deg: f64) -> (&'static str, u8, u8, u8) {
@@ -6395,8 +7178,53 @@ pub fn claim_profile(ctx: &ReducerContext, code: String) -> Result<(), String> {
         r.identity = new;
         ctx.db.jing_rate().insert(r);
     }
+    // The War Table career is permanent and its raw seats are pruned within
+    // minutes, so it can never be rebuilt — carry it over, merging into any
+    // record the signed-in identity already has.
+    if let Some(oc) = ctx.db.melee_career().identity().find(&old) {
+        ctx.db.melee_career().identity().delete(&old);
+        match ctx.db.melee_career().identity().find(&new) {
+            Some(mut nc) => {
+                nc.tables_played = nc.tables_played.saturating_add(oc.tables_played);
+                nc.wins = nc.wins.saturating_add(oc.wins);
+                nc.total_score = nc.total_score.saturating_add(oc.total_score);
+                nc.total_counters = nc.total_counters.saturating_add(oc.total_counters);
+                nc.total_melds = nc.total_melds.saturating_add(oc.total_melds);
+                nc.tricks_won = nc.tricks_won.saturating_add(oc.tricks_won);
+                nc.best_score = nc.best_score.max(oc.best_score);
+                nc.zones_captured = nc.zones_captured.saturating_add(oc.zones_captured);
+                nc.esms_earned = nc.esms_earned.saturating_add(oc.esms_earned);
+                if oc.last_played_at > nc.last_played_at {
+                    nc.last_table_id = oc.last_table_id;
+                    nc.last_score = oc.last_score;
+                    nc.last_counters = oc.last_counters;
+                    nc.last_melds = oc.last_melds;
+                    nc.last_played_at = oc.last_played_at;
+                }
+                ctx.db.melee_career().identity().update(nc);
+            }
+            None => {
+                let mut nc = oc;
+                nc.identity = new;
+                ctx.db.melee_career().insert(nc);
+            }
+        }
+    }
+    if let Some(mut q) = ctx.db.melee_queue().identity().find(&old) {
+        ctx.db.melee_queue().identity().delete(&old);
+        if ctx.db.melee_queue().identity().find(&new).is_none() {
+            q.identity = new;
+            ctx.db.melee_queue().insert(q);
+        }
+    }
 
     // Identity-indexed columns: rewrite in place via each table's PK update.
+    // A seat at a live table must follow the player, or play_melee_card (which
+    // checks occupant == sender) locks them out of their own game.
+    for mut seat in ctx.db.melee_seat().occupant().filter(&old).collect::<Vec<_>>() {
+        seat.occupant = new;
+        ctx.db.melee_seat().seat_id().update(seat);
+    }
     for mut c in ctx.db.card().owner().filter(&old).collect::<Vec<_>>() {
         c.owner = new;
         ctx.db.card().card_id().update(c);
@@ -7399,36 +8227,12 @@ pub fn settle_decan_boundary(
     if ctx.sender() != cfg.owner {
         return Err("admin or feeder only".into());
     }
-
-    let mut total_distributed = 0u64;
-
-    for zone in ctx.db.zone().iter() {
-        if let Some(_owner_faction) = zone.owner {
-            if zone.control > 0 {
-                let dividend_base = match zone.zone_id {
-                    0..=4 => faucet::DECAN_RETENTION_HOUSE,
-                    5..=9 => faucet::DECAN_RETENTION_SPIRE,
-                    _ => faucet::DECAN_RETENTION_CROWN,
-                };
-                let control_mult = (zone.control as f64 / 500.0).clamp(0.20, 2.00);
-                let payout = ((dividend_base * control_mult) * 10_000.0) as u64;
-                total_distributed += payout;
-            }
-        }
+    if decan_id > 35 || sign_index > 11 {
+        return Err("settle_decan_boundary: decan_id must be 0..=35 and sign_index 0..=11".into());
     }
-
-    // Sovereign champion treasury (500 ESMS)
-    total_distributed += (faucet::DECAN_CHAMPION_SOVEREIGN_TREASURY * 10_000.0) as u64;
-
-    ctx.db.decan_yield_distribution().insert(DecanYieldDistribution {
-        distribution_id: 0,
-        decan_id,
-        sign_index,
-        winner_faction,
-        total_esms_distributed: total_distributed,
-        settled_at: ctx.timestamp,
-    });
-
+    // Manual override only: `tick_sky` (war_decan_tick) settles every decan
+    // itself from settled War Table results.
+    record_decan_distribution(ctx, decan_id, sign_index, winner_faction);
     Ok(())
 }
 
@@ -8160,8 +8964,26 @@ mod tests {
         expand_constellation, format_wallet_binding_message, has_duplicates, hex_bytes,
         melee_control_deltas, pick_weakest, question_hash, round_interval_secs, seat_score,
         should_replace, AgentTurnDirective, COLLECTION_CAP, MAX_CATCHUP_ROUNDS, ROUND_BASE_SECS,
-        ZONE_SWING, ZONE_SWING_WINNER_BONUS,
+        ZONE_SWING, ZONE_SWING_WINNER_BONUS, melee_winner_index, epoch_champion,
+        melee_net_push, melee_is_void, decan_decision, DecanMove, DECAN_REANCHOR_CONFIRM_SECS,
     };
+    use crate::tables::MeleeSeat;
+    use crate::types::Planet;
+    use spacetimedb::Identity;
+
+    fn seat(seat_id: u64, faction: Planet, score: u16) -> MeleeSeat {
+        MeleeSeat {
+            seat_id,
+            table_id: 1,
+            occupant: Identity::ZERO,
+            faction,
+            is_human: false,
+            claim: 0,
+            counters: score,
+            melds_value: 0,
+            score,
+        }
+    }
 
     // ── ESMS pool units ─────────────────────────────────────────────────────
 
@@ -8348,6 +9170,137 @@ mod tests {
     fn control_delta_ties_break_to_the_earliest_seat() {
         let d = melee_control_deltas(&[70, 70, 10], ZONE_SWING);
         assert!(d[0] > d[1], "seat 0 was dealt first and takes the tie");
+    }
+
+    /// The recorded winner, the ESMS recipient and the control bonus are one seat.
+    /// `melee_result` is only honest if these can never disagree.
+    #[test]
+    fn recorded_winner_is_the_seat_paid_the_control_bonus() {
+        for scores in [vec![10u16, 90, 40], vec![70, 70, 10], vec![0, 0, 0], vec![5, 0], vec![0, 120, 120, 3]] {
+            let wi = melee_winner_index(&scores).expect("seats exist");
+            let d = melee_control_deltas(&scores, ZONE_SWING);
+            let bonus_seat = d
+                .iter()
+                .enumerate()
+                .max_by(|a, b| a.1.cmp(b.1).then(b.0.cmp(&a.0)))
+                .map(|(i, _)| i)
+                .unwrap();
+            assert_eq!(wi, bonus_seat, "winner/bonus disagree for {scores:?}: {d:?}");
+        }
+        assert_eq!(melee_winner_index(&[]), None);
+        assert_eq!(melee_winner_index(&[0, 0, 0]), Some(0), "a scoreless table pays seat 0, as before");
+    }
+
+    /// One settle is one net push by the winner, whatever order the seats sit in.
+    /// The reviewer's case: X holds at 40; W=50, R=45, L=5 → deltas W+50 R+14 L−34.
+    /// Per-seat in seat order left the RUNNER-UP holding the zone; summed, the
+    /// erosion is 50+14−34 = 30 against X, so X keeps it at 10 — in any order.
+    #[test]
+    fn settle_push_is_order_independent() {
+        let orders = [
+            vec![seat(1, Planet::Mars, 50), seat(2, Planet::Venus, 45), seat(3, Planet::Moon, 5)],
+            vec![seat(2, Planet::Venus, 45), seat(1, Planet::Mars, 50), seat(3, Planet::Moon, 5)],
+            vec![seat(3, Planet::Moon, 5), seat(2, Planet::Venus, 45), seat(1, Planet::Mars, 50)],
+        ];
+        for seats in orders {
+            let scores: Vec<u16> = seats.iter().map(|s| s.score).collect();
+            let deltas = melee_control_deltas(&scores, ZONE_SWING);
+            let wi = melee_winner_index(&scores).unwrap();
+            assert_eq!(seats[wi].faction, Planet::Mars);
+            // Unseated holder (Sun): every share is erosion or reinforcement of it.
+            assert_eq!(melee_net_push(Some(Planet::Sun), &seats, &deltas, wi), 30);
+            // Neutral zone: only the winner's own share can claim it.
+            assert_eq!(melee_net_push(None, &seats, &deltas, wi), deltas[wi]);
+        }
+    }
+
+    /// When the holder is seated, its own share defends and the rest erode it.
+    #[test]
+    fn settle_push_counts_a_seated_holder_as_defence() {
+        let seats = vec![seat(1, Planet::Mars, 90), seat(2, Planet::Saturn, 30)];
+        let scores: Vec<u16> = seats.iter().map(|s| s.score).collect();
+        let deltas = melee_control_deltas(&scores, ZONE_SWING);
+        let wi = melee_winner_index(&scores).unwrap();
+        // Saturn holds and loses the table: Mars erodes it by its share, Saturn's
+        // negative share erodes it further (it was pushed back below average).
+        let against_holder = melee_net_push(Some(Planet::Saturn), &seats, &deltas, wi);
+        assert_eq!(against_holder, deltas[0] - deltas[1]);
+        // Mars holds and wins: the same shares reinforce its hold.
+        assert_eq!(melee_net_push(Some(Planet::Mars), &seats, &deltas, wi), deltas[0] - deltas[1]);
+    }
+
+    /// No tricks, or nobody scored: nobody played, so nobody wins.
+    #[test]
+    fn unplayed_tables_are_void() {
+        assert!(melee_is_void(0, &[0, 0]));
+        assert!(melee_is_void(0, &[40, 10]), "no trick resolved");
+        assert!(melee_is_void(12, &[0, 0, 0]), "nobody scored");
+        assert!(!melee_is_void(12, &[0, 30]));
+    }
+
+    /// Play a sequence of (reading, seconds since the last reading) through the
+    /// decision function, the way war_decan_tick applies it; return the decans
+    /// that were CROWNED and where the clock ended.
+    fn run_clock(start: u8, readings: &[(u8, i64)]) -> (Vec<u8>, Option<u8>) {
+        let (mut cur, mut pending, mut age) = (Some(start), None::<u8>, 0i64);
+        let mut crowned = Vec::new();
+        for &(r, dt) in readings {
+            age += dt;
+            match decan_decision(cur, r, pending, age) {
+                DecanMove::Hold => {}
+                DecanMove::Init => cur = Some(r),
+                DecanMove::ClearPending => pending = None,
+                DecanMove::Pend => { pending = Some(r); age = 0; }
+                DecanMove::Crown | DecanMove::Reanchor { crown_first: true } => {
+                    crowned.push(cur.unwrap());
+                    cur = Some(r);
+                    pending = None;
+                }
+                DecanMove::Reanchor { crown_first: false } => { cur = Some(r); pending = None; }
+            }
+        }
+        (crowned, cur)
+    }
+
+    /// The Sun only moves forward. One stray reading — backwards or a jump —
+    /// changes nothing; a flip-flop at a boundary crowns exactly once.
+    #[test]
+    fn decan_clock_ignores_stray_readings() {
+        assert_eq!(decan_decision(None, 7, None, 0), DecanMove::Init);
+        assert_eq!(run_clock(5, &[(6, 900)]), (vec![5], Some(6)), "a normal crossing crowns the decan that ended");
+        assert_eq!(run_clock(35, &[(0, 900)]), (vec![35], Some(0)), "Pisces III → Aries I wraps");
+        assert_eq!(run_clock(5, &[(4, 900), (5, 900)]), (vec![], Some(5)), "5 → 4 → 5 crowns nobody");
+        assert_eq!(
+            run_clock(5, &[(20, 900), (5, 900), (6, 900)]),
+            (vec![5], Some(6)),
+            "a stray jump is forgotten; the next real crossing crowns decan 5 once",
+        );
+        assert_eq!(
+            run_clock(5, &[(6, 900), (5, 900), (6, 900)]),
+            (vec![5], Some(6)),
+            "bouncing back across a boundary never re-crowns",
+        );
+    }
+
+    /// A reading that PERSISTS (a long feeder outage, or a deliberate correction)
+    /// re-anchors the clock after the confirmation window — forward crowns first.
+    #[test]
+    fn decan_clock_reanchors_on_a_persistent_reading() {
+        let hold = DECAN_REANCHOR_CONFIRM_SECS;
+        assert_eq!(run_clock(5, &[(9, 900), (9, hold - 1000)]), (vec![], Some(5)), "not yet confirmed");
+        assert_eq!(run_clock(5, &[(9, 900), (9, hold)]), (vec![5], Some(9)), "an outage: crown 5, move on");
+        assert_eq!(run_clock(5, &[(2, 900), (2, hold)]), (vec![], Some(2)), "a correction backwards: no crown");
+    }
+
+    /// An epoch with no points is a no-contest — the old feeder ledger crowned the
+    /// Sun (faction 0) by default.
+    #[test]
+    fn scoreless_epoch_has_no_champion() {
+        assert_eq!(epoch_champion(&[0; 10]), (None, 0));
+        let mut pts = [0u64; 10];
+        pts[4] = 350;
+        pts[7] = 350;
+        assert_eq!(epoch_champion(&pts), (Some(Planet::Mars), 350), "ties go to the lower index");
     }
 
     #[test]

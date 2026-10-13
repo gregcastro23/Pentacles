@@ -3,7 +3,7 @@
 
 use crate::types::*;
 use spacetimedb::{Identity, ScheduleAt, Timestamp};
-use crate::reducers::{tick_sky, resolve_round};
+use crate::reducers::{tick_sky, resolve_round, prune_war_history};
 
 // ── Identity & natal chart ────────────────────────────────────────────────
 
@@ -253,9 +253,15 @@ pub struct MeleeTable {
     pub zone_id: u8, // indexed: the UI and `agent_war` both ask "did this zone run?"
     pub round_index: u64,
     pub trump_suit: Suit, // the zone's element — SIGN_SUITS[zone_id % 12]
+    /// Indexed so `tick_sky` and the live checks read only Mustering/Seated tables
+    /// instead of every table ever opened. (Adding an index is a compatible publish.)
+    #[index(btree)]
     pub state: MeleeState,
     pub seat_count: u8,
     pub ladder_raw: String, // JSON-encoded frozen Arcana Ladder {"0": 50, ...}
+    /// Indexed for the backlog drain in `prune_war_history`, which walks history in
+    /// narrow `opened_at` windows so no single call copies the whole backlog.
+    #[index(btree)]
     pub opened_at: Timestamp,
     pub resolved_at: Option<Timestamp>,
 }
@@ -319,12 +325,10 @@ pub struct MeleeQueue {
 /// any order. Now legality is checked against the twelve they were actually
 /// dealt, by the same rules the AI seats play under.
 ///
-/// PUBLIC, and that is a deliberate, bounded trade-off: SpacetimeDB 2.6 ships
-/// `client_visibility_filter` as unstable and *unenforced*, so a private table
-/// would hide a human's hand from that human's own client as well. Five of six
-/// seats are agents whose Active loadout is already public via `deck_slot`, so
-/// the information this leaks is one human's twelve cards to five NPCs and any
-/// spectator. Narrow it to a per-seat filter the moment RLS is enforced.
+/// PRIVATE. A seated human reads their own cards through the per-sender
+/// `my_melee_hand` view (reducers.rs), which is the supported 2.x way to expose
+/// a private table row-by-row; nobody else can see a hand. Rows are deleted when
+/// the table settles — a spent hand has no reader left.
 #[spacetimedb::table(accessor = melee_hand)] // private to table/match (not public)
 #[derive(Clone)]
 pub struct MeleeHand {
@@ -363,6 +367,9 @@ pub struct AgentMeleeTurn {
     pub occupant: Identity,
     pub trick_number: u8,
     pub legal_card_ids: Vec<u64>,
+    /// Indexed: the 1-day retention is one range delete in `prune_war_history`
+    /// (it used to be a full scan inside `tick_sky`).
+    #[index(btree)]
     pub requested_at: Timestamp,
     pub expires_at: Timestamp,
     pub selected_card_id: Option<u64>,
@@ -404,6 +411,204 @@ pub struct AgentRest {
     #[primary_key]
     pub identity: Identity,
     pub rested_at_round: u64,
+}
+
+// ── War results: what a settled table leaves behind ─────────────────────────
+//
+// The raw War Table rows above are play-by-play: ~160 rows per table, useful for
+// the minutes a table is live and worthless after. They are pruned a few minutes
+// after settle (`prune_war_history`). What survives is written here, in the same
+// transaction as the settle, so nothing is ever recorded that did not happen:
+//
+//   melee_result         one row per settled table           (kept 7 days)
+//   melee_career         per-occupant lifetime totals         (permanent)
+//   faction_war_standing per-faction decan points + crowns    (permanent, 10 rows)
+//   war_epoch            decan and season champions           (permanent, append-only)
+//   war_state            the war's own clock + prune cursors  (singleton)
+//
+// All of these are NEW tables, which publish as a compatible update. SpacetimeDB
+// 2.x cannot add a column to an existing table without disconnecting every client.
+
+/// The outcome of one settled War Table. Written by `melee_settle` (and the legacy
+/// `submit_melee_result` path), never by a feeder. Kept 7 days; long-term value
+/// lives in the aggregates below.
+#[spacetimedb::table(
+    accessor = melee_result,
+    public,
+    index(accessor = zone_resolved, btree(columns = [zone_id, resolved_at]))
+)]
+#[derive(Clone)]
+pub struct MeleeResult {
+    #[primary_key]
+    pub table_id: u64, // 1:1 with the melee_table row it summarises
+    pub zone_id: u8,
+    pub round_index: u64,
+    pub opened_at: Timestamp,
+    #[index(btree)]
+    pub resolved_at: Timestamp, // indexed: retention is one range delete
+    pub trump_suit: Suit,
+    /// The Sun's decan (0..35) at settle, from the ephemeris Sun's true ecliptic
+    /// longitude. None when the feeder has not pushed a Sun row yet.
+    pub decan_id: Option<u8>,
+    pub seat_count: u8,
+    pub tricks_played: u8,
+    /// True when the module played the tricks itself; false for a feeder report.
+    pub refereed: bool,
+    /// Nobody played: no trick resolved, or every seat scored zero (e.g. agents
+    /// whose decks dealt no cards, or a long-stalled table voided on cleanup).
+    /// A void table moves no control, pays no ESMS and counts as no one's win;
+    /// the `winner_*` fields then just name seat 0 and should be ignored.
+    pub is_void: bool,
+    /// The seat `melee_control_deltas` paid the winner's bonus — the same seat the
+    /// ESMS yield and the career win go to.
+    pub winner_seat_id: u64,
+    pub winner_faction: Planet,
+    pub winner_occupant: Identity,
+    pub winner_is_human: bool,
+    pub winner_handle: String,
+    pub winning_score: u16,
+    /// The winner's control share (also inside `seats`, repeated here so a plain
+    /// SQL reader never has to decode the nested struct array).
+    pub winner_control_delta: i32,
+    pub seats: Vec<MeleeSeatOutcome>,
+    pub zone_owner_before: Option<Planet>,
+    pub zone_control_before: i32,
+    pub zone_owner_after: Option<Planet>,
+    pub zone_control_after: i32,
+    /// The winner took the zone from a RIVAL faction in this settle (claiming a
+    /// neutral zone does not count). Control moves as one net push by the winner
+    /// (`melee_net_push`), so seat order cannot change who ends up holding it.
+    pub captured: bool,
+    pub flux_active: bool,
+    /// ESMS actually credited to the winner, 10^4 fixed point (0 when none).
+    pub winner_esms: u32,
+    /// External-agent (ASOL) card handoffs at this table, and how many of those
+    /// timed out into the deterministic fallback.
+    pub agent_turns: u16,
+    pub fallback_turns: u16,
+}
+
+/// Lifetime War Table record per occupant — humans and historical agents alike.
+/// Replaces scanning every `melee_seat` row ever written.
+#[spacetimedb::table(accessor = melee_career, public)]
+#[derive(Clone)]
+pub struct MeleeCareer {
+    #[primary_key]
+    pub identity: Identity,
+    pub handle: String,
+    pub faction: Planet,  // as of the last table played
+    pub is_human: bool,   // as of the last table played
+    pub tables_played: u32,
+    pub wins: u32,
+    pub total_score: u64,
+    pub total_counters: u64,
+    pub total_melds: u64,
+    pub tricks_won: u32,
+    pub best_score: u16,
+    pub zones_captured: u32,
+    pub esms_earned: u64, // 10^4 fixed point, from War Table wins only
+    pub last_table_id: u64,
+    pub last_score: u16,
+    pub last_counters: u16,
+    pub last_melds: u16,
+    pub last_played_at: Timestamp,
+}
+
+/// Running per-faction War Table tally. Keyed by `Planet::idx()` rather than the
+/// enum itself (enum primary keys trip the TS codegen — see patch-bindings.mjs).
+#[spacetimedb::table(accessor = faction_war_standing, public)]
+#[derive(Clone)]
+pub struct FactionWarStanding {
+    #[primary_key]
+    pub faction_idx: u8,
+    pub faction: Planet,
+    /// Points this decan: a won table's score, +50 when it captured the zone.
+    pub decan_points: u64,
+    pub decan_tables_won: u32,
+    pub lifetime_points: u64,
+    pub tables_played: u32,
+    pub tables_won: u32,
+    pub zones_captured: u32,
+    pub decan_crowns: u32,
+    pub season_crowns: u32,
+    pub updated_at: Timestamp,
+}
+
+/// One concluded decan (≈10 days of the Sun) or Great Wheel season (360 sky
+/// ticks ≈ one hour). Append-only and small: the war's permanent history.
+#[spacetimedb::table(accessor = war_epoch, public)]
+#[derive(Clone)]
+pub struct WarEpoch {
+    #[primary_key]
+    #[auto_inc]
+    pub epoch_id: u64,
+    pub kind: WarEpochKind,
+    /// `kind == Decan`, as a bool because SQL cannot filter an enum column:
+    /// readers ask `WHERE is_decan = true` for the 36-a-year decan history
+    /// without paging through the hourly seasons.
+    #[index(btree)]
+    pub is_decan: bool,
+    pub decan_id: Option<u8>,      // Decan only
+    pub season_number: Option<u64>, // Season only
+    /// None = no contest (nobody scored).
+    pub champion: Option<Planet>,
+    pub champion_score: u64,
+    /// Ten entries by `Planet::idx()`: decan points, or season zone weight
+    /// (House 1, Spire 2, Crown 3).
+    pub standings: Vec<u64>,
+    pub tables_settled: u32,
+    pub started_at: Timestamp,
+    pub settled_at: Timestamp,
+}
+
+/// Singleton (id = 0): the war's public clock. A new table rather than new
+/// `game_config` columns, which would be a breaking publish. Written only when
+/// one of these fields changes (the prune cursors live in `war_prune_state`).
+#[spacetimedb::table(accessor = war_state, public)]
+#[derive(Clone)]
+pub struct WarState {
+    #[primary_key]
+    pub id: u8,
+    /// The decan War Table points are being credited to (0..35).
+    pub current_decan: Option<u8>,
+    pub decan_started_at: Timestamp,
+    pub decan_tables: u32,
+    pub season_number: u64,
+    pub season_started_at: Timestamp,
+    pub season_tables: u32,
+    /// Highest round_index any table has opened with — the feeder resumes from
+    /// here after a restart instead of from 1.
+    pub last_round_index: u64,
+    /// A Sun reading that is not the next decan (a bad push, or the far side of
+    /// a feeder outage). The clock only re-anchors to it once the same reading
+    /// has held for `DECAN_REANCHOR_CONFIRM_SECS`; one stray push changes nothing.
+    pub pending_decan: Option<u8>,
+    pub pending_since: Timestamp,
+}
+
+/// Private singleton (id = 0): where `prune_war_history` has got to.
+#[spacetimedb::table(accessor = war_prune_state)]
+#[derive(Clone)]
+pub struct WarPruneState {
+    #[primary_key]
+    pub id: u8,
+    /// Lower edge of the next `opened_at` window the melee backlog drain reads.
+    pub melee_prune_cursor: Timestamp,
+    pub melee_backlog_drained: bool,
+    /// Lower edge of the next window of faction-agent raids to expire.
+    pub battle_prune_cursor: Timestamp,
+}
+
+/// Schedule table for `prune_war_history`. Pruning runs in its own reducer so a
+/// heavy prune can never roll back `tick_sky`. Seeded by `tick_sky` when empty,
+/// because `init` does not re-run on a module update.
+#[spacetimedb::table(accessor = war_prune_timer, scheduled(prune_war_history))]
+#[derive(Clone)]
+pub struct WarPruneTimer {
+    #[primary_key]
+    #[auto_inc]
+    pub scheduled_id: u64,
+    pub scheduled_at: ScheduleAt,
 }
 
 /// Verified AR camera capture of a constellation by a human player.
@@ -524,7 +729,14 @@ pub struct Ephemeris {
 
 // ── Coordination ──────────────────────────────────────────────────────────
 
-#[spacetimedb::table(accessor = battle, public)]
+/// `agent_war` writes up to ten of these every tick, so retention is two-tier:
+/// faction-agent raids keep an hour (via `battle_attacker_at`), everything keeps a
+/// week (via `created_at`). Both are range deletes — no full-table prune scan.
+#[spacetimedb::table(
+    accessor = battle,
+    public,
+    index(accessor = battle_attacker_at, btree(columns = [attacker, created_at]))
+)]
 #[derive(Clone)]
 pub struct Battle {
     #[primary_key]
@@ -535,6 +747,7 @@ pub struct Battle {
     pub won: bool,
     pub attacker_score: u32,
     pub defense_rating: u32,
+    #[index(btree)]
     pub created_at: Timestamp,
 }
 

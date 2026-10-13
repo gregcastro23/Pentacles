@@ -74,7 +74,11 @@ interface SpacetimeType {
   Product?: {
     elements?: SpacetimeProductElement[];
   };
+  Array?: SpacetimeType;
 }
+
+const elementName = (e: SpacetimeProductElement | undefined): string | undefined =>
+  e?.name === undefined ? undefined : typeof e.name === "string" ? e.name : e.name.some;
 
 export function decodeSats(type: SpacetimeType | null | undefined, val: unknown): unknown {
   if (type?.Sum) {
@@ -91,15 +95,29 @@ export function decodeSats(type: SpacetimeType | null | undefined, val: unknown)
     // Restore the tag casing so both transports deliver the same shape.
     return upperFirst(vname);
   }
+  if (type?.Array && Array.isArray(val)) {
+    // Vec<T>: decode each element against T, so a Vec of structs (e.g.
+    // agent_chart.placements, melee_result.seats) arrives as an array of
+    // objects — the shape the WS bindings deliver — not positional arrays.
+    return val.map((v) => decodeSats(type.Array, v));
+  }
   if (type?.Product) {
     // Identity et al arrive as a positional single-element product wrapping the
     // value (e.g. ["0xc200…"]); unwrap to the plain hex string / micros number
     // normalizeWsRow delivers (constellation's regionCommit interpolates the
     // trader identity into a /sql WHERE clause, so the wrapper array breaks it).
     const els = type.Product.elements ?? [];
-    const ename = els[0]?.name && (typeof els[0].name === "string" ? els[0].name : els[0].name.some);
+    const ename = elementName(els[0]);
     if (els.length === 1 && ename && WRAPPER_FIELDS.has(ename) && Array.isArray(val) && val.length === 1) {
       return val[0];
+    }
+    // Any other struct: positional values → { field: decoded value }.
+    if (Array.isArray(val) && val.length === els.length && els.length > 0 && els.every((e) => elementName(e))) {
+      const out: Record<string, unknown> = {};
+      els.forEach((e, i) => {
+        out[elementName(e) as string] = decodeSats(e.algebraic_type as SpacetimeType, val[i]);
+      });
+      return out;
     }
   }
   // Schema-less safety net for the same Identity shape (one-element array

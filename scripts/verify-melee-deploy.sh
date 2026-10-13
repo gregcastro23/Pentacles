@@ -23,8 +23,16 @@ warn() { printf '  \033[33m!\033[0m %s\n' "$*"; }
 
 q() { spacetime sql "$DB" "$1" 2>&1; }
 
-# `spacetime sql` prints a table; pull the first integer out of it.
-count() { q "$1" | grep -oE '[0-9]+' | head -1; }
+# `spacetime sql` prints a header, a dashed rule, then rows. Read the value in
+# the first data row — never "the first number anywhere", which would happily
+# read an HTTP status code out of an error message. Prints ERR on failure.
+count() {
+  local out
+  out=$(spacetime sql "$DB" "$1" 2>&1) || { echo ERR; return 1; }
+  printf '%s\n' "$out" | awk '/^-+/{ if (getline > 0) { gsub(/[^0-9]/, ""); print ($0 == "" ? "ERR" : $0) } exit }'
+}
+# A count that could not be read is a failure, not a zero and not a pass.
+num() { [[ "$1" =~ ^[0-9]+$ ]]; }
 
 fail=0
 
@@ -43,10 +51,11 @@ if [ "$probe_rc" -ne 0 ]; then
 fi
 ok "$DB responding"
 
-say "2 · Schema carries the referee's tables"
-# These two are what the move to a server-side referee added. Absent means the
-# publish did not land, whatever the CLI said.
-for t in melee_hand melee_trick; do
+say "2 · Schema carries the referee's and the war-results tables"
+# melee_hand/melee_trick came with the server-side referee; melee_result and
+# war_state with the results lifecycle. Absent means the publish did not land,
+# whatever the CLI said.
+for t in melee_hand melee_trick melee_result war_state; do
   if q "SELECT count(*) AS cnt FROM $t" | grep -qiE "unknown table|no such table|not found"; then
     bad "$t missing — the module was not published"; fail=1
   else
@@ -55,46 +64,61 @@ for t in melee_hand melee_trick; do
 done
 [ "$fail" = 1 ] && exit 1
 
-say "3 · Is anything opening rounds?"
-before_tables=$(count "SELECT count(*) AS cnt FROM melee_table")
-before_tricks=$(count "SELECT count(*) AS cnt FROM melee_trick")
-echo "      melee_table=$before_tables  melee_trick=$before_tricks"
+say "3 · Are tables opening and settling?"
+# Raw melee_* rows are pruned a few minutes after each table settles, so their
+# counts can FALL between two reads. Use numbers that only ever grow: the
+# module's round high-water mark, and melee_result rows that settled inside
+# the window (kept a week).
+since=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+before_round=$(count "SELECT last_round_index FROM war_state")
 printf '      waiting %ss for a feeder round…\n' "$ROUND_SECS"
 sleep "$ROUND_SECS"
-after_tables=$(count "SELECT count(*) AS cnt FROM melee_table")
-after_tricks=$(count "SELECT count(*) AS cnt FROM melee_trick")
+after_round=$(count "SELECT last_round_index FROM war_state")
+settled=$(count "SELECT count(*) AS cnt FROM melee_result WHERE resolved_at >= '$since'")
+refereed=$(count "SELECT count(*) AS cnt FROM melee_result WHERE resolved_at >= '$since' AND refereed = true AND is_void = false")
+for v in "$after_round" "$settled" "$refereed"; do
+  num "$v" || { bad "could not read war_state / melee_result (got '$v') — is this module published?"; exit 1; }
+done
+num "$before_round" || before_round=0  # war_state appears with the first table
 
-if [ "$after_tables" -gt "$before_tables" ]; then
-  ok "feeder opened $((after_tables - before_tables)) table(s) — pentacles-feeders is up"
+if [ "$after_round" -gt "$before_round" ] || [ "$settled" -gt 0 ]; then
+  ok "rounds are opening (round ${before_round:-?} → ${after_round:-?}, $settled table(s) settled) — pentacles-feeders is up"
 else
-  bad "no new tables in ${ROUND_SECS}s — the Railway 'pentacles-feeders' worker is not running."
+  bad "no new round in ${ROUND_SECS}s — the Railway 'pentacles-feeders' worker is not running."
   warn "the module cannot referee a table nobody opens; check the Railway service before reading anything below as a failure of the publish"
   fail=1
 fi
 
-say "4 · Is the MODULE refereeing them?"
-if [ "$after_tricks" -gt "$before_tricks" ]; then
-  ok "$((after_tricks - before_tricks)) trick(s) resolved on chain — the Rust referee is live"
+say "4 · Is the MODULE refereeing and recording them?"
+if [ "$refereed" -gt 0 ]; then
+  ok "$refereed played table(s) refereed and settled on chain into melee_result in the window"
+elif [ "$settled" -gt 0 ]; then
+  bad "$settled table(s) settled, but none was actually played by the module's referee (all void?)"
+  fail=1
 else
-  if [ "$after_tables" -gt "$before_tables" ]; then
-    bad "tables opened but no tricks resolved — seats may have been dealt no cards"
-    fail=1
-  else
-    warn "skipped: no round ran to referee"
-  fi
+  warn "skipped: no table settled inside the window"
 fi
 
-say "5 · Latest tables"
-q "SELECT table_id, zone_id, state, seat_count FROM melee_table" | head -15
+say "5 · Latest results"
+q "SELECT table_id, zone_id, winner_faction, winning_score, tricks_played, captured FROM melee_result WHERE resolved_at >= '$since'" | head -15
 
 say "6 · Hands are dealt on chain (not in the feeder)"
-dealt=$(count "SELECT count(*) AS cnt FROM melee_hand")
-if [ "${dealt:-0}" -gt 0 ]; then
-  ok "$dealt dealt card(s) recorded — play validation has something to check against"
-else
-  bad "melee_hand is empty; play_melee_card will refuse every human play"
+# melee_hand is private and emptied when a table settles, so an empty table
+# between rounds is normal. A refereed result with tricks proves cards were dealt.
+played=$(count "SELECT count(*) AS cnt FROM melee_result WHERE resolved_at >= '$since' AND tricks_played > 0")
+num "$played" || played=0
+if [ "$played" -gt 0 ]; then
+  ok "$played settled table(s) played tricks — the module dealt and validated real hands"
+elif [ "$settled" -gt 0 ]; then
+  bad "tables settled with zero tricks — seats may have been dealt no cards"
   fail=1
+else
+  warn "skipped: no table settled inside the window"
 fi
+
+say "6b · War history is being kept and bounded"
+q "SELECT current_decan, decan_tables, season_number, last_round_index FROM war_state"
+q "SELECT faction_idx, decan_points, tables_won, decan_crowns, season_crowns FROM faction_war_standing" | head -12
 
 say "7 · Nobody is scoring from the wire any more"
 # The feeder no longer calls submit_melee_result. A settled table that has trick

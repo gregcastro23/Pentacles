@@ -52,6 +52,35 @@ pub struct SeatSpec {
     pub claim: u16,
 }
 
+/// One seat's line in a `melee_result`: who sat there and what they took away.
+/// `control_delta` is the module's pre-multiplier zero-sum share (+ the winner's
+/// bonus); flux and AR multipliers are applied on top by `apply_control`.
+/// Frozen at first publish: a nested struct can never gain a field, so a later
+/// addition means a new table, not a column.
+#[derive(SpacetimeType, Clone, Debug, PartialEq)]
+pub struct MeleeSeatOutcome {
+    pub seat_id: u64,
+    pub faction: Planet,
+    pub occupant: Identity,
+    pub handle: String,
+    pub is_human: bool,
+    pub claim: u16,
+    pub counters: u16,
+    pub melds_value: u16,
+    pub score: u16,
+    pub tricks_won: u8,
+    pub took_final_trick: bool,
+    pub control_delta: i32,
+}
+
+/// What a `war_epoch` row concludes. Append new variants at the END only — that
+/// is the one enum change SpacetimeDB migrates without breaking clients.
+#[derive(SpacetimeType, Clone, Copy, PartialEq, Eq, Debug)]
+pub enum WarEpochKind {
+    Decan,
+    Season,
+}
+
 /// One seat's outcome, submitted by the feeder once the twelve tricks are played.
 /// `score` is derived server-side from these, never trusted from the wire.
 #[derive(SpacetimeType, Clone, Debug)]

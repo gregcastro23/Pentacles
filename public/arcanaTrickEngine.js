@@ -605,7 +605,593 @@
       });
     }
 
+    // ── Sacred Tree of Life Paths (Otz Chiim Major Alignments) ───────────────
+
+    // 9. The Middle Pillar: The High Priestess (2) + Temperance (14) + The World (21) (90 pts)
+    const priestess = majors.find(c => Number(c.rank) === 2);
+    const temperance = majors.find(c => Number(c.rank) === 14);
+    if (priestess && temperance && world) {
+      melds.push({
+        id: "the_middle_pillar",
+        name: "The Middle Pillar (High Priestess + Temperance + The World)",
+        cards: [priestess, temperance, world],
+        value: 90
+      });
+    }
+
+    // 10. The Three Mothers (Tria Prima): The Fool (0) + The Hanged Man (12) + Judgement (20) (90 pts)
+    const hangedMan = majors.find(c => Number(c.rank) === 12);
+    const judgement = majors.find(c => Number(c.rank) === 20);
+    if (fool && hangedMan && judgement) {
+      melds.push({
+        id: "the_three_mothers",
+        name: "The Three Mothers (The Fool + The Hanged Man + Judgement)",
+        cards: [fool, hangedMan, judgement],
+        value: 90
+      });
+    }
+
+    // 11. The Three Veils: The Empress (3) + Strength (8) + The Tower (16) (85 pts)
+    const empress = majors.find(c => Number(c.rank) === 3);
+    const strength = majors.find(c => Number(c.rank) === 8);
+    const tower = majors.find(c => Number(c.rank) === 16);
+    if (empress && strength && tower) {
+      melds.push({
+        id: "the_three_veils",
+        name: "The Three Veils (The Empress + Strength + The Tower)",
+        cards: [empress, strength, tower],
+        value: 85
+      });
+    }
+
+    // 12. The Supernal Triad: The Fool (0) + The Magician (1) + The High Priestess (2) (75 pts)
+    if (fool && magician && priestess) {
+      melds.push({
+        id: "the_supernal_triad",
+        name: "The Supernal Triad (The Fool + The Magician + The High Priestess)",
+        cards: [fool, magician, priestess],
+        value: 75
+      });
+    }
+
+    // ── Sephiric & Number Melds (Minors on the Tree) ─────────────────────────
+
+    // 13. Pillar of Severity: Ranks 3 (Binah) + 5 (Geburah) + 8 (Hod) of one suit (50 pts)
+    for (const s of Object.keys(suitMap)) {
+      const inSuit = suitMap[s] || [];
+      const c3 = inSuit.find(c => Number(c.rank) === 3);
+      const c5 = inSuit.find(c => Number(c.rank) === 5);
+      const c8 = inSuit.find(c => Number(c.rank) === 8);
+      if (c3 && c5 && c8) {
+        melds.push({
+          id: `pillar_of_severity_${s}`,
+          name: `Pillar of Severity in ${s.toUpperCase()} (3·5·8)`,
+          cards: [c3, c5, c8],
+          value: 50
+        });
+      }
+    }
+
+    // 14. Pillar of Mercy: Ranks 2 (Chokmah) + 4 (Chesed) + 7 (Netzach) of one suit (50 pts)
+    for (const s of Object.keys(suitMap)) {
+      const inSuit = suitMap[s] || [];
+      const c2 = inSuit.find(c => Number(c.rank) === 2);
+      const c4 = inSuit.find(c => Number(c.rank) === 4);
+      const c7 = inSuit.find(c => Number(c.rank) === 7);
+      if (c2 && c4 && c7) {
+        melds.push({
+          id: `pillar_of_mercy_${s}`,
+          name: `Pillar of Mercy in ${s.toUpperCase()} (2·4·7)`,
+          cards: [c2, c4, c7],
+          value: 50
+        });
+      }
+    }
+
+    // 15. The Solar Heart: Three 6s (Tiphareth Triad across any suits) (60 pts)
+    const allSixes = minors.filter(c => Number(c.rank) === 6);
+    if (allSixes.length >= 3) {
+      melds.push({
+        id: "the_solar_heart",
+        name: "The Solar Heart (Tiphareth Triad of 6s)",
+        cards: allSixes.slice(0, 3),
+        value: 60
+      });
+    }
+
+    // 16. Quartet of the Four Worlds: Four of a kind across all 4 suits (ranks 2..14) (80 pts)
+    for (let r = 2; r <= 14; r++) {
+      const inW = (suitMap.wands || []).find(c => Number(c.rank) === r);
+      const inC = (suitMap.cups || []).find(c => Number(c.rank) === r);
+      const inS = (suitMap.swords || []).find(c => Number(c.rank) === r);
+      const inP = (suitMap.pentacles || []).find(c => Number(c.rank) === r);
+      if (inW && inC && inS && inP) {
+        const rankNames = { 11: "Pages", 12: "Knights", 13: "Queens", 14: "Kings" };
+        const rName = rankNames[r] || `${r}s`;
+        melds.push({
+          id: `quartet_${r}`,
+          name: `Quartet of the Four Worlds (All Four ${rName})`,
+          cards: [inW, inC, inS, inP],
+          value: 80
+        });
+      }
+    }
+
+    // 17. The Lightning Flash: 4 consecutive ranks (within Sephiroth pips 1..10) in one suit (50 pts)
+    for (const s of Object.keys(suitMap)) {
+      const inSuit = suitMap[s] || [];
+      for (let r = 1; r <= 7; r++) {
+        const r0 = inSuit.find(c => Number(c.rank) === r);
+        const r1 = inSuit.find(c => Number(c.rank) === r + 1);
+        const r2 = inSuit.find(c => Number(c.rank) === r + 2);
+        const r3 = inSuit.find(c => Number(c.rank) === r + 3);
+        if (r0 && r1 && r2 && r3) {
+          melds.push({
+            id: `lightning_flash_${s}`,
+            name: `The Lightning Flash in ${s.toUpperCase()} (${r}–${r + 3})`,
+            cards: [r0, r1, r2, r3],
+            value: 50
+          });
+          break; // scored once per suit
+        }
+      }
+    }
+
     return melds;
+  }
+
+  /**
+   * Analyzes a hand for both completed melds and "Near-Melds" (melds where the hand holds
+   * N-1 cards and is exactly 1 card away from unlocking substantial points).
+   * Also computes per-card roles (active and potential meld associations).
+   *
+   * @param {Array} hand - Hand of card objects
+   * @param {string} trumpSuit - Current trump suit
+   * @param {Object} ladder - Arcana Potency ladder
+   * @returns {Object} { activeMelds, totalMeldScore, opportunities, cardRoles }
+   */
+  function analyzeMeldOpportunities(hand = [], trumpSuit = "wands", ladder = {}) {
+    const activeMelds = detectMelds(hand, trumpSuit, ladder);
+    const totalMeldScore = activeMelds.reduce((sum, m) => sum + (m.value || 0), 0);
+    const activeMeldIds = new Set(activeMelds.map(m => m.id));
+
+    const opportunities = [];
+    if (!Array.isArray(hand) || hand.length === 0) {
+      return { activeMelds, totalMeldScore, opportunities, cardRoles: {} };
+    }
+
+    const minors = hand.filter(c => !c.is_major);
+    const majors = hand.filter(c => c.is_major);
+
+    const suitMap = { wands: [], cups: [], swords: [], pentacles: [] };
+    for (const c of minors) {
+      const s = c.suit ? c.suit.toLowerCase() : "wands";
+      if (suitMap[s]) suitMap[s].push(c);
+    }
+
+    const hasMinor = (s, r) => (suitMap[s] || []).find(c => Number(c.rank) === r);
+    const hasMajor = (r) => majors.find(c => Number(c.rank) === r);
+
+    // 1. Marriages (14 King + 13 Queen)
+    for (const s of ["wands", "cups", "swords", "pentacles"]) {
+      if (!activeMeldIds.has(`marriage_${s}`)) {
+        const king = hasMinor(s, 14);
+        const queen = hasMinor(s, 13);
+        const isTrump = s === (trumpSuit || "").toLowerCase();
+        const pts = isTrump ? 40 : 20;
+        if (king && !queen) {
+          opportunities.push({
+            id: `opp_marriage_${s}`,
+            targetMeldId: `marriage_${s}`,
+            name: `${isTrump ? 'Royal ' : ''}Marriage in ${s.toUpperCase()}`,
+            potentialPoints: pts,
+            category: "court",
+            heldCards: [king],
+            missing: `Queen of ${s.toUpperCase()}`,
+            missingReq: { suit: s, rank: 13, is_major: false },
+            progress: { held: 1, needed: 2 },
+            hint: `You hold King of ${s.toUpperCase()}. Acquire Queen of ${s.toUpperCase()} to score +${pts} pts.`
+          });
+        } else if (queen && !king) {
+          opportunities.push({
+            id: `opp_marriage_${s}`,
+            targetMeldId: `marriage_${s}`,
+            name: `${isTrump ? 'Royal ' : ''}Marriage in ${s.toUpperCase()}`,
+            potentialPoints: pts,
+            category: "court",
+            heldCards: [queen],
+            missing: `King of ${s.toUpperCase()}`,
+            missingReq: { suit: s, rank: 14, is_major: false },
+            progress: { held: 1, needed: 2 },
+            hint: `You hold Queen of ${s.toUpperCase()}. Acquire King of ${s.toUpperCase()} to score +${pts} pts.`
+          });
+        }
+      }
+    }
+
+    // 2. Pinochle (Queen Swords + Knight Pentacles)
+    if (!activeMeldIds.has("pinochle")) {
+      const qSwords = hasMinor("swords", 13);
+      const kPents = hasMinor("pentacles", 12);
+      if (qSwords && !kPents) {
+        opportunities.push({
+          id: "opp_pinochle",
+          targetMeldId: "pinochle",
+          name: "Pinochle",
+          potentialPoints: 40,
+          category: "court",
+          heldCards: [qSwords],
+          missing: "Knight of Pentacles",
+          missingReq: { suit: "pentacles", rank: 12, is_major: false },
+          progress: { held: 1, needed: 2 },
+          hint: "Hold Queen of Swords! Pairing with Knight of Pentacles triggers Pinochle (+40 pts)."
+        });
+      } else if (kPents && !qSwords) {
+        opportunities.push({
+          id: "opp_pinochle",
+          targetMeldId: "pinochle",
+          name: "Pinochle",
+          potentialPoints: 40,
+          category: "court",
+          heldCards: [kPents],
+          missing: "Queen of Swords",
+          missingReq: { suit: "swords", rank: 13, is_major: false },
+          progress: { held: 1, needed: 2 },
+          hint: "Hold Knight of Pentacles! Pairing with Queen of Swords triggers Pinochle (+40 pts)."
+        });
+      }
+    }
+
+    // 3. Full Court (11, 12, 13, 14 of one suit) - Need 3 of 4
+    for (const s of ["wands", "cups", "swords", "pentacles"]) {
+      if (!activeMeldIds.has(`full_court_${s}`)) {
+        const ranks = [11, 12, 13, 14];
+        const held = ranks.map(r => hasMinor(s, r)).filter(Boolean);
+        if (held.length === 3) {
+          const missingRank = ranks.find(r => !hasMinor(s, r));
+          const rankNames = { 11: "Page", 12: "Knight", 13: "Queen", 14: "King" };
+          opportunities.push({
+            id: `opp_full_court_${s}`,
+            targetMeldId: `full_court_${s}`,
+            name: `Full Court of ${s.toUpperCase()}`,
+            potentialPoints: 60,
+            category: "court",
+            heldCards: held,
+            missing: `${rankNames[missingRank]} of ${s.toUpperCase()}`,
+            missingReq: { suit: s, rank: missingRank, is_major: false },
+            progress: { held: 3, needed: 4 },
+            hint: `3/4 Court cards held! Acquire ${rankNames[missingRank]} of ${s.toUpperCase()} for +60 pts.`
+          });
+        }
+      }
+    }
+
+    // 4. Decan Trines (3 decan pips of a sign) - Need 2 of 3
+    const DECAN_TRINES = [
+      { sign: "Aries", suit: "wands", ranks: [2, 3, 4] },
+      { sign: "Taurus", suit: "pentacles", ranks: [5, 6, 7] },
+      { sign: "Gemini", suit: "swords", ranks: [8, 9, 10] },
+      { sign: "Cancer", suit: "cups", ranks: [2, 3, 4] },
+      { sign: "Leo", suit: "wands", ranks: [5, 6, 7] },
+      { sign: "Virgo", suit: "pentacles", ranks: [8, 9, 10] },
+      { sign: "Libra", suit: "swords", ranks: [2, 3, 4] },
+      { sign: "Scorpio", suit: "cups", ranks: [5, 6, 7] },
+      { sign: "Sagittarius", suit: "wands", ranks: [8, 9, 10] },
+      { sign: "Capricorn", suit: "pentacles", ranks: [2, 3, 4] },
+      { sign: "Aquarius", suit: "swords", ranks: [5, 6, 7] },
+      { sign: "Pisces", suit: "cups", ranks: [8, 9, 10] }
+    ];
+    for (const dt of DECAN_TRINES) {
+      const meldId = `decan_trine_${dt.sign.toLowerCase()}`;
+      if (!activeMeldIds.has(meldId)) {
+        const held = dt.ranks.map(r => hasMinor(dt.suit, r)).filter(Boolean);
+        if (held.length === 2) {
+          const missingRank = dt.ranks.find(r => !hasMinor(dt.suit, r));
+          opportunities.push({
+            id: `opp_${meldId}`,
+            targetMeldId: meldId,
+            name: `Decan Trine of ${dt.sign}`,
+            potentialPoints: 40,
+            category: "astral",
+            heldCards: held,
+            missing: `${missingRank} of ${dt.suit.toUpperCase()}`,
+            missingReq: { suit: dt.suit, rank: missingRank, is_major: false },
+            progress: { held: 2, needed: 3 },
+            hint: `Holds 2 of 3 ${dt.sign} decan pips (${held.map(c => c.rank).join('·')}). Needs ${missingRank} of ${dt.suit.toUpperCase()} (+40 pts).`
+          });
+        }
+      }
+    }
+
+    // 5. Grand Cross (all 4 Aces) - Need 3 of 4
+    if (!activeMeldIds.has("grand_cross")) {
+      const aces = ["wands", "cups", "swords", "pentacles"].map(s => hasMinor(s, 1)).filter(Boolean);
+      if (aces.length === 3) {
+        const missingSuit = ["wands", "cups", "swords", "pentacles"].find(s => !hasMinor(s, 1));
+        opportunities.push({
+          id: "opp_grand_cross",
+          targetMeldId: "grand_cross",
+          name: "Grand Cross",
+          potentialPoints: 100,
+          category: "sephiric",
+          heldCards: aces,
+          missing: `Ace of ${missingSuit.toUpperCase()}`,
+          missingReq: { suit: missingSuit, rank: 1, is_major: false },
+          progress: { held: 3, needed: 4 },
+          hint: `3 elemental Aces in hand! Need Ace of ${missingSuit.toUpperCase()} to complete the Grand Cross (+100 pts)!`
+        });
+      }
+    }
+
+    // 6. Arcana Trine (Any 3 Majors) - Need 2 of 3
+    if (!activeMeldIds.has("arcana_trine") && majors.length === 2) {
+      opportunities.push({
+        id: "opp_arcana_trine",
+        targetMeldId: "arcana_trine",
+        name: "Arcana Trine",
+        potentialPoints: 50,
+        category: "tree",
+        heldCards: [...majors],
+        missing: "Any 3rd Major Arcana",
+        missingReq: { is_major: true },
+        progress: { held: 2, needed: 3 },
+        hint: `Holds 2 Majors. Adding any 3rd Major Arcana completes an Arcana Trine (+50 pts).`
+      });
+    }
+
+    // 7. The Great Work (Fool 0, Magician 1, World 21) - Need 2 of 3
+    if (!activeMeldIds.has("the_great_work")) {
+      const gwReqs = [
+        { rank: 0, name: "The Fool (0)" },
+        { rank: 1, name: "The Magician (I)" },
+        { rank: 21, name: "The World (XXI)" }
+      ];
+      const held = gwReqs.map(r => hasMajor(r.rank)).filter(Boolean);
+      if (held.length === 2) {
+        const missing = gwReqs.find(r => !hasMajor(r.rank));
+        opportunities.push({
+          id: "opp_the_great_work",
+          targetMeldId: "the_great_work",
+          name: "The Great Work",
+          potentialPoints: 100,
+          category: "tree",
+          heldCards: held,
+          missing: missing.name,
+          missingReq: { is_major: true, rank: missing.rank },
+          progress: { held: 2, needed: 3 },
+          hint: `Crucial alchemical alignment! Holds 2 cards of The Great Work. Missing ${missing.name} (+100 pts).`
+        });
+      }
+    }
+
+    // 8. The Middle Pillar (High Priestess 2, Temperance 14, World 21) - Need 2 of 3
+    if (!activeMeldIds.has("the_middle_pillar")) {
+      const mpReqs = [
+        { rank: 2, name: "The High Priestess (II)" },
+        { rank: 14, name: "Temperance (XIV)" },
+        { rank: 21, name: "The World (XXI)" }
+      ];
+      const held = mpReqs.map(r => hasMajor(r.rank)).filter(Boolean);
+      if (held.length === 2) {
+        const missing = mpReqs.find(r => !hasMajor(r.rank));
+        opportunities.push({
+          id: "opp_the_middle_pillar",
+          targetMeldId: "the_middle_pillar",
+          name: "The Middle Pillar",
+          potentialPoints: 90,
+          category: "tree",
+          heldCards: held,
+          missing: missing.name,
+          missingReq: { is_major: true, rank: missing.rank },
+          progress: { held: 2, needed: 3 },
+          hint: `Vertical axis of equilibrium! Holds 2/3 cards. Missing ${missing.name} (+90 pts).`
+        });
+      }
+    }
+
+    // 9. The Three Mothers (Fool 0, Hanged Man 12, Judgement 20) - Need 2 of 3
+    if (!activeMeldIds.has("the_three_mothers")) {
+      const tmReqs = [
+        { rank: 0, name: "The Fool (0 / Air)" },
+        { rank: 12, name: "The Hanged Man (XII / Water)" },
+        { rank: 20, name: "Judgement (XX / Fire)" }
+      ];
+      const held = tmReqs.map(r => hasMajor(r.rank)).filter(Boolean);
+      if (held.length === 2) {
+        const missing = tmReqs.find(r => !hasMajor(r.rank));
+        opportunities.push({
+          id: "opp_the_three_mothers",
+          targetMeldId: "the_three_mothers",
+          name: "The Three Mothers",
+          potentialPoints: 90,
+          category: "tree",
+          heldCards: held,
+          missing: missing.name,
+          missingReq: { is_major: true, rank: missing.rank },
+          progress: { held: 2, needed: 3 },
+          hint: `Elemental Tria Prima! Holds 2/3 primordial cards. Missing ${missing.name} (+90 pts).`
+        });
+      }
+    }
+
+    // 10. The Three Veils (Empress 3, Strength 8, Tower 16) - Need 2 of 3
+    if (!activeMeldIds.has("the_three_veils")) {
+      const tvReqs = [
+        { rank: 3, name: "The Empress (III)" },
+        { rank: 8, name: "Strength (VIII)" },
+        { rank: 16, name: "The Tower (XVI)" }
+      ];
+      const held = tvReqs.map(r => hasMajor(r.rank)).filter(Boolean);
+      if (held.length === 2) {
+        const missing = tvReqs.find(r => !hasMajor(r.rank));
+        opportunities.push({
+          id: "opp_the_three_veils",
+          targetMeldId: "the_three_veils",
+          name: "The Three Veils",
+          potentialPoints: 85,
+          category: "tree",
+          heldCards: held,
+          missing: missing.name,
+          missingReq: { is_major: true, rank: missing.rank },
+          progress: { held: 2, needed: 3 },
+          hint: `Horizontal rungs of the Tree! Holds 2/3 cards. Missing ${missing.name} (+85 pts).`
+        });
+      }
+    }
+
+    // 11. The Supernal Triad (Fool 0, Magician 1, High Priestess 2) - Need 2 of 3
+    if (!activeMeldIds.has("the_supernal_triad")) {
+      const stReqs = [
+        { rank: 0, name: "The Fool (0)" },
+        { rank: 1, name: "The Magician (I)" },
+        { rank: 2, name: "The High Priestess (II)" }
+      ];
+      const held = stReqs.map(r => hasMajor(r.rank)).filter(Boolean);
+      if (held.length === 2) {
+        const missing = stReqs.find(r => !hasMajor(r.rank));
+        opportunities.push({
+          id: "opp_the_supernal_triad",
+          targetMeldId: "the_supernal_triad",
+          name: "The Supernal Triad",
+          potentialPoints: 75,
+          category: "tree",
+          heldCards: held,
+          missing: missing.name,
+          missingReq: { is_major: true, rank: missing.rank },
+          progress: { held: 2, needed: 3 },
+          hint: `Supernal crown above the Abyss! Holds 2/3 cards. Missing ${missing.name} (+75 pts).`
+        });
+      }
+    }
+
+    // 12. Pillar of Severity (3, 5, 8 in one suit) - Need 2 of 3
+    for (const s of ["wands", "cups", "swords", "pentacles"]) {
+      const meldId = `pillar_of_severity_${s}`;
+      if (!activeMeldIds.has(meldId)) {
+        const ranks = [3, 5, 8];
+        const held = ranks.map(r => hasMinor(s, r)).filter(Boolean);
+        if (held.length === 2) {
+          const missingRank = ranks.find(r => !hasMinor(s, r));
+          opportunities.push({
+            id: `opp_${meldId}`,
+            targetMeldId: meldId,
+            name: `Pillar of Severity in ${s.toUpperCase()}`,
+            potentialPoints: 50,
+            category: "sephiric",
+            heldCards: held,
+            missing: `${missingRank} of ${s.toUpperCase()}`,
+            missingReq: { suit: s, rank: missingRank, is_major: false },
+            progress: { held: 2, needed: 3 },
+            hint: `Boaz / Severity alignment: holds 2 of {3, 5, 8}. Needs ${missingRank} of ${s.toUpperCase()} (+50 pts).`
+          });
+        }
+      }
+    }
+
+    // 13. Pillar of Mercy (2, 4, 7 in one suit) - Need 2 of 3
+    for (const s of ["wands", "cups", "swords", "pentacles"]) {
+      const meldId = `pillar_of_mercy_${s}`;
+      if (!activeMeldIds.has(meldId)) {
+        const ranks = [2, 4, 7];
+        const held = ranks.map(r => hasMinor(s, r)).filter(Boolean);
+        if (held.length === 2) {
+          const missingRank = ranks.find(r => !hasMinor(s, r));
+          opportunities.push({
+            id: `opp_${meldId}`,
+            targetMeldId: meldId,
+            name: `Pillar of Mercy in ${s.toUpperCase()}`,
+            potentialPoints: 50,
+            category: "sephiric",
+            heldCards: held,
+            missing: `${missingRank} of ${s.toUpperCase()}`,
+            missingReq: { suit: s, rank: missingRank, is_major: false },
+            progress: { held: 2, needed: 3 },
+            hint: `Jachin / Mercy alignment: holds 2 of {2, 4, 7}. Needs ${missingRank} of ${s.toUpperCase()} (+50 pts).`
+          });
+        }
+      }
+    }
+
+    // 14. The Solar Heart (Three 6s across any suits) - Need 2 of 3
+    if (!activeMeldIds.has("the_solar_heart")) {
+      const sixes = minors.filter(c => Number(c.rank) === 6);
+      if (sixes.length === 2) {
+        opportunities.push({
+          id: "opp_the_solar_heart",
+          targetMeldId: "the_solar_heart",
+          name: "The Solar Heart",
+          potentialPoints: 60,
+          category: "sephiric",
+          heldCards: sixes,
+          missing: "Any 3rd Six Minor",
+          missingReq: { rank: 6, is_major: false },
+          progress: { held: 2, needed: 3 },
+          hint: `Holds two 6s (${sixes.map(c => c.suit).join(' & ')}). Any additional 6 activates the Solar Heart (+60 pts).`
+        });
+      }
+    }
+
+    // 15. The Lightning Flash (4 consecutive ranks in 1..10 in one suit) - Need 3 of 4
+    for (const s of ["wands", "cups", "swords", "pentacles"]) {
+      const meldId = `lightning_flash_${s}`;
+      if (!activeMeldIds.has(meldId)) {
+        for (let r = 1; r <= 7; r++) {
+          const windowRanks = [r, r + 1, r + 2, r + 3];
+          const held = windowRanks.map(rank => hasMinor(s, rank)).filter(Boolean);
+          if (held.length === 3) {
+            const missingRank = windowRanks.find(rank => !hasMinor(s, rank));
+            opportunities.push({
+              id: `opp_${meldId}_${r}`,
+              targetMeldId: meldId,
+              name: `Lightning Flash in ${s.toUpperCase()}`,
+              potentialPoints: 50,
+              category: "sephiric",
+              heldCards: held,
+              missing: `${missingRank} of ${s.toUpperCase()}`,
+              missingReq: { suit: s, rank: missingRank, is_major: false },
+              progress: { held: 3, needed: 4 },
+              hint: `Sequence ${held.map(c => c.rank).join('·')} in ${s.toUpperCase()}! Missing ${missingRank} of ${s.toUpperCase()} (+50 pts).`
+            });
+            break; // One opportunity per suit is sufficient
+          }
+        }
+      }
+    }
+
+    // Build Card-by-Card Roles Map
+    const cardRoles = {};
+    for (const c of hand) {
+      const cid = c.card_id !== undefined ? String(c.card_id) : `${c.suit || 'major'}_${c.rank}`;
+      cardRoles[cid] = { active: [], potential: [] };
+    }
+    for (const am of activeMelds) {
+      for (const c of (am.cards || [])) {
+        const cid = c.card_id !== undefined ? String(c.card_id) : `${c.suit || 'major'}_${c.rank}`;
+        if (cardRoles[cid]) {
+          cardRoles[cid].active.push({ id: am.id, name: am.name, value: am.value });
+        }
+      }
+    }
+    for (const opp of opportunities) {
+      for (const c of opp.heldCards) {
+        const cid = c.card_id !== undefined ? String(c.card_id) : `${c.suit || 'major'}_${c.rank}`;
+        if (cardRoles[cid]) {
+          cardRoles[cid].potential.push({
+            id: opp.id,
+            name: opp.name,
+            missing: opp.missing,
+            points: opp.potentialPoints
+          });
+        }
+      }
+    }
+
+    return {
+      activeMelds,
+      totalMeldScore,
+      opportunities,
+      cardRoles
+    };
   }
 
   // ── Guardian / Agent AI ───────────────────────────────────────────────────
@@ -1074,6 +1660,9 @@
     getLegalMoves,
     evaluateTrick,
     detectMelds,
+    analyzeMeldOpportunities,
+    suggestMelds: analyzeMeldOpportunities,
+    findNearMelds: analyzeMeldOpportunities,
     GuardianAI,
     createMelee,
     canAccessZone,

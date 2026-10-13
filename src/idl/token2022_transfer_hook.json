@@ -1,0 +1,34 @@
+{
+  "version": "0.1.0",
+  "name": "token2022_transfer_hook",
+  "instructions": [
+    {
+      "name": "initializeExtraAccountMetaList",
+      "accounts": [
+        { "name": "extraAccountMetaList", "isMut": true, "isSigner": false },
+        { "name": "mint", "isMut": false, "isSigner": false },
+        { "name": "authority", "isMut": true, "isSigner": true },
+        { "name": "systemProgram", "isMut": false, "isSigner": false }
+      ],
+      "args": []
+    },
+    {
+      "name": "transferHook",
+      "accounts": [
+        { "name": "source", "isMut": false, "isSigner": false },
+        { "name": "mint", "isMut": false, "isSigner": false },
+        { "name": "destination", "isMut": false, "isSigner": false },
+        { "name": "owner", "isMut": false, "isSigner": false },
+        { "name": "extraAccountMetaList", "isMut": false, "isSigner": false },
+        { "name": "feeVault", "isMut": true, "isSigner": false }
+      ],
+      "args": [
+        { "name": "amount", "type": "u64" }
+      ]
+    }
+  ],
+  "metadata": {
+    "address": "Hook1gNisFeeResoLver111111111111111111111111",
+    "origin": "AlchmAgentsSolana Token-2022 Transfer Hook"
+  }
+}

@@ -590,6 +590,67 @@ pub fn detect_melds(hand: &[MeleeCard], trump: Suit, ladder: &Ladder) -> u16 {
         total += 75;
     }
 
+    // ── Sacred Tree of Life Paths (Otz Chiim Major Alignments) ───────────────
+
+    // 9. The Middle Pillar: The High Priestess (2) + Temperance (14) + The World (21) (90 pts)
+    if [2u8, 14, 21].iter().all(|r| majors.iter().any(|m| m.rank == *r)) {
+        total += 90;
+    }
+
+    // 10. The Three Mothers (Tria Prima): The Fool (0) + The Hanged Man (12) + Judgement (20) (90 pts)
+    if [0u8, 12, 20].iter().all(|r| majors.iter().any(|m| m.rank == *r)) {
+        total += 90;
+    }
+
+    // 11. The Three Veils: The Empress (3) + Strength (8) + The Tower (16) (85 pts)
+    if [3u8, 8, 16].iter().all(|r| majors.iter().any(|m| m.rank == *r)) {
+        total += 85;
+    }
+
+    // 12. The Supernal Triad: The Fool (0) + The Magician (1) + The High Priestess (2) (75 pts)
+    if [0u8, 1, 2].iter().all(|r| majors.iter().any(|m| m.rank == *r)) {
+        total += 75;
+    }
+
+    // ── Sephiric & Number Melds (Minors on the Tree) ─────────────────────────
+
+    // 13. Pillar of Severity: Ranks 3 (Binah) + 5 (Geburah) + 8 (Hod) of one suit (50 pts)
+    for s in ALL_SUITS {
+        if has(s, 3) && has(s, 5) && has(s, 8) {
+            total += 50;
+        }
+    }
+
+    // 14. Pillar of Mercy: Ranks 2 (Chokmah) + 4 (Chesed) + 7 (Netzach) of one suit (50 pts)
+    for s in ALL_SUITS {
+        if has(s, 2) && has(s, 4) && has(s, 7) {
+            total += 50;
+        }
+    }
+
+    // 15. The Solar Heart: Three 6s (Tiphareth Triad across any suits) (60 pts)
+    let sixes_count = ALL_SUITS.iter().filter(|s| has(**s, 6)).count();
+    if sixes_count >= 3 {
+        total += 60;
+    }
+
+    // 16. Quartet of the Four Worlds: Four of a kind across all 4 suits (ranks 2..14) (80 pts)
+    for r in 2..=14u8 {
+        if ALL_SUITS.iter().all(|s| has(*s, r)) {
+            total += 80;
+        }
+    }
+
+    // 17. The Lightning Flash: 4 consecutive ranks (within Sephiroth pips 1..10) in one suit (50 pts)
+    for s in ALL_SUITS {
+        for r in 1..=7u8 {
+            if (r..r + 4).all(|rank| has(s, rank)) {
+                total += 50;
+                break; // scored once per suit
+            }
+        }
+    }
+
     total
 }
 
@@ -1245,6 +1306,71 @@ mod tests {
         let mut four = three.clone();
         four.push(minor(4, Suit::Pentacles, 1));
         assert_eq!(detect_melds(&four, Suit::Pentacles, &NEUTRAL_LADDER), 100);
+    }
+
+    /// Tree of Life Melds: Middle Pillar, Three Mothers, Pillars, and Quartets.
+    #[test]
+    fn tree_of_life_melds_score_correctly() {
+        // The Middle Pillar: High Priestess (2) + Temperance (14) + World (21)
+        // Stacks with Arcana Trine (50) -> 50 + 90 = 140
+        let middle_pillar = vec![major(1, 2), major(2, 14), major(3, 21)];
+        assert_eq!(detect_melds(&middle_pillar, Suit::Wands, &NEUTRAL_LADDER), 140);
+
+        // The Three Mothers: Fool (0) + Hanged Man (12) + Judgement (20)
+        // Stacks with Arcana Trine (50) -> 50 + 90 = 140
+        let three_mothers = vec![major(1, 0), major(2, 12), major(3, 20)];
+        assert_eq!(detect_melds(&three_mothers, Suit::Wands, &NEUTRAL_LADDER), 140);
+
+        // Pillar of Severity in Swords: 3 + 5 + 8
+        let severity = vec![
+            minor(1, Suit::Swords, 3),
+            minor(2, Suit::Swords, 5),
+            minor(3, Suit::Swords, 8),
+        ];
+        assert_eq!(detect_melds(&severity, Suit::Wands, &NEUTRAL_LADDER), 50);
+
+        // Pillar of Mercy in Cups: 2 + 4 + 7
+        let mercy = vec![
+            minor(1, Suit::Cups, 2),
+            minor(2, Suit::Cups, 4),
+            minor(3, Suit::Cups, 7),
+        ];
+        assert_eq!(detect_melds(&mercy, Suit::Wands, &NEUTRAL_LADDER), 50);
+
+        // Solar Heart: Three 6s
+        let sixes = vec![
+            minor(1, Suit::Wands, 6),
+            minor(2, Suit::Cups, 6),
+            minor(3, Suit::Pentacles, 6),
+        ];
+        assert_eq!(detect_melds(&sixes, Suit::Wands, &NEUTRAL_LADDER), 60);
+
+        // Quartet of the Four Worlds: all four 10s of Malkuth
+        let tens = vec![
+            minor(1, Suit::Wands, 10),
+            minor(2, Suit::Cups, 10),
+            minor(3, Suit::Swords, 10),
+            minor(4, Suit::Pentacles, 10),
+        ];
+        assert_eq!(detect_melds(&tens, Suit::Wands, &NEUTRAL_LADDER), 80);
+
+        // Lightning Flash in Pentacles: 3-4-5-6 (ranks 3..6 avoid Decan Trines of Taurus [5,6,7] and Capricorn [2,3,4])
+        let flash = vec![
+            minor(1, Suit::Pentacles, 3),
+            minor(2, Suit::Pentacles, 4),
+            minor(3, Suit::Pentacles, 5),
+            minor(4, Suit::Pentacles, 6),
+        ];
+        assert_eq!(detect_melds(&flash, Suit::Wands, &NEUTRAL_LADDER), 50);
+
+        // 4-5-6-7 in Pentacles stacks with Taurus Decan Trine (5-6-7 = 40): 40 + 50 = 90
+        let flash_stacked = vec![
+            minor(1, Suit::Pentacles, 4),
+            minor(2, Suit::Pentacles, 5),
+            minor(3, Suit::Pentacles, 6),
+            minor(4, Suit::Pentacles, 7),
+        ];
+        assert_eq!(detect_melds(&flash_stacked, Suit::Wands, &NEUTRAL_LADDER), 90);
     }
 
     // ── Dealing ─────────────────────────────────────────────────────────────

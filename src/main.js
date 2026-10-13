@@ -302,11 +302,14 @@ function openFactionWar(targetZoneId = null) {
     }
     // Belt-and-suspenders initial paint if a one-shot read is available.
     if (spacetime && spacetime.isLive && spacetime.fetchTable) {
-      const WAR_TABLES = ['zone', 'player', 'agent_chart', 'melee_table', 'melee_seat', 'melee_queue', 'melee_play', 'melee_hand', 'melee_trick']
+      // No hands here: a player's own cards come only from the live
+      // `my_melee_hand` subscription (melee_hand itself is private). A late HTTP
+      // snapshot must never overwrite the cards the socket already delivered.
+      const WAR_TABLES = ['zone', 'player', 'agent_chart', 'melee_table', 'melee_seat', 'melee_queue', 'melee_play', 'melee_trick']
       Promise.all(WAR_TABLES.map((t) => spacetime.fetchTable(t).catch(() => [])))
-        .then(([zones, players, agents, tables, seats, queue, plays, hands, tricks]) => {
+        .then(([zones, players, agents, tables, seats, queue, plays, tricks]) => {
           if (warInst) {
-            warInst.setData({ zones, players, agents, tables, seats, queue, plays, hands, tricks });
+            warInst.setData({ zones, players, agents, tables, seats, queue, plays, tricks });
             if (targetZoneId !== null) {
               warInst.selectZone(Number(targetZoneId), { autoOpenTable: true });
             }

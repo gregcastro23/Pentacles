@@ -260,6 +260,7 @@
             <button class="btn" id="melee-manifold-btn" data-legacy-id="faction-war-btn" onclick="openFactionWar()" title="Open Live Melee Manifold War Table">⚔ Melee Manifold</button>
             <button class="btn" id="my-pentacles-btn" onclick="openMyPentacles()" title="Open your full celestial deck, loadout manager, and natal profile">✦ My Pentacles</button>
             <button class="btn" id="star-dex-btn" onclick="openStarDex()" title="Open Star-Dex Celestial Registry">⭐ Star-Dex</button>
+            <button class="btn" id="meld-map-btn" onclick="if(window.MeldMapUI) window.MeldMapUI.open()" title="Open Sacred Tree of Life Meld Map &amp; Rules Codex">🌳 Meld Map</button>
             <button class="btn" id="alchm-chart-btn" onclick="openAlchmChart()" title="Open Alchm Chart & Planetary Ephemeris">✦ Alchm Chart</button>
           </div>
           <div class="hud-nav-divider"></div>
@@ -522,6 +523,21 @@
   <!-- ===================== 🪐 PLANETARY FACTION DOSSIER PAGE ===================== -->
   <div id="faction-page-overlay" class="overlay-fullscreen faction-page-overlay" style="display:none; z-index:122;" role="dialog" aria-modal="true" aria-label="Planetary Faction Dossier"></div>
 
+  <!-- ===================== 🌳 SACRED TREE OF LIFE MELD MAP & RULES CODEX ===================== -->
+  <div id="meld-map-modal" class="overlay-fullscreen" style="display:none; z-index:130; background:rgba(5, 7, 15, 0.95);" role="dialog" aria-modal="true" aria-label="Tree of Life Meld Map &amp; Rules Codex">
+    <div class="meld-map-window">
+      <div class="mm-header">
+        <h2 class="mm-header-title">
+          <span>🌳</span> Sacred Tree of Life — Meld Map &amp; Rules Codex
+        </h2>
+        <button type="button" class="btn btn-xs" style="border-color:rgba(255,255,255,0.2); color:var(--dim); font-size:12px; padding:3px 10px; cursor:pointer;" onclick="if(window.MeldMapUI) window.MeldMapUI.close()" title="Close Meld Map (Esc)">✕ Close</button>
+      </div>
+      <div id="meld-map-content" class="mm-content-body">
+        <!-- Injected dynamically by public/meld-map.js -->
+      </div>
+    </div>
+  </div>
+
   <!-- ===================== 📱 MOBILE NAVIGATION BAR ===================== -->
   <nav id="mobile-nav-bar" class="mobile-nav-bar" aria-label="Mobile Navigation">
     <button type="button" class="mobile-nav-btn active" id="mob-nav-map" onclick="switchMobileView('map')">
@@ -561,6 +577,7 @@
   <script src="/constellation-page.js"></script>
   <script src="/star-dex-ui.js"></script>
   <script src="/faction-page.js"></script>
+  <script src="/meld-map.js"></script>
   <!-- New ES-module layer, bundled by Vite: toasts, a11y, web3, live SpacetimeDB. -->
   <script type="module" src="/src/main.js"></script>
 </body>
