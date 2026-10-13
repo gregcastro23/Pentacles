@@ -248,10 +248,14 @@ export class TelemetryModel {
 
   // ── FACTION WAR: zones, star holdings, battles, live PvP duels ────────────
   async war() {
-    const [zones, stars, battles, duelRows, queue] = await Promise.all([
+    // Battles are counted server-side: `agent_war` writes up to ten rows per
+    // 10 s tick, so pulling every row to count them shipped the whole table here
+    // on each refresh. (Agent raids are kept an hour, human battles a week.)
+    const [zones, stars, battleCount, battleWins, duelRows, queue] = await Promise.all([
       this._q('SELECT zone_id, kind, owner, control, updated_at FROM zone'),
       this._q('SELECT held_by FROM star_node'),
-      this._q('SELECT battle_id, won, attacker_score, defense_rating FROM battle'),
+      this._count('battle'),
+      this._q('SELECT COUNT(*) AS n FROM battle WHERE won = true').then((r) => num(r[0]?.n)),
       this._q('SELECT duel_id, state FROM duel'),
       this._count('duel_queue'),
     ]);
@@ -270,7 +274,6 @@ export class TelemetryModel {
     let starsHeld = 0;
     for (const s of stars) { const fi = planetIdx(s.held_by); if (fi >= 0) { starsByFaction[fi] += 1; starsHeld += 1; } }
 
-    const battleWins = battles.filter((b) => b.won === true || b.won === 1).length;
     const duelStates = {};
     for (const d of duelRows) { const s = variantName(d.state) || 'Unknown'; duelStates[s] = (duelStates[s] || 0) + 1; }
 
@@ -288,8 +291,8 @@ export class TelemetryModel {
       heldByKind: byKind, totalPressure,
       leadFaction: leader.i, leadFactionZones: leader.v,
       zonesByFaction, starsByFaction, starsHeld, starsTotal: stars.length,
-      battles: battles.length, battleWins,
-      battleWinRate: battles.length ? battleWins / battles.length : 0,
+      battles: battleCount, battleWins,
+      battleWinRate: battleCount ? battleWins / battleCount : 0,
       pvpDuels: duelRows.length, pvpDuelStates: duelStates, queueDepth: queue,
     };
   }

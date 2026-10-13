@@ -173,6 +173,9 @@ export class MeleeTableInstance {
     if (seat && Array.isArray(seat.hand) && seat.hand.length) {
       return seat.hand.filter((c) => !c.played);
     }
+    // A settled real table has no hand left — the module deletes dealt cards at
+    // settle — so show none rather than the Active loadout as a "final hand".
+    if (seat && this.table && !this.table.isPractice && this.table.state === "Resolved") return [];
     return this.myHand || [];
   }
 

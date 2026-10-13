@@ -40,21 +40,34 @@ describe("foldArenaStats", () => {
       pillarDuels: null,
       seats: [
         { table_id: 9, occupant: THEM, counters: 40, melds_value: 20, score: 70 },
+        { table_id: 4, occupant: ME, counters: 99, melds_value: 0, score: 99 },
         { table_id: 9, occupant: ME, counters: 12, melds_value: 5, score: 27 },
       ],
       pillarPool: [{ identity: ME, esms: [80.12345, 80, 79.5, 80] }],
+      career: [
+        { identity: { __identity__: `0x${ME}` }, tables_played: 14, wins: 5, total_score: 900, best_score: 140, tricks_won: 60, zones_captured: 2 },
+        { identity: THEM, tables_played: 99, wins: 99, total_score: 1, best_score: 1, tricks_won: 1, zones_captured: 1 },
+      ],
     });
     expect(stats.arenaTokens).toBe(1250);
     expect(stats.wordWins).toBe(3);
     expect(stats.jing).toEqual({ wins: 0, resolved: 0, fought: 0 });
     expect(stats.pillars).toBeNull();
+    // The newest of my seats, not the first one found.
     expect(stats.seat).toEqual({ tableId: "9", counters: 12, melds: 5, score: 27 });
+    expect(stats.career).toEqual({ tablesPlayed: 14, wins: 5, totalScore: 900, bestScore: 140, tricksWon: 60, zonesCaptured: 2 });
     expect(stats.pillarPool).toEqual([80.1235, 80, 79.5, 80]);
   });
 
   test("offline arena reads report null, not simulated values", () => {
     const stats = foldArenaStats({ identity: ME, player: null, jingDuels: null, pillarDuels: null, seats: null, pillarPool: null });
-    expect(stats).toMatchObject({ arenaTokens: null, wordWins: null, jing: null, pillars: null, seat: null, pillarPool: null });
+    expect(stats).toMatchObject({ arenaTokens: null, wordWins: null, jing: null, pillars: null, seat: null, pillarPool: null, career: null });
+  });
+
+  test("a readable career table with no row for me is a zero record, not null", () => {
+    const stats = foldArenaStats({ identity: ME, player: null, jingDuels: null, pillarDuels: null, seats: [], pillarPool: null, career: [] });
+    expect(stats.career).toEqual({ tablesPlayed: 0, wins: 0, totalScore: 0, bestScore: 0, tricksWon: 0, zonesCaptured: 0 });
+    expect(stats.seat).toBeNull();
   });
 });
 

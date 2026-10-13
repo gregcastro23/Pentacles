@@ -46,9 +46,16 @@ export function foldDuelRows(rows, identity) {
  * The arena half of the Vessel. Each input is the raw row array, or null when
  * that table could not be read (offline, paused, or not yet published).
  */
-export function foldArenaStats({ identity, player, jingDuels, pillarDuels, seats, pillarPool }) {
+export function foldArenaStats({ identity, player, jingDuels, pillarDuels, seats, pillarPool, career = null }) {
   const me = hex(identity)
-  const seat = Array.isArray(seats) ? seats.find((s) => hex(s.occupant) === me) || null : null
+  // Raw seats are pruned minutes after a table settles, so these are this
+  // player's current/most recent tables; take the newest, not the first found.
+  const seat = Array.isArray(seats)
+    ? seats
+        .filter((s) => hex(s.occupant) === me)
+        .reduce((best, s) => (!best || Number(s.table_id) > Number(best.table_id) ? s : best), null)
+    : null
+  const careerRow = Array.isArray(career) ? career.find((c) => hex(c.identity) === me) || null : null
   const pool = Array.isArray(pillarPool)
     ? pillarPool.find((p) => hex(p.identity) === me)?.esms ?? null
     : null
@@ -65,6 +72,18 @@ export function foldArenaStats({ identity, player, jingDuels, pillarDuels, seats
           counters: Number(seat.counters ?? 0),
           melds: Number(seat.melds_value ?? 0),
           score: Number(seat.score ?? 0),
+        }
+      : null,
+    // Lifetime War Table record from `melee_career`. null = unreadable/offline;
+    // a readable table with no row for this player is a zero record.
+    career: Array.isArray(career)
+      ? {
+          tablesPlayed: Number(careerRow?.tables_played ?? 0),
+          wins: Number(careerRow?.wins ?? 0),
+          totalScore: Number(careerRow?.total_score ?? 0),
+          bestScore: Number(careerRow?.best_score ?? 0),
+          tricksWon: Number(careerRow?.tricks_won ?? 0),
+          zonesCaptured: Number(careerRow?.zones_captured ?? 0),
         }
       : null,
   }

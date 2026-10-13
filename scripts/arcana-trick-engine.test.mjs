@@ -261,7 +261,60 @@ assert.equal(melds.find(m => m.id === "decan_trine_cancer").value, 40);
 assert.ok(meldIds.includes("arcana_trine"), "Must detect Arcana Trine (50 pts)");
 assert.ok(meldIds.includes("the_great_work"), "Must detect The Great Work (100 pts)");
 
-console.log("  ✓ Melds detection validated");
+// Test new Tree of Life & Sephiric Melds
+const treeHand = [
+  // Middle Pillar
+  { is_major: true, rank: 2 },  // High Priestess
+  { is_major: true, rank: 14 }, // Temperance
+  { is_major: true, rank: 21 }, // The World
+  // Pillar of Severity in Swords (3·5·8)
+  { suit: "swords", rank: 3, is_major: false },
+  { suit: "swords", rank: 5, is_major: false },
+  { suit: "swords", rank: 8, is_major: false },
+  // Pillar of Mercy in Cups (2·4·7)
+  { suit: "cups", rank: 2, is_major: false },
+  { suit: "cups", rank: 4, is_major: false },
+  { suit: "cups", rank: 7, is_major: false },
+  // Lightning Flash in Pentacles (4·5·6·7)
+  { suit: "pentacles", rank: 4, is_major: false },
+  { suit: "pentacles", rank: 5, is_major: false },
+  { suit: "pentacles", rank: 6, is_major: false },
+  { suit: "pentacles", rank: 7, is_major: false }
+];
+const treeMelds = Engine.detectMelds(treeHand, "wands", testLadder);
+const treeMeldIds = treeMelds.map(m => m.id);
+
+assert.ok(treeMeldIds.includes("the_middle_pillar"), "Must detect The Middle Pillar (90 pts)");
+assert.equal(treeMelds.find(m => m.id === "the_middle_pillar").value, 90);
+
+assert.ok(treeMeldIds.includes("pillar_of_severity_swords"), "Must detect Pillar of Severity in Swords (50 pts)");
+assert.equal(treeMelds.find(m => m.id === "pillar_of_severity_swords").value, 50);
+
+assert.ok(treeMeldIds.includes("pillar_of_mercy_cups"), "Must detect Pillar of Mercy in Cups (50 pts)");
+assert.equal(treeMelds.find(m => m.id === "pillar_of_mercy_cups").value, 50);
+
+assert.ok(treeMeldIds.includes("lightning_flash_pentacles"), "Must detect The Lightning Flash in Pentacles (50 pts)");
+assert.equal(treeMelds.find(m => m.id === "lightning_flash_pentacles").value, 50);
+
+// Test Three Mothers & Quartet of Four Worlds & Solar Heart
+const triadHand = [
+  { is_major: true, rank: 0 },  // Fool
+  { is_major: true, rank: 12 }, // Hanged Man
+  { is_major: true, rank: 20 }, // Judgement
+  // Solar Heart: Three 6s
+  { suit: "wands", rank: 6, is_major: false },
+  { suit: "cups", rank: 6, is_major: false },
+  { suit: "swords", rank: 6, is_major: false },
+  { suit: "pentacles", rank: 6, is_major: false } // Quartet of 6s as well!
+];
+const triadMelds = Engine.detectMelds(triadHand, "wands", testLadder);
+const triadMeldIds = triadMelds.map(m => m.id);
+
+assert.ok(triadMeldIds.includes("the_three_mothers"), "Must detect The Three Mothers (90 pts)");
+assert.ok(triadMeldIds.includes("the_solar_heart"), "Must detect The Solar Heart (60 pts)");
+assert.ok(triadMeldIds.includes("quartet_6"), "Must detect Quartet of the Four Worlds (80 pts)");
+
+console.log("  ✓ Melds detection validated (including Tree of Life & Sephiric alignments)");
 
 console.log("▶ Testing Section 8: Full Melee Match Simulation");
 

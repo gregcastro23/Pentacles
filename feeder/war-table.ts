@@ -28,7 +28,7 @@ import { signVector } from "../src/alchm-chart/sign-character.js";
 import { dignityScore } from "../src/alchm-chart/dignity.js";
 import { canAccessZone, accessRefusalReason } from "../src/alchm-chart/zone-access.js";
 export { canAccessZone, accessRefusalReason };
-import { warLedger, getDecanInfo } from "./war-ledger";
+import { eclipticLonFromEquatorial } from "./war-ledger";
 import { calculateDeckPlanetaryAffinity } from "../src/cards/kinetics.js";
 import { getCard } from "../src/cards/index.js";
 
@@ -42,6 +42,8 @@ import { cliCall, resolveFeederEnv } from "./spacetime-cli";
 
 const { db: DB, uri: SPACETIMEDB_URI, token: SPACETIME_TOKEN } = resolveFeederEnv();
 const ROUND_MS = Number(process.env.WAR_ROUND_MS ?? "60000");
+/** A table older than this cannot be live: the module settles stalled tables at 10 min. */
+const LIVE_TABLE_WINDOW_MS = 20 * 60 * 1000;
 
 export const PLANET_NAMES = ["Sun", "Moon", "Mercury", "Venus", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune", "Pluto"];
 /** Zone n has sign n % 12; a sign's suit is its triplicity. Mirrors client SIGN_SUITS. */
@@ -229,7 +231,10 @@ export async function loadWorld() {
     sql("SELECT owner, card_id, loadout FROM deck_slot"),
     sql("SELECT card_id, owner, suit, rank, is_major, inverted FROM card"),
     sql("SELECT body, ra, dec, transiting_zone FROM ephemeris"),
-    sql("SELECT table_id, zone_id, state FROM melee_table").catch(() => [] as any[]),
+    // Only recent tables can still be live (the module settles anything open
+    // past 10 minutes), so read a bounded window instead of every table ever
+    // opened. opened_at is btree-indexed.
+    sql(`SELECT table_id, zone_id, state FROM melee_table WHERE opened_at > '${new Date(Date.now() - LIVE_TABLE_WINDOW_MS).toISOString()}'`).catch(() => [] as any[]),
   ]);
 
   const activeZones = new Set<number>();
@@ -386,15 +391,14 @@ export async function runRound(roundIndex: number): Promise<number> {
   // Live planet longitudes still drive the FALLBACK ladder. The module computes
   // its own from `ephemeris` and ignores this whenever it has a sky — we send it
   // so a cold database (no ephemeris rows yet) still opens a playable table.
-  const planets = world.ephemRows.map((e: any, i: number) => ({
-    body: planetIdx(e.body) ?? i, sign: (Number(e.transiting_zone) || 0) % 12,
-    eclLon: ((Number(e.transiting_zone) || 0) % 12) * 30, up: true, retrograde: false,
-  }));
+  // `transiting_zone` is an hour-angle zone tick_sky rewrites every 10 s, not a
+  // sign — recover each body's true ecliptic longitude from RA/Dec instead.
+  const planets = world.ephemRows.map((e: any, i: number) => {
+    const eclLon = eclipticLonFromEquatorial(Number(e.ra) || 0, Number(e.dec) || 0);
+    return { body: planetIdx(e.body) ?? i, sign: Math.floor(eclLon / 30) % 12, eclLon, up: true, retrograde: false };
+  });
 
   let opened = 0;
-  const sunRow = world.ephemRows.find((e: any) => planetIdx(e.body) === 0);
-  const sunLon = sunRow ? (typeof sunRow.ra === "number" ? sunRow.ra : ((Number(sunRow.transiting_zone) || 0) % 12) * 30) : 0;
-  const decan = getDecanInfo(sunLon);
 
   for (const plan of plans) {
     try {
@@ -408,46 +412,59 @@ export async function runRound(roundIndex: number): Promise<number> {
         JSON.stringify(fallbackLadder),
         plan.seats.map((s) => ({ faction: planetEnum(s.faction), occupant: { __identity__: s.occupant }, claim: s.claim })),
       ]);
+      // No result is recorded here: the table has only been dealt. The module
+      // referees it and writes melee_result when it settles.
       opened++;
-
-      // Record round in server-side WarLedger
-      if (plan.seats.length > 0) {
-        const topSeat = plan.seats.reduce((max, s) => s.claim > max.claim ? s : max, plan.seats[0]);
-        const zoneName = plan.zoneId === 10 ? "Crown Zenith" : (plan.zoneId >= 5 ? `Spire ${plan.zoneId}` : `House ${plan.zoneId}`);
-        const estScore = Math.max(80, Math.min(240, Math.round(topSeat.claim * 2.2)));
-
-        warLedger.recordRound({
-          roundId: roundIndex,
-          zoneId: plan.zoneId,
-          zoneName,
-          decanId: decan.absDecan,
-          card: decan.card,
-          rank: decan.rank,
-          suit: decan.suit,
-          sunDegree: sunLon,
-          degInDecan: decan.degInDecan,
-          winnerFaction: topSeat.faction,
-          winnerName: PLANET_NAMES[topSeat.faction],
-          winnerAgent: topSeat.handle || lead?.handle || "Agent Champion",
-          winningScore: estScore,
-          controlDelta: Math.max(120, Math.min(260, estScore * 3)),
-          capturedZone: false
-        });
-      }
     } catch (err) {
       console.warn(`[war-table] round ${roundIndex} failed to open zone ${plan.zoneId}:`, err);
     }
   }
 
-  // Check 10-day decan boundary crossing
-  warLedger.checkDecanBoundary(sunLon);
-
   return opened;
 }
 
-export function startWarTable(): void {
-  let round = 1;
-  console.log(`[war-table] round loop every ${ROUND_MS}ms on ${DB}`);
+/**
+ * The next round index, continuing from whatever the database last saw. The
+ * counter used to restart at 1 on every boot, so round_index repeated and the
+ * rest check (`rested_at_round === round - 1`) misfired after each restart.
+ * war_state.last_round_index is the module's high-water mark (set by every
+ * open_melee_round); agent_rest (≤ one row per agent, never pruned) covers a
+ * database published before war_state existed.
+ */
+export function nextRoundIndex(rows: { rested_at_round?: unknown; round_index?: unknown; last_round_index?: unknown }[]): number {
+  let max = 0;
+  for (const r of rows) {
+    const v = Number(r.last_round_index ?? r.rested_at_round ?? r.round_index ?? 0);
+    if (Number.isFinite(v) && v > max) max = v;
+  }
+  return max + 1;
+}
+
+/** Read the high-water mark; retry, and never silently fall back to round 1. */
+async function seedRoundIndex(attempts = 5): Promise<number> {
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const [state, rest] = await Promise.all([
+        // war_state is new: on a module published before it, the read errors
+        // and agent_rest alone carries the mark.
+        sql("SELECT last_round_index FROM war_state").catch(() => [] as any[]),
+        sql("SELECT rested_at_round FROM agent_rest"),
+      ]);
+      return nextRoundIndex([...(state || []), ...(rest || [])]);
+    } catch (err) {
+      console.warn(`[war-table] round seed read failed (attempt ${i + 1}/${attempts}):`, (err as Error).message);
+      await new Promise((r) => setTimeout(r, 2000 * (i + 1)));
+    }
+  }
+  // Still monotonic across restarts, just not contiguous with the last run.
+  const fallback = Math.floor(Date.now() / ROUND_MS);
+  console.warn(`[war-table] could not read the round high-water mark; continuing from the clock at ${fallback}`);
+  return fallback;
+}
+
+export async function startWarTable(): Promise<void> {
+  let round = await seedRoundIndex();
+  console.log(`[war-table] round loop every ${ROUND_MS}ms on ${DB}, starting at round ${round}`);
   const tick = async () => {
     try {
       const opened = await runRound(round);

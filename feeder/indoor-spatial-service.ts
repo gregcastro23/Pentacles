@@ -6,9 +6,19 @@
  * and manages DeepSpaceCache multiplayer locks.
  */
 
-import { cliCall } from "./spacetime-cli";
+import { cliCall, resolveFeederEnv } from "./spacetime-cli";
 import { sqlOneShot } from "./stdb-feed";
-import { warLedger } from "./war-ledger";
+import { WarLedgerReader } from "./war-ledger";
+import {
+  ARCHIVE_DEFAULTS,
+  type ArchiveHandle,
+  archiveApi,
+  bunPg,
+  cachedSource,
+  fetchSourceIdentity,
+  PostgresArchiveStore,
+  WarArchiver,
+} from "./war-archive";
 
 const PORT = parseInt(process.env.PORT || process.env.SPATIAL_PORT || "8080", 10);
 const SERVICE_NAME = "indoor-spatial";
@@ -49,6 +59,51 @@ function generateVolumetricStarCluster(minX: number, minY: number, minZ: number,
 }
 
 const DB = process.env.SPACETIMEDB_DB ?? "pentacles1";
+
+// The war ledger is read from the module (melee_result, faction_war_standing,
+// war_epoch), cached for 20 s. Built lazily so importing this file never needs
+// SpacetimeDB credentials.
+let warLedgerReader: WarLedgerReader | null = null;
+function warLedger(): WarLedgerReader {
+  if (!warLedgerReader) {
+    const { db, uri, token } = resolveFeederEnv();
+    warLedgerReader = new WarLedgerReader({
+      query: (q) => sqlOneShot(uri, db, token || undefined, q),
+    });
+  }
+  return warLedgerReader;
+}
+
+// The War Table archive copies melee_result, war_epoch and agent_melee_turn
+// into Postgres before the module prunes them (docs/WAR_RESULTS_LIFECYCLE.md).
+// It is off unless WAR_ARCHIVE_DATABASE_URL is set, and a failure here never
+// takes the HTTP server down.
+function startWarArchive(): ArchiveHandle | null {
+  const url = (process.env.WAR_ARCHIVE_DATABASE_URL ?? "").trim();
+  if (!url) {
+    console.log("[war-archive] off (set WAR_ARCHIVE_DATABASE_URL to archive War Table results).");
+    return null;
+  }
+  try {
+    const { db, uri, token } = resolveFeederEnv();
+    const store = new PostgresArchiveStore(bunPg(url), {
+      eloK: Number(process.env.WAR_ARCHIVE_ELO_K) || undefined,
+    });
+    const archiver = new WarArchiver({
+      query: (q) => sqlOneShot(uri, db, token || undefined, q),
+      store,
+      source: cachedSource(() => fetchSourceIdentity(uri, db, token || undefined)),
+    });
+    archiver.start(Number(process.env.WAR_ARCHIVE_POLL_MS) || ARCHIVE_DEFAULTS.pollMs);
+    console.log(`[war-archive] archiving ${db} to Postgres.`);
+    return { archiver, store };
+  } catch (err) {
+    console.error("[war-archive] failed to start:", (err as Error).message);
+    return null;
+  }
+}
+const warArchive = startWarArchive();
+
 const INDOOR_SECRET = process.env.INDOOR_SERVICE_SECRET || process.env.SPACETIME_TOKEN || "";
 
 // Simple in-memory rate limiter: max 30 requests per 60 seconds per client
@@ -105,17 +160,24 @@ const server = Bun.serve({
       // 0b. War Decan Ledger Summary
       if (url.pathname === "/api/v1/war/decan-ledger" && req.method === "GET") {
         return Response.json(
-          { success: true, ...warLedger.getSummary() },
+          { success: true, ...(await warLedger().summary()) },
           { headers: corsHeaders }
         );
       }
 
       // 0c. War Rounds History
       if (url.pathname === "/api/v1/war/rounds" && req.method === "GET") {
+        const limit = Number(url.searchParams.get("limit") || "100");
         return Response.json(
-          { success: true, rounds: warLedger.state.roundResults },
+          { success: true, rounds: await warLedger().rounds(Number.isFinite(limit) ? limit : 100) },
           { headers: corsHeaders }
         );
+      }
+
+      // 0d. War Table archive (status, win rates, ratings)
+      if (url.pathname.startsWith("/api/v1/war/archive/") && req.method === "GET") {
+        const { status, body } = await archiveApi(warArchive, url);
+        return Response.json(body, { status, headers: corsHeaders });
       }
 
       // 1. Layer 1: Local Ephemeris Endpoint

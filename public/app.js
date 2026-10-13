@@ -2487,9 +2487,9 @@
       // Melds pills HTML
       let meldsHTML = "";
       if (melee.playerMelds && melee.playerMelds.length > 0) {
-        meldsHTML = melee.playerMelds.map(m => `<span class="melee-meld-pill" title="${m.name}">✦ ${m.name} (+${m.value})</span>`).join("");
+        meldsHTML = melee.playerMelds.map(m => `<span class="melee-meld-pill" style="cursor:pointer;" onclick="if(window.MeldMapUI) window.MeldMapUI.open('${m.id}');" title="${m.name} — Click to inspect in Tree of Life Meld Map">✦ ${m.name} (+${m.value})</span>`).join("");
       } else {
-        meldsHTML = `<span style="color:var(--dim); font-size:10px;">No starting melds in current deal</span>`;
+        meldsHTML = `<span style="color:var(--dim); font-size:10px; cursor:pointer;" onclick="if(window.MeldMapUI) window.MeldMapUI.open();" title="Click to view all possible melds in the Meld Map">No starting melds in current deal · <u>View Meld Map ↗</u></span>`;
       }
 
       // Trick cards played on table
@@ -2686,7 +2686,10 @@
 
         <!-- Melds Strip -->
         <div style="display:flex; flex-direction:column; gap:2px;">
-          <span style="font-size:8.5px; font-weight:bold; color:var(--dim); text-transform:uppercase; letter-spacing:0.5px;">Your Starting Melds & Honours</span>
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span style="font-size:8.5px; font-weight:bold; color:var(--dim); text-transform:uppercase; letter-spacing:0.5px;">Your Starting Melds &amp; Honours</span>
+            <button type="button" class="btn" style="font-size:8.5px; padding:1px 8px; border-color:var(--gold-bright); color:var(--gold-bright); background:rgba(216,180,106,0.12); cursor:pointer;" onclick="if(window.MeldMapUI) window.MeldMapUI.open();" title="Open Tree of Life Meld Map &amp; Rules">✦ Meld Map &amp; Rules</button>
+          </div>
           <div class="melee-melds-strip">
             ${meldsHTML}
           </div>

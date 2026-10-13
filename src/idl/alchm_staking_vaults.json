@@ -1,0 +1,77 @@
+{
+  "version": "0.1.0",
+  "name": "alchm_staking_vaults",
+  "instructions": [
+    {
+      "name": "initializeVault",
+      "accounts": [
+        { "name": "vault", "isMut": true, "isSigner": false },
+        { "name": "authority", "isMut": true, "isSigner": true },
+        { "name": "systemProgram", "isMut": false, "isSigner": false }
+      ],
+      "args": [
+        { "name": "starHipId", "type": "string" },
+        { "name": "element", "type": "string" },
+        { "name": "baseApy", "type": "u16" }
+      ]
+    },
+    {
+      "name": "depositStake",
+      "accounts": [
+        { "name": "vault", "isMut": true, "isSigner": false },
+        { "name": "staker", "isMut": true, "isSigner": true },
+        { "name": "stakerTokenAccount", "isMut": true, "isSigner": false },
+        { "name": "vaultTokenAccount", "isMut": true, "isSigner": false },
+        { "name": "tokenProgram", "isMut": false, "isSigner": false }
+      ],
+      "args": [
+        { "name": "amount", "type": "u64" }
+      ]
+    },
+    {
+      "name": "claimElementalRewards",
+      "accounts": [
+        { "name": "vault", "isMut": true, "isSigner": false },
+        { "name": "staker", "isMut": true, "isSigner": true },
+        { "name": "elementalMint", "isMut": true, "isSigner": false },
+        { "name": "recipientTokenAccount", "isMut": true, "isSigner": false },
+        { "name": "tokenProgram2022", "isMut": false, "isSigner": false }
+      ],
+      "args": [
+        { "name": "astrometryMultiplier", "type": "u16" }
+      ]
+    },
+    {
+      "name": "reconcileSpacetime",
+      "accounts": [
+        { "name": "vault", "isMut": true, "isSigner": false },
+        { "name": "governanceAuthority", "isMut": false, "isSigner": true },
+        { "name": "reconciliationRecord", "isMut": true, "isSigner": false }
+      ],
+      "args": [
+        { "name": "spacetimeRowIndex", "type": "u64" },
+        { "name": "stateCommitmentHash", "type": "[u8; 32]" }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "Vault",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "authority", "type": "publicKey" },
+          { "name": "starHipId", "type": "string" },
+          { "name": "element", "type": "string" },
+          { "name": "baseApy", "type": "u16" },
+          { "name": "totalStakedLamports", "type": "u64" },
+          { "name": "lastReconciledSlot", "type": "u64" }
+        ]
+      }
+    }
+  ],
+  "metadata": {
+    "address": "AlchmStakingVaults1111111111111111111111111",
+    "origin": "AlchmAgentsSolana / Pentacles Ecosystem"
+  }
+}

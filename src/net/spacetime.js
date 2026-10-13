@@ -55,6 +55,8 @@ export const STATUS = Object.freeze({
 // Past the cap we fall back to the old fail-hard STATUS.ERROR behavior instead
 // of looping.
 const MAX_SUB_RETRIES = 4
+// How long a table with no listeners stays subscribed before it is dropped.
+const UNSUBSCRIBE_DEBOUNCE_MS = 5000
 
 class SpacetimeClient {
   constructor() {
@@ -71,7 +73,12 @@ class SpacetimeClient {
     this.conn = null // the live DbConnection (SDK), or null when offline
     this._subscribed = new Set() // table names with at least one listener
     this._boundTables = new Set() // tables whose onInsert/onUpdate/onDelete are wired
+    this._pendingEmits = new Set() // tables with deltas awaiting one coalesced emit
+    this._pendingDrops = new Set() // tables whose last listener left, awaiting unsubscribe
+    this._dropTimer = null
     this._subHandle = null // active SubscriptionHandle (covers all subscribed tables)
+    this._retiring = [] // superseded handles, unsubscribed once the replacement applies
+    this._resubPending = false // a coalesced _resubscribe is queued
     this._droppedTables = new Set() // tables the module rejected ("no such table") — retried on reconnect
     this._subRetries = 0 // error-recovery re-subscribes since the last clean apply/connect (bounded)
     this._wantLive = false // intent: keep trying to stay connected
@@ -168,6 +175,7 @@ class SpacetimeClient {
             this.conn = null
             this._subHandle = null
             this._boundTables.clear()
+            this._retiring = [] // handles of the old connection
             if (this._wantLive) {
               this._setStatus(STATUS.ERROR, err || new Error('disconnected'))
               this._scheduleReconnect()
@@ -194,6 +202,7 @@ class SpacetimeClient {
     this.conn = null
     this._subHandle = null
     this._boundTables.clear()
+    this._retiring = [] // handles of the old connection
     this._setStatus(STATUS.OFFLINE)
   }
 
@@ -266,6 +275,7 @@ class SpacetimeClient {
     this.conn = null
     this._subHandle = null
     this._boundTables.clear()
+    this._retiring = [] // handles of the old connection
     if (this._reconnectTimer) { clearTimeout(this._reconnectTimer); this._reconnectTimer = null }
     this._reconnectAttempts = 0
     if (!wasLive && !this.configured) return false
@@ -321,12 +331,38 @@ class SpacetimeClient {
     const isNewTable = !this._subscribed.has(table)
     this._subscribed.add(table)
     if (this.isLive && this.conn) {
-      if (isNewTable) this._resubscribe() // server replication set changed
+      if (isNewTable) this._scheduleResubscribe() // server replication set changed
       else this._emitTable(table, cb) // catch this listener up immediately
     }
     return () => {
-      this._tableListeners.get(table)?.delete(cb)
+      const listeners = this._tableListeners.get(table)
+      listeners?.delete(cb)
+      if (listeners && listeners.size === 0) this._scheduleDrop(table)
     }
+  }
+
+  /**
+   * Stop replicating a table once nobody listens to it. Before this, opening the
+   * Faction War overlay once kept every melee_* insert and delete streaming for
+   * the rest of the session. Debounced so an overlay that closes and reopens (or
+   * two views handing a table over) keeps its subscription instead of churning it.
+   */
+  _scheduleDrop(table) {
+    this._pendingDrops.add(table)
+    if (this._dropTimer) clearTimeout(this._dropTimer)
+    this._dropTimer = setTimeout(() => {
+      this._dropTimer = null
+      let changed = false
+      for (const t of this._pendingDrops) {
+        if ((this._tableListeners.get(t)?.size ?? 0) === 0) {
+          // A table nobody listens to is not worth retrying on reconnect either.
+          this._droppedTables.delete(t)
+          if (this._subscribed.delete(t)) changed = true
+        }
+      }
+      this._pendingDrops.clear()
+      if (changed && this.isLive && this.conn) this._scheduleResubscribe()
+    }, UNSUBSCRIBE_DEBOUNCE_MS)
   }
 
   /**
@@ -334,32 +370,65 @@ class SpacetimeClient {
    * per-table delta handlers once. Called on connect and whenever a new table is
    * subscribed. Idempotent on the handler binding.
    */
+  /**
+   * One `_resubscribe` per microtask, however many tables were added or dropped
+   * in it. Faction War subscribes nine tables in one loop; each used to send its
+   * own Subscribe + Unsubscribe pair, re-shipping every table each time.
+   */
+  _scheduleResubscribe() {
+    if (this._resubPending) return
+    this._resubPending = true
+    queueMicrotask(() => {
+      this._resubPending = false
+      if (this.isLive && this.conn) this._resubscribe()
+    })
+  }
+
+  /** Unsubscribe every superseded handle that is still live. */
+  _retireHandles() {
+    const old = this._retiring
+    this._retiring = []
+    for (const h of old) {
+      try { if (h && !h.isEnded?.()) h.unsubscribe?.() } catch {}
+    }
+  }
+
   _resubscribe() {
-    if (!this.conn || !this._subscribed.size) return
+    if (!this.conn) return
+    if (!this._subscribed.size) {
+      // Every table was dropped: end the live subscription rather than leave it running.
+      if (this._subHandle) this._retiring.push(this._subHandle)
+      this._subHandle = null
+      this._retireHandles()
+      return
+    }
     // Bind delta handlers once per table; each delta re-emits the snapshot.
     for (const table of this._subscribed) {
       if (this._boundTables.has(table)) continue
       const handle = this.conn.db?.[table]
       if (!handle) continue
-      const onChange = () => this._emitTable(table)
+      const onChange = () => this._scheduleEmit(table)
       try { handle.onInsert?.(onChange) } catch {}
       try { handle.onDelete?.(onChange) } catch {}
       try { handle.onUpdate?.(onChange) } catch {}
       this._boundTables.add(table)
     }
-    // Replace the active subscription with one covering all registered tables.
-    // An errored handle has already ended server-side — unsubscribing it again
-    // throws / sends a bogus Unsubscribe — so only tear down a still-live one.
+    // Replace the active subscription with one covering all registered tables —
+    // make before break: the previous handle is retired only once this one has
+    // applied. The SDK refcounts rows across query sets, so rows of tables in
+    // both sets never leave the cache (and never flash empty in the UI). An
+    // errored handle has already ended server-side — unsubscribing it again
+    // throws / sends a bogus Unsubscribe — so only still-live ones are retired.
     const queries = [...this._subscribed].map((t) => `SELECT * FROM ${t}`)
-    const prev = this._subHandle
+    if (this._subHandle) this._retiring.push(this._subHandle)
     this._subHandle = null
-    try { if (prev && !prev.isEnded?.()) prev.unsubscribe?.() } catch {}
     try {
       let handle = null
       handle = this.conn
         .subscriptionBuilder()
         .onApplied(() => {
           this._subRetries = 0 // clean apply → reset the recovery budget
+          if (handle === this._subHandle) this._retireHandles()
           for (const t of this._subscribed) this._emitTable(t)
         })
         // The SDK calls onError(ctx, err) with ctx.event = the server Error.
@@ -418,21 +487,42 @@ class SpacetimeClient {
    */
   _restoreDroppedTables() {
     this._subRetries = 0
-    for (const t of this._droppedTables) this._subscribed.add(t)
+    // Only tables someone still listens to are worth another try.
+    for (const t of this._droppedTables) if (this._tableListeners.get(t)?.size) this._subscribed.add(t)
     this._droppedTables.clear()
+  }
+
+  /**
+   * Coalesce row deltas into ONE emit per table per microtask. The SDK fires a
+   * callback per row, and every emit re-reads and re-normalizes the whole cached
+   * table — so a War Table that plays 72 cards in one transaction, or a prune
+   * that deletes a few thousand rows, used to cost that many full snapshots and
+   * repaints. All deltas of a transaction arrive synchronously, so a microtask
+   * flush sees the finished state exactly once.
+   */
+  _scheduleEmit(table) {
+    if (this._pendingEmits.has(table)) return
+    this._pendingEmits.add(table)
+    if (this._pendingEmits.size > 1) return // a flush is already queued
+    queueMicrotask(() => {
+      const tables = [...this._pendingEmits]
+      this._pendingEmits.clear()
+      for (const t of tables) this._emitTable(t)
+    })
   }
 
   /** Read the current cache for a table, normalize, and fan out to listeners. */
   _emitTable(table, onlyCb = null) {
     if (!this.conn) return
+    const targets = onlyCb ? [onlyCb] : this._tableListeners.get(table)
+    if (!targets || (targets.size ?? targets.length) === 0) return // nobody to tell: skip the snapshot
     let rows
     try {
       rows = [...this.conn.db[table].iter()].map(normalizeWsRow)
     } catch {
       return
     }
-    const targets = onlyCb ? [onlyCb] : this._tableListeners.get(table)
-    targets?.forEach((cb) => {
+    targets.forEach((cb) => {
       try { cb(rows) } catch {}
     })
   }

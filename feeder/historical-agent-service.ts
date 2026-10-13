@@ -89,7 +89,8 @@ export async function evaluateHistoricalAgentFlux(): Promise<void> {
       sql("SELECT zone_id, in_flux, control FROM zone"),
       sql("SELECT body, transiting_zone FROM ephemeris"),
       sql("SELECT identity FROM agent_chart").catch(() => [] as any[]),
-      sql("SELECT table_id, state FROM melee_table").catch(() => [] as any[]),
+      // Recent tables only — anything opened more than 20 minutes ago has settled.
+      sql(`SELECT table_id, state FROM melee_table WHERE opened_at > '${new Date(Date.now() - 20 * 60 * 1000).toISOString()}'`).catch(() => [] as any[]),
     ]);
 
     if (!zoneRows || zoneRows.length === 0) return;

@@ -110,7 +110,11 @@
         const t = tableOf(sql);
         const d = tableData[t];
         if (!d) return [];
-        if (/count\s*\(\s*\*\s*\)/i.test(sql)) return [{ n: Array.isArray(d) ? d.length : d.count }];
+        // Honour the one WHERE the telemetry sends with a COUNT (battle `won = true`),
+        // so the harness win rate is the fixture's, not a mocked 100%.
+        const where = /where\s+([a-z_]+)\s*=\s*(true|false)/i.exec(sql);
+        const rows = Array.isArray(d) && where ? d.filter((r) => Boolean(r[where[1]]) === (where[2].toLowerCase() === "true")) : d;
+        if (/count\s*\(\s*\*\s*\)/i.test(sql)) return [{ n: Array.isArray(rows) ? rows.length : rows.count }];
         if (Array.isArray(d)) return d;
         // a count-stub table queried with SELECT * — synthesize that many blank rows
         return Array.from({ length: Math.min(d.count, 500) }, () => ({}));

@@ -53,17 +53,19 @@ async function readArena() {
   const identity = spacetime.identity
   if (!identity) return null
   const me = String(identity).replace(/^0x/i, '').toLowerCase()
-  const [players, jingDuels, pillarDuels, seats, pillarPool] = await Promise.all([
+  const [players, jingDuels, pillarDuels, seats, pillarPool, career] = await Promise.all([
     tryQuery(`SELECT identity, tokens, word_wins FROM player WHERE identity = 0x${me}`),
     tryQuery('SELECT duel_id, initiator, target_player, state, winner_is_initiator FROM jing_duel'),
     tryQuery('SELECT duel_id, initiator, target_player, state, winner_is_initiator FROM pillar_duel'),
-    tryQuery('SELECT table_id, occupant, counters, melds_value, score FROM melee_seat'),
+    // Only this player's seats (occupant is indexed) — not every seat ever dealt.
+    tryQuery(`SELECT table_id, occupant, counters, melds_value, score FROM melee_seat WHERE occupant = 0x${me}`),
     tryQuery('SELECT identity, esms FROM pillar_pool'),
+    tryQuery(`SELECT identity, tables_played, wins, total_score, best_score, tricks_won, zones_captured FROM melee_career WHERE identity = 0x${me}`),
   ])
   const player =
     (players || []).find((p) => String(p.identity?.__identity__ ?? p.identity).replace(/^0x/i, '').toLowerCase() === me) ||
     null
-  return foldArenaStats({ identity, player, jingDuels, pillarDuels, seats, pillarPool })
+  return foldArenaStats({ identity, player, jingDuels, pillarDuels, seats, pillarPool, career })
 }
 
 async function readTreasury(signal) {
@@ -318,6 +320,12 @@ export class VesselDrawer {
             h('dd', { text: a.pillarPool ? a.pillarPool.map((v, i) => `${ESMS[i].glyph}${fmt(v)}`).join('  ') : 'unavailable' }),
             h('dt', { text: 'War Table seat' }),
             h('dd', { text: a.seat ? `table ${a.seat.tableId} · ${a.seat.counters} counters · ${a.seat.melds} meld pts · score ${a.seat.score}` : 'not seated' }),
+            h('dt', { text: 'War Table career' }),
+            h('dd', {
+              text: a.career
+                ? `${a.career.wins} won / ${a.career.tablesPlayed} played · best ${a.career.bestScore} · ${a.career.zonesCaptured} zones taken`
+                : 'unavailable',
+            }),
           ]),
       h('p', { class: 'pv-dim pv-note', text: 'War Table tricks and melds score in the arena; they are not credited to the ESMS ledger yet.' }),
     ])

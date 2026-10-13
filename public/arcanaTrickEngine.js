@@ -605,6 +605,138 @@
       });
     }
 
+    // ── Sacred Tree of Life Paths (Otz Chiim Major Alignments) ───────────────
+
+    // 9. The Middle Pillar: The High Priestess (2) + Temperance (14) + The World (21) (90 pts)
+    const priestess = majors.find(c => Number(c.rank) === 2);
+    const temperance = majors.find(c => Number(c.rank) === 14);
+    if (priestess && temperance && world) {
+      melds.push({
+        id: "the_middle_pillar",
+        name: "The Middle Pillar (High Priestess + Temperance + The World)",
+        cards: [priestess, temperance, world],
+        value: 90
+      });
+    }
+
+    // 10. The Three Mothers (Tria Prima): The Fool (0) + The Hanged Man (12) + Judgement (20) (90 pts)
+    const hangedMan = majors.find(c => Number(c.rank) === 12);
+    const judgement = majors.find(c => Number(c.rank) === 20);
+    if (fool && hangedMan && judgement) {
+      melds.push({
+        id: "the_three_mothers",
+        name: "The Three Mothers (The Fool + The Hanged Man + Judgement)",
+        cards: [fool, hangedMan, judgement],
+        value: 90
+      });
+    }
+
+    // 11. The Three Veils: The Empress (3) + Strength (8) + The Tower (16) (85 pts)
+    const empress = majors.find(c => Number(c.rank) === 3);
+    const strength = majors.find(c => Number(c.rank) === 8);
+    const tower = majors.find(c => Number(c.rank) === 16);
+    if (empress && strength && tower) {
+      melds.push({
+        id: "the_three_veils",
+        name: "The Three Veils (The Empress + Strength + The Tower)",
+        cards: [empress, strength, tower],
+        value: 85
+      });
+    }
+
+    // 12. The Supernal Triad: The Fool (0) + The Magician (1) + The High Priestess (2) (75 pts)
+    if (fool && magician && priestess) {
+      melds.push({
+        id: "the_supernal_triad",
+        name: "The Supernal Triad (The Fool + The Magician + The High Priestess)",
+        cards: [fool, magician, priestess],
+        value: 75
+      });
+    }
+
+    // ── Sephiric & Number Melds (Minors on the Tree) ─────────────────────────
+
+    // 13. Pillar of Severity: Ranks 3 (Binah) + 5 (Geburah) + 8 (Hod) of one suit (50 pts)
+    for (const s of Object.keys(suitMap)) {
+      const inSuit = suitMap[s] || [];
+      const c3 = inSuit.find(c => Number(c.rank) === 3);
+      const c5 = inSuit.find(c => Number(c.rank) === 5);
+      const c8 = inSuit.find(c => Number(c.rank) === 8);
+      if (c3 && c5 && c8) {
+        melds.push({
+          id: `pillar_of_severity_${s}`,
+          name: `Pillar of Severity in ${s.toUpperCase()} (3·5·8)`,
+          cards: [c3, c5, c8],
+          value: 50
+        });
+      }
+    }
+
+    // 14. Pillar of Mercy: Ranks 2 (Chokmah) + 4 (Chesed) + 7 (Netzach) of one suit (50 pts)
+    for (const s of Object.keys(suitMap)) {
+      const inSuit = suitMap[s] || [];
+      const c2 = inSuit.find(c => Number(c.rank) === 2);
+      const c4 = inSuit.find(c => Number(c.rank) === 4);
+      const c7 = inSuit.find(c => Number(c.rank) === 7);
+      if (c2 && c4 && c7) {
+        melds.push({
+          id: `pillar_of_mercy_${s}`,
+          name: `Pillar of Mercy in ${s.toUpperCase()} (2·4·7)`,
+          cards: [c2, c4, c7],
+          value: 50
+        });
+      }
+    }
+
+    // 15. The Solar Heart: Three 6s (Tiphareth Triad across any suits) (60 pts)
+    const allSixes = minors.filter(c => Number(c.rank) === 6);
+    if (allSixes.length >= 3) {
+      melds.push({
+        id: "the_solar_heart",
+        name: "The Solar Heart (Tiphareth Triad of 6s)",
+        cards: allSixes.slice(0, 3),
+        value: 60
+      });
+    }
+
+    // 16. Quartet of the Four Worlds: Four of a kind across all 4 suits (ranks 2..14) (80 pts)
+    for (let r = 2; r <= 14; r++) {
+      const inW = (suitMap.wands || []).find(c => Number(c.rank) === r);
+      const inC = (suitMap.cups || []).find(c => Number(c.rank) === r);
+      const inS = (suitMap.swords || []).find(c => Number(c.rank) === r);
+      const inP = (suitMap.pentacles || []).find(c => Number(c.rank) === r);
+      if (inW && inC && inS && inP) {
+        const rankNames = { 11: "Pages", 12: "Knights", 13: "Queens", 14: "Kings" };
+        const rName = rankNames[r] || `${r}s`;
+        melds.push({
+          id: `quartet_${r}`,
+          name: `Quartet of the Four Worlds (All Four ${rName})`,
+          cards: [inW, inC, inS, inP],
+          value: 80
+        });
+      }
+    }
+
+    // 17. The Lightning Flash: 4 consecutive ranks (within Sephiroth pips 1..10) in one suit (50 pts)
+    for (const s of Object.keys(suitMap)) {
+      const inSuit = suitMap[s] || [];
+      for (let r = 1; r <= 7; r++) {
+        const r0 = inSuit.find(c => Number(c.rank) === r);
+        const r1 = inSuit.find(c => Number(c.rank) === r + 1);
+        const r2 = inSuit.find(c => Number(c.rank) === r + 2);
+        const r3 = inSuit.find(c => Number(c.rank) === r + 3);
+        if (r0 && r1 && r2 && r3) {
+          melds.push({
+            id: `lightning_flash_${s}`,
+            name: `The Lightning Flash in ${s.toUpperCase()} (${r}–${r + 3})`,
+            cards: [r0, r1, r2, r3],
+            value: 50
+          });
+          break; // scored once per suit
+        }
+      }
+    }
+
     return melds;
   }
 

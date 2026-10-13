@@ -255,5 +255,19 @@ console.log("▶ 9 · Planetary 12 Deck Affinity");
   console.log("  ✓ Mars-aligned deck yields higher Mars affinity than cross-faction");
 }
 
+// ── 10. Restart-safe round counter ─────────────────────────────────────────
+console.log("▶ 10 · Round counter continues from the chain, not from 1");
+{
+  const { nextRoundIndex } = await import("../feeder/war-table.ts");
+  assert.equal(nextRoundIndex([]), 1, "a cold database starts at round 1");
+  assert.equal(
+    nextRoundIndex([{ rested_at_round: 1683 }, { rested_at_round: "1690" }, { round_index: 1689 }]),
+    1691,
+    "boot resumes one past the highest round any table or rested agent has seen",
+  );
+  assert.equal(nextRoundIndex([{ rested_at_round: null }, { round_index: "x" }]), 1, "junk rows are ignored");
+  assert.equal(nextRoundIndex([{ last_round_index: 5000 }, { rested_at_round: 4990 }]), 5001, "war_state's high-water mark wins");
+  console.log("  ✓ max(war_state.last_round_index, agent_rest) + 1");
+}
 
 console.log("ALL War Table tests passed — against the real implementation.");
