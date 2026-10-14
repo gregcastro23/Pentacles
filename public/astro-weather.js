@@ -359,6 +359,23 @@
     });
   }
 
+  // What a cast drains. The module's drain_pool charges the same, and
+  // tests/fixtures/jing-costs.json pins both sides to one table.
+  /** The ESMS ids move `m` drains, `esmsCost` each (Erode wears Water and Earth). */
+  function jingEsms(m) { return m.esms2 != null ? [m.esms, m.esms2] : [m.esms]; }
+  /** Whether `pool` ({ sacred7, esms }) can pay for move `id`. */
+  function canAffordJing(pool, id) {
+    const m = JING_MOVES[id];
+    if (!m || !pool) return false;
+    return pool.sacred7[SACRED7.indexOf(m.stat)] >= m.statCost && jingEsms(m).every((e) => pool.esms[e] >= m.esmsCost);
+  }
+  /** Pay for move `id` from `pool` in place. Check canAffordJing first. */
+  function drainJing(pool, id) {
+    const m = JING_MOVES[id];
+    pool.sacred7[SACRED7.indexOf(m.stat)] -= m.statCost;
+    jingEsms(m).forEach((e) => { pool.esms[e] -= m.esmsCost; });
+  }
+
   /** Resolve two declared moves → 'a' | 'b' | 'draw' (the counter graph). */
   function resolveJing(aId, bId) {
     const a = JING_MOVES[aId], b = JING_MOVES[bId];
@@ -379,6 +396,7 @@
     wholeSignHouses, placidusHouses, houseOf, mcDeg, ascendantDeg,
     aspectsAmong, chartOfMoment, natalChart, weatherSummary,
     elementalComposition, planetElement, availableJings, resolveJing,
+    jingEsms, canAffordJing, drainJing,
     ELEMENT_OF_SIGN,
   };
 })();

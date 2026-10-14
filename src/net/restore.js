@@ -8,6 +8,7 @@
 import { toast } from '../ui/toast.js'
 import { letterFor } from './letters.js'
 import { ARCANA_NAMES, MAJOR_NAMES, rankName } from '../alchm-chart/deck.js'
+import { readNatalChart } from './natal-chart.js'
 
 const PLANET_NAMES = ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto']
 
@@ -74,9 +75,8 @@ export async function restoreProfileFromSpacetimeDB(net, state) {
     // Start live reactive subscriptions immediately for all users (existing & new)
     startLiveInventorySync(net, state)
 
-    // 2. Fetch natal chart (private table, returns only the owner's row)
-    const charts = await net.query('SELECT * FROM natal_chart').catch(() => [])
-    const ncRow = charts[0]
+    // 2. Read the caller's natal chart from the per-sender WebSocket view.
+    const ncRow = await readNatalChart(net)
 
     // 3. Fetch cards
     const cards = await net.query('SELECT * FROM card').catch(() => [])

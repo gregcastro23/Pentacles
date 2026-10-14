@@ -80,6 +80,7 @@ import OpenIdentityLinkReducer from "./open_identity_link_reducer";
 import OpenMeleeRoundReducer from "./open_melee_round_reducer";
 import PlayMeleeCardReducer from "./play_melee_card_reducer";
 import ProposeTradeReducer from "./propose_trade_reducer";
+import PruneWarHistoryReducer from "./prune_war_history_reducer";
 import PurgeStaleAgentsReducer from "./purge_stale_agents_reducer";
 import PushEphemerisReducer from "./push_ephemeris_reducer";
 import RecordMeleePlayReducer from "./record_melee_play_reducer";
@@ -87,6 +88,7 @@ import RecordStarStakeReducer from "./record_star_stake_reducer";
 import RecordStarUnstakeReducer from "./record_star_unstake_reducer";
 import ReportServiceHealthReducer from "./report_service_health_reducer";
 import RequestYieldClaimReducer from "./request_yield_claim_reducer";
+import ResolveRoundReducer from "./resolve_round_reducer";
 import ResolveStarBattleReducer from "./resolve_star_battle_reducer";
 import SeedAgentPlayerReducer from "./seed_agent_player_reducer";
 import SetLoadoutReducer from "./set_loadout_reducer";
@@ -100,6 +102,7 @@ import SubmitMeleeResultReducer from "./submit_melee_result_reducer";
 import SweepStalePillarDuelsReducer from "./sweep_stale_pillar_duels_reducer";
 import SyncSolanaEventReducer from "./sync_solana_event_reducer";
 import SyncStardexEphemerisReducer from "./sync_stardex_ephemeris_reducer";
+import TickSkyReducer from "./tick_sky_reducer";
 import TraceConstellationReducer from "./trace_constellation_reducer";
 import TransferStarStakeReducer from "./transfer_star_stake_reducer";
 import TriggerZoneFluxReducer from "./trigger_zone_flux_reducer";
@@ -111,8 +114,11 @@ import UpdateSeekerEnvironmentReducer from "./update_seeker_environment_reducer"
 import AgentChartRow from "./agent_chart_table";
 import AgentMeleeTurnRow from "./agent_melee_turn_table";
 import AgentRestRow from "./agent_rest_table";
+import ArConstellationCaptureRow from "./ar_constellation_capture_table";
 import BattleRow from "./battle_table";
+import BridgeTransferRow from "./bridge_transfer_table";
 import CardRow from "./card_table";
+import ClaimGrantRow from "./claim_grant_table";
 import CometRow from "./comet_table";
 import ConstellationRow from "./constellation_table";
 import ConstellationBlockRow from "./constellation_block_table";
@@ -121,6 +127,8 @@ import ConstellationResolutionRow from "./constellation_resolution_table";
 import ConstellationStarRow from "./constellation_star_table";
 import DecanYieldDistributionRow from "./decan_yield_distribution_table";
 import DeckSlotRow from "./deck_slot_table";
+import DeepSpaceCacheRow from "./deep_space_cache_table";
+import DeepSpaceClaimRow from "./deep_space_claim_table";
 import DuelRow from "./duel_table";
 import DuelChallengeRow from "./duel_challenge_table";
 import DuelQueueRow from "./duel_queue_table";
@@ -132,34 +140,60 @@ import GameConfigRow from "./game_config_table";
 import HorizonActionReceiptRow from "./horizon_action_receipt_table";
 import JingCastRow from "./jing_cast_table";
 import JingDuelRow from "./jing_duel_table";
+import JingPoolRow from "./jing_pool_table";
+import JingRateRow from "./jing_rate_table";
 import MeleeCareerRow from "./melee_career_table";
+import MeleeHandRow from "./melee_hand_table";
 import MeleePlayRow from "./melee_play_table";
 import MeleeQueueRow from "./melee_queue_table";
 import MeleeResultRow from "./melee_result_table";
 import MeleeSeatRow from "./melee_seat_table";
 import MeleeTableRow from "./melee_table_table";
 import MeleeTrickRow from "./melee_trick_table";
+import MyJingPoolRow from "./my_jing_pool_table";
 import MyMeleeHandRow from "./my_melee_hand_table";
+import MyNatalChartRow from "./my_natal_chart_table";
+import MyOracleReplyRow from "./my_oracle_reply_table";
+import MyOracleRequestRow from "./my_oracle_request_table";
+import MyStarStakeRow from "./my_star_stake_table";
+import MyTraceAttestationRow from "./my_trace_attestation_table";
+import MyTraceIntentRow from "./my_trace_intent_table";
+import NatalChartRow from "./natal_chart_table";
 import NatalDecanRow from "./natal_decan_table";
 import OracleCacheRow from "./oracle_cache_table";
+import OracleRateRow from "./oracle_rate_table";
+import OracleReplyRow from "./oracle_reply_table";
+import OracleRequestRow from "./oracle_request_table";
 import PillarCastRow from "./pillar_cast_table";
 import PillarDuelRow from "./pillar_duel_table";
 import PillarPoolRow from "./pillar_pool_table";
 import PillarTensionRow from "./pillar_tension_table";
 import PlayerRow from "./player_table";
+import PlayerActionCooldownRow from "./player_action_cooldown_table";
 import PlayerFaucetStateRow from "./player_faucet_state_table";
+import PlayerLocationRow from "./player_location_table";
 import ProcessedTxRow from "./processed_tx_table";
 import RoundParticipantRow from "./round_participant_table";
 import RoundStateRow from "./round_state_table";
+import RoundTimerRow from "./round_timer_table";
+import SeekerStateRow from "./seeker_state_table";
 import ServiceStatusRow from "./service_status_table";
+import SkyTickTimerRow from "./sky_tick_timer_table";
 import StarAgentRow from "./star_agent_table";
 import StarNodeRow from "./star_node_table";
+import StarStakeRow from "./star_stake_table";
 import StarStakePoolRow from "./star_stake_pool_table";
+import TraceAttestationRow from "./trace_attestation_table";
+import TraceIntentRow from "./trace_intent_table";
 import TradeRow from "./trade_table";
+import VerifiedEvmWalletRow from "./verified_evm_wallet_table";
 import VerifiedSolanaWalletRow from "./verified_solana_wallet_table";
 import WarEpochRow from "./war_epoch_table";
+import WarPruneStateRow from "./war_prune_state_table";
+import WarPruneTimerRow from "./war_prune_timer_table";
 import WarStateRow from "./war_state_table";
 import WordDuelRow from "./word_duel_table";
+import WordRateRow from "./word_rate_table";
 import ZoneRow from "./zone_table";
 
 /** Type-only namespace exports for generated type groups. */
@@ -211,6 +245,20 @@ const tablesSchema = __schema({
       { name: 'agent_rest_identity_key', constraint: 'unique', columns: ['identity'] },
     ],
   }, AgentRestRow),
+  arConstellationCapture: __table({
+    name: 'ar_constellation_capture',
+    indexes: [
+      { accessor: 'capture_id', name: 'ar_constellation_capture_capture_id_idx_btree', algorithm: 'btree', columns: [
+        'captureId',
+      ] },
+      { accessor: 'player', name: 'ar_constellation_capture_player_idx_btree', algorithm: 'btree', columns: [
+        'player',
+      ] },
+    ],
+    constraints: [
+      { name: 'ar_constellation_capture_capture_id_key', constraint: 'unique', columns: ['captureId'] },
+    ],
+  }, ArConstellationCaptureRow),
   battle: __table({
     name: 'battle',
     indexes: [
@@ -229,6 +277,20 @@ const tablesSchema = __schema({
       { name: 'battle_battle_id_key', constraint: 'unique', columns: ['battleId'] },
     ],
   }, BattleRow),
+  bridgeTransfer: __table({
+    name: 'bridge_transfer',
+    indexes: [
+      { accessor: 'burn_tx_hash', name: 'bridge_transfer_burn_tx_hash_idx_btree', algorithm: 'btree', columns: [
+        'burnTxHash',
+      ] },
+      { accessor: 'player', name: 'bridge_transfer_player_idx_btree', algorithm: 'btree', columns: [
+        'player',
+      ] },
+    ],
+    constraints: [
+      { name: 'bridge_transfer_burn_tx_hash_key', constraint: 'unique', columns: ['burnTxHash'] },
+    ],
+  }, BridgeTransferRow),
   card: __table({
     name: 'card',
     indexes: [
@@ -243,6 +305,20 @@ const tablesSchema = __schema({
       { name: 'card_card_id_key', constraint: 'unique', columns: ['cardId'] },
     ],
   }, CardRow),
+  claimGrant: __table({
+    name: 'claim_grant',
+    indexes: [
+      { accessor: 'code_hash', name: 'claim_grant_code_hash_idx_btree', algorithm: 'btree', columns: [
+        'codeHash',
+      ] },
+      { accessor: 'old_identity', name: 'claim_grant_old_identity_idx_btree', algorithm: 'btree', columns: [
+        'oldIdentity',
+      ] },
+    ],
+    constraints: [
+      { name: 'claim_grant_code_hash_key', constraint: 'unique', columns: ['codeHash'] },
+    ],
+  }, ClaimGrantRow),
   comet: __table({
     name: 'comet',
     indexes: [
@@ -349,6 +425,34 @@ const tablesSchema = __schema({
       { name: 'deck_slot_slot_id_key', constraint: 'unique', columns: ['slotId'] },
     ],
   }, DeckSlotRow),
+  deepSpaceCache: __table({
+    name: 'deep_space_cache',
+    indexes: [
+      { accessor: 'cache_id', name: 'deep_space_cache_cache_id_idx_btree', algorithm: 'btree', columns: [
+        'cacheId',
+      ] },
+    ],
+    constraints: [
+      { name: 'deep_space_cache_cache_id_key', constraint: 'unique', columns: ['cacheId'] },
+    ],
+  }, DeepSpaceCacheRow),
+  deepSpaceClaim: __table({
+    name: 'deep_space_claim',
+    indexes: [
+      { accessor: 'cache_id', name: 'deep_space_claim_cache_id_idx_btree', algorithm: 'btree', columns: [
+        'cacheId',
+      ] },
+      { accessor: 'claim_id', name: 'deep_space_claim_claim_id_idx_btree', algorithm: 'btree', columns: [
+        'claimId',
+      ] },
+      { accessor: 'player', name: 'deep_space_claim_player_idx_btree', algorithm: 'btree', columns: [
+        'player',
+      ] },
+    ],
+    constraints: [
+      { name: 'deep_space_claim_claim_id_key', constraint: 'unique', columns: ['claimId'] },
+    ],
+  }, DeepSpaceClaimRow),
   duel: __table({
     name: 'duel',
     indexes: [
@@ -488,6 +592,28 @@ const tablesSchema = __schema({
       { name: 'jing_duel_duel_id_key', constraint: 'unique', columns: ['duelId'] },
     ],
   }, JingDuelRow),
+  jingPool: __table({
+    name: 'jing_pool',
+    indexes: [
+      { accessor: 'identity', name: 'jing_pool_identity_idx_btree', algorithm: 'btree', columns: [
+        'identity',
+      ] },
+    ],
+    constraints: [
+      { name: 'jing_pool_identity_key', constraint: 'unique', columns: ['identity'] },
+    ],
+  }, JingPoolRow),
+  jingRate: __table({
+    name: 'jing_rate',
+    indexes: [
+      { accessor: 'identity', name: 'jing_rate_identity_idx_btree', algorithm: 'btree', columns: [
+        'identity',
+      ] },
+    ],
+    constraints: [
+      { name: 'jing_rate_identity_key', constraint: 'unique', columns: ['identity'] },
+    ],
+  }, JingRateRow),
   meleeCareer: __table({
     name: 'melee_career',
     indexes: [
@@ -499,6 +625,23 @@ const tablesSchema = __schema({
       { name: 'melee_career_identity_key', constraint: 'unique', columns: ['identity'] },
     ],
   }, MeleeCareerRow),
+  meleeHand: __table({
+    name: 'melee_hand',
+    indexes: [
+      { accessor: 'hand_id', name: 'melee_hand_hand_id_idx_btree', algorithm: 'btree', columns: [
+        'handId',
+      ] },
+      { accessor: 'seat_id', name: 'melee_hand_seat_id_idx_btree', algorithm: 'btree', columns: [
+        'seatId',
+      ] },
+      { accessor: 'table_id', name: 'melee_hand_table_id_idx_btree', algorithm: 'btree', columns: [
+        'tableId',
+      ] },
+    ],
+    constraints: [
+      { name: 'melee_hand_hand_id_key', constraint: 'unique', columns: ['handId'] },
+    ],
+  }, MeleeHandRow),
   meleePlay: __table({
     name: 'melee_play',
     indexes: [
@@ -596,6 +739,17 @@ const tablesSchema = __schema({
       { name: 'melee_trick_trick_id_key', constraint: 'unique', columns: ['trickId'] },
     ],
   }, MeleeTrickRow),
+  natalChart: __table({
+    name: 'natal_chart',
+    indexes: [
+      { accessor: 'identity', name: 'natal_chart_identity_idx_btree', algorithm: 'btree', columns: [
+        'identity',
+      ] },
+    ],
+    constraints: [
+      { name: 'natal_chart_identity_key', constraint: 'unique', columns: ['identity'] },
+    ],
+  }, NatalChartRow),
   natalDecan: __table({
     name: 'natal_decan',
     indexes: [
@@ -621,6 +775,45 @@ const tablesSchema = __schema({
       { name: 'oracle_cache_qhash_key', constraint: 'unique', columns: ['qhash'] },
     ],
   }, OracleCacheRow),
+  oracleRate: __table({
+    name: 'oracle_rate',
+    indexes: [
+      { accessor: 'identity', name: 'oracle_rate_identity_idx_btree', algorithm: 'btree', columns: [
+        'identity',
+      ] },
+    ],
+    constraints: [
+      { name: 'oracle_rate_identity_key', constraint: 'unique', columns: ['identity'] },
+    ],
+  }, OracleRateRow),
+  oracleReply: __table({
+    name: 'oracle_reply',
+    indexes: [
+      { accessor: 'asker', name: 'oracle_reply_asker_idx_btree', algorithm: 'btree', columns: [
+        'asker',
+      ] },
+      { accessor: 'request_id', name: 'oracle_reply_request_id_idx_btree', algorithm: 'btree', columns: [
+        'requestId',
+      ] },
+    ],
+    constraints: [
+      { name: 'oracle_reply_request_id_key', constraint: 'unique', columns: ['requestId'] },
+    ],
+  }, OracleReplyRow),
+  oracleRequest: __table({
+    name: 'oracle_request',
+    indexes: [
+      { accessor: 'asker', name: 'oracle_request_asker_idx_btree', algorithm: 'btree', columns: [
+        'asker',
+      ] },
+      { accessor: 'request_id', name: 'oracle_request_request_id_idx_btree', algorithm: 'btree', columns: [
+        'requestId',
+      ] },
+    ],
+    constraints: [
+      { name: 'oracle_request_request_id_key', constraint: 'unique', columns: ['requestId'] },
+    ],
+  }, OracleRequestRow),
   pillarCast: __table({
     name: 'pillar_cast',
     indexes: [
@@ -682,6 +875,17 @@ const tablesSchema = __schema({
       { name: 'player_identity_key', constraint: 'unique', columns: ['identity'] },
     ],
   }, PlayerRow),
+  playerActionCooldown: __table({
+    name: 'player_action_cooldown',
+    indexes: [
+      { accessor: 'key', name: 'player_action_cooldown_key_idx_btree', algorithm: 'btree', columns: [
+        'key',
+      ] },
+    ],
+    constraints: [
+      { name: 'player_action_cooldown_key_key', constraint: 'unique', columns: ['key'] },
+    ],
+  }, PlayerActionCooldownRow),
   playerFaucetState: __table({
     name: 'player_faucet_state',
     indexes: [
@@ -693,6 +897,17 @@ const tablesSchema = __schema({
       { name: 'player_faucet_state_identity_key', constraint: 'unique', columns: ['identity'] },
     ],
   }, PlayerFaucetStateRow),
+  playerLocation: __table({
+    name: 'player_location',
+    indexes: [
+      { accessor: 'identity', name: 'player_location_identity_idx_btree', algorithm: 'btree', columns: [
+        'identity',
+      ] },
+    ],
+    constraints: [
+      { name: 'player_location_identity_key', constraint: 'unique', columns: ['identity'] },
+    ],
+  }, PlayerLocationRow),
   processedTx: __table({
     name: 'processed_tx',
     indexes: [
@@ -729,6 +944,31 @@ const tablesSchema = __schema({
       { name: 'round_state_identity_key', constraint: 'unique', columns: ['identity'] },
     ],
   }, RoundStateRow),
+  roundTimer: __table({
+    name: 'round_timer',
+    indexes: [
+      { accessor: 'player', name: 'round_timer_player_idx_btree', algorithm: 'btree', columns: [
+        'player',
+      ] },
+      { accessor: 'scheduled_id', name: 'round_timer_scheduled_id_idx_btree', algorithm: 'btree', columns: [
+        'scheduledId',
+      ] },
+    ],
+    constraints: [
+      { name: 'round_timer_scheduled_id_key', constraint: 'unique', columns: ['scheduledId'] },
+    ],
+  }, RoundTimerRow),
+  seekerState: __table({
+    name: 'seeker_state',
+    indexes: [
+      { accessor: 'player', name: 'seeker_state_player_idx_btree', algorithm: 'btree', columns: [
+        'player',
+      ] },
+    ],
+    constraints: [
+      { name: 'seeker_state_player_key', constraint: 'unique', columns: ['player'] },
+    ],
+  }, SeekerStateRow),
   serviceStatus: __table({
     name: 'service_status',
     indexes: [
@@ -740,6 +980,17 @@ const tablesSchema = __schema({
       { name: 'service_status_service_key', constraint: 'unique', columns: ['service'] },
     ],
   }, ServiceStatusRow),
+  skyTickTimer: __table({
+    name: 'sky_tick_timer',
+    indexes: [
+      { accessor: 'scheduled_id', name: 'sky_tick_timer_scheduled_id_idx_btree', algorithm: 'btree', columns: [
+        'scheduledId',
+      ] },
+    ],
+    constraints: [
+      { name: 'sky_tick_timer_scheduled_id_key', constraint: 'unique', columns: ['scheduledId'] },
+    ],
+  }, SkyTickTimerRow),
   starAgent: __table({
     name: 'star_agent',
     indexes: [
@@ -762,6 +1013,23 @@ const tablesSchema = __schema({
       { name: 'star_node_hip_id_key', constraint: 'unique', columns: ['hipId'] },
     ],
   }, StarNodeRow),
+  starStake: __table({
+    name: 'star_stake',
+    indexes: [
+      { accessor: 'stake_id', name: 'star_stake_stake_id_idx_btree', algorithm: 'btree', columns: [
+        'stakeId',
+      ] },
+      { accessor: 'staker', name: 'star_stake_staker_idx_btree', algorithm: 'btree', columns: [
+        'staker',
+      ] },
+      { accessor: 'star_id', name: 'star_stake_star_id_idx_btree', algorithm: 'btree', columns: [
+        'starId',
+      ] },
+    ],
+    constraints: [
+      { name: 'star_stake_stake_id_key', constraint: 'unique', columns: ['stakeId'] },
+    ],
+  }, StarStakeRow),
   starStakePool: __table({
     name: 'star_stake_pool',
     indexes: [
@@ -773,6 +1041,34 @@ const tablesSchema = __schema({
       { name: 'star_stake_pool_star_id_key', constraint: 'unique', columns: ['starId'] },
     ],
   }, StarStakePoolRow),
+  traceAttestation: __table({
+    name: 'trace_attestation',
+    indexes: [
+      { accessor: 'intent_id', name: 'trace_attestation_intent_id_idx_btree', algorithm: 'btree', columns: [
+        'intentId',
+      ] },
+      { accessor: 'trader', name: 'trace_attestation_trader_idx_btree', algorithm: 'btree', columns: [
+        'trader',
+      ] },
+    ],
+    constraints: [
+      { name: 'trace_attestation_intent_id_key', constraint: 'unique', columns: ['intentId'] },
+    ],
+  }, TraceAttestationRow),
+  traceIntent: __table({
+    name: 'trace_intent',
+    indexes: [
+      { accessor: 'intent_id', name: 'trace_intent_intent_id_idx_btree', algorithm: 'btree', columns: [
+        'intentId',
+      ] },
+      { accessor: 'trader', name: 'trace_intent_trader_idx_btree', algorithm: 'btree', columns: [
+        'trader',
+      ] },
+    ],
+    constraints: [
+      { name: 'trace_intent_intent_id_key', constraint: 'unique', columns: ['intentId'] },
+    ],
+  }, TraceIntentRow),
   trade: __table({
     name: 'trade',
     indexes: [
@@ -790,6 +1086,21 @@ const tablesSchema = __schema({
       { name: 'trade_trade_id_key', constraint: 'unique', columns: ['tradeId'] },
     ],
   }, TradeRow),
+  verifiedEvmWallet: __table({
+    name: 'verified_evm_wallet',
+    indexes: [
+      { accessor: 'evm_address', name: 'verified_evm_wallet_evm_address_idx_btree', algorithm: 'btree', columns: [
+        'evmAddress',
+      ] },
+      { accessor: 'identity', name: 'verified_evm_wallet_identity_idx_btree', algorithm: 'btree', columns: [
+        'identity',
+      ] },
+    ],
+    constraints: [
+      { name: 'verified_evm_wallet_evm_address_key', constraint: 'unique', columns: ['evmAddress'] },
+      { name: 'verified_evm_wallet_identity_key', constraint: 'unique', columns: ['identity'] },
+    ],
+  }, VerifiedEvmWalletRow),
   verifiedSolanaWallet: __table({
     name: 'verified_solana_wallet',
     indexes: [
@@ -819,6 +1130,28 @@ const tablesSchema = __schema({
       { name: 'war_epoch_epoch_id_key', constraint: 'unique', columns: ['epochId'] },
     ],
   }, WarEpochRow),
+  warPruneState: __table({
+    name: 'war_prune_state',
+    indexes: [
+      { accessor: 'id', name: 'war_prune_state_id_idx_btree', algorithm: 'btree', columns: [
+        'id',
+      ] },
+    ],
+    constraints: [
+      { name: 'war_prune_state_id_key', constraint: 'unique', columns: ['id'] },
+    ],
+  }, WarPruneStateRow),
+  warPruneTimer: __table({
+    name: 'war_prune_timer',
+    indexes: [
+      { accessor: 'scheduled_id', name: 'war_prune_timer_scheduled_id_idx_btree', algorithm: 'btree', columns: [
+        'scheduledId',
+      ] },
+    ],
+    constraints: [
+      { name: 'war_prune_timer_scheduled_id_key', constraint: 'unique', columns: ['scheduledId'] },
+    ],
+  }, WarPruneTimerRow),
   warState: __table({
     name: 'war_state',
     indexes: [
@@ -844,6 +1177,17 @@ const tablesSchema = __schema({
       { name: 'word_duel_duel_id_key', constraint: 'unique', columns: ['duelId'] },
     ],
   }, WordDuelRow),
+  wordRate: __table({
+    name: 'word_rate',
+    indexes: [
+      { accessor: 'identity', name: 'word_rate_identity_idx_btree', algorithm: 'btree', columns: [
+        'identity',
+      ] },
+    ],
+    constraints: [
+      { name: 'word_rate_identity_key', constraint: 'unique', columns: ['identity'] },
+    ],
+  }, WordRateRow),
   zone: __table({
     name: 'zone',
     indexes: [
@@ -855,6 +1199,13 @@ const tablesSchema = __schema({
       { name: 'zone_zone_id_key', constraint: 'unique', columns: ['zoneId'] },
     ],
   }, ZoneRow),
+  myJingPool: __table({
+    name: 'my_jing_pool',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, MyJingPoolRow),
   myMeleeHand: __table({
     name: 'my_melee_hand',
     indexes: [
@@ -862,6 +1213,48 @@ const tablesSchema = __schema({
     constraints: [
     ],
   }, MyMeleeHandRow),
+  myNatalChart: __table({
+    name: 'my_natal_chart',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, MyNatalChartRow),
+  myOracleReply: __table({
+    name: 'my_oracle_reply',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, MyOracleReplyRow),
+  myOracleRequest: __table({
+    name: 'my_oracle_request',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, MyOracleRequestRow),
+  myStarStake: __table({
+    name: 'my_star_stake',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, MyStarStakeRow),
+  myTraceAttestation: __table({
+    name: 'my_trace_attestation',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, MyTraceAttestationRow),
+  myTraceIntent: __table({
+    name: 'my_trace_intent',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, MyTraceIntentRow),
 });
 
 /** The schema information for all reducers in this module. This is defined the same way as the reducers would have been defined in the server, except the body of the reducer is omitted in code generation. */
@@ -912,6 +1305,7 @@ const reducersSchema = __reducers(
   __reducerSchema("open_melee_round", OpenMeleeRoundReducer),
   __reducerSchema("play_melee_card", PlayMeleeCardReducer),
   __reducerSchema("propose_trade", ProposeTradeReducer),
+  __reducerSchema("prune_war_history", PruneWarHistoryReducer),
   __reducerSchema("purge_stale_agents", PurgeStaleAgentsReducer),
   __reducerSchema("push_ephemeris", PushEphemerisReducer),
   __reducerSchema("record_melee_play", RecordMeleePlayReducer),
@@ -919,6 +1313,7 @@ const reducersSchema = __reducers(
   __reducerSchema("record_star_unstake", RecordStarUnstakeReducer),
   __reducerSchema("report_service_health", ReportServiceHealthReducer),
   __reducerSchema("request_yield_claim", RequestYieldClaimReducer),
+  __reducerSchema("resolve_round", ResolveRoundReducer),
   __reducerSchema("resolve_star_battle", ResolveStarBattleReducer),
   __reducerSchema("seed_agent_player", SeedAgentPlayerReducer),
   __reducerSchema("set_loadout", SetLoadoutReducer),
@@ -932,6 +1327,7 @@ const reducersSchema = __reducers(
   __reducerSchema("sweep_stale_pillar_duels", SweepStalePillarDuelsReducer),
   __reducerSchema("sync_solana_event", SyncSolanaEventReducer),
   __reducerSchema("sync_stardex_ephemeris", SyncStardexEphemerisReducer),
+  __reducerSchema("tick_sky", TickSkyReducer),
   __reducerSchema("trace_constellation", TraceConstellationReducer),
   __reducerSchema("transfer_star_stake", TransferStarStakeReducer),
   __reducerSchema("trigger_zone_flux", TriggerZoneFluxReducer),
@@ -950,6 +1346,12 @@ type __SchemaWithTableAccessorAliases = Omit<typeof tablesSchema.schemaType, "ta
     readonly "agent_melee_turn": Omit<typeof tablesSchema.schemaType.tables["agentMeleeTurn"], "accessorName"> & { readonly accessorName: "agent_melee_turn" };
     /** @deprecated Use `agentRest` instead. This alias will be removed in the next major version. */
     readonly "agent_rest": Omit<typeof tablesSchema.schemaType.tables["agentRest"], "accessorName"> & { readonly accessorName: "agent_rest" };
+    /** @deprecated Use `arConstellationCapture` instead. This alias will be removed in the next major version. */
+    readonly "ar_constellation_capture": Omit<typeof tablesSchema.schemaType.tables["arConstellationCapture"], "accessorName"> & { readonly accessorName: "ar_constellation_capture" };
+    /** @deprecated Use `bridgeTransfer` instead. This alias will be removed in the next major version. */
+    readonly "bridge_transfer": Omit<typeof tablesSchema.schemaType.tables["bridgeTransfer"], "accessorName"> & { readonly accessorName: "bridge_transfer" };
+    /** @deprecated Use `claimGrant` instead. This alias will be removed in the next major version. */
+    readonly "claim_grant": Omit<typeof tablesSchema.schemaType.tables["claimGrant"], "accessorName"> & { readonly accessorName: "claim_grant" };
     /** @deprecated Use `constellationBlock` instead. This alias will be removed in the next major version. */
     readonly "constellation_block": Omit<typeof tablesSchema.schemaType.tables["constellationBlock"], "accessorName"> & { readonly accessorName: "constellation_block" };
     /** @deprecated Use `constellationLine` instead. This alias will be removed in the next major version. */
@@ -962,6 +1364,10 @@ type __SchemaWithTableAccessorAliases = Omit<typeof tablesSchema.schemaType, "ta
     readonly "decan_yield_distribution": Omit<typeof tablesSchema.schemaType.tables["decanYieldDistribution"], "accessorName"> & { readonly accessorName: "decan_yield_distribution" };
     /** @deprecated Use `deckSlot` instead. This alias will be removed in the next major version. */
     readonly "deck_slot": Omit<typeof tablesSchema.schemaType.tables["deckSlot"], "accessorName"> & { readonly accessorName: "deck_slot" };
+    /** @deprecated Use `deepSpaceCache` instead. This alias will be removed in the next major version. */
+    readonly "deep_space_cache": Omit<typeof tablesSchema.schemaType.tables["deepSpaceCache"], "accessorName"> & { readonly accessorName: "deep_space_cache" };
+    /** @deprecated Use `deepSpaceClaim` instead. This alias will be removed in the next major version. */
+    readonly "deep_space_claim": Omit<typeof tablesSchema.schemaType.tables["deepSpaceClaim"], "accessorName"> & { readonly accessorName: "deep_space_claim" };
     /** @deprecated Use `duelChallenge` instead. This alias will be removed in the next major version. */
     readonly "duel_challenge": Omit<typeof tablesSchema.schemaType.tables["duelChallenge"], "accessorName"> & { readonly accessorName: "duel_challenge" };
     /** @deprecated Use `duelQueue` instead. This alias will be removed in the next major version. */
@@ -980,8 +1386,14 @@ type __SchemaWithTableAccessorAliases = Omit<typeof tablesSchema.schemaType, "ta
     readonly "jing_cast": Omit<typeof tablesSchema.schemaType.tables["jingCast"], "accessorName"> & { readonly accessorName: "jing_cast" };
     /** @deprecated Use `jingDuel` instead. This alias will be removed in the next major version. */
     readonly "jing_duel": Omit<typeof tablesSchema.schemaType.tables["jingDuel"], "accessorName"> & { readonly accessorName: "jing_duel" };
+    /** @deprecated Use `jingPool` instead. This alias will be removed in the next major version. */
+    readonly "jing_pool": Omit<typeof tablesSchema.schemaType.tables["jingPool"], "accessorName"> & { readonly accessorName: "jing_pool" };
+    /** @deprecated Use `jingRate` instead. This alias will be removed in the next major version. */
+    readonly "jing_rate": Omit<typeof tablesSchema.schemaType.tables["jingRate"], "accessorName"> & { readonly accessorName: "jing_rate" };
     /** @deprecated Use `meleeCareer` instead. This alias will be removed in the next major version. */
     readonly "melee_career": Omit<typeof tablesSchema.schemaType.tables["meleeCareer"], "accessorName"> & { readonly accessorName: "melee_career" };
+    /** @deprecated Use `meleeHand` instead. This alias will be removed in the next major version. */
+    readonly "melee_hand": Omit<typeof tablesSchema.schemaType.tables["meleeHand"], "accessorName"> & { readonly accessorName: "melee_hand" };
     /** @deprecated Use `meleePlay` instead. This alias will be removed in the next major version. */
     readonly "melee_play": Omit<typeof tablesSchema.schemaType.tables["meleePlay"], "accessorName"> & { readonly accessorName: "melee_play" };
     /** @deprecated Use `meleeQueue` instead. This alias will be removed in the next major version. */
@@ -994,10 +1406,18 @@ type __SchemaWithTableAccessorAliases = Omit<typeof tablesSchema.schemaType, "ta
     readonly "melee_table": Omit<typeof tablesSchema.schemaType.tables["meleeTable"], "accessorName"> & { readonly accessorName: "melee_table" };
     /** @deprecated Use `meleeTrick` instead. This alias will be removed in the next major version. */
     readonly "melee_trick": Omit<typeof tablesSchema.schemaType.tables["meleeTrick"], "accessorName"> & { readonly accessorName: "melee_trick" };
+    /** @deprecated Use `natalChart` instead. This alias will be removed in the next major version. */
+    readonly "natal_chart": Omit<typeof tablesSchema.schemaType.tables["natalChart"], "accessorName"> & { readonly accessorName: "natal_chart" };
     /** @deprecated Use `natalDecan` instead. This alias will be removed in the next major version. */
     readonly "natal_decan": Omit<typeof tablesSchema.schemaType.tables["natalDecan"], "accessorName"> & { readonly accessorName: "natal_decan" };
     /** @deprecated Use `oracleCache` instead. This alias will be removed in the next major version. */
     readonly "oracle_cache": Omit<typeof tablesSchema.schemaType.tables["oracleCache"], "accessorName"> & { readonly accessorName: "oracle_cache" };
+    /** @deprecated Use `oracleRate` instead. This alias will be removed in the next major version. */
+    readonly "oracle_rate": Omit<typeof tablesSchema.schemaType.tables["oracleRate"], "accessorName"> & { readonly accessorName: "oracle_rate" };
+    /** @deprecated Use `oracleReply` instead. This alias will be removed in the next major version. */
+    readonly "oracle_reply": Omit<typeof tablesSchema.schemaType.tables["oracleReply"], "accessorName"> & { readonly accessorName: "oracle_reply" };
+    /** @deprecated Use `oracleRequest` instead. This alias will be removed in the next major version. */
+    readonly "oracle_request": Omit<typeof tablesSchema.schemaType.tables["oracleRequest"], "accessorName"> & { readonly accessorName: "oracle_request" };
     /** @deprecated Use `pillarCast` instead. This alias will be removed in the next major version. */
     readonly "pillar_cast": Omit<typeof tablesSchema.schemaType.tables["pillarCast"], "accessorName"> & { readonly accessorName: "pillar_cast" };
     /** @deprecated Use `pillarDuel` instead. This alias will be removed in the next major version. */
@@ -1006,32 +1426,70 @@ type __SchemaWithTableAccessorAliases = Omit<typeof tablesSchema.schemaType, "ta
     readonly "pillar_pool": Omit<typeof tablesSchema.schemaType.tables["pillarPool"], "accessorName"> & { readonly accessorName: "pillar_pool" };
     /** @deprecated Use `pillarTension` instead. This alias will be removed in the next major version. */
     readonly "pillar_tension": Omit<typeof tablesSchema.schemaType.tables["pillarTension"], "accessorName"> & { readonly accessorName: "pillar_tension" };
+    /** @deprecated Use `playerActionCooldown` instead. This alias will be removed in the next major version. */
+    readonly "player_action_cooldown": Omit<typeof tablesSchema.schemaType.tables["playerActionCooldown"], "accessorName"> & { readonly accessorName: "player_action_cooldown" };
     /** @deprecated Use `playerFaucetState` instead. This alias will be removed in the next major version. */
     readonly "player_faucet_state": Omit<typeof tablesSchema.schemaType.tables["playerFaucetState"], "accessorName"> & { readonly accessorName: "player_faucet_state" };
+    /** @deprecated Use `playerLocation` instead. This alias will be removed in the next major version. */
+    readonly "player_location": Omit<typeof tablesSchema.schemaType.tables["playerLocation"], "accessorName"> & { readonly accessorName: "player_location" };
     /** @deprecated Use `processedTx` instead. This alias will be removed in the next major version. */
     readonly "processed_tx": Omit<typeof tablesSchema.schemaType.tables["processedTx"], "accessorName"> & { readonly accessorName: "processed_tx" };
     /** @deprecated Use `roundParticipant` instead. This alias will be removed in the next major version. */
     readonly "round_participant": Omit<typeof tablesSchema.schemaType.tables["roundParticipant"], "accessorName"> & { readonly accessorName: "round_participant" };
     /** @deprecated Use `roundState` instead. This alias will be removed in the next major version. */
     readonly "round_state": Omit<typeof tablesSchema.schemaType.tables["roundState"], "accessorName"> & { readonly accessorName: "round_state" };
+    /** @deprecated Use `roundTimer` instead. This alias will be removed in the next major version. */
+    readonly "round_timer": Omit<typeof tablesSchema.schemaType.tables["roundTimer"], "accessorName"> & { readonly accessorName: "round_timer" };
+    /** @deprecated Use `seekerState` instead. This alias will be removed in the next major version. */
+    readonly "seeker_state": Omit<typeof tablesSchema.schemaType.tables["seekerState"], "accessorName"> & { readonly accessorName: "seeker_state" };
     /** @deprecated Use `serviceStatus` instead. This alias will be removed in the next major version. */
     readonly "service_status": Omit<typeof tablesSchema.schemaType.tables["serviceStatus"], "accessorName"> & { readonly accessorName: "service_status" };
+    /** @deprecated Use `skyTickTimer` instead. This alias will be removed in the next major version. */
+    readonly "sky_tick_timer": Omit<typeof tablesSchema.schemaType.tables["skyTickTimer"], "accessorName"> & { readonly accessorName: "sky_tick_timer" };
     /** @deprecated Use `starAgent` instead. This alias will be removed in the next major version. */
     readonly "star_agent": Omit<typeof tablesSchema.schemaType.tables["starAgent"], "accessorName"> & { readonly accessorName: "star_agent" };
     /** @deprecated Use `starNode` instead. This alias will be removed in the next major version. */
     readonly "star_node": Omit<typeof tablesSchema.schemaType.tables["starNode"], "accessorName"> & { readonly accessorName: "star_node" };
+    /** @deprecated Use `starStake` instead. This alias will be removed in the next major version. */
+    readonly "star_stake": Omit<typeof tablesSchema.schemaType.tables["starStake"], "accessorName"> & { readonly accessorName: "star_stake" };
     /** @deprecated Use `starStakePool` instead. This alias will be removed in the next major version. */
     readonly "star_stake_pool": Omit<typeof tablesSchema.schemaType.tables["starStakePool"], "accessorName"> & { readonly accessorName: "star_stake_pool" };
+    /** @deprecated Use `traceAttestation` instead. This alias will be removed in the next major version. */
+    readonly "trace_attestation": Omit<typeof tablesSchema.schemaType.tables["traceAttestation"], "accessorName"> & { readonly accessorName: "trace_attestation" };
+    /** @deprecated Use `traceIntent` instead. This alias will be removed in the next major version. */
+    readonly "trace_intent": Omit<typeof tablesSchema.schemaType.tables["traceIntent"], "accessorName"> & { readonly accessorName: "trace_intent" };
+    /** @deprecated Use `verifiedEvmWallet` instead. This alias will be removed in the next major version. */
+    readonly "verified_evm_wallet": Omit<typeof tablesSchema.schemaType.tables["verifiedEvmWallet"], "accessorName"> & { readonly accessorName: "verified_evm_wallet" };
     /** @deprecated Use `verifiedSolanaWallet` instead. This alias will be removed in the next major version. */
     readonly "verified_solana_wallet": Omit<typeof tablesSchema.schemaType.tables["verifiedSolanaWallet"], "accessorName"> & { readonly accessorName: "verified_solana_wallet" };
     /** @deprecated Use `warEpoch` instead. This alias will be removed in the next major version. */
     readonly "war_epoch": Omit<typeof tablesSchema.schemaType.tables["warEpoch"], "accessorName"> & { readonly accessorName: "war_epoch" };
+    /** @deprecated Use `warPruneState` instead. This alias will be removed in the next major version. */
+    readonly "war_prune_state": Omit<typeof tablesSchema.schemaType.tables["warPruneState"], "accessorName"> & { readonly accessorName: "war_prune_state" };
+    /** @deprecated Use `warPruneTimer` instead. This alias will be removed in the next major version. */
+    readonly "war_prune_timer": Omit<typeof tablesSchema.schemaType.tables["warPruneTimer"], "accessorName"> & { readonly accessorName: "war_prune_timer" };
     /** @deprecated Use `warState` instead. This alias will be removed in the next major version. */
     readonly "war_state": Omit<typeof tablesSchema.schemaType.tables["warState"], "accessorName"> & { readonly accessorName: "war_state" };
     /** @deprecated Use `wordDuel` instead. This alias will be removed in the next major version. */
     readonly "word_duel": Omit<typeof tablesSchema.schemaType.tables["wordDuel"], "accessorName"> & { readonly accessorName: "word_duel" };
+    /** @deprecated Use `wordRate` instead. This alias will be removed in the next major version. */
+    readonly "word_rate": Omit<typeof tablesSchema.schemaType.tables["wordRate"], "accessorName"> & { readonly accessorName: "word_rate" };
+    /** @deprecated Use `myJingPool` instead. This alias will be removed in the next major version. */
+    readonly "my_jing_pool": Omit<typeof tablesSchema.schemaType.tables["myJingPool"], "accessorName"> & { readonly accessorName: "my_jing_pool" };
     /** @deprecated Use `myMeleeHand` instead. This alias will be removed in the next major version. */
     readonly "my_melee_hand": Omit<typeof tablesSchema.schemaType.tables["myMeleeHand"], "accessorName"> & { readonly accessorName: "my_melee_hand" };
+    /** @deprecated Use `myNatalChart` instead. This alias will be removed in the next major version. */
+    readonly "my_natal_chart": Omit<typeof tablesSchema.schemaType.tables["myNatalChart"], "accessorName"> & { readonly accessorName: "my_natal_chart" };
+    /** @deprecated Use `myOracleReply` instead. This alias will be removed in the next major version. */
+    readonly "my_oracle_reply": Omit<typeof tablesSchema.schemaType.tables["myOracleReply"], "accessorName"> & { readonly accessorName: "my_oracle_reply" };
+    /** @deprecated Use `myOracleRequest` instead. This alias will be removed in the next major version. */
+    readonly "my_oracle_request": Omit<typeof tablesSchema.schemaType.tables["myOracleRequest"], "accessorName"> & { readonly accessorName: "my_oracle_request" };
+    /** @deprecated Use `myStarStake` instead. This alias will be removed in the next major version. */
+    readonly "my_star_stake": Omit<typeof tablesSchema.schemaType.tables["myStarStake"], "accessorName"> & { readonly accessorName: "my_star_stake" };
+    /** @deprecated Use `myTraceAttestation` instead. This alias will be removed in the next major version. */
+    readonly "my_trace_attestation": Omit<typeof tablesSchema.schemaType.tables["myTraceAttestation"], "accessorName"> & { readonly accessorName: "my_trace_attestation" };
+    /** @deprecated Use `myTraceIntent` instead. This alias will be removed in the next major version. */
+    readonly "my_trace_intent": Omit<typeof tablesSchema.schemaType.tables["myTraceIntent"], "accessorName"> & { readonly accessorName: "my_trace_intent" };
   };
 };
 
@@ -1053,12 +1511,17 @@ const tableAccessorAliases = {
   "agent_chart": "agentChart",
   "agent_melee_turn": "agentMeleeTurn",
   "agent_rest": "agentRest",
+  "ar_constellation_capture": "arConstellationCapture",
+  "bridge_transfer": "bridgeTransfer",
+  "claim_grant": "claimGrant",
   "constellation_block": "constellationBlock",
   "constellation_line": "constellationLine",
   "constellation_resolution": "constellationResolution",
   "constellation_star": "constellationStar",
   "decan_yield_distribution": "decanYieldDistribution",
   "deck_slot": "deckSlot",
+  "deep_space_cache": "deepSpaceCache",
+  "deep_space_claim": "deepSpaceClaim",
   "duel_challenge": "duelChallenge",
   "duel_queue": "duelQueue",
   "duel_round": "duelRound",
@@ -1068,32 +1531,58 @@ const tableAccessorAliases = {
   "horizon_action_receipt": "horizonActionReceipt",
   "jing_cast": "jingCast",
   "jing_duel": "jingDuel",
+  "jing_pool": "jingPool",
+  "jing_rate": "jingRate",
   "melee_career": "meleeCareer",
+  "melee_hand": "meleeHand",
   "melee_play": "meleePlay",
   "melee_queue": "meleeQueue",
   "melee_result": "meleeResult",
   "melee_seat": "meleeSeat",
   "melee_table": "meleeTable",
   "melee_trick": "meleeTrick",
+  "natal_chart": "natalChart",
   "natal_decan": "natalDecan",
   "oracle_cache": "oracleCache",
+  "oracle_rate": "oracleRate",
+  "oracle_reply": "oracleReply",
+  "oracle_request": "oracleRequest",
   "pillar_cast": "pillarCast",
   "pillar_duel": "pillarDuel",
   "pillar_pool": "pillarPool",
   "pillar_tension": "pillarTension",
+  "player_action_cooldown": "playerActionCooldown",
   "player_faucet_state": "playerFaucetState",
+  "player_location": "playerLocation",
   "processed_tx": "processedTx",
   "round_participant": "roundParticipant",
   "round_state": "roundState",
+  "round_timer": "roundTimer",
+  "seeker_state": "seekerState",
   "service_status": "serviceStatus",
+  "sky_tick_timer": "skyTickTimer",
   "star_agent": "starAgent",
   "star_node": "starNode",
+  "star_stake": "starStake",
   "star_stake_pool": "starStakePool",
+  "trace_attestation": "traceAttestation",
+  "trace_intent": "traceIntent",
+  "verified_evm_wallet": "verifiedEvmWallet",
   "verified_solana_wallet": "verifiedSolanaWallet",
   "war_epoch": "warEpoch",
+  "war_prune_state": "warPruneState",
+  "war_prune_timer": "warPruneTimer",
   "war_state": "warState",
   "word_duel": "wordDuel",
+  "word_rate": "wordRate",
+  "my_jing_pool": "myJingPool",
   "my_melee_hand": "myMeleeHand",
+  "my_natal_chart": "myNatalChart",
+  "my_oracle_reply": "myOracleReply",
+  "my_oracle_request": "myOracleRequest",
+  "my_star_stake": "myStarStake",
+  "my_trace_attestation": "myTraceAttestation",
+  "my_trace_intent": "myTraceIntent",
 } as const;
 
 function __withTableAccessorAliases<T extends object>(target: T, freeze = false): T {
@@ -1120,6 +1609,12 @@ export type DbView = __DbViewBase & {
   readonly "agent_melee_turn": __DbViewBase["agentMeleeTurn"];
   /** @deprecated Use `agentRest` instead. This alias will be removed in the next major version. */
   readonly "agent_rest": __DbViewBase["agentRest"];
+  /** @deprecated Use `arConstellationCapture` instead. This alias will be removed in the next major version. */
+  readonly "ar_constellation_capture": __DbViewBase["arConstellationCapture"];
+  /** @deprecated Use `bridgeTransfer` instead. This alias will be removed in the next major version. */
+  readonly "bridge_transfer": __DbViewBase["bridgeTransfer"];
+  /** @deprecated Use `claimGrant` instead. This alias will be removed in the next major version. */
+  readonly "claim_grant": __DbViewBase["claimGrant"];
   /** @deprecated Use `constellationBlock` instead. This alias will be removed in the next major version. */
   readonly "constellation_block": __DbViewBase["constellationBlock"];
   /** @deprecated Use `constellationLine` instead. This alias will be removed in the next major version. */
@@ -1132,6 +1627,10 @@ export type DbView = __DbViewBase & {
   readonly "decan_yield_distribution": __DbViewBase["decanYieldDistribution"];
   /** @deprecated Use `deckSlot` instead. This alias will be removed in the next major version. */
   readonly "deck_slot": __DbViewBase["deckSlot"];
+  /** @deprecated Use `deepSpaceCache` instead. This alias will be removed in the next major version. */
+  readonly "deep_space_cache": __DbViewBase["deepSpaceCache"];
+  /** @deprecated Use `deepSpaceClaim` instead. This alias will be removed in the next major version. */
+  readonly "deep_space_claim": __DbViewBase["deepSpaceClaim"];
   /** @deprecated Use `duelChallenge` instead. This alias will be removed in the next major version. */
   readonly "duel_challenge": __DbViewBase["duelChallenge"];
   /** @deprecated Use `duelQueue` instead. This alias will be removed in the next major version. */
@@ -1150,8 +1649,14 @@ export type DbView = __DbViewBase & {
   readonly "jing_cast": __DbViewBase["jingCast"];
   /** @deprecated Use `jingDuel` instead. This alias will be removed in the next major version. */
   readonly "jing_duel": __DbViewBase["jingDuel"];
+  /** @deprecated Use `jingPool` instead. This alias will be removed in the next major version. */
+  readonly "jing_pool": __DbViewBase["jingPool"];
+  /** @deprecated Use `jingRate` instead. This alias will be removed in the next major version. */
+  readonly "jing_rate": __DbViewBase["jingRate"];
   /** @deprecated Use `meleeCareer` instead. This alias will be removed in the next major version. */
   readonly "melee_career": __DbViewBase["meleeCareer"];
+  /** @deprecated Use `meleeHand` instead. This alias will be removed in the next major version. */
+  readonly "melee_hand": __DbViewBase["meleeHand"];
   /** @deprecated Use `meleePlay` instead. This alias will be removed in the next major version. */
   readonly "melee_play": __DbViewBase["meleePlay"];
   /** @deprecated Use `meleeQueue` instead. This alias will be removed in the next major version. */
@@ -1164,10 +1669,18 @@ export type DbView = __DbViewBase & {
   readonly "melee_table": __DbViewBase["meleeTable"];
   /** @deprecated Use `meleeTrick` instead. This alias will be removed in the next major version. */
   readonly "melee_trick": __DbViewBase["meleeTrick"];
+  /** @deprecated Use `natalChart` instead. This alias will be removed in the next major version. */
+  readonly "natal_chart": __DbViewBase["natalChart"];
   /** @deprecated Use `natalDecan` instead. This alias will be removed in the next major version. */
   readonly "natal_decan": __DbViewBase["natalDecan"];
   /** @deprecated Use `oracleCache` instead. This alias will be removed in the next major version. */
   readonly "oracle_cache": __DbViewBase["oracleCache"];
+  /** @deprecated Use `oracleRate` instead. This alias will be removed in the next major version. */
+  readonly "oracle_rate": __DbViewBase["oracleRate"];
+  /** @deprecated Use `oracleReply` instead. This alias will be removed in the next major version. */
+  readonly "oracle_reply": __DbViewBase["oracleReply"];
+  /** @deprecated Use `oracleRequest` instead. This alias will be removed in the next major version. */
+  readonly "oracle_request": __DbViewBase["oracleRequest"];
   /** @deprecated Use `pillarCast` instead. This alias will be removed in the next major version. */
   readonly "pillar_cast": __DbViewBase["pillarCast"];
   /** @deprecated Use `pillarDuel` instead. This alias will be removed in the next major version. */
@@ -1176,32 +1689,70 @@ export type DbView = __DbViewBase & {
   readonly "pillar_pool": __DbViewBase["pillarPool"];
   /** @deprecated Use `pillarTension` instead. This alias will be removed in the next major version. */
   readonly "pillar_tension": __DbViewBase["pillarTension"];
+  /** @deprecated Use `playerActionCooldown` instead. This alias will be removed in the next major version. */
+  readonly "player_action_cooldown": __DbViewBase["playerActionCooldown"];
   /** @deprecated Use `playerFaucetState` instead. This alias will be removed in the next major version. */
   readonly "player_faucet_state": __DbViewBase["playerFaucetState"];
+  /** @deprecated Use `playerLocation` instead. This alias will be removed in the next major version. */
+  readonly "player_location": __DbViewBase["playerLocation"];
   /** @deprecated Use `processedTx` instead. This alias will be removed in the next major version. */
   readonly "processed_tx": __DbViewBase["processedTx"];
   /** @deprecated Use `roundParticipant` instead. This alias will be removed in the next major version. */
   readonly "round_participant": __DbViewBase["roundParticipant"];
   /** @deprecated Use `roundState` instead. This alias will be removed in the next major version. */
   readonly "round_state": __DbViewBase["roundState"];
+  /** @deprecated Use `roundTimer` instead. This alias will be removed in the next major version. */
+  readonly "round_timer": __DbViewBase["roundTimer"];
+  /** @deprecated Use `seekerState` instead. This alias will be removed in the next major version. */
+  readonly "seeker_state": __DbViewBase["seekerState"];
   /** @deprecated Use `serviceStatus` instead. This alias will be removed in the next major version. */
   readonly "service_status": __DbViewBase["serviceStatus"];
+  /** @deprecated Use `skyTickTimer` instead. This alias will be removed in the next major version. */
+  readonly "sky_tick_timer": __DbViewBase["skyTickTimer"];
   /** @deprecated Use `starAgent` instead. This alias will be removed in the next major version. */
   readonly "star_agent": __DbViewBase["starAgent"];
   /** @deprecated Use `starNode` instead. This alias will be removed in the next major version. */
   readonly "star_node": __DbViewBase["starNode"];
+  /** @deprecated Use `starStake` instead. This alias will be removed in the next major version. */
+  readonly "star_stake": __DbViewBase["starStake"];
   /** @deprecated Use `starStakePool` instead. This alias will be removed in the next major version. */
   readonly "star_stake_pool": __DbViewBase["starStakePool"];
+  /** @deprecated Use `traceAttestation` instead. This alias will be removed in the next major version. */
+  readonly "trace_attestation": __DbViewBase["traceAttestation"];
+  /** @deprecated Use `traceIntent` instead. This alias will be removed in the next major version. */
+  readonly "trace_intent": __DbViewBase["traceIntent"];
+  /** @deprecated Use `verifiedEvmWallet` instead. This alias will be removed in the next major version. */
+  readonly "verified_evm_wallet": __DbViewBase["verifiedEvmWallet"];
   /** @deprecated Use `verifiedSolanaWallet` instead. This alias will be removed in the next major version. */
   readonly "verified_solana_wallet": __DbViewBase["verifiedSolanaWallet"];
   /** @deprecated Use `warEpoch` instead. This alias will be removed in the next major version. */
   readonly "war_epoch": __DbViewBase["warEpoch"];
+  /** @deprecated Use `warPruneState` instead. This alias will be removed in the next major version. */
+  readonly "war_prune_state": __DbViewBase["warPruneState"];
+  /** @deprecated Use `warPruneTimer` instead. This alias will be removed in the next major version. */
+  readonly "war_prune_timer": __DbViewBase["warPruneTimer"];
   /** @deprecated Use `warState` instead. This alias will be removed in the next major version. */
   readonly "war_state": __DbViewBase["warState"];
   /** @deprecated Use `wordDuel` instead. This alias will be removed in the next major version. */
   readonly "word_duel": __DbViewBase["wordDuel"];
+  /** @deprecated Use `wordRate` instead. This alias will be removed in the next major version. */
+  readonly "word_rate": __DbViewBase["wordRate"];
+  /** @deprecated Use `myJingPool` instead. This alias will be removed in the next major version. */
+  readonly "my_jing_pool": __DbViewBase["myJingPool"];
   /** @deprecated Use `myMeleeHand` instead. This alias will be removed in the next major version. */
   readonly "my_melee_hand": __DbViewBase["myMeleeHand"];
+  /** @deprecated Use `myNatalChart` instead. This alias will be removed in the next major version. */
+  readonly "my_natal_chart": __DbViewBase["myNatalChart"];
+  /** @deprecated Use `myOracleReply` instead. This alias will be removed in the next major version. */
+  readonly "my_oracle_reply": __DbViewBase["myOracleReply"];
+  /** @deprecated Use `myOracleRequest` instead. This alias will be removed in the next major version. */
+  readonly "my_oracle_request": __DbViewBase["myOracleRequest"];
+  /** @deprecated Use `myStarStake` instead. This alias will be removed in the next major version. */
+  readonly "my_star_stake": __DbViewBase["myStarStake"];
+  /** @deprecated Use `myTraceAttestation` instead. This alias will be removed in the next major version. */
+  readonly "my_trace_attestation": __DbViewBase["myTraceAttestation"];
+  /** @deprecated Use `myTraceIntent` instead. This alias will be removed in the next major version. */
+  readonly "my_trace_intent": __DbViewBase["myTraceIntent"];
 };
 
 type __TablesBase = __QueryBuilder<typeof tablesSchema.schemaType>;
@@ -1212,6 +1763,12 @@ export type Tables = __TablesBase & {
   readonly "agent_melee_turn": __TablesBase["agentMeleeTurn"];
   /** @deprecated Use `agentRest` instead. This alias will be removed in the next major version. */
   readonly "agent_rest": __TablesBase["agentRest"];
+  /** @deprecated Use `arConstellationCapture` instead. This alias will be removed in the next major version. */
+  readonly "ar_constellation_capture": __TablesBase["arConstellationCapture"];
+  /** @deprecated Use `bridgeTransfer` instead. This alias will be removed in the next major version. */
+  readonly "bridge_transfer": __TablesBase["bridgeTransfer"];
+  /** @deprecated Use `claimGrant` instead. This alias will be removed in the next major version. */
+  readonly "claim_grant": __TablesBase["claimGrant"];
   /** @deprecated Use `constellationBlock` instead. This alias will be removed in the next major version. */
   readonly "constellation_block": __TablesBase["constellationBlock"];
   /** @deprecated Use `constellationLine` instead. This alias will be removed in the next major version. */
@@ -1224,6 +1781,10 @@ export type Tables = __TablesBase & {
   readonly "decan_yield_distribution": __TablesBase["decanYieldDistribution"];
   /** @deprecated Use `deckSlot` instead. This alias will be removed in the next major version. */
   readonly "deck_slot": __TablesBase["deckSlot"];
+  /** @deprecated Use `deepSpaceCache` instead. This alias will be removed in the next major version. */
+  readonly "deep_space_cache": __TablesBase["deepSpaceCache"];
+  /** @deprecated Use `deepSpaceClaim` instead. This alias will be removed in the next major version. */
+  readonly "deep_space_claim": __TablesBase["deepSpaceClaim"];
   /** @deprecated Use `duelChallenge` instead. This alias will be removed in the next major version. */
   readonly "duel_challenge": __TablesBase["duelChallenge"];
   /** @deprecated Use `duelQueue` instead. This alias will be removed in the next major version. */
@@ -1242,8 +1803,14 @@ export type Tables = __TablesBase & {
   readonly "jing_cast": __TablesBase["jingCast"];
   /** @deprecated Use `jingDuel` instead. This alias will be removed in the next major version. */
   readonly "jing_duel": __TablesBase["jingDuel"];
+  /** @deprecated Use `jingPool` instead. This alias will be removed in the next major version. */
+  readonly "jing_pool": __TablesBase["jingPool"];
+  /** @deprecated Use `jingRate` instead. This alias will be removed in the next major version. */
+  readonly "jing_rate": __TablesBase["jingRate"];
   /** @deprecated Use `meleeCareer` instead. This alias will be removed in the next major version. */
   readonly "melee_career": __TablesBase["meleeCareer"];
+  /** @deprecated Use `meleeHand` instead. This alias will be removed in the next major version. */
+  readonly "melee_hand": __TablesBase["meleeHand"];
   /** @deprecated Use `meleePlay` instead. This alias will be removed in the next major version. */
   readonly "melee_play": __TablesBase["meleePlay"];
   /** @deprecated Use `meleeQueue` instead. This alias will be removed in the next major version. */
@@ -1256,10 +1823,18 @@ export type Tables = __TablesBase & {
   readonly "melee_table": __TablesBase["meleeTable"];
   /** @deprecated Use `meleeTrick` instead. This alias will be removed in the next major version. */
   readonly "melee_trick": __TablesBase["meleeTrick"];
+  /** @deprecated Use `natalChart` instead. This alias will be removed in the next major version. */
+  readonly "natal_chart": __TablesBase["natalChart"];
   /** @deprecated Use `natalDecan` instead. This alias will be removed in the next major version. */
   readonly "natal_decan": __TablesBase["natalDecan"];
   /** @deprecated Use `oracleCache` instead. This alias will be removed in the next major version. */
   readonly "oracle_cache": __TablesBase["oracleCache"];
+  /** @deprecated Use `oracleRate` instead. This alias will be removed in the next major version. */
+  readonly "oracle_rate": __TablesBase["oracleRate"];
+  /** @deprecated Use `oracleReply` instead. This alias will be removed in the next major version. */
+  readonly "oracle_reply": __TablesBase["oracleReply"];
+  /** @deprecated Use `oracleRequest` instead. This alias will be removed in the next major version. */
+  readonly "oracle_request": __TablesBase["oracleRequest"];
   /** @deprecated Use `pillarCast` instead. This alias will be removed in the next major version. */
   readonly "pillar_cast": __TablesBase["pillarCast"];
   /** @deprecated Use `pillarDuel` instead. This alias will be removed in the next major version. */
@@ -1268,32 +1843,70 @@ export type Tables = __TablesBase & {
   readonly "pillar_pool": __TablesBase["pillarPool"];
   /** @deprecated Use `pillarTension` instead. This alias will be removed in the next major version. */
   readonly "pillar_tension": __TablesBase["pillarTension"];
+  /** @deprecated Use `playerActionCooldown` instead. This alias will be removed in the next major version. */
+  readonly "player_action_cooldown": __TablesBase["playerActionCooldown"];
   /** @deprecated Use `playerFaucetState` instead. This alias will be removed in the next major version. */
   readonly "player_faucet_state": __TablesBase["playerFaucetState"];
+  /** @deprecated Use `playerLocation` instead. This alias will be removed in the next major version. */
+  readonly "player_location": __TablesBase["playerLocation"];
   /** @deprecated Use `processedTx` instead. This alias will be removed in the next major version. */
   readonly "processed_tx": __TablesBase["processedTx"];
   /** @deprecated Use `roundParticipant` instead. This alias will be removed in the next major version. */
   readonly "round_participant": __TablesBase["roundParticipant"];
   /** @deprecated Use `roundState` instead. This alias will be removed in the next major version. */
   readonly "round_state": __TablesBase["roundState"];
+  /** @deprecated Use `roundTimer` instead. This alias will be removed in the next major version. */
+  readonly "round_timer": __TablesBase["roundTimer"];
+  /** @deprecated Use `seekerState` instead. This alias will be removed in the next major version. */
+  readonly "seeker_state": __TablesBase["seekerState"];
   /** @deprecated Use `serviceStatus` instead. This alias will be removed in the next major version. */
   readonly "service_status": __TablesBase["serviceStatus"];
+  /** @deprecated Use `skyTickTimer` instead. This alias will be removed in the next major version. */
+  readonly "sky_tick_timer": __TablesBase["skyTickTimer"];
   /** @deprecated Use `starAgent` instead. This alias will be removed in the next major version. */
   readonly "star_agent": __TablesBase["starAgent"];
   /** @deprecated Use `starNode` instead. This alias will be removed in the next major version. */
   readonly "star_node": __TablesBase["starNode"];
+  /** @deprecated Use `starStake` instead. This alias will be removed in the next major version. */
+  readonly "star_stake": __TablesBase["starStake"];
   /** @deprecated Use `starStakePool` instead. This alias will be removed in the next major version. */
   readonly "star_stake_pool": __TablesBase["starStakePool"];
+  /** @deprecated Use `traceAttestation` instead. This alias will be removed in the next major version. */
+  readonly "trace_attestation": __TablesBase["traceAttestation"];
+  /** @deprecated Use `traceIntent` instead. This alias will be removed in the next major version. */
+  readonly "trace_intent": __TablesBase["traceIntent"];
+  /** @deprecated Use `verifiedEvmWallet` instead. This alias will be removed in the next major version. */
+  readonly "verified_evm_wallet": __TablesBase["verifiedEvmWallet"];
   /** @deprecated Use `verifiedSolanaWallet` instead. This alias will be removed in the next major version. */
   readonly "verified_solana_wallet": __TablesBase["verifiedSolanaWallet"];
   /** @deprecated Use `warEpoch` instead. This alias will be removed in the next major version. */
   readonly "war_epoch": __TablesBase["warEpoch"];
+  /** @deprecated Use `warPruneState` instead. This alias will be removed in the next major version. */
+  readonly "war_prune_state": __TablesBase["warPruneState"];
+  /** @deprecated Use `warPruneTimer` instead. This alias will be removed in the next major version. */
+  readonly "war_prune_timer": __TablesBase["warPruneTimer"];
   /** @deprecated Use `warState` instead. This alias will be removed in the next major version. */
   readonly "war_state": __TablesBase["warState"];
   /** @deprecated Use `wordDuel` instead. This alias will be removed in the next major version. */
   readonly "word_duel": __TablesBase["wordDuel"];
+  /** @deprecated Use `wordRate` instead. This alias will be removed in the next major version. */
+  readonly "word_rate": __TablesBase["wordRate"];
+  /** @deprecated Use `myJingPool` instead. This alias will be removed in the next major version. */
+  readonly "my_jing_pool": __TablesBase["myJingPool"];
   /** @deprecated Use `myMeleeHand` instead. This alias will be removed in the next major version. */
   readonly "my_melee_hand": __TablesBase["myMeleeHand"];
+  /** @deprecated Use `myNatalChart` instead. This alias will be removed in the next major version. */
+  readonly "my_natal_chart": __TablesBase["myNatalChart"];
+  /** @deprecated Use `myOracleReply` instead. This alias will be removed in the next major version. */
+  readonly "my_oracle_reply": __TablesBase["myOracleReply"];
+  /** @deprecated Use `myOracleRequest` instead. This alias will be removed in the next major version. */
+  readonly "my_oracle_request": __TablesBase["myOracleRequest"];
+  /** @deprecated Use `myStarStake` instead. This alias will be removed in the next major version. */
+  readonly "my_star_stake": __TablesBase["myStarStake"];
+  /** @deprecated Use `myTraceAttestation` instead. This alias will be removed in the next major version. */
+  readonly "my_trace_attestation": __TablesBase["myTraceAttestation"];
+  /** @deprecated Use `myTraceIntent` instead. This alias will be removed in the next major version. */
+  readonly "my_trace_intent": __TablesBase["myTraceIntent"];
 };
 
 /** The tables available in this remote SpacetimeDB module. Each table reference doubles as a query builder. */

@@ -8,6 +8,7 @@ import { wallet } from './wallet.js'
 import { ESMS_DECIMALS } from './esms.js'
 import { simAllPools, simQuote, simSwap, simSeed, simWithdraw, simPositions } from './dex-sim.js'
 import spacetime from '../net/spacetime.js'
+import { waitForTraceAttestation } from '../net/trace-attestation.js'
 
 export const NUM_POOLS = 12
 
@@ -80,47 +81,8 @@ export async function requestTrace(constId) {
   await spacetime.callReducer('trace_constellation', [constId, sol])
 }
 
-const identityHex = (v) => String(v?.__identity__ ?? v ?? '').toLowerCase().replace(/^0x/, '')
-const sameIdentity = (a, b) => !!a && !!b && identityHex(a) === identityHex(b)
-
-/** My newest trace_intent for this constellation. */
-async function myLatestIntentId(constId) {
-  const me = spacetime.identity
-  if (!me) return null
-  const rows = await spacetime
-    .query(`SELECT * FROM trace_intent WHERE constellation_id = ${constId}`)
-    .catch(() => [])
-  const mine = rows
-    .filter((r) => sameIdentity(r.trader, me))
-    .sort((a, b) => Number(b.created_at || 0) - Number(a.created_at || 0))[0]
-  return mine != null ? Number(mine.intent_id) : null
-}
-
-export async function awaitAttestationFor(constId, trader, { timeoutMs = 30000, intervalMs = 2500 } = {}) {
-  const deadline = Date.now() + timeoutMs
-  let intentId = null
-  while (Date.now() < deadline) {
-    if (intentId == null) intentId = await myLatestIntentId(constId)
-    if (intentId != null) {
-      const rows = await spacetime
-        .query(`SELECT * FROM trace_attestation WHERE intent_id = ${intentId}`)
-        .catch(() => [])
-      const row = rows[0]
-      if (row && row.signature) {
-        return {
-          trader,
-          constellationId: constId,
-          regionCommit: row.region_commit,
-          visibleStars: Number(row.visible_stars),
-          nonce: BigInt(row.nonce),
-          deadline: BigInt(row.deadline),
-          signature: row.signature,
-        }
-      }
-    }
-    await new Promise((r) => setTimeout(r, intervalMs))
-  }
-  throw new Error('Timed out waiting for the sky-feeder attestation.')
+export async function awaitAttestationFor(constId, trader, opts = {}) {
+  return waitForTraceAttestation(spacetime, constId, trader, opts)
 }
 
 export async function awaitAttestation(constId, opts = {}) {

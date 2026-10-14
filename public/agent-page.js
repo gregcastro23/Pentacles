@@ -28,7 +28,7 @@
   let cur = null; // { kind:'planet'|'star', body, hip, name, glyph, color, star, frame, cityIdx, offsetH, tab }
   let lastFocus = null;
   let escHandler = null;
-  let jingBurnPending = false;
+  let jingCastPending = false; // a live cast is waiting on the module
 
   function elById(id) { return document.getElementById(id); }
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
@@ -81,6 +81,7 @@
     const ov = elById("agent-page");
     if (ov) { ov.style.display = "none"; ov.innerHTML = ""; }
     if (escHandler) { document.removeEventListener("keydown", escHandler); escHandler = null; }
+    stopLivePoolWatch();
     cur = null;
     if (window.HologramCamera) window.HologramCamera.autoRotate = !document.documentElement.classList.contains("pt-reduced-motion");
   }
@@ -124,6 +125,7 @@
     ov.style.display = "flex";
     ov.innerHTML = shellHTML();
     wireShell();
+    watchLivePool(); // before painting: an already-live view replays its pool at once
     paintAll();
     // a11y: Esc to close, focus the close button.
     escHandler = (e) => { if (e.key === "Escape") closeAgentPage(); };
@@ -420,7 +422,11 @@
     return { Fire: 25, Water: 25, Earth: 25, Air: 25 };
   }
   function ensurePool() {
-    if (state.jingPool && state.jingPool.live) return state.jingPool; // authoritative server pool — don't regen
+    if (state.jingPool && state.jingPool.live) {
+      const net = window.Pentacles && window.Pentacles.net;
+      if (net && net.isLive) return state.jingPool; // authoritative server pool — don't regen
+      delete state.jingPool.live; // saved from a live session: offline it only seeds the sim
+    }
     if (!state.jingPool) state.jingPool = { sacred7: [100, 100, 100, 100, 100, 100, 100], esms: simEsms() };
     // gentle regen each visit
     state.jingPool.sacred7 = state.jingPool.sacred7.map((v) => Math.min(100, v + 6));
@@ -428,18 +434,27 @@
     return state.jingPool;
   }
 
-  // Live: adopt the AUTHORITATIVE jing_pool (sacred7 + esms) the server drains.
-  async function refreshLivePool() {
+  // Live: adopt the AUTHORITATIVE jing_pool (sacred7 + esms) the server drains,
+  // pushed through the caller's my_jing_pool view while the agent page is open.
+  let stopPoolWatch = null;
+  function watchLivePool() {
     const net = window.Pentacles && window.Pentacles.net;
-    if (!net || !net.isLive || typeof net.jingPool !== "function") return;
-    let row; try { row = await net.jingPool(); } catch (e) { return; }
+    if (stopPoolWatch || !net || typeof net.watchJingPool !== "function") return;
+    stopPoolWatch = () => {}; // set first: the view may replay its pool synchronously
+    stopPoolWatch = net.watchJingPool(adoptLivePool);
+  }
+  function stopLivePoolWatch() {
+    if (stopPoolWatch) stopPoolWatch();
+    stopPoolWatch = null;
+  }
+  function adoptLivePool(row) {
     if (!row || !row.sacred7) return;
     const s7 = row.sacred7.map(Number), es = (row.esms || []).map(Number);
     const prev = state.jingPool || {};
-    const changed = !prev.live || JSON.stringify(prev.sacred7) !== JSON.stringify(s7) || JSON.stringify(prev.esms) !== JSON.stringify(es);
+    if (prev.live && JSON.stringify(prev.sacred7) === JSON.stringify(s7) && JSON.stringify(prev.esms) === JSON.stringify(es)) return;
     state.jingPool = { sacred7: s7, esms: es, live: true };
     if (state.player) state.save();
-    if (changed && document.querySelector('.ag-tab[data-tab="jings"].active')) renderJings(elById("ag-tab-body"));
+    if (document.querySelector('.ag-tab[data-tab="jings"].active')) renderJings(elById("ag-tab-body"));
   }
   function simEsms() {
     try { if (window.Pentacles && window.Pentacles.esmsHud && window.Pentacles.esmsHud.balances) {
@@ -462,13 +477,12 @@
     const moveCard = (id) => {
       const m = AW().JING_MOVES[id];
       const can = playerAvail.includes(id);
-      const stat = AW().SACRED7.indexOf(m.stat);
-      const afford = pool.sacred7[stat] >= m.statCost && pool.esms[m.esms] >= m.esmsCost;
+      const afford = AW().canAffordJing(pool, id);
       const agentHas = avail.includes(id);
       return `<button class="ag-move ${can && afford ? "" : "disabled"}" data-move="${id}" ${can && afford ? "" : "disabled"} title="${esc(m.description)}">
           <div class="ag-move-top"><span class="ag-move-glyph" style="color:${EL_COLOR[m.element.split("·")[0]] || "#d8b46a"}">${m.glyph}</span><b>${esc(m.name)}</b></div>
           <div class="ag-move-el">${esc(m.element)}${agentHas ? ' <span class="ag-tag">agent ready</span>' : ""}</div>
-          <div class="ag-move-cost ag-dim">−${m.statCost} ${esc(m.stat)} · −${m.esmsCost} ${esc(ESMS_NAMES[m.esms])}</div>
+          <div class="ag-move-cost ag-dim">−${m.statCost} ${esc(m.stat)} · ${AW().jingEsms(m).map((e) => `−${m.esmsCost} ${esc(ESMS_NAMES[e])}`).join(" · ")}</div>
         </button>`;
     };
 
@@ -493,45 +507,38 @@
       </div>`;
     host.querySelectorAll(".ag-move[data-move]").forEach((b) => { if (!b.disabled) b.onclick = () => castJing(b.dataset.move); });
     paintJingThread();
-    refreshLivePool();  // authoritative consciousness pools when live
+    watchLivePool();    // authoritative consciousness pools when live (normally already watching)
     refreshLiveJings(); // live threads take precedence over the local sim when present
   }
 
   async function castJing(playerMove) {
     const pool = state.jingPool;
     const m = AW().JING_MOVES[playerMove];
-    const stat = AW().SACRED7.indexOf(m.stat);
-    if (pool.sacred7[stat] < m.statCost || pool.esms[m.esms] < m.esmsCost) { toastMsg(`Your ${m.stat} is too depleted to cast ${m.name}.`, "error"); return; }
-    const pentacles = window.Pentacles || {};
-    const net = pentacles.net;
-    const walletConnected = !!(pentacles.wallet && (pentacles.wallet.address || pentacles.wallet.solanaAddress));
-    if ((net && net.isLive) || walletConnected) {
-      if (jingBurnPending) {
-        toastMsg("An ESMS burn is already awaiting wallet confirmation.", "info");
-        return;
-      }
-      if (typeof pentacles.burnEsmsForJing !== "function") {
-        toastMsg("The omnichain ESMS burner is unavailable.", "error");
-        return;
-      }
-      jingBurnPending = true;
+    if (!AW().canAffordJing(pool, playerMove)) { toastMsg(`Your pools are too depleted to cast ${m.name}.`, "error"); return; }
+    // A live cast at a planet goes to the module first: cast_jing drains the
+    // game-side jing_pool, and its refusal (the 6 s cooldown, a depleted pool)
+    // stops the cast here. No on-chain ESMS is burned: that needs ASOL's redeem
+    // relayer, which does not exist yet (docs/PENDING.md, "Solana relayer").
+    const net = window.Pentacles && window.Pentacles.net;
+    if (net && net.isLive && cur.kind === "planet" && typeof net.castJing === "function") {
+      if (jingCastPending) return;
+      jingCastPending = true;
       try {
-        toastMsg(`Authorizing ${m.esmsCost} ESMS for ${m.name}…`, "info");
-        await pentacles.burnEsmsForJing({
-          elementId: m.esms,
-          amount: BigInt(m.esmsCost) * (10n ** 18n),
-        });
+        await net.castJing(playerMove, { agentBody: cur.body });
       } catch (error) {
-        toastMsg(error && error.message ? error.message : "The ESMS burn failed.", "error");
+        const why = String((error && error.message) || "").replace(/^reducer \w+ \d+:\s*/, "");
+        toastMsg(why ? `${m.name} was refused: ${why}` : `${m.name} was refused.`, "error");
         return;
       } finally {
-        jingBurnPending = false;
+        jingCastPending = false;
       }
+      setTimeout(refreshLiveJings, 2500); setTimeout(refreshLiveJings, 8000); // the jing feeder answers
     }
-    // drain
-    pool.sacred7[stat] -= m.statCost;
-    pool.esms[m.esms] -= m.esmsCost;
-    if (m.esms2 != null) pool.esms[m.esms2] = Math.max(0, pool.esms[m.esms2] - m.esmsCost);
+    // Drain the pool on show: the sim's offline, or the live pool ahead of its
+    // real drain arriving through the watch (if that came first, `pool` is no
+    // longer shown). A star duel is never recorded on the module, so it costs
+    // the live pool nothing.
+    if (!(pool.live && cur.kind === "star")) AW().drainJing(pool, playerMove);
     // agent answer: prefer a move it has that counters yours
     const avail = AW().availableJings(agentComposition());
     let agentMove = avail.find((id) => m.counteredBy.includes(id) || AW().JING_MOVES[id].counters.includes(playerMove));
@@ -546,12 +553,6 @@
     toastMsg(verdict === "win" ? `Your ${m.name} broke ${cur.name}'s ${AW().JING_MOVES[agentMove].name}!` : verdict === "loss" ? `${cur.name}'s ${AW().JING_MOVES[agentMove].name} countered your ${m.name}.` : `${m.name} vs ${AW().JING_MOVES[agentMove].name} — a standoff.`, verdict === "win" ? "success" : verdict === "loss" ? "error" : "info");
     // also voice it in chat
     appendAgent(`${cur.name} answers your ${m.name} with ${AW().JING_MOVES[agentMove].name}.`, agentMove, true);
-    // Best-effort live record (the jing feeder resolves it); offline result already shown.
-    if (net && net.isLive && cur.kind === "planet" && typeof net.castJing === "function") {
-      net.castJing(playerMove, { agentBody: cur.body })
-        .then(() => { setTimeout(() => { refreshLivePool(); refreshLiveJings(); }, 2500); setTimeout(refreshLiveJings, 8000); })
-        .catch(() => {});
-    }
     renderJings(elById("ag-tab-body")); // refresh pools + thread
   }
 

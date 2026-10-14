@@ -18,7 +18,7 @@
 // not already in flight — the same in-flight set guards both paths, and a row a
 // service is deliberately holding (e.g. the oracle's rate-limit queue keeps its
 // processRequest parked) stays in-flight and is never double-enqueued.
-import { DbConnection } from "../src/module_bindings";
+import { DbConnection, tables } from "../src/module_bindings";
 import { normalizeWsRow } from "../src/net/ws-normalize.js";
 
 export interface FeedOptions {
@@ -161,8 +161,30 @@ export async function sqlOneShot(
 
 // ── Reactive feed + re-sweep ────────────────────────────────────────────────
 
+/**
+ * The generated accessor for a SQL table name (`oracle_request` → `oracleRequest`),
+ * or null when the bindings have no such table. Private tables are only present
+ * because `bun run gen` passes `--include-private`; without them a feed cannot
+ * decode its own rows.
+ */
+export function feedTableAccessor(table: string, known: Record<string, unknown> = tables): string | null {
+  const camel = table.replace(/_([a-z0-9])/g, (_, c: string) => c.toUpperCase());
+  if (Object.hasOwn(known, camel)) return camel;
+  if (Object.hasOwn(known, table)) return table;
+  return null;
+}
+
 export function startFeed(opts: FeedOptions): void {
   const { label } = opts;
+  // Fail the service at startup rather than connect and handle nothing: the
+  // supervisor then reports it down instead of "up".
+  const accessor = feedTableAccessor(opts.table);
+  if (!accessor) {
+    throw new Error(
+      `[${label}] table "${opts.table}" is not in src/module_bindings. ` +
+      `Regenerate with \`bun run gen\` (it must include private tables).`,
+    );
+  }
   const inFlight = new Set<string>();
 
   // Re-sweep TOCTOU guard: a row that completes (answered) DURING the /sql round
@@ -220,23 +242,23 @@ export function startFeed(opts: FeedOptions): void {
         .withDatabaseName(opts.db)
         .onConnect((conn: DbConnection) => {
           console.log(`[${label}] WebSocket connected; subscribing.`);
-          const db = conn.db as any;
+          const tableObj = (conn.db as any)[accessor];
           // Fire on every new row entering the subscribed (filtered) set.
-          const tableObj = db[opts.table] ?? db[opts.table.replace(/_([a-z])/g, (_: string, c: string) => c.toUpperCase())];
-          if (tableObj?.onInsert) {
-            tableObj.onInsert((_ctx: unknown, row: unknown) => { handle(row); });
-          }
+          tableObj.onInsert((_ctx: unknown, row: unknown) => { handle(row); });
           conn
             .subscriptionBuilder()
             .onApplied(() => {
-              if (tableObj?.iter) {
-                const rows = [...tableObj.iter()] as unknown[];
-                if (rows.length) console.log(`[${label}] backlog: ${rows.length} pending row(s).`);
-                for (const r of rows) handle(r);
-              }
+              const rows = [...tableObj.iter()] as unknown[];
+              if (rows.length) console.log(`[${label}] backlog: ${rows.length} pending row(s).`);
+              for (const r of rows) handle(r);
             })
             .onError((ctx: any) => {
-              console.error(`[${label}] subscription error:`, ctx?.event ?? "unknown");
+              // A rejected subscription (e.g. a token that is not the owner's,
+              // reading a private table) leaves the socket open and the feed
+              // idle. Exit, so the supervisor restarts it with backoff and
+              // reports it down meanwhile.
+              console.error(`[${label}] subscription error:`, ctx?.event ?? "unknown", "(exiting; the supervisor restarts this feed)");
+              process.exit(1);
             })
             .subscribe([opts.query]);
         })

@@ -4585,6 +4585,60 @@ pub fn my_melee_hand(ctx: &ViewContext) -> Vec<MeleeHand> {
     out
 }
 
+/// The caller's own Oracle questions — and nobody else's.
+///
+/// `oracle_request` is private (only the owner's companion service may read the
+/// queue), so before this the asking client could not even find its own request.
+/// Same per-sender view pattern as `my_melee_hand`, read through the `asker` index.
+#[spacetimedb::view(accessor = my_oracle_request, public, primary_key = request_id)]
+pub fn my_oracle_request(ctx: &ViewContext) -> Vec<OracleRequest> {
+    ctx.db.oracle_request().asker().filter(ctx.sender()).collect()
+}
+
+/// The caller's own Oracle answers — and nobody else's. See `my_oracle_request`.
+#[spacetimedb::view(accessor = my_oracle_reply, public, primary_key = request_id)]
+pub fn my_oracle_reply(ctx: &ViewContext) -> Vec<OracleReply> {
+    ctx.db.oracle_reply().asker().filter(ctx.sender()).collect()
+}
+
+/// The caller's own Jing pools — and nobody else's.
+///
+/// `jing_pool` is private, so before this the agent page's Jing tab could not
+/// read the pool `cast_jing` drains and showed a simulated one instead. Same
+/// per-sender view pattern as `my_melee_hand`, read through the identity key.
+/// A caller with no row yet sees the starter pool `ensure_jing_pool` creates on
+/// their first cast, stamped at the Unix epoch.
+#[spacetimedb::view(accessor = my_jing_pool, public, primary_key = identity)]
+pub fn my_jing_pool(ctx: &ViewContext) -> Option<JingPool> {
+    let pool = ctx.db.jing_pool().identity().find(ctx.sender());
+    Some(pool.unwrap_or_else(|| starter_jing_pool(ctx.sender(), Timestamp::UNIX_EPOCH)))
+}
+
+/// The caller's natal chart. The private table's identity primary key already
+/// provides the index needed for a per-sender lookup.
+#[spacetimedb::view(accessor = my_natal_chart, public, primary_key = identity)]
+pub fn my_natal_chart(ctx: &ViewContext) -> Option<NatalChart> {
+    ctx.db.natal_chart().identity().find(ctx.sender())
+}
+
+/// The caller's star staking positions, read through the existing staker index.
+#[spacetimedb::view(accessor = my_star_stake, public, primary_key = stake_id)]
+pub fn my_star_stake(ctx: &ViewContext) -> Vec<StarStake> {
+    ctx.db.star_stake().staker().filter(ctx.sender()).collect()
+}
+
+/// The caller's trace requests, read through the existing trader index.
+#[spacetimedb::view(accessor = my_trace_intent, public, primary_key = intent_id)]
+pub fn my_trace_intent(ctx: &ViewContext) -> Vec<TraceIntent> {
+    ctx.db.trace_intent().trader().filter(ctx.sender()).collect()
+}
+
+/// The caller's signed trace proofs, read through the existing trader index.
+#[spacetimedb::view(accessor = my_trace_attestation, public, primary_key = intent_id)]
+pub fn my_trace_attestation(ctx: &ViewContext) -> Vec<TraceAttestation> {
+    ctx.db.trace_attestation().trader().filter(ctx.sender()).collect()
+}
+
 // ── War results: decans, seasons and retention ──────────────────────────────
 
 /// Record a decan's treasury distribution row. Shared by the automatic decan
@@ -5886,7 +5940,7 @@ fn seed_star_agents(ctx: &ReducerContext) {
 // ── The Jing Arena (cast → counter → resolve) ───────────────────────────────
 
 const JING_PRIMARY: u16 = 15; // Sacred-7 drain per cast (constants.ts)
-const JING_SECONDARY: u16 = 10; // ESMS drain per cast
+const JING_SECONDARY: u16 = 10; // ESMS drain per cast, and Erode's lighter Sacred-7 drain
 const JING_COOLDOWN_SECS: i64 = 6;
 /// A new pool's balance on every axis. The ESMS figure is in `jing_pool.esms`
 /// units: 80 is 8.0 ESMS, eight casts of `JING_SECONDARY`.
@@ -5902,27 +5956,45 @@ fn ensure_jing_pool(ctx: &ReducerContext, who: Identity) -> JingPool {
     if let Some(p) = ctx.db.jing_pool().identity().find(&who) {
         return p;
     }
-    let p = JingPool {
-        identity: who,
-        sacred7: vec![JING_STARTER_SACRED7; 7],
-        esms: vec![JING_STARTER_ESMS; 4],
-        updated_at: ctx.timestamp,
-    };
+    let p = starter_jing_pool(who, ctx.timestamp);
     ctx.db.jing_pool().insert(p.clone());
     p
 }
 
+/// `who`'s pool before anything has drained or credited it.
+fn starter_jing_pool(who: Identity, at: Timestamp) -> JingPool {
+    JingPool {
+        identity: who,
+        sacred7: vec![JING_STARTER_SACRED7; 7],
+        esms: vec![JING_STARTER_ESMS; 4],
+        updated_at: at,
+    }
+}
+
+/// A move's Sacred-7 cost. Erode, the slow wear, costs less but also drains a
+/// second ESMS (constants.ts). tests/fixtures/jing-costs.json pins every
+/// move's cost against the client's table in public/astro-weather.js.
+fn jing_sacred7_cost(mv: JingMove) -> u16 {
+    match mv {
+        JingMove::Erode => JING_SECONDARY,
+        _ => JING_PRIMARY,
+    }
+}
+
 fn drain_pool(pool: &mut JingPool, mv: JingMove) -> Result<(), String> {
     let s = mv.sacred7();
-    let e = mv.esms() as usize;
-    if s >= pool.sacred7.len() || e >= pool.esms.len() {
+    let cost = jing_sacred7_cost(mv);
+    let esms: Vec<usize> = std::iter::once(mv.esms()).chain(mv.esms2()).map(usize::from).collect();
+    if s >= pool.sacred7.len() || esms.iter().any(|&e| e >= pool.esms.len()) {
         return Err("pool not ready".into());
     }
-    if pool.sacred7[s] < JING_PRIMARY || pool.esms[e] < JING_SECONDARY {
+    if pool.sacred7[s] < cost || esms.iter().any(|&e| pool.esms[e] < JING_SECONDARY) {
         return Err("that pool is too depleted to cast this Jing".into());
     }
-    pool.sacred7[s] -= JING_PRIMARY;
-    pool.esms[e] -= JING_SECONDARY;
+    pool.sacred7[s] -= cost;
+    for e in esms {
+        pool.esms[e] -= JING_SECONDARY;
+    }
     Ok(())
 }
 
@@ -8966,6 +9038,7 @@ mod tests {
         should_replace, AgentTurnDirective, COLLECTION_CAP, MAX_CATCHUP_ROUNDS, ROUND_BASE_SECS,
         ZONE_SWING, ZONE_SWING_WINNER_BONUS, melee_winner_index, epoch_champion,
         melee_net_push, melee_is_void, decan_decision, DecanMove, DECAN_REANCHOR_CONFIRM_SECS,
+        drain_pool, starter_jing_pool,
     };
     use crate::tables::MeleeSeat;
     use crate::types::Planet;
@@ -9834,5 +9907,61 @@ mod tests {
         assert!((pillar[0] - 103.456).abs() < 1e-9);
         assert_eq!(pillar[1..], [110.0, 110.0, 110.0]);
         assert_eq!(jing, vec![103, 110, 110, 110]);
+    }
+
+    /// tests/fixtures/jing-costs.json is the one cost table both sides check;
+    /// tests/jing-costs.test.ts holds public/astro-weather.js to it.
+    #[test]
+    fn test_jing_drain_matches_shared_cost_fixture() {
+        use crate::types::JingMove;
+        use spacetimedb::Timestamp;
+        let fixture: serde_json::Value =
+            serde_json::from_str(include_str!("../../tests/fixtures/jing-costs.json")).unwrap();
+        let moves = fixture["moves"].as_array().expect("moves");
+        assert_eq!(moves.len(), 5);
+        let num = |v: &serde_json::Value| v.as_u64().expect("number") as usize;
+        for m in moves {
+            let mv = match m["variant"].as_str().unwrap() {
+                "Meltdown" => JingMove::Meltdown,
+                "Freeze" => JingMove::Freeze,
+                "TectonicRoot" => JingMove::TectonicRoot,
+                "Vacuum" => JingMove::Vacuum,
+                "Erode" => JingMove::Erode,
+                other => panic!("unknown move {other}"),
+            };
+            let s = num(&m["sacred7"]);
+            let s_cost = num(&m["sacred7_cost"]) as u16;
+            let esms: Vec<usize> = m["esms"].as_array().unwrap().iter().map(num).collect();
+            let e_cost = num(&m["esms_cost"]) as u16;
+
+            // From the starter pool, exactly the listed axes drop by the listed costs.
+            let before = starter_jing_pool(Identity::ZERO, Timestamp::UNIX_EPOCH);
+            let mut pool = before.clone();
+            drain_pool(&mut pool, mv).unwrap();
+            for i in 0..7 {
+                let want = if i == s { s_cost } else { 0 };
+                assert_eq!(before.sacred7[i] - pool.sacred7[i], want, "{mv:?} sacred7[{i}]");
+            }
+            for i in 0..4 {
+                let want = if esms.contains(&i) { e_cost } else { 0 };
+                assert_eq!(before.esms[i] - pool.esms[i], want, "{mv:?} esms[{i}]");
+            }
+
+            // Exactly the cost is enough; one short on any drained axis is refused.
+            let mut exact = before.clone();
+            exact.sacred7[s] = s_cost;
+            for &e in &esms {
+                exact.esms[e] = e_cost;
+            }
+            assert!(drain_pool(&mut exact.clone(), mv).is_ok(), "{mv:?} at exactly its cost");
+            let mut short = exact.clone();
+            short.sacred7[s] -= 1;
+            assert!(drain_pool(&mut short, mv).is_err(), "{mv:?} one Sacred-7 short");
+            for &e in &esms {
+                let mut short = exact.clone();
+                short.esms[e] -= 1;
+                assert!(drain_pool(&mut short, mv).is_err(), "{mv:?} one esms[{e}] short");
+            }
+        }
     }
 }

@@ -26,6 +26,7 @@ import {
 } from './solana.js'
 import { CU_LIMITS } from './priority-fee.js'
 import { parseUnits } from './esms-units.js'
+import { readClaimableStarStake } from '../net/star-stake.js'
 
 /** USDC is 6-decimal on every cluster. */
 const USDC_DECIMALS = 6
@@ -238,8 +239,8 @@ export async function claimYield(stakeId) {
     toast('Connect wallet first to claim yield', { type: 'warn' })
     return
   }
-  const client = window.Pentacles?.spacetime
-  if (!client) {
+  const client = window.Pentacles?.net
+  if (!client?.isLive || !client.conn?.reducers?.requestYieldClaim) {
     toast('Not connected to the ledger', { type: 'warn' })
     return
   }
@@ -250,10 +251,8 @@ export async function claimYield(stakeId) {
   let target = stakeId
   if (!target) {
     try {
-      const rows = await client.query(
-        'SELECT stake_id, accrued_essence FROM star_stake WHERE pending_essence = 0',
-      )
-      target = rows?.find((r) => BigInt(r.accrued_essence ?? 0) > 0n)?.stake_id
+      const position = await readClaimableStarStake(client)
+      target = position?.stake_id
     } catch {
       target = undefined
     }
@@ -265,7 +264,9 @@ export async function claimYield(stakeId) {
 
   toast('Locking accrued yield for settlement…')
   try {
-    await client.call('request_yield_claim', [Number(target)])
+    // The generated WebSocket reducer accepts u64 as BigInt, preserving IDs
+    // beyond Number's safe integer range and awaiting the server's result.
+    await client.conn.reducers.requestYieldClaim({ stakeId: BigInt(target) })
     toast('Yield locked. The attestor will mint and settle it shortly.', { type: 'success' })
     refreshPools(true)
   } catch (err) {

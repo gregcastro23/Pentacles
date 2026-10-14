@@ -25,6 +25,8 @@
 import { DbConnection } from '../module_bindings'
 import { normalizeWsRow } from './ws-normalize.js'
 import { normalizeSqlResult } from './sats-json.js'
+import { askOracle } from './oracle-ask.js'
+import { readJingPool, watchJingPool } from './jing-pool.js'
 
 const RAW_URI = (import.meta.env.VITE_SPACETIMEDB_URI || 'https://maincloud.spacetimedb.com').trim()
 const DB_NAME = (import.meta.env.VITE_SPACETIMEDB_DB || 'pentacles').trim()
@@ -74,6 +76,7 @@ class SpacetimeClient {
     this.conn = null // the live DbConnection (SDK), or null when offline
     this._subscribed = new Set() // table names with at least one listener
     this._boundTables = new Set() // tables whose onInsert/onUpdate/onDelete are wired
+    this._appliedTables = new Set() // tables a subscription has actually applied on this connection
     this._pendingEmits = new Set() // tables with deltas awaiting one coalesced emit
     this._pendingDrops = new Set() // tables whose last listener left, awaiting unsubscribe
     this._dropTimer = null
@@ -176,6 +179,7 @@ class SpacetimeClient {
             this.conn = null
             this._subHandle = null
             this._boundTables.clear()
+    this._appliedTables.clear()
             this._retiring = [] // handles of the old connection
             if (this._wantLive) {
               this._setStatus(STATUS.ERROR, err || new Error('disconnected'))
@@ -203,6 +207,7 @@ class SpacetimeClient {
     this.conn = null
     this._subHandle = null
     this._boundTables.clear()
+    this._appliedTables.clear()
     this._retiring = [] // handles of the old connection
     this._setStatus(STATUS.OFFLINE)
   }
@@ -276,6 +281,7 @@ class SpacetimeClient {
     this.conn = null
     this._subHandle = null
     this._boundTables.clear()
+    this._appliedTables.clear()
     this._retiring = [] // handles of the old connection
     if (this._reconnectTimer) { clearTimeout(this._reconnectTimer); this._reconnectTimer = null }
     this._reconnectAttempts = 0
@@ -358,6 +364,7 @@ class SpacetimeClient {
         if ((this._tableListeners.get(t)?.size ?? 0) === 0) {
           // A table nobody listens to is not worth retrying on reconnect either.
           this._droppedTables.delete(t)
+          this._appliedTables.delete(t)
           if (this._subscribed.delete(t)) changed = true
         }
       }
@@ -420,7 +427,8 @@ class SpacetimeClient {
     // both sets never leave the cache (and never flash empty in the UI). An
     // errored handle has already ended server-side — unsubscribing it again
     // throws / sends a bogus Unsubscribe — so only still-live ones are retired.
-    const queries = [...this._subscribed].map((t) => `SELECT * FROM ${t}`)
+    const tables = [...this._subscribed]
+    const queries = tables.map((t) => `SELECT * FROM ${t}`)
     if (this._subHandle) this._retiring.push(this._subHandle)
     this._subHandle = null
     try {
@@ -430,6 +438,9 @@ class SpacetimeClient {
         .onApplied(() => {
           this._subRetries = 0 // clean apply → reset the recovery budget
           if (handle === this._subHandle) this._retireHandles()
+          // Only this handle's tables have rows in the cache now. A table added
+          // after it was sent is still emitted below, but from an empty cache.
+          for (const t of tables) if (this._subscribed.has(t)) this._appliedTables.add(t)
           for (const t of this._subscribed) this._emitTable(t)
         })
         // The SDK calls onError(ctx, err) with ctx.event = the server Error.
@@ -465,6 +476,7 @@ class SpacetimeClient {
     if (table && this._subscribed.has(table) && this._subRetries < MAX_SUB_RETRIES) {
       this._subRetries += 1
       this._subscribed.delete(table)
+      this._appliedTables.delete(table)
       this._droppedTables.add(table)
       // NOTE: deliberately KEEP the _boundTables entry — the delta handlers are
       // registered on this connection's client cache and stay valid, so a later
@@ -526,6 +538,14 @@ class SpacetimeClient {
     targets.forEach((cb) => {
       try { cb(rows) } catch {}
     })
+  }
+
+  /**
+   * True once a subscription covering `table` has applied on this connection.
+   * Until then an emitted snapshot of it is just the empty client cache.
+   */
+  isApplied(table) {
+    return this._appliedTables.has(table)
   }
 
   /** One-shot poll helper used by phases that need fresh rows on demand. */
@@ -602,45 +622,34 @@ class SpacetimeClient {
     return rows.sort((a, b) => Number(a.cast_id) - Number(b.cast_id))
   }
 
-  /** The player's authoritative Jing pools (sacred7 + esms), or null. Needs jing_pool public. */
+  /**
+   * The player's authoritative Jing pools `{ identity, sacred7, esms }`, or null.
+   * Read through the caller-scoped my_jing_pool view (jing-pool.js; jing_pool
+   * itself is owner-only), so only the caller's own pool is readable.
+   */
   async jingPool(identity) {
-    const id = identity || this.identity
-    const rows = await this.query('SELECT identity, sacred7, esms FROM jing_pool').catch(() => [])
-    return rows.find((r) => sameIdentity(r.identity && (r.identity.__identity__ ?? r.identity), id)) || null
+    return readJingPool(this, { identity })
   }
 
   /**
-   * Ask an agent a question live: queue it via ask_oracle, then poll oracle_reply
-   * for the companion service's answer. Returns { text }. Throws on timeout so the
-   * agent page falls back to its bundled (offline) voice. Mirrors duels.js: note
-   * existing rows, fire, detect the fresh one. `context` is a derived weather
-   * summary — never birth data.
+   * Call `onPool({ identity, sacred7, esms })` with the player's Jing pools now
+   * and whenever they change, until the returned stop function runs. Cheaper
+   * than calling jingPool() on every refresh (see jing-pool.js).
    */
-  async askAgent(agentKey, text, { context = '', timeoutMs = 30000, intervalMs = 2000 } = {}) {
-    if (!this.isLive) throw new Error('SpacetimeDB offline')
-    const q = String(text).trim()
-    const esc = (s) => String(s).replace(/'/g, "''")
-    const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
-    const seen = new Set(
-      (await this.query(`SELECT request_id FROM oracle_request WHERE question = '${esc(q)}'`).catch(() => []))
-        .map((r) => String(r.request_id)),
-    )
-    await this.callReducer('ask_oracle', [q, String(context || ''), false])
-    const deadline = Date.now() + timeoutMs
-    let reqId = null
-    while (Date.now() < deadline && reqId == null) {
-      await sleep(900)
-      const rows = await this.query(`SELECT request_id FROM oracle_request WHERE question = '${esc(q)}'`).catch(() => [])
-      const fresh = rows.find((r) => !seen.has(String(r.request_id)))
-      if (fresh) reqId = fresh.request_id
-    }
-    if (reqId == null) throw new Error('oracle did not accept the question')
-    while (Date.now() < deadline) {
-      await sleep(intervalMs)
-      const rep = await this.query(`SELECT text FROM oracle_reply WHERE request_id = ${Number(reqId)}`).catch(() => [])
-      if (rep.length && rep[0].text) return { text: rep[0].text }
-    }
-    throw new Error('the oracle is still considering')
+  watchJingPool(onPool) {
+    return watchJingPool(this, onPool)
+  }
+
+  /**
+   * Ask an agent a question live: queue it via ask_oracle, then wait for the
+   * companion service's answer on the caller-scoped my_oracle_request /
+   * my_oracle_reply views (oracle-ask.js; the oracle tables are owner-only).
+   * Returns { text }. Throws on timeout, or before asking when the views are
+   * unavailable, so the agent page keeps its bundled (offline) voice. `context`
+   * is a derived weather summary — never birth data.
+   */
+  async askAgent(agentKey, text, { context = '', timeoutMs = 30000 } = {}) {
+    return askOracle(this, text, { context, timeoutMs })
   }
 }
 

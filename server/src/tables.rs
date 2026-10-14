@@ -1,5 +1,6 @@
 //! The database schema. Public tables stream to every client as the live map;
-//! `natal_chart` is private to its owner. Clients never write — only reducers do.
+//! Private tables are readable by the module owner; per-sender views expose
+//! only a player's own rows. Clients never write — only reducers do.
 
 use crate::types::*;
 use spacetimedb::{Identity, ScheduleAt, Timestamp};
@@ -55,7 +56,8 @@ pub struct VerifiedSolanaWallet {
     pub verified_at: Timestamp,
 }
 
-#[spacetimedb::table(accessor = natal_chart)] // private to owner (not public)
+/// Private birth data; a player reads their own chart through `my_natal_chart`.
+#[spacetimedb::table(accessor = natal_chart)]
 #[derive(Clone)]
 pub struct NatalChart {
     #[primary_key]
@@ -83,7 +85,7 @@ pub struct NatalChart {
 }
 
 /// PUBLIC chart projection for NPC "historical agent" players only. `natal_chart`
-/// is private (per-owner RLS), so a seeded agent's chart would otherwise be
+/// is private, so a seeded agent's chart would otherwise be
 /// invisible to everyone; this mirrors it (plus a denormalized `handle`) for
 /// agents that opt in via `seed_agent_player`. Real players are never written
 /// here — their chart stays private. Same shape as NatalChart.
@@ -813,14 +815,18 @@ pub struct Duel {
 // ── Oracle (Claude companion) ───────────────────────────────────────────────
 
 /// A player's question for the Oracle. The companion service watches these,
-/// asks Claude, and answers via `answer_oracle`. Public so the asker's client
-/// sees the reply. `context` is a derived chart/state summary — never birth data.
-#[spacetimedb::table(accessor = oracle_request)] // private to asker (not public)
+/// asks Claude, and answers via `answer_oracle`. `context` is a derived
+/// chart/state summary — never birth data.
+///
+/// Private, so only the module owner (the companion service) can read it. The
+/// asker reads their own rows through the `my_oracle_request` view.
+#[spacetimedb::table(accessor = oracle_request)]
 #[derive(Clone)]
 pub struct OracleRequest {
     #[primary_key]
     #[auto_inc]
     pub request_id: u64,
+    #[index(btree)] // views read through indexes only
     pub asker: Identity,
     pub question: String,
     pub context: String,   // derived summary the client attaches; no private birth data
@@ -830,12 +836,14 @@ pub struct OracleRequest {
     pub created_at: Timestamp,
 }
 
-/// The Oracle's answer to a request (1:1 by request_id).
-#[spacetimedb::table(accessor = oracle_reply)] // private to asker (not public)
+/// The Oracle's answer to a request (1:1 by request_id). Private; the asker
+/// reads their own replies through the `my_oracle_reply` view.
+#[spacetimedb::table(accessor = oracle_reply)]
 #[derive(Clone)]
 pub struct OracleReply {
     #[primary_key]
     pub request_id: u64,
+    #[index(btree)] // views read through indexes only
     pub asker: Identity,
     pub text: String,
     pub model: String,     // which tier answered: "haiku", "sonnet", or "cache"
@@ -1015,8 +1023,9 @@ pub struct ConstellationLine {
 /// `trace_constellation` only inserts this once it has authoritatively confirmed
 /// the figure is risen over the trader's location. The attestor service watches
 /// for `attested == false` rows, re-verifies, signs the EIP-712 attestation, and
-/// writes a `trace_attestation`. Public so the trader's client sees the result.
-#[spacetimedb::table(accessor = trace_intent)] // private to trader (not public)
+/// writes a `trace_attestation`. Private; the trader reads their own requests
+/// through `my_trace_intent`.
+#[spacetimedb::table(accessor = trace_intent)]
 #[derive(Clone)]
 pub struct TraceIntent {
     #[primary_key]
@@ -1034,8 +1043,9 @@ pub struct TraceIntent {
 }
 
 /// The signed VisibilityAttestation for Solana horizon proofs.
-/// Written by the attestor service (owner-gated `answer_trace`).
-#[spacetimedb::table(accessor = trace_attestation)] // private to trader (not public)
+/// Written by the attestor service (owner-gated `answer_trace`). Private; the
+/// trader reads their own proofs through `my_trace_attestation`.
+#[spacetimedb::table(accessor = trace_attestation)]
 #[derive(Clone)]
 pub struct TraceAttestation {
     #[primary_key]
@@ -1174,8 +1184,8 @@ pub struct JingCast {
 
 /// The player's Sacred-7 + ESMS consciousness pools a Jing cast drains
 /// (game-side, mirrored — ESMS on-chain is soulbound and never burned here).
-/// Public so the agent page can surface the authoritative pool when live.
-#[spacetimedb::table(accessor = jing_pool)] // private to player (not public)
+/// Private; the player reads their own pool through the `my_jing_pool` view.
+#[spacetimedb::table(accessor = jing_pool)]
 #[derive(Clone)]
 pub struct JingPool {
     #[primary_key]
@@ -1264,7 +1274,8 @@ pub struct PillarTension {
 // ── Star Staking & Yield Accrual (Solana Bridge integration) ───────────
 
 /// One staker's position on one star. Mirrors the on-chain StarVault stake.
-#[spacetimedb::table(accessor = star_stake)] // private to staker (not public)
+/// Private; the staker reads their own positions through `my_star_stake`.
+#[spacetimedb::table(accessor = star_stake)]
 #[derive(Clone)]
 pub struct StarStake {
     #[primary_key]

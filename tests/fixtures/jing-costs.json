@@ -1,0 +1,13 @@
+{
+  "version": "1.0.0",
+  "note": "What each Jing cast drains, from planetary_agents components/cosmic-agents/constants.ts. Checked by the module's drain_pool (server/src/reducers.rs, test_jing_drain_matches_shared_cost_fixture) and by the client's JING_MOVES (public/astro-weather.js, tests/jing-costs.test.ts). ESMS amounts are jing_pool.esms units: tenths of an ESMS, so 10 is 1.0 ESMS.",
+  "sacred7_order": ["power", "resonance", "wisdom", "charisma", "intuition", "adaptability", "vitality"],
+  "esms_order": ["Spirit", "Essence", "Matter", "Substance"],
+  "moves": [
+    { "move": "meltdown", "variant": "Meltdown", "sacred7": 6, "sacred7_cost": 15, "esms": [0], "esms_cost": 10 },
+    { "move": "freeze", "variant": "Freeze", "sacred7": 5, "sacred7_cost": 15, "esms": [1], "esms_cost": 10 },
+    { "move": "tectonicRoot", "variant": "TectonicRoot", "sacred7": 2, "sacred7_cost": 15, "esms": [2], "esms_cost": 10 },
+    { "move": "vacuum", "variant": "Vacuum", "sacred7": 3, "sacred7_cost": 15, "esms": [3], "esms_cost": 10 },
+    { "move": "erode", "variant": "Erode", "sacred7": 4, "sacred7_cost": 10, "esms": [1, 2], "esms_cost": 10 }
+  ]
+}

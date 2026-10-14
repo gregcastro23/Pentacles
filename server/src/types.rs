@@ -235,6 +235,13 @@ impl JingMove {
             JingMove::Vacuum => 3, JingMove::Erode => 1,
         }
     }
+    /// A second ESMS element id drained at the same cost: Erode wears Water and Earth (constants.ts).
+    pub fn esms2(self) -> Option<u8> {
+        match self {
+            JingMove::Erode => Some(2),
+            _ => None,
+        }
+    }
     /// Sacred-7 stat index drained: [power,resonance,wisdom,charisma,intuition,adaptability,vitality].
     pub fn sacred7(self) -> usize {
         match self {
