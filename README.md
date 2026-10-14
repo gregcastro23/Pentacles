@@ -293,7 +293,7 @@ The ESMS (Spirit 🜂, Essence 🜄, Matter 🜃, Substance 🜁) elements serve
 ### 2. In-Game Consciousness Pools (JingPool)
 *   **Purpose**: Mirrored database representations in SpacetimeDB used to cast/counter spells ("Jings") in the Arena.
 *   **Units**: `jing_pool.esms` counts tenths of an ESMS, so 10 units is 1.0 ESMS. A new pool starts at 80 units (8.0 ESMS) per element, whichever reducer creates it.
-*   **Casting Jings**: Each cast drains 10 units (1.0 ESMS) of the corresponding element.
+*   **Casting Jings**: Each cast drains 10 units (1.0 ESMS) of the move's element and 15 of its Sacred-7 stat. Erode, the slow wear, drains 10 units each of Essence and Matter and 10 of intuition. `tests/fixtures/jing-costs.json` is the table the module and the client are both tested against.
 *   **Pillar pools**: `pillar_pool.esms` uses the same unit as f64, starting from the player's jing pool (or 80 units). A pillar cast charges 10 units, and the daily faucet credits 10 units per 1.0 ESMS granted, keeping the fraction that the jing credit floors.
 *   **Earning Rewards**: Duel rounds resolve every 3 plays. Upon resolution, a pot of 100 units (10.0 ESMS, `ROUND_POT_POOL_UNITS`) per element is divided among participants of that element pro-rata by their play weight: $\text{share} = \lfloor \text{weight} \times 100 / \text{total\_weight} \rfloor$, and added to their `JingPool` balance.
 

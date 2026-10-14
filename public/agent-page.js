@@ -515,16 +515,20 @@
     const pool = state.jingPool;
     const m = AW().JING_MOVES[playerMove];
     if (!AW().canAffordJing(pool, playerMove)) { toastMsg(`Your pools are too depleted to cast ${m.name}.`, "error"); return; }
-    // A live cast at a planet goes to the module first: cast_jing drains the
-    // game-side jing_pool, and its refusal (the 6 s cooldown, a depleted pool)
-    // stops the cast here. No on-chain ESMS is burned: that needs ASOL's redeem
-    // relayer, which does not exist yet (docs/PENDING.md, "Solana relayer").
+    // A live cast at one of the module's ten planets goes to the module first:
+    // cast_jing drains the game-side jing_pool, and its refusal (the 6 s
+    // cooldown, a depleted pool) stops the cast here. Stars and Chiron (body 10)
+    // have no module Planet, so their duels stay local. No on-chain ESMS is
+    // burned: that needs ASOL's redeem relayer, which does not exist yet
+    // (docs/PENDING.md, "Solana relayer").
+    const page = cur;
     const net = window.Pentacles && window.Pentacles.net;
-    if (net && net.isLive && cur.kind === "planet" && typeof net.castJing === "function") {
+    const serverCast = !!(net && net.isLive && page.kind === "planet" && page.body >= 0 && page.body <= 9 && typeof net.castJing === "function");
+    if (serverCast) {
       if (jingCastPending) return;
       jingCastPending = true;
       try {
-        await net.castJing(playerMove, { agentBody: cur.body });
+        await net.castJing(playerMove, { agentBody: page.body });
       } catch (error) {
         const why = String((error && error.message) || "").replace(/^reducer \w+ \d+:\s*/, "");
         toastMsg(why ? `${m.name} was refused: ${why}` : `${m.name} was refused.`, "error");
@@ -533,19 +537,22 @@
         jingCastPending = false;
       }
       setTimeout(refreshLiveJings, 2500); setTimeout(refreshLiveJings, 8000); // the jing feeder answers
+      // Closed, or another agent opened, while the cast was in flight: the module
+      // has it (the pool's drain arrives through the watch), but the local duel
+      // belonged to the page that is gone.
+      if (cur !== page) { toastMsg(`Your ${m.name} at ${page.name} was cast.`, "success"); return; }
     }
     // Drain the pool on show: the sim's offline, or the live pool ahead of its
     // real drain arriving through the watch (if that came first, `pool` is no
-    // longer shown). A star duel is never recorded on the module, so it costs
-    // the live pool nothing.
-    if (!(pool.live && cur.kind === "star")) AW().drainJing(pool, playerMove);
+    // longer shown). A duel the module never records costs the live pool nothing.
+    if (!(pool.live && !serverCast)) AW().drainJing(pool, playerMove);
     // agent answer: prefer a move it has that counters yours
     const avail = AW().availableJings(agentComposition());
     let agentMove = avail.find((id) => m.counteredBy.includes(id) || AW().JING_MOVES[id].counters.includes(playerMove));
     if (!agentMove) agentMove = avail[0] || "freeze";
     const outcome = AW().resolveJing(playerMove, agentMove); // 'a' player, 'b' agent, 'draw'
     const verdict = outcome === "a" ? "win" : outcome === "b" ? "loss" : "draw";
-    const duels = state.jingDuels[agentKey()];
+    const duels = (state.jingDuels[agentKey()] = state.jingDuels[agentKey()] || []);
     duels.unshift({ playerMove, agentMove, outcome: verdict, ts: Date.now() });
     if (duels.length > 12) duels.length = 12;
     if (state.player) state.save();
@@ -553,7 +560,7 @@
     toastMsg(verdict === "win" ? `Your ${m.name} broke ${cur.name}'s ${AW().JING_MOVES[agentMove].name}!` : verdict === "loss" ? `${cur.name}'s ${AW().JING_MOVES[agentMove].name} countered your ${m.name}.` : `${m.name} vs ${AW().JING_MOVES[agentMove].name} — a standoff.`, verdict === "win" ? "success" : verdict === "loss" ? "error" : "info");
     // also voice it in chat
     appendAgent(`${cur.name} answers your ${m.name} with ${AW().JING_MOVES[agentMove].name}.`, agentMove, true);
-    renderJings(elById("ag-tab-body")); // refresh pools + thread
+    if (cur.tab === "jings") renderJings(elById("ag-tab-body")); // refresh pools + thread
   }
 
   function paintJingThread() {
@@ -579,10 +586,12 @@
   async function refreshLiveJings() {
     const net = window.Pentacles && window.Pentacles.net;
     const el = elById("ag-jing-thread");
-    if (!el || !net || !net.isLive || cur.kind !== "planet" || typeof net.jingDuelsFor !== "function") return;
+    const page = cur;
+    if (!el || !page || !net || !net.isLive || page.kind !== "planet" || typeof net.jingDuelsFor !== "function") return;
     let duels = [];
     try { duels = await net.jingDuelsFor(); } catch (e) { return; }
-    const planetName = (typeof PLANET_NAMES !== "undefined" ? PLANET_NAMES[cur.body] : null);
+    if (cur !== page || !el.isConnected) return; // closed, switched agent or tab meanwhile
+    const planetName = (typeof PLANET_NAMES !== "undefined" ? PLANET_NAMES[page.body] : null);
     const mine = duels.filter((d) => d.target_agent === planetName).slice(0, 4);
     if (!mine.length) return; // no live duels vs this agent → keep the local sim view
     const threads = [];
@@ -590,6 +599,7 @@
       const casts = await net.jingCasts(d.duel_id).catch(() => []);
       threads.push(liveThreadHtml(d, casts));
     }
+    if (cur !== page || !el.isConnected) return;
     el.innerHTML = `<div class="ag-hint">● live duel thread${mine.length > 1 ? "s" : ""}</div>` + threads.join("");
   }
   function liveThreadHtml(duel, casts) {

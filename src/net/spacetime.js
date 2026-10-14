@@ -567,6 +567,9 @@ class SpacetimeClient {
 
   /** Cast a Jing at a planetary agent (body idx 0–9) or a player (identity hex). */
   async castJing(moveId, { agentBody = null, playerIdentity = null } = {}) {
+    // planetVariant falls back to the Sun; a body the module has no Planet for
+    // (Chiron is 10) must not become a cast at the Sun.
+    if (agentBody != null && !PLANET_VARIANT[agentBody]) throw new Error(`no module planet for body ${agentBody}`)
     const tp = playerIdentity ? { some: playerIdentity } : { none: [] }
     const ta = agentBody != null ? { some: planetVariant(agentBody) } : { none: [] }
     return this.callReducer('cast_jing', [jingMoveArg(moveId), tp, ta])
