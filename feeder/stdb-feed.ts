@@ -222,13 +222,18 @@ export function startFeed(opts: FeedOptions): void {
           console.log(`[${label}] WebSocket connected; subscribing.`);
           const db = conn.db as any;
           // Fire on every new row entering the subscribed (filtered) set.
-          db[opts.table].onInsert((_ctx: unknown, row: unknown) => { handle(row); });
+          const tableObj = db[opts.table] ?? db[opts.table.replace(/_([a-z])/g, (_: string, c: string) => c.toUpperCase())];
+          if (tableObj?.onInsert) {
+            tableObj.onInsert((_ctx: unknown, row: unknown) => { handle(row); });
+          }
           conn
             .subscriptionBuilder()
             .onApplied(() => {
-              const rows = [...db[opts.table].iter()] as unknown[];
-              if (rows.length) console.log(`[${label}] backlog: ${rows.length} pending row(s).`);
-              for (const r of rows) handle(r);
+              if (tableObj?.iter) {
+                const rows = [...tableObj.iter()] as unknown[];
+                if (rows.length) console.log(`[${label}] backlog: ${rows.length} pending row(s).`);
+                for (const r of rows) handle(r);
+              }
             })
             .onError((ctx: any) => {
               console.error(`[${label}] subscription error:`, ctx?.event ?? "unknown");
