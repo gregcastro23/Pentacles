@@ -1,6 +1,8 @@
 # Pentacles — Pending Work
 
-**Last swept:** 2026-08-27, during the ASOL Solana mainnet conformance pass
+**Last swept:** 2026-10-14, after the per-player views (commit `0ee4735`) and the
+Jing cast fixes (PR [#73](https://github.com/gregcastro23/Pentacles/pull/73)).
+Previous sweep: 2026-08-27, during the ASOL Solana mainnet conformance pass
 (PR [#23](https://github.com/gregcastro23/Pentacles/pull/23)).
 
 Everything outstanding across the project, in the order things unblock each
@@ -29,8 +31,8 @@ Strictly ordered — each unblocks the next. Full context in
 | :-- | :-- | :-- | :-- |
 | 1.1 | **ASOL `claim_mint_esms` integration** | Verified | `mintSolanaDestination` in [`feeder/bridge-service.ts`](../feeder/bridge-service.ts) fails closed by design. Needs ASOL's account layout + claim-receipt PDA seeds, and a decision on who signs — most likely an ASOL-side relayer so the mint authority never leaves ASOL. Guessing the layout yields a bridge that fails *after* the source burn settles. |
 | 1.2 | **ASOL devnet cluster domain** | Verified | Only `sha256("ASOL_MAINNET_V1")` is published. Devnet's tag is unset in [`src/web3/chains.js`](../src/web3/chains.js) rather than guessed — a wrong domain fails signature verification silently. Read `ProgramConfig.cluster_domain` on chain, or get it from the ASOL repo. |
-| 1.3 | **Publish the module schema** | Verified | New `BridgeChain` variants + reducer signatures need a publish. Variants were **appended** so existing ordinals hold, but confirm SpacetimeDB 2.x accepts it as a compatible update. Run `./scripts/prod-cutover.sh preflight` then `backup` first. |
-| 1.4 | **Regenerate bindings** | Verified | After 1.3: `bun run gen`, plus `spacetime generate --lang csharp --module-path server --out-dir unity/Assets/Autogen -y`. Reducer signatures changed, so the Unity client is stale too. |
+| 1.3 | ~~Publish the module schema~~ | Verified | **Done.** Prod `pentacles` runs exactly the module built from `main` at `3b01527`: the Keccak-256 of the wasm equals `st_module.program_hash` (checked 2026-10-14). The appended `BridgeChain` variants are live. |
+| 1.4 | **Regenerate the Unity bindings** | Verified | The TypeScript bindings are current (`bun run gen`, which now passes `--include-private` so the feeder can read private tables). `unity/Assets/Autogen` is not: generating C# from the current module adds 85 files, changes 42 and drops 15 (removed reducers and private tables), among them the private `OracleRequest` / `OracleReply` that `unity/OraclePanel.cs` reads. A player can't read those tables, so move `OraclePanel` to the `my_oracle_request` / `my_oracle_reply` views in the same change and build it in Unity. There was no Unity editor on the dev Mac at this sweep. |
 | 1.5 | **Redeploy `pentacles_solana` to devnet** | Verified | The instruction set changed (ESMS issuance removed, `unstake_star_usdc` added), so the running deployment is stale. Its 18-decimal mints are retired in place. |
 | 1.6 | **Move upgrade authority to Squads v4** | Recorded | Still the plain devnet keypair `AhNRjjyhJ4dR6ZSvWyJNSpbJFbFnxhkRdUNMY31fJ3S5`. Must be a Squads vault before any mainnet deploy. |
 | 1.7 | **Provision Cloud KMS** | Verified | Set `AWS_KMS_KEY_ID` or `GCP_KMS_KEY_NAME` plus `SOLANA_SERVICE_PUBLIC_KEY`. The signer refuses an in-memory keypair on mainnet regardless of `NODE_ENV`, so this is a hard gate, not advice. |
@@ -43,7 +45,7 @@ Strictly ordered — each unblocks the next. Full context in
 | **Restore the verifiable build** | Verified | A `proc_macro2` conflict forces `anchor build --no-idl`, so no IDL ships and `solana-verify` / explorer verification is degraded. |
 | **Star activation Merkle tree** | Verified | `activate_star` verifies a proof, but nothing builds the tree yet. Needs a generator over the 8,870 `star_node` rows using `@openzeppelin/merkle-tree` with `uint32` leaves. The leaf hash is already pinned across Rust and JS, so the two cannot drift. |
 | **starUSDC LST mint** | Verified | Not deployed. `VITE_SOLANA_STARUSDC_MINT` is blank and the UI disables receipt transfers with an explicit message rather than simulating them. The transfer hook and `ExtraAccountMetaList` instruction exist and are unused. |
-| **Solana relayer endpoint** | Verified | `VITE_SOLANA_RELAYER_URL` is blank, so Solana ESMS spending is off. Needs an `/api/solana/redeem` that submits ASOL `redeem_for_esms` — the Solana analogue of the existing EVM `redeemFor` path in [`settlement/esms-redeemer.js`](../settlement/esms-redeemer.js). |
+| **Solana relayer endpoint** | Verified | `VITE_SOLANA_RELAYER_URL` is blank, so Solana ESMS spending is off. Needs an `/api/solana/redeem` that submits ASOL `redeem_for_esms` — the Solana analogue of the existing EVM `redeemFor` path in [`settlement/esms-redeemer.js`](../settlement/esms-redeemer.js). Until it exists, a Jing cast spends only the game-side `jing_pool`: the agent page's on-chain burn call was removed because nothing defined it. |
 
 ---
 
@@ -62,7 +64,9 @@ Strictly ordered — each unblocks the next. Full context in
 | Item | Status | Notes |
 | :-- | :-- | :-- |
 | **`processed_tx` composite key** | Verified | Idempotency is now scoped by composing `{chain}:{hash}` into the existing `tx_hash` primary key, with a fallback lookup on the bare hash for pre-scoping rows. A genuine composite key would be cleaner but 2.x cannot re-key a table in a compatible update — revisit only if a wipe-and-reseed is on the table anyway. |
-| **`backfill_decans` on prod** | Re-check | A note records `natal_decan` as validated on `pentacles2xtest` with prod pending the 1.12→2.6 cutover — **but that cutover completed 2026-07-01**, so the note is likely stale and the blocker gone. Both the table and the admin reducer exist in the module. Query prod for `natal_decan` rows before deciding whether to run it. |
+| **Oracle round trip on prod** | Re-check | The feeder answers `oracle_request` through the private-table bindings, and players read replies through `my_oracle_reply`. No question has been asked on `pentacles` yet, so the round trip is unverified there: ask one from an agent page and watch for the reply. |
+| **Erode's second ESMS in `jing_cast`** | Verified | `drain_pool` charges Erode both Essence and Matter (matching `constants.ts` and `tests/fixtures/jing-costs.json`), but `JingCast.cost_esms` records only Essence. Recording both needs a schema change. |
+| **Players from `pentacles1`** | Recorded | Prod moved to the `pentacles` database on 2026-10-14. Its 71 players are the seeded historical agents; the human players and cards on `pentacles1` (now paused) were not migrated. Decide whether to migrate them or treat the move as a fresh start. |
 | **`GameAuthority` layout change** | Verified | The struct changed (epoch-mint fields dropped, `usdc_mint` / `star_root` / rate ceiling added). Borsh tolerates trailing bytes so an existing account still deserializes, but the devnet PDA holds meaningless values until re-initialized. Fold into 1.5. |
 
 ---
@@ -71,7 +75,7 @@ Strictly ordered — each unblocks the next. Full context in
 
 | Item | Status | Notes |
 | :-- | :-- | :-- |
-| **`star-pokedex-ui` Finder accident** | Verified | `public/star-pokedex-ui.js` in the working tree is **58 lines behind `main`**, missing the zodiac/ecliptic section from commit `32bf76f`; the untracked `public/star-pokedex-ui 2.js` is byte-identical to HEAD. Deliberately excluded from PR #23 — committing it would silently revert a shipped feature. Fix: `git checkout -- public/star-pokedex-ui.js && rm "public/star-pokedex-ui 2.js"`. |
+| **Unmerged branches** | Verified | Every branch on origin with commits outside `main` was squash-merged, apart from PRs #58 and #61 (closed unmerged), `feat/alchm-vessel-drawer` (superseded by #68 and #69), `release/v0.1.1-pre-migration` (a snapshot) and the June-era `claude/serene-turing-SJeCA` and local `claude/cool-archimedes-XgDVn`, which also has a stash. The merged branches can be deleted; the others are a keep-or-drop call. |
 | **Vendor `alchm-astro-core`** | Verified | [`server/Cargo.toml`](../server/Cargo.toml) resolves it through `../../../AlchmAgentsSolana/alchm-astro-core`. Repointed this pass because the old path no longer existed and the module could not build at all — but a clean checkout on another machine still cannot build it. Vendor or publish the crate. |
 | **Bundle size** | Verified | `main.js` is 735 kB and `render-dome.js` 585 kB, both over the 500 kB warning. Non-blocking; the dome already lazy-loads Three. |
 
