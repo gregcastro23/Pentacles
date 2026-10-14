@@ -6,7 +6,7 @@ import { DbConnection } from '../src/module_bindings'
 import { normalizeWsRow } from '../src/net/ws-normalize.js'
 
 const URI = process.env.SMOKE_URI ?? process.env.VITE_SPACETIMEDB_URI ?? process.env.SPACETIMEDB_URI ?? 'https://maincloud.spacetimedb.com'
-const DB = process.env.SMOKE_DB ?? process.env.VITE_SPACETIMEDB_DB ?? process.env.SPACETIMEDB_DB ?? 'pentacles1'
+const DB = process.env.SMOKE_DB ?? process.env.VITE_SPACETIMEDB_DB ?? process.env.SPACETIMEDB_DB ?? 'pentacles'
 
 const fail = (msg: string) => { console.error('❌ ' + msg); process.exit(1) }
 const t = setTimeout(() => fail('timeout: no onApplied within 15s'), 15000)

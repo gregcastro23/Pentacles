@@ -58,7 +58,7 @@ function generateVolumetricStarCluster(minX: number, minY: number, minZ: number,
   return stars;
 }
 
-const DB = process.env.SPACETIMEDB_DB ?? "pentacles1";
+const DB = process.env.SPACETIMEDB_DB ?? "pentacles";
 
 // The war ledger is read from the module (melee_result, faction_war_standing,
 // war_epoch), cached for 20 s. Built lazily so importing this file never needs
