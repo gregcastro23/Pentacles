@@ -667,8 +667,32 @@
   }
 
   // ── LIVE GAME STATE HELPERS ───────────────────────────────────────────────
+  // While live, rank/score/crowns/zones come from the chain-only board that
+  // src/net/dashboards.js builds; the local GameState is a simulation.
+  // Before the zone rows have synced it is a neutral placeholder, never the
+  // simulation.
+  function chainStanding(factionId) {
+    const P = window.Pentacles;
+    if (!P || !P.net || !P.net.isLive) return null;
+    let live = null;
+    try { live = typeof P.liveStandings === "function" ? P.liveStandings() : null; } catch (e) {}
+    const item = live && Array.isArray(live.ranked) ? live.ranked.find((f) => f.id === factionId) : null;
+    if (!item) return { rank: factionId + 1, score: 0, decanWins: 0, zonesHeld: [] };
+    return { rank: item.rank, score: item.score, decanWins: item.decanCrowns, zonesHeld: item.zonesHeld.slice() };
+  }
+
   function getLiveStanding(factionId) {
     const st = window.state;
+    const chain = chainStanding(factionId);
+    if (chain) {
+      let currentDecanInfo = null;
+      try { currentDecanInfo = st && typeof st.getCurrentDecan === "function" ? st.getCurrentDecan() : null; } catch (e) {}
+      return {
+        ...chain,
+        isCurrentDecanRuler: !!(currentDecanInfo && currentDecanInfo.rulerFaction === factionId),
+        currentDecanInfo,
+      };
+    }
     if (!st || !Array.isArray(st.leaderboard)) {
       return { rank: factionId + 1, score: 0, decanWins: 0, isCurrentDecanRuler: false, zonesHeld: [] };
     }

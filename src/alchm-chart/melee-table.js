@@ -32,6 +32,24 @@ const PLANET_COLORS = ["#e8b84b", "#cbd0db", "#9aa7c4", "#d98fb0", "#cf4d4d", "#
 
 const suitCap = (s) => (s ? s[0].toUpperCase() + s.slice(1).toLowerCase() : "Wands");
 
+/** `melee_result.winner_esms` is 10^4 fixed point. */
+const ESMS_SCALE = 10000;
+const signed = (n) => { const v = Number(n) || 0; return v > 0 ? `+${v}` : `${v}`; };
+const ownerName = (v) => { const i = planetIdx(v); return i != null ? PLANET_NAMES[i] : "Neutral"; };
+/** A Timestamp as epoch ms: HTTP /sql decodes it to {__timestamp_micros_since_unix_epoch__}. */
+function timestampMs(v) {
+  if (v == null) return null;
+  if (typeof v === "object") {
+    const us = v.__timestamp_micros_since_unix_epoch__ ?? v.microsSinceUnixEpoch;
+    return us != null && Number.isFinite(Number(us)) ? Number(us) / 1000 : null;
+  }
+  const us = Number(v);
+  return Number.isFinite(us) ? us / 1000 : null;
+}
+function utcLabel(ms) {
+  return Number.isFinite(ms) ? `${new Date(ms).toISOString().slice(0, 16).replace("T", " ")} UTC` : "";
+}
+
 /** How long the pot lingers so the sweep to the winner is visible. Matches the
  *  `mt-sweep` keyframe duration in alchm-chart.css; change both together. */
 const SWEEP_MS = 760;
@@ -53,6 +71,9 @@ export class MeleeTableInstance {
     this.myIdentity = this.opts.myIdentity ? String(this.opts.myIdentity) : null;
     this.myHand = Array.isArray(this.opts.myHand) ? this.opts.myHand : [];
     this.hooks = this.opts.hooks || {};
+    // (tableId) => Promise<melee_result row | null>, read once a table settles.
+    this.fetchResult = typeof this.opts.fetchResult === "function" ? this.opts.fetchResult : null;
+    this._result = null; // { tableId, status: loading|ready|missing|error, row }
     this.showLadder = false;
     this.showSettlement = false;
     this._settlementDismissed = false;
@@ -283,6 +304,8 @@ export class MeleeTableInstance {
       title: "View Victory Spoils & Match Settlement",
       onClick: () => {
         this.showSettlement = !this.showSettlement;
+        // Reopening after a failed read tries again.
+        if (this._result && this._result.status === "error") this._result = null;
         this.paint();
       },
     }, [h("span", { text: "🏆 Spoils" })]);
@@ -724,6 +747,30 @@ export class MeleeTableInstance {
     }
   }
 
+  /**
+   * The settled table's `melee_result` row: the real control, capture and ESMS
+   * outcome. Read once per table through `opts.fetchResult` (a one-off SQL
+   * query). A practice table, a table still in play, or a view without a
+   * fetcher has none.
+   */
+  _settledResult(t) {
+    if (!t || t.isPractice || t.state !== "Resolved" || !this.fetchResult) return null;
+    const id = Number(t.tableId);
+    if (!Number.isSafeInteger(id) || id <= 0) return null;
+    if (this._result && this._result.tableId === id) return this._result;
+    const entry = { tableId: id, status: "loading", row: null };
+    this._result = entry;
+    Promise.resolve()
+      .then(() => this.fetchResult(id))
+      .then((row) => {
+        entry.row = row || null;
+        entry.status = row ? "ready" : "missing";
+      })
+      .catch(() => { entry.status = "error"; })
+      .then(() => { if (this._result === entry) this._renderSettlement(); });
+    return entry;
+  }
+
   _renderSettlement() {
     const host = this.dom.settlement;
     if (!host) return;
@@ -739,24 +786,69 @@ export class MeleeTableInstance {
     }
     host.hidden = false;
 
-    const seatList = this.seats && this.seats.length ? this.seats : [];
-    // Sort seats by score descending to find winner
-    const ranked = seatList.slice().sort((a, b) => (b.score || 0) - (a.score || 0));
-    const winner = ranked[0] || { handle: "Victor", faction: 1, score: 0 };
-    const winFactionName = PLANET_NAMES[winner.faction] || winner.handle || "Dominant";
+    const result = this._settledResult(t);
+    const row = result && result.status === "ready" ? result.row : null;
+    const isVoid = !!(row && row.is_void);
+    const outcomes = new Map();
+    for (const o of (row && Array.isArray(row.seats) ? row.seats : [])) outcomes.set(Number(o.seat_id), o);
+
+    // Seat rows: the live seats, with the chain's final numbers laid over them.
+    const lastTrick = (t.tricks && t.tricks.length) ? t.tricks[t.tricks.length - 1] : null;
+    const lastTrickWinner = lastTrick ? (lastTrick.winnerSeat ?? lastTrick.winner_seat) : null;
+    const baseSeats = this.seats && this.seats.length
+      ? this.seats
+      : [...outcomes.values()].map((o) => ({ seatId: Number(o.seat_id), handle: o.handle, faction: planetIdx(o.faction), occupant: o.occupant }));
+    const seatRows = baseSeats.map((s) => {
+      const o = outcomes.get(Number(s.seatId));
+      return {
+        seat: s,
+        handle: (o && o.handle) || s.handle,
+        faction: o ? planetIdx(o.faction) : s.faction,
+        counters: o ? Number(o.counters) || 0 : s.counters || 0,
+        melds: o ? Number(o.melds_value) || 0 : s.meldsValue || 0,
+        score: o ? Number(o.score) || 0 : s.score || 0,
+        tookLast: o ? !!o.took_final_trick : s.seatId === lastTrickWinner,
+        controlDelta: o ? Number(o.control_delta) || 0 : null,
+      };
+    });
+
+    // The winner is the seat the module paid; before the row arrives (and for
+    // practice), the top score.
+    const winnerSeatId = row && !isVoid ? Number(row.winner_seat_id) : null;
+    seatRows.sort((a, b) => (Number(b.seat.seatId) === winnerSeatId) - (Number(a.seat.seatId) === winnerSeatId) || b.score - a.score);
+    const top = seatRows[0] || null;
+    const winnerFaction = row && !isVoid ? planetIdx(row.winner_faction) : top ? top.faction : null;
+    const winFactionName = PLANET_NAMES[winnerFaction] || (top && top.handle) || "Dominant";
     const mySeat = this._mySeat();
+    const tableNo = `Table #${t.tableId || 0}`;
 
     // 1. Header
+    let title = `✦ Faction ${winFactionName} Triumphs in ${zoneName(t.zoneId)} ✦`;
+    let sub;
+    // A real table's winner is whoever the module paid; until its row is read,
+    // name nobody (the table may have been voided).
+    const named = !!row || t.isPractice || !isResolved;
+    if (t.isPractice) {
+      sub = `Practice skirmish · ${tableNo} · not recorded on chain`;
+    } else if (!isResolved) {
+      title = `✦ ${zoneName(t.zoneId)} · Table in play ✦`;
+      sub = `${tableNo} · the settlement appears when the table resolves`;
+    } else if (isVoid) {
+      title = `✦ Void Table in ${zoneName(t.zoneId)} ✦`;
+      sub = `${tableNo} · no trick scored: no control moved, no ESMS paid, nobody's win`;
+    } else if (row) {
+      const when = utcLabel(timestampMs(row.resolved_at));
+      sub = `Settled on chain · ${tableNo}${when ? " · " + when : ""}`;
+    } else {
+      title = `✦ ${zoneName(t.zoneId)} · Table settled ✦`;
+      sub = `${tableNo} · ${this._resultStatusText(result)}`;
+    }
     const header = h("div", { class: "mt-settlement-header" }, [
-      h("div", { class: "mt-triumph-title" }, [
-        h("span", { text: `✦ Faction ${winFactionName} Triumphs in ${zoneName(t.zoneId)} ✦` }),
-      ]),
-      h("div", { class: "mt-triumph-sub" }, [
-        h("span", { text: `Post-Match Settlement · Table #${t.tableId || 0} · Sol-Net Sync Complete` }),
-      ]),
+      h("div", { class: "mt-triumph-title" }, [h("span", { text: title })]),
+      h("div", { class: "mt-triumph-sub" }, [h("span", { text: sub })]),
     ]);
 
-    // 2. Grid (Left: Score Table & Zone Control Shift, Right: Spoils Drawer)
+    // 2. Grid (Left: Score Table & Zone Control Shift, Right: Spoils)
     const grid = h("div", { class: "mt-settlement-grid" });
 
     // Left Panel
@@ -771,79 +863,38 @@ export class MeleeTableInstance {
           h("th", { text: "Melds" }),
           h("th", { text: "Last Trick" }),
           h("th", { text: "Total Score" }),
+          h("th", { text: "Control" }),
         ]),
       ]),
     ]);
 
-    const lastTrick = (t.tricks && t.tricks.length) ? t.tricks[t.tricks.length - 1] : null;
-    const lastTrickWinner = lastTrick ? (lastTrick.winnerSeat ?? lastTrick.winner_seat) : null;
-
     const tbody = h("tbody");
-    ranked.forEach((s, idx) => {
-      const isWinner = idx === 0;
+    seatRows.forEach((r, idx) => {
+      const s = r.seat;
+      const isWinner = idx === 0 && !isVoid && named;
       const isPlayer = mySeat && s.seatId === mySeat.seatId;
-      const tookLast = s.seatId === lastTrickWinner;
-      const lastTrickBonus = tookLast ? "+20" : "—";
-      const fName = PLANET_NAMES[s.faction] || "Faction";
+      const fName = PLANET_NAMES[r.faction] || "Faction";
       tbody.appendChild(h("tr", {
         class: (isWinner ? "is-winner " : "") + (isPlayer ? "is-player-row" : ""),
       }, [
-        h("td", { text: `${isPlayer ? "★ You (" + (s.handle || fName) + ")" : (s.handle || fName)}` }),
-        h("td", { text: `${s.counters || 0}` }),
-        h("td", { text: `+${s.meldsValue || 0}` }),
-        h("td", { text: lastTrickBonus }),
-        h("td", { style: { fontWeight: "700", color: isWinner ? "var(--primary)" : "inherit" }, text: `${s.score || 0} pts` }),
+        h("td", { text: `${isPlayer ? "★ You (" + (r.handle || fName) + ")" : (r.handle || fName)}` }),
+        h("td", { text: `${r.counters}` }),
+        h("td", { text: `+${r.melds}` }),
+        // The last trick carries ten extra counters, already in Counters.
+        h("td", { text: r.tookLast ? "+10" : "—", title: r.tookLast ? "Took the last trick: +10 counters" : "" }),
+        h("td", { style: { fontWeight: "700", color: isWinner ? "var(--primary)" : "inherit" }, text: `${r.score} pts` }),
+        h("td", { text: r.controlDelta == null ? "—" : signed(r.controlDelta) }),
       ]));
     });
     tableEl.appendChild(tbody);
     leftPanel.appendChild(tableEl);
-
-    // Zone Control Shift Box
-    const shiftBox = h("div", { class: "mt-control-shift-box" }, [
-      h("div", { style: { display: "flex", justifyContent: "space-between", fontSize: "12px", fontFamily: "JetBrains Mono, monospace" } }, [
-        h("span", { style: { color: "var(--primary)" }, text: `Faction ${winFactionName} (+85 Influence)` }),
-        h("span", { style: { color: "var(--on-surface-variant)" }, text: "Zone Dominance Shift" }),
-      ]),
-      h("div", { class: "mt-control-bar-track" }, [
-        h("div", { class: "mt-control-bar-fill-sun", style: { width: "68%" } }),
-        h("div", { class: "mt-control-bar-fill-moon", style: { width: "32%" }, text: "32%" }),
-      ]),
-      h("div", { style: { fontSize: "11px", color: "var(--on-surface-variant)", opacity: "0.8" }, text: "Dominance swing recorded to chain state. Alchemical resonance stabilized." }),
-    ]);
-    leftPanel.appendChild(shiftBox);
+    leftPanel.appendChild(this._controlShiftBox(t, row, result, seatRows, winFactionName));
     grid.appendChild(leftPanel);
 
-    // Right Panel: Spoils Drawer
+    // Right Panel: Spoils & chain record
     const rightPanel = h("div", { class: "mt-settlement-panel" });
-    rightPanel.appendChild(h("div", { class: "mt-panel-title", text: "Spoils & StarVault Verification" }));
-
-    const spoilsDrawer = h("div", { class: "mt-spoils-drawer" });
-    const spoilsCard = h("div", { class: "mt-spoils-card" }, [
-      h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, [
-        h("span", { style: { fontFamily: "JetBrains Mono", fontSize: "11px", color: "var(--primary)", fontWeight: "700" }, text: "MAJOR XXI" }),
-        h("span", { style: { color: "var(--primary)" }, text: "✦" }),
-      ]),
-      h("div", { style: { textAlign: "center", margin: "14px 0" } }, [
-        h("div", { style: { fontSize: "32px", color: "var(--primary)", textShadow: "0 0 12px rgba(246, 207, 131, 0.6)" }, text: "☉" }),
-        h("div", { style: { fontFamily: "Noto Serif", fontSize: "14px", fontWeight: "700", color: "var(--on-surface)", marginTop: "6px" }, text: "The World" }),
-        h("div", { style: { fontSize: "10px", color: "var(--on-surface-variant)", textTransform: "uppercase" }, text: "Solar Singularity" }),
-      ]),
-      h("div", { style: { display: "flex", justifyContent: "space-between", fontSize: "11px", fontFamily: "JetBrains Mono", borderTop: "1px solid rgba(246,207,131,0.2)", paddingTop: "8px" } }, [
-        h("span", { text: "ATK 42" }),
-        h("span", { text: "DEF 38" }),
-      ]),
-    ]);
-    spoilsDrawer.appendChild(spoilsCard);
-
-    const hashChip = h("div", { class: "mt-spoils-chip" }, [
-      h("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", marginBottom: "4px" } }, [
-        h("span", { class: "mt-spoils-chip-beacon" }),
-        h("span", { style: { fontFamily: "Space Grotesk", fontSize: "11px", fontWeight: "600", color: "var(--f-venus)" }, text: "Sol-Net StarVault Synchronized" }),
-      ]),
-      h("div", { style: { fontFamily: "JetBrains Mono", fontSize: "10px", color: "var(--on-surface-variant)", letterSpacing: "0.05em" }, text: "Hash: 0x7f2a9b4c...8e1d2c" }),
-    ]);
-    spoilsDrawer.appendChild(hashChip);
-    rightPanel.appendChild(spoilsDrawer);
+    rightPanel.appendChild(h("div", { class: "mt-panel-title", text: "Spoils & Chain Record" }));
+    rightPanel.appendChild(this._spoilsDrawer(t, row, result));
     grid.appendChild(rightPanel);
 
     // 3. Actions
@@ -867,6 +918,110 @@ export class MeleeTableInstance {
     host.appendChild(header);
     host.appendChild(grid);
     host.appendChild(actions);
+  }
+
+  /** Why there is no result row to show (yet). */
+  _resultStatusText(result) {
+    if (!this.fetchResult) return "settled result unavailable offline";
+    if (!result || result.status === "loading") return "reading the settled result from chain…";
+    if (result.status === "error") return "couldn't read the settled result. Reopen Spoils to retry";
+    return "no settled result on chain (results are kept 7 days)";
+  }
+
+  /** Zone control: each seat's share of the push, and the zone before → after. */
+  _controlShiftBox(t, row, result, seatRows, winFactionName) {
+    const mono = { display: "flex", justifyContent: "space-between", fontSize: "12px", fontFamily: "JetBrains Mono, monospace" };
+    const note = (text) => h("div", { style: { fontSize: "11px", color: "var(--on-surface-variant)", opacity: "0.8" }, text });
+    const box = h("div", { class: "mt-control-shift-box" });
+
+    if (t.isPractice) {
+      const p = t.practiceOutcome;
+      box.appendChild(h("div", { style: mono }, [
+        h("span", { style: { color: "var(--primary)" }, text: p && p.recorded ? `Faction ${winFactionName} (+${p.controlShift} local control)` : `Faction ${winFactionName}` }),
+        h("span", { style: { color: "var(--on-surface-variant)" }, text: "Practice" }),
+      ]));
+      box.appendChild(note(!p
+        ? "Practice table in play."
+        : p.recorded
+          ? "Offline practice: the shift applies to the local simulation only."
+          : "Practice results don't move the live war."));
+      return box;
+    }
+    if (!row) {
+      box.appendChild(note(t.state === "Resolved" ? this._resultStatusText(result) : "Control moves when the table settles."));
+      return box;
+    }
+    if (row.is_void) {
+      box.appendChild(note("Void table: no control moved."));
+      return box;
+    }
+
+    box.appendChild(h("div", { style: mono }, [
+      h("span", { style: { color: "var(--primary)" }, text: `Faction ${winFactionName} (${signed(row.winner_control_delta)} control)` }),
+      h("span", { style: { color: "var(--on-surface-variant)" }, text: "Zone Dominance Shift" }),
+    ]));
+    const moved = seatRows.filter((r) => r.controlDelta);
+    const total = moved.reduce((sum, r) => sum + Math.abs(r.controlDelta), 0);
+    box.appendChild(h("div", { class: "mt-control-bar-track" }, moved.map((r) => h("div", {
+      class: "mt-control-bar-seg",
+      title: `${r.handle || PLANET_NAMES[r.faction] || "Seat"} ${signed(r.controlDelta)}`,
+      style: {
+        width: `${((Math.abs(r.controlDelta) / total) * 100).toFixed(1)}%`,
+        height: "100%",
+        background: PLANET_COLORS[r.faction] || "#6a6c84",
+        opacity: r.controlDelta > 0 ? "1" : "0.45",
+      },
+    }))));
+    const before = `${ownerName(row.zone_owner_before)} ${Number(row.zone_control_before) || 0}`;
+    const after = `${ownerName(row.zone_owner_after)} ${Number(row.zone_control_after) || 0}`;
+    box.appendChild(note(`${zoneName(t.zoneId)}: ${before} → ${after}${row.captured ? ` · captured from ${ownerName(row.zone_owner_before)}` : ""}`));
+    return box;
+  }
+
+  /** ESMS paid, capture, and where the record lives. */
+  _spoilsDrawer(t, row, result) {
+    const drawer = h("div", { class: "mt-spoils-drawer" });
+    const chip = (title, detail) => h("div", { class: "mt-spoils-chip" }, [
+      h("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", marginBottom: detail ? "4px" : "0" } }, [
+        h("span", { class: "mt-spoils-chip-beacon" }),
+        h("span", { style: { fontFamily: "Space Grotesk", fontSize: "11px", fontWeight: "600", color: "var(--f-venus)" }, text: title }),
+      ]),
+      detail ? h("div", { style: { fontFamily: "JetBrains Mono", fontSize: "10px", color: "var(--on-surface-variant)", letterSpacing: "0.05em" }, text: detail }) : null,
+    ]);
+
+    if (t.isPractice) {
+      drawer.appendChild(chip("Practice skirmish", "No spoils: practice is not recorded on chain"));
+      return drawer;
+    }
+    if (!row) {
+      drawer.appendChild(chip(t.state === "Resolved" ? "Settled result" : "Table in play", t.state === "Resolved" ? this._resultStatusText(result) : "Spoils are paid when the table settles"));
+      return drawer;
+    }
+
+    const esms = Number(row.winner_esms) || 0;
+    const paid = esms > 0 && !row.is_void;
+    drawer.appendChild(h("div", { class: "mt-spoils-card" }, [
+      h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, [
+        h("span", { style: { fontFamily: "JetBrains Mono", fontSize: "11px", color: "var(--primary)", fontWeight: "700" }, text: "ESMS YIELD" }),
+        h("span", { style: { color: "var(--primary)" }, text: row.flux_active ? "✦ flux" : "✦" }),
+      ]),
+      h("div", { style: { textAlign: "center", margin: "14px 0" } }, [
+        h("div", { style: { fontFamily: "JetBrains Mono", fontSize: "22px", color: "var(--primary)", textShadow: "0 0 12px rgba(246, 207, 131, 0.6)" }, text: paid ? (esms / ESMS_SCALE).toFixed(4) : "0" }),
+        h("div", { style: { fontSize: "10px", color: "var(--on-surface-variant)", textTransform: "uppercase", marginTop: "6px" }, text: paid ? `ESMS to ${row.winner_handle || "the winner"}` : "No ESMS paid" }),
+      ]),
+      h("div", { style: { display: "flex", justifyContent: "space-between", fontSize: "11px", fontFamily: "JetBrains Mono", borderTop: "1px solid rgba(246,207,131,0.2)", paddingTop: "8px" } }, [
+        h("span", { text: row.is_void ? "Void" : row.captured ? "Zone captured" : "No capture" }),
+        h("span", { text: `${Number(row.tricks_played) || 0} tricks` }),
+      ]),
+    ]));
+
+    const turns = Number(row.agent_turns) || 0;
+    const detail = [
+      `melee_result · table #${row.table_id ?? t.tableId} · round ${row.round_index ?? t.roundIndex ?? "?"}`,
+      turns ? `ASOL turns ${turns} (${Number(row.fallback_turns) || 0} fallback)` : null,
+    ].filter(Boolean).join(" · ");
+    drawer.appendChild(chip(row.refereed === false ? "Recorded on chain (feeder report)" : "Refereed & recorded on chain", detail));
+    return drawer;
   }
 
   _initShader(canvas) {

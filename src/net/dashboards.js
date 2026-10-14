@@ -1,19 +1,21 @@
 // ============================================================
 // Pentacles — live Faction & Zone dashboards (Phase 5)
 // ============================================================
-// Online, the Faction Standings and Zones panels are driven by the subscribed
-// `zone` and `star_node` tables (polled). There is no faction table — standings
-// are DERIVED from zone ownership/control + per-star holdings (faction = Planet).
-// Offline, the classic local renderers are kept intact as the fallback.
+// Online, the Faction Standings and Zones panels are driven by subscribed chain
+// tables only: `zone` and `star_node` (holdings), `faction_war_standing` (War
+// Table decan points and crowns) and `war_state` (the decan those points belong
+// to). Nothing local — simulated rounds, practice melees — is added to the live
+// board (see live-standings.js). Offline, the classic local renderers are kept
+// intact as the fallback.
 //
 // The SATS-JSON decoding of Option<Planet>/ZoneKind and the region→zone
 // mapping (via star_node.region_hint) were validated against the live 2.6
 // module (prod cookingwithcastrollc, 2026-07).
 
 import spacetime from './spacetime.js'
+import { PLANET_NAMES, kindName, liveStandings, planetIndex } from './live-standings.js'
 
 // Hardcoded (modules can't see client.js's classic consts).
-const PLANET_NAMES = ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto']
 const PLANET_GLYPHS = ['☉', '☽', '☿', '♀', '♂', '♃', '♄', '♅', '♆', '♇']
 const PLANET_COLORS = ['#e8b84b', '#cbd0db', '#9aa7c4', '#d98fb0', '#cf4d4d', '#cf9a52', '#9a937c', '#5fb6c4', '#6470c8', '#8a6aa0']
 const SIGN_SUITS = ['wands', 'pentacles', 'swords', 'cups', 'wands', 'pentacles', 'swords', 'cups', 'wands', 'pentacles', 'swords', 'cups']
@@ -21,33 +23,10 @@ const WEATHERS = ['Clear Sky', 'Meteor Shower', 'Solar Flare', 'Aether Eclipse',
 
 let zoneCache = null
 let starCache = null
+let standingCache = null // faction_war_standing rows; null until the first sync
+let warStateCache = null // war_state rows
 let origLeaderboard = null
 let origZones = null
-
-// ---- enum decoding helpers -------------------------------------------------
-function planetIndex(v) {
-  if (v == null) return null
-  if (typeof v === 'number') return (v >= 0 && v < 10) ? v : null
-  if (typeof v === 'string') {
-    const s = v.toLowerCase()
-    const i = PLANET_NAMES.findIndex(n => n.toLowerCase() === s)
-    return i >= 0 ? i : null
-  }
-  if (typeof v === 'object') {
-    if ('__identity__' in v) return null
-    const key = Object.keys(v)[0]
-    if (!key) return null
-    const s = key.toLowerCase()
-    const i = PLANET_NAMES.findIndex(n => n.toLowerCase() === s)
-    return i >= 0 ? i : null
-  }
-  return null
-}
-function kindName(v) {
-  let s = v
-  if (v && typeof v === 'object') s = Object.keys(v)[0]
-  return String(s || '').toLowerCase()
-}
 
 // ---- Server-side Decan Ledger sync (Railway) ------------------------------
 const FEEDER_BACKEND_URL = (typeof window !== 'undefined' && window.FEEDER_BACKEND_URL)
@@ -67,12 +46,45 @@ export async function syncServerDecanLedger() {
     if (!res.ok) return
     const data = await res.json()
     if (data?.success && window.state && typeof window.state.syncDecanLedger === 'function') {
-      window.state.syncDecanLedger(data)
-      renderLeaderboardLive()
+      // Live, standings come from faction_war_standing; the ledger only supplies
+      // the decan history and recent rounds, never points or crowns.
+      window.state.syncDecanLedger(spacetime.isLive ? ledgerHistoryOnly(data) : data)
+      // Through the dispatcher: offline this must repaint the classic board, not
+      // paint "live · syncing" over it.
+      if (typeof window.renderLeaderboard === 'function') window.renderLeaderboard()
     }
   } catch {
     // Non-blocking: fallback gracefully to local simulation state
   }
+}
+
+/** The parts of a decan-ledger payload the live board still takes from HTTP. */
+export function ledgerHistoryOnly(data) {
+  const out = { success: true }
+  if (Array.isArray(data?.decanHistory)) out.decanHistory = data.decanHistory
+  if (Array.isArray(data?.recentRounds)) out.recentRounds = data.recentRounds
+  return out
+}
+
+/** The client's own Sun decan (0..35) from the local ephemeris, or null before it runs. */
+function sunDecan() {
+  const st = window.state
+  const lon = st && typeof st.sunLongitude === 'function' ? st.sunLongitude() : null
+  if (lon == null || typeof window.getDecanInfo !== 'function') return null
+  const d = window.getDecanInfo(lon)
+  return d && Number.isInteger(d.absDecan) ? d.absDecan : null
+}
+
+/** The live board from chain rows, or null before the zones have synced. */
+export function currentLiveStandings() {
+  if (!zoneCache) return null
+  return liveStandings({
+    zones: zoneCache,
+    stars: starCache,
+    standings: standingCache,
+    warState: warStateCache,
+    sunDecan: sunDecan(),
+  })
 }
 
 // ---- live render -----------------------------------------------------------
@@ -87,34 +99,7 @@ function renderLeaderboardLive() {
     container.innerHTML = liveFlag('') + `<div class="dash-loading">Syncing standings…</div>`
     return
   }
-  // score = Σ zone weights (House 100, Spire 200, Crown 400) + positive control + 5 × stars held + round performance
-  const score = Array.from({ length: 10 }, () => 0)
-  for (const z of zoneCache) {
-    const o = planetIndex(z.owner)
-    if (o != null) {
-      const k = kindName(z.kind)
-      const weight = k === 'crown' ? 400 : (k === 'spire' ? 200 : 100)
-      score[o] += weight
-      score[o] += Math.max(0, Math.floor(Number(z.control) / 10) || 0)
-    }
-  }
-  if (starCache) {
-    for (const s of starCache) {
-      const h = planetIndex(s.held_by)
-      if (h != null) score[h] += 5
-    }
-  }
-  if (window.state?.factionRoundPoints) {
-    for (let i = 0; i < 10; i++) {
-      score[i] += Math.max(0, Number(window.state.factionRoundPoints[i]) || 0)
-    }
-  }
-  if (window.state?.decanVictories) {
-    for (let i = 0; i < 10; i++) {
-      score[i] += (Number(window.state.decanVictories[i]) || 0) * 50
-    }
-  }
-
+  const live = currentLiveStandings()
   // Render live decan battle banner if container exists
   const banner = document.getElementById('decan-status-banner')
   if (banner && typeof window.state?.getCurrentDecan === 'function') {
@@ -138,28 +123,38 @@ function renderLeaderboardLive() {
           <span style="color: #fff; font-weight: 500;">${decan.degInDecan}° / 10° (${decan.progressPct}%)</span>
           <span>${decan.endDeg}°</span>
         </div>
+        ${warClockNote(live)}
       </div>
     `
   }
 
   const myFaction = window.state?.player?.faction
-  const ranked = score.map((s, id) => ({ id, score: s })).sort((a, b) => b.score - a.score)
   container.innerHTML =
-    liveFlag('') +
-    ranked
+    liveFlag(live.standingsSynced ? '' : 'War Table standings not synced') +
+    live.ranked
       .map(
-        (item, i) => {
-          const decanWins = (window.state?.decanVictories && window.state.decanVictories[item.id]) || 0
+        (item) => {
+          const crowns = item.decanCrowns
           return `<div class="standings-item ${myFaction === item.id ? 'me' : ''}">
             <div style="display:flex; align-items:center; gap:6px;">
-              <span>#${i + 1} &nbsp; ${PLANET_GLYPHS[item.id]} ${PLANET_NAMES[item.id]}</span>
-              ${decanWins > 0 ? `<span style="font-size:9.5px; color:#ffd700; background:rgba(255,215,0,0.15); padding:1px 5px; border-radius:10px; border:1px solid rgba(255,215,0,0.3);" title="${decanWins} Decan Victories">👑 ${decanWins}</span>` : ''}
+              <span>#${item.rank} &nbsp; ${PLANET_GLYPHS[item.id]} ${PLANET_NAMES[item.id]}</span>
+              ${crowns > 0 ? `<span style="font-size:9.5px; color:#ffd700; background:rgba(255,215,0,0.15); padding:1px 5px; border-radius:10px; border:1px solid rgba(255,215,0,0.3);" title="${crowns} decan crown${crowns === 1 ? '' : 's'}">👑 ${crowns}</span>` : ''}
             </div>
-            <span>${item.score} pts</span>
+            <span title="${item.decanPoints} War Table points this decan">${item.score} pts</span>
           </div>`
         }
       )
       .join('')
+}
+
+// When the module's war clock is not on the Sun's decan, its decan points are
+// left off the board (they belong to another decan, and the module zeroes them
+// when it crowns); say so rather than show a silent drop.
+function warClockNote(live) {
+  if (!live || !live.standingsSynced || live.chainDecan == null || live.decanIsCurrent || live.sunDecan == null) return ''
+  const info = typeof window.getDecanInfo === 'function' ? window.getDecanInfo(live.chainDecan * 10 + 5) : null
+  const label = info && info.card ? info.card : `decan ${live.chainDecan}`
+  return `<div style="font-size: 9.5px; color: var(--dim); margin-top: 6px;">War Table clock is on ${label}, not the Sun's decan, so its decan points are left off the board.</div>`
 }
 
 function renderZonesListLive() {
@@ -241,6 +236,17 @@ export function installDashboards() {
     starCache = rows
     repaintIfLive()
   })
+  spacetime.subscribe('faction_war_standing', (rows) => {
+    standingCache = rows
+    repaintIfLive()
+  })
+  spacetime.subscribe('war_state', (rows) => {
+    warStateCache = rows
+    repaintIfLive()
+  })
+  // Faction dossier pages read the same chain-only board while live.
+  window.Pentacles = window.Pentacles || {}
+  window.Pentacles.liveStandings = currentLiveStandings
 
   // When the connection flips live, switch the panels over.
   spacetime.onStatus((s) => {
@@ -255,4 +261,4 @@ export function installDashboards() {
   setInterval(syncServerDecanLedger, 30_000)
 }
 
-export default { installDashboards }
+export default { installDashboards, currentLiveStandings }

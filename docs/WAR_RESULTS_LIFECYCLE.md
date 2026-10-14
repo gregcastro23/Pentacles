@@ -65,9 +65,11 @@ this order:
    and deploy the **feeder**. The ledger endpoints now read `melee_result`,
    `faction_war_standing`, `war_epoch` and `war_state`. They need the new
    tables, so they will error against an old module.
-3. **Deploy the client.** It subscribes to `my_melee_hand`. Against an old
-   module that view is unknown, and the subscription-recovery path in
-   `src/net/spacetime.js` drops it with a warning.
+3. **Deploy the client.** It subscribes to `my_melee_hand`,
+   `faction_war_standing` and `war_state`. Against an old module those are
+   unknown, and the subscription-recovery path in `src/net/spacetime.js` drops
+   them with a warning. The leaderboard then shows zones and stars only, flagged
+   "War Table standings not synced".
 
 Verify with `bash scripts/verify-melee-deploy.sh <db>`. It now counts things
 that only grow: the `war_state.last_round_index` high-water mark, and
@@ -173,14 +175,27 @@ per table.
 The public endpoints use their own two-connection pool, a 5 s statement
 timeout and a 30 s answer cache, so traffic cannot starve the archiver.
 
+## What the web client reads
+
+- **Leaderboard** (`src/net/dashboards.js`, scored by `src/net/live-standings.js`).
+  While live it subscribes to `zone`, `star_node`, `faction_war_standing` and
+  `war_state` and scores from those rows alone: zones held, stars held, 50 per
+  decan crown, plus `decan_points` while `war_state.current_decan` is the
+  client's own Sun decan. When the module's clock lags the Sun, the board holds
+  those points back and the decan banner says so. The feeder's decan ledger
+  only supplies `decanHistory` and `recentRounds`. The faction dossier pages
+  read the same board through `window.Pentacles.liveStandings`.
+- **Local simulation.** While live, `public/client.js` plays no autonomous
+  rounds, `recordRoundResult` records nothing, and a decan crossing moves the
+  local clock without crowning anyone: the module does that. Practice melees
+  (`faction-war.js`) move no zone control and record no round. Offline, both
+  run as before.
+- **Settlement panel** (`melee-table.js`). Once a table resolves it reads that
+  table's `melee_result` row with one `SELECT … WHERE table_id = N`, never a
+  subscription. It shows each seat's final score and control delta, the zone
+  before and after, the capture, and the ESMS paid. A void table, a practice
+  table or a row it cannot read is labelled as such; nothing is made up.
+
 ## Not done here
 
-- **Leaderboard.** It still reads standings through the feeder's HTTP ledger.
-  `faction_war_standing` is a 10-row public table it could subscribe to
-  directly.
-- **Local simulation.** The classic local simulation (`public/client.js`
-  `state.tick`) and practice melees still add to the live leaderboard's
-  round points.
-- **Settlement panel.** It still shows placeholder values (influence, hash,
-  spoils card). `melee_result` now has the real ones.
 - **Unity bindings.** `unity/Assets/Autogen` was not regenerated.

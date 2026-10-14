@@ -503,6 +503,13 @@ function scoreFactions(chart) {
   return sorted.slice(0, 3);
 }
 
+// True while connected to the live module. Then the module referees the War
+// Table and crowns decans, and the live leaderboard reads chain rows only, so
+// nothing simulated here may record a round, credit points or crown a decan.
+function isLiveWar() {
+  return typeof window !== "undefined" && !!(window.Pentacles && window.Pentacles.net && window.Pentacles.net.isLive);
+}
+
 // ---- GAME STATE MANAGER ----
 class GameState {
   constructor() {
@@ -1237,6 +1244,9 @@ class GameState {
 
   recordRoundResult(roundData) {
     if (!roundData) return null;
+    // Live, rounds and standings come from the chain (melee_result,
+    // faction_war_standing); a local round would be made up.
+    if (isLiveWar()) return null;
     if (!this.roundResults) this.roundResults = [];
     if (!this.factionRoundPoints) this.factionRoundPoints = new Array(10).fill(0);
 
@@ -1528,9 +1538,15 @@ class GameState {
     }
     const ahead = (decanNow.absDecan - this.currentDecanId + 36) % 36;
     if (ahead === 1) {
-      this.concludeDecanBattle(this.currentDecanId, decanNow);
+      // Live, the module crowns the decan (war_epoch); concluding here would
+      // name a champion from the simulated board.
+      const conclude = !isLiveWar();
+      if (conclude) this.concludeDecanBattle(this.currentDecanId, decanNow);
+      // The finished decan's points must not carry into the next one (they
+      // would resurface on the offline board and in its next crown).
+      else this.factionRoundPoints = new Array(10).fill(0);
       this.currentDecanId = decanNow.absDecan;
-      return true;
+      return conclude;
     }
     if (ahead > 1 && ahead <= 18) this.currentDecanId = decanNow.absDecan;
     return false;
@@ -1660,7 +1676,8 @@ class GameState {
 
     // Autonomous Agent Melee: historical agents actively contest zones,
     // push control meters, capture zones, and score points for their factions.
-    this.runAutonomousZoneRound();
+    // Offline only: live, the module seats and plays the agents' tables itself.
+    if (!isLiveWar()) this.runAutonomousZoneRound();
     this.recalculateLeaderboard();
 
     // Stars that set below the horizon release their transient garrisons.

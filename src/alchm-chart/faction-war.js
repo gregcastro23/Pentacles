@@ -752,6 +752,7 @@ export class FactionWarInstance {
       myFaction: practiceF,
       myIdentity: practiceId,
       myHand: practiceHand,
+      fetchResult: table.isPractice ? null : (id) => this._fetchMeleeResult(id),
       hooks: {
         onClose: () => this.closeAgentProfile(),
         onFastForward: (t, mtInstance) => {
@@ -790,6 +791,26 @@ export class FactionWarInstance {
     });
     mt.mount();
     this._meleeView = { instance: mt, tableId: table.tableId };
+  }
+
+  /**
+   * One settled table's `melee_result` row, by a one-off SQL read. Never a
+   * whole-table subscription: melee_result keeps 7 days of rows.
+   */
+  async _fetchMeleeResult(tableId) {
+    const st = this.spacetime;
+    const id = Number(tableId);
+    if (!Number.isSafeInteger(id) || id <= 0) return null;
+    // Offline is a failed read, not a missing row: reopening Spoils retries.
+    if (!st || !st.isLive || typeof st.query !== "function") throw new Error("SpacetimeDB offline");
+    const rows = await st.query(`SELECT * FROM melee_result WHERE table_id = ${id}`);
+    return (Array.isArray(rows) && rows[0]) || null;
+  }
+
+  /** Connected to the live module (practice must then leave the war alone). */
+  _isLive() {
+    const net = this.spacetime || (typeof window !== "undefined" && window.Pentacles && window.Pentacles.net) || null;
+    return !!(net && net.isLive);
   }
 
   _handlePracticeCardPlay(table, cardId, mt, opts = {}) {
@@ -910,8 +931,12 @@ export class FactionWarInstance {
       const winnerFaction = overallWinner.faction;
       const controlShift = Math.max(120, Math.min(300, (overallWinner.score || 50) * 3));
       let capturedZone = false;
+      // A practice skirmish never touches the live war. While connected, the
+      // zone rows and the leaderboard are chain state, so it moves no control
+      // and records no round; offline it plays into the local simulation.
+      const live = this._isLive();
 
-      if (typeof window !== "undefined" && window.state) {
+      if (!live && typeof window !== "undefined" && window.state) {
         if (Array.isArray(window.state.map) && window.state.map[zoneId]) {
           const zone = window.state.map[zoneId];
           if (zone.owner === winnerFaction) {
@@ -977,10 +1002,14 @@ export class FactionWarInstance {
         if (typeof window.renderLeaderboard === "function") window.renderLeaderboard();
         if (typeof window.renderZonesList === "function") window.renderZonesList();
       }
+      table.practiceOutcome = { winnerFaction, controlShift: live ? 0 : controlShift, capturedZone, recorded: !live };
 
       if (!opts.silent && typeof window !== "undefined" && window.toast) {
         const title = overallWinner.isHuman ? "Victory!" : `${overallWinner.handle} Won!`;
-        window.toast(`12-Trick Melee Complete! ${overallWinner.handle} won with ${overallWinner.score} pts. Zone ${zoneId} control shifted +${controlShift} to ${this.PN[winnerFaction]}.`, { type: "success", title });
+        const effect = live
+          ? "Practice results don't move the live war."
+          : `Zone ${zoneId} control shifted +${controlShift} to ${this.PN[winnerFaction]}.`;
+        window.toast(`12-Trick Melee Complete! ${overallWinner.handle} won with ${overallWinner.score} pts. ${effect}`, { type: "success", title });
       }
     }
 
