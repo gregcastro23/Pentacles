@@ -5,6 +5,10 @@ Jing cast fixes (PR [#73](https://github.com/gregcastro23/Pentacles/pull/73)).
 Previous sweep: 2026-08-27, during the ASOL Solana mainnet conformance pass
 (PR [#23](https://github.com/gregcastro23/Pentacles/pull/23)).
 
+Prod moved to the maincloud database `pentacles` on 2026-10-14 as a fresh start
+(decided 2026-10-15): the human players and cards on the old `pentacles1` were not
+carried over, and players register again.
+
 Everything outstanding across the project, in the order things unblock each
 other. This is a living file — update the status column when an item lands, and
 delete items rather than letting them rot.
@@ -64,9 +68,8 @@ Strictly ordered — each unblocks the next. Full context in
 | Item | Status | Notes |
 | :-- | :-- | :-- |
 | **`processed_tx` composite key** | Verified | Idempotency is now scoped by composing `{chain}:{hash}` into the existing `tx_hash` primary key, with a fallback lookup on the bare hash for pre-scoping rows. A genuine composite key would be cleaner but 2.x cannot re-key a table in a compatible update — revisit only if a wipe-and-reseed is on the table anyway. |
-| **Oracle round trip on prod** | Re-check | The feeder answers `oracle_request` through the private-table bindings, and players read replies through `my_oracle_reply`. No question has been asked on `pentacles` yet, so the round trip is unverified there: ask one from an agent page and watch for the reply. |
+| **Oracle answers are only the fallback** | Verified | Tested on prod 2026-10-15: the round trip works (the request reaches the feeder and the reply comes back through `my_oracle_reply`), but every answer is the "vision is clouded" fallback. Both answer sources fail: the brain at `api.agents.alchm.kitchen` (deployed from `alchm-agents-solana` `main`) no longer has the `/api/agents/oracle`, `/jing`, `/word-duel` or `/pillar` routes (405 on the generic `/api/agents/{agent_id}`), and so does the Vercel fallback; and the `ANTHROPIC_API_KEY` on Railway `pentacles-feeders` is rejected (401 invalid x-api-key). A valid key restores the Oracle on its own (`claude-haiku-4-5` and `claude-sonnet-4-6` are still served). Jings, word duels and pillars keep working on their local fallbacks; restoring the brain routes brings back their agent voices. |
 | **Erode's second ESMS in `jing_cast`** | Verified | `drain_pool` charges Erode both Essence and Matter (matching `constants.ts` and `tests/fixtures/jing-costs.json`), but `JingCast.cost_esms` records only Essence. Recording both needs a schema change. |
-| **Players from `pentacles1`** | Recorded | Prod moved to the `pentacles` database on 2026-10-14. Its 71 players are the seeded historical agents; the human players and cards on `pentacles1` (now paused) were not migrated. Decide whether to migrate them or treat the move as a fresh start. |
 | **`GameAuthority` layout change** | Verified | The struct changed (epoch-mint fields dropped, `usdc_mint` / `star_root` / rate ceiling added). Borsh tolerates trailing bytes so an existing account still deserializes, but the devnet PDA holds meaningless values until re-initialized. Fold into 1.5. |
 
 ---
@@ -75,7 +78,7 @@ Strictly ordered — each unblocks the next. Full context in
 
 | Item | Status | Notes |
 | :-- | :-- | :-- |
-| **Unmerged branches** | Verified | Every branch on origin with commits outside `main` was squash-merged, apart from PRs #58 and #61 (closed unmerged), `feat/alchm-vessel-drawer` (superseded by #68 and #69), `release/v0.1.1-pre-migration` (a snapshot) and the June-era `claude/serene-turing-SJeCA` and local `claude/cool-archimedes-XgDVn`, which also has a stash. The merged branches can be deleted; the others are a keep-or-drop call. |
+| **Leftover branches** | Verified | On 2026-10-15 the 30 branch refs whose tip was exactly a merged PR's head, or already in `main`, were deleted. Left: ten branches whose PRs merged but whose tips differ from what was merged, so they may carry later commits (`codex/testnet-deployment-session`, `docs/morning-after-word-duel-cross-project`, `feat/alchm-chart-sponsored-swaps`, `feat/full-sky-star-catalog`, `feat/perpetual-hardening`, `feat/web-client-vite-onchain`, `refactor/major-arcana-rename`, `claude/gallant-ride-436PI`, `feat/melee-manifold-consolidation`, `feat/stardex-horizon-spacetimedb`); PRs #58 and #61 (closed unmerged); `feat/alchm-vessel-drawer` (superseded by #68 and #69); `release/v0.1.1-pre-migration` (a snapshot); and the June-era `claude/serene-turing-SJeCA` and local `claude/cool-archimedes-XgDVn`, which also has a stash. Check each for commits beyond its PR before deleting. |
 | **Vendor `alchm-astro-core`** | Verified | [`server/Cargo.toml`](../server/Cargo.toml) resolves it through `../../../AlchmAgentsSolana/alchm-astro-core`. Repointed this pass because the old path no longer existed and the module could not build at all — but a clean checkout on another machine still cannot build it. Vendor or publish the crate. |
 | **Bundle size** | Verified | `main.js` is 735 kB and `render-dome.js` 585 kB, both over the 500 kB warning. Non-blocking; the dome already lazy-loads Three. |
 
