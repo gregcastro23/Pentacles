@@ -7,7 +7,7 @@ import {
 import { FIXTURE_AGENTS } from '../src/lib/agents/rating-contract';
 
 describe('Deterministic Tile-Contest Resolution Engine', () => {
-  const newton = FIXTURE_AGENTS[0]; // OVR 94, Celestial & Aether seals, inactive surge
+  const newton = FIXTURE_AGENTS[0]; // OVR 94, Celestial & Astral seals, inactive surge
   const emily = FIXTURE_AGENTS[1]; // OVR 88, active tempest Surge (meter 86, +12 intuition, +8 resonance)
   const leo = FIXTURE_AGENTS[2]; // OVR 96, 2x Celestial seals, active equilibrium Surge
   const neo = FIXTURE_AGENTS[3]; // OVR 83, Gold & Silver seals

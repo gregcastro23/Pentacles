@@ -104,16 +104,16 @@ describe('Under-Foot Resonance Ring Shader & HUD Helpers', () => {
     it('resolves OVR tier classes correctly without sports trademarks', () => {
       expect(getOvrTierClass(98)).toBe('tier-celestial');
       expect(getOvrTierClass(96)).toBe('tier-celestial');
-      expect(getOvrTierClass(94)).toBe('tier-aether');
-      expect(getOvrTierClass(91)).toBe('tier-aether');
+      expect(getOvrTierClass(94)).toBe('tier-astral');
+      expect(getOvrTierClass(91)).toBe('tier-astral');
       expect(getOvrTierClass(88)).toBe('tier-gold');
       expect(getOvrTierClass(82)).toBe('tier-silver');
       expect(getOvrTierClass(75)).toBe('tier-copper');
     });
 
-    it('resolves Seal tier classes correctly with Copper and Aether', () => {
+    it('resolves Seal tier classes correctly with Copper and Astral', () => {
       expect(getSealTierClass('Celestial')).toBe('tier-celestial');
-      expect(getSealTierClass('Aether')).toBe('tier-aether');
+      expect(getSealTierClass('Astral')).toBe('tier-astral');
       expect(getSealTierClass('Gold')).toBe('tier-gold');
       expect(getSealTierClass('Silver')).toBe('tier-silver');
       expect(getSealTierClass('Copper')).toBe('tier-copper');

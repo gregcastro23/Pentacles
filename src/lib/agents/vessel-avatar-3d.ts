@@ -58,7 +58,7 @@ export function getSealShardCount(tier: SealTier): number {
       return 2;
     case 'Gold':
       return 3;
-    case 'Aether':
+    case 'Astral':
       return 4;
     case 'Celestial':
       return 5;
@@ -74,7 +74,7 @@ export const SEAL_TIER_HEX_COLORS: Record<SealTier, string> = {
   Copper: '#c87d55',
   Silver: '#e2e8f0',
   Gold: '#f59e0b',
-  Aether: '#00f0ff',
+  Astral: '#00f0ff',
   Celestial: '#c084fc',
 };
 

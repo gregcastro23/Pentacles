@@ -33,7 +33,7 @@ export const SEAL_TIERS = [
   'Copper',
   'Silver',
   'Gold',
-  'Aether',
+  'Astral',
   'Celestial',
 ] as const;
 
@@ -113,7 +113,7 @@ export const SEAL_STAT_GATES: Record<SealTier, number> = Object.freeze({
   Copper: 74,
   Silver: 80,
   Gold: 86,
-  Aether: 91,
+  Astral: 91,
   Celestial: 96,
 });
 
@@ -122,7 +122,7 @@ export const SEAL_ESMS_GATES: Record<SealTier, number> = Object.freeze({
   Copper: 0.5,
   Silver: 2.0,
   Gold: 10.0,
-  Aether: 50.0,
+  Astral: 50.0,
   Celestial: 250.0,
 });
 
@@ -131,7 +131,7 @@ export const SEAL_TIER_MULTIPLIERS: Record<SealTier, number> = Object.freeze({
   Copper: 1.05,
   Silver: 1.10,
   Gold: 1.18,
-  Aether: 1.28,
+  Astral: 1.28,
   Celestial: 1.40,
 });
 
@@ -188,7 +188,7 @@ const ARCHETYPE_TITLE_MATRIX: Record<string, string> = {
 
   'resonance:intuition': 'Harmonic Seer',
   'resonance:wisdom': 'Synthesizing Sage',
-  'resonance:power': 'Aetherial Striker',
+  'resonance:power': 'Astral Striker',
   'resonance:charisma': 'Symphonic Virtuoso',
   'resonance:adaptability': 'Fluid Harmonizer',
   'resonance:vitality': 'Resilient Prism',
@@ -239,22 +239,26 @@ export function clampStat(val: number): number {
 
 /**
  * Compute Overall (OVR) via Ordered Weighted Averaging (OWA).
- * Weights: top stat 1.6, second stat 1.3, remaining five stats 1.0.
- * Normalized by sum of weights (1.6 + 1.3 + 5.0 = 7.9).
+ * Weights: top stat 1.6, second stat 1.3, remaining five stats 1.0 (mean of rest * 1.0).
+ * Normalized by divisor 3.9 (1.6 + 1.3 + 1.0 = 3.9). Supports custom divisor via options.
  */
-export function computeOvr(ratings: Record<SacredStatKey, number>): number {
+export function computeOvr(
+  ratings: Record<SacredStatKey, number>,
+  options?: { divisor?: number }
+): number {
   const sorted = SACRED_STAT_KEYS
     .map((k) => clampStat(ratings[k] ?? 25))
     .sort((a, b) => b - a);
 
   const top1 = sorted[0];
   const top2 = sorted[1];
-  const restSum = sorted.slice(2).reduce((sum, v) => sum + v, 0);
+  const restAvg = sorted.slice(2).reduce((sum, v) => sum + v, 0) / 5;
 
-  const weightedSum = (top1 * 1.6) + (top2 * 1.3) + (restSum * 1.0);
-  const totalWeight = 1.6 + 1.3 + 5.0; // 7.9
+  const divisor = options?.divisor ?? 3.9;
+  const restVal = divisor === 7.9 ? restAvg * 5 : restAvg;
+  const weightedSum = (top1 * 1.6) + (top2 * 1.3) + (restVal * 1.0);
 
-  return clampStat(Math.round(weightedSum / totalWeight));
+  return clampStat(Math.round(weightedSum / divisor));
 }
 
 /**
@@ -318,7 +322,7 @@ export function evaluateSealTier(
 ): SealTier | null {
   const alignedScore = computeMeanAlignedRating(statKey, rawStatScore);
 
-  const tiers: SealTier[] = ['Celestial', 'Aether', 'Gold', 'Silver', 'Copper'];
+  const tiers: SealTier[] = ['Celestial', 'Astral', 'Gold', 'Silver', 'Copper'];
   for (const tier of tiers) {
     if (tier === 'Celestial' && isPlaceholder) continue;
     if (alignedScore >= SEAL_STAT_GATES[tier] && esmsBalance >= SEAL_ESMS_GATES[tier]) {
@@ -490,10 +494,10 @@ export const FIXTURE_AGENTS: RatedAgentPayload[] = [
         id: 'seal-vitality',
         name: 'Immovable Foundation',
         category: 'matter',
-        tier: 'Aether',
+        tier: 'Astral',
         description: 'Anchors vessel integrity against territorial disruption.',
         statKey: 'vitality',
-        multiplier: SEAL_TIER_MULTIPLIERS.Aether,
+        multiplier: SEAL_TIER_MULTIPLIERS.Astral,
       },
     ],
     surge: {
@@ -558,10 +562,10 @@ export const FIXTURE_AGENTS: RatedAgentPayload[] = [
         id: 'seal-resonance',
         name: 'Tidal Chorus',
         category: 'essence',
-        tier: 'Aether',
+        tier: 'Astral',
         description: 'Attunes with the ambient frequencies of celestial transits.',
         statKey: 'resonance',
-        multiplier: SEAL_TIER_MULTIPLIERS.Aether,
+        multiplier: SEAL_TIER_MULTIPLIERS.Astral,
       },
     ],
     surge: {

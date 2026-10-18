@@ -31,14 +31,14 @@ describe('Live Wallet ESMS & Rating Hydration Service', () => {
 
   it('updates live agent ESMS balances and upgrades seal tiers', () => {
     // Start with Neo (user-avatar-neo) who has Gold Harmonic Sovereign (charisma raw 88)
-    // Charisma raw 88 - mean 64.5 + 68.0 = 91.5 (qualifies for Aether >= 91)
-    // Initial essence is 32.0 (< 50.0 Aether gate -> Gold).
-    // When essence updates to 65.0 (>= 50.0 Aether gate), Harmonic Sovereign upgrades to Aether!
+    // Charisma raw 88 - mean 64.5 + 68.0 = 91.5 (qualifies for Astral >= 91)
+    // Initial essence is 32.0 (< 50.0 Astral gate -> Gold).
+    // When essence updates to 65.0 (>= 50.0 Astral gate), Harmonic Sovereign upgrades to Astral!
     const neoBefore = liveWalletSync.getCachedAgent('user-avatar-neo')!;
     const sealBefore = neoBefore.seals.find((s) => s.statKey === 'charisma')!;
     expect(sealBefore.tier).toBe('Gold');
 
-    // Push new ESMS balances with essence = 65.0 (>= 50.0 Aether gate)
+    // Push new ESMS balances with essence = 65.0 (>= 50.0 Astral gate)
     const updated = syncAgentEsmsFromSpacetime('user-avatar-neo', {
       spirit: 45.0,
       essence: 65.0,
@@ -50,7 +50,7 @@ describe('Live Wallet ESMS & Rating Hydration Service', () => {
     expect(updated!.esms.essence).toBe(65.0);
 
     const sealAfter = updated!.seals.find((s) => s.statKey === 'charisma')!;
-    expect(sealAfter.tier).toBe('Aether');
+    expect(sealAfter.tier).toBe('Astral');
   });
 
   it('updates registered 3D foot ring mesh uniforms in-place', () => {
@@ -107,7 +107,7 @@ describe('Live Wallet ESMS & Rating Hydration Service', () => {
     const beforeCount = avatar.userData.sealOrbiters.children.length;
     const surge = { ...payload.surge, active: true, meter: 85, surgeType: 'tempest' as const };
     const updated = syncAgentEsmsFromSpacetime(payload.key, { ...payload.esms, essence: 65 }, surge)!;
-    expect(updated.seals.find((seal) => seal.statKey === 'charisma')?.tier).toBe('Aether');
+    expect(updated.seals.find((seal) => seal.statKey === 'charisma')?.tier).toBe('Astral');
     expect(avatar.userData.agentPayload).toEqual(updated);
     expect(avatar.userData.agentPayload).not.toBe(updated);
     expect(avatar.userData.sealOrbiters.children.length).toBeGreaterThan(beforeCount);

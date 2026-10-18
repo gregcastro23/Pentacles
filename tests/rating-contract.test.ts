@@ -57,8 +57,9 @@ describe('Vessel Rating & Resonance Surge Contract', () => {
       expect(computeOvr(flat50)).toBe(50);
 
       // Top stat 99, second 90, rest 50
-      // weightedSum = 99*1.6 (158.4) + 90*1.3 (117) + 50*5 (250) = 525.4
-      // 525.4 / 7.9 = 66.506 -> rounds to 67
+      // Default divisor 3.9:
+      // weightedSum = 99*1.6 (158.4) + 90*1.3 (117) + 50*1.0 (50) = 325.4
+      // 325.4 / 3.9 = 83.435 -> rounds to 83
       const skewed = {
         power: 99,
         resonance: 90,
@@ -68,7 +69,8 @@ describe('Vessel Rating & Resonance Surge Contract', () => {
         adaptability: 50,
         vitality: 50,
       };
-      expect(computeOvr(skewed)).toBe(67);
+      expect(computeOvr(skewed)).toBe(83);
+      expect(computeOvr(skewed, { divisor: 7.9 })).toBe(67);
     });
   });
 
@@ -139,14 +141,14 @@ describe('Vessel Rating & Resonance Surge Contract', () => {
       expect(SEAL_ESMS_GATES.Copper).toBe(0.5);
       expect(SEAL_ESMS_GATES.Silver).toBe(2.0);
       expect(SEAL_ESMS_GATES.Gold).toBe(10.0);
-      expect(SEAL_ESMS_GATES.Aether).toBe(50.0);
+      expect(SEAL_ESMS_GATES.Astral).toBe(50.0);
       expect(SEAL_ESMS_GATES.Celestial).toBe(250.0);
 
       // Wisdom: raw 98 -> aligned 97.5 (>= 96), ESMS 250 -> Celestial
       expect(evaluateSealTier('wisdom', 98, 250, false)).toBe('Celestial');
 
-      // Wisdom: raw 98 -> aligned 97.5, ESMS 60 -> Aether
-      expect(evaluateSealTier('wisdom', 98, 60, false)).toBe('Aether');
+      // Wisdom: raw 98 -> aligned 97.5, ESMS 60 -> Astral
+      expect(evaluateSealTier('wisdom', 98, 60, false)).toBe('Astral');
 
       // Wisdom: raw 98 -> aligned 97.5, ESMS 15 -> Gold
       expect(evaluateSealTier('wisdom', 98, 15, false)).toBe('Gold');
@@ -158,8 +160,8 @@ describe('Vessel Rating & Resonance Surge Contract', () => {
       expect(evaluateSealTier('wisdom', 98, 1, false)).toBe('Copper');
     });
 
-    it('strictly denies Celestial to placeholder charts (caps at Aether)', () => {
-      expect(evaluateSealTier('wisdom', 98, 300, true)).toBe('Aether');
+    it('strictly denies Celestial to placeholder charts (caps at Astral)', () => {
+      expect(evaluateSealTier('wisdom', 98, 300, true)).toBe('Astral');
     });
 
     it('maps all 7 canonical seals correctly', () => {

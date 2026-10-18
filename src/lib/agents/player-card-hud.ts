@@ -7,7 +7,7 @@
  *   - Bold Vessel OVR Badge with tier styling (Copper -> Celestial)
  *   - Archetype Title & Primary/Secondary signature stats with relativeAdvantage pills
  *   - 7 Sacred Stats raw [25, 99] rating bars
- *   - Earned Alchemical Seals (Copper, Silver, Gold, Aether, Celestial)
+ *   - Earned Alchemical Seals (Copper, Silver, Gold, Astral, Celestial)
  *   - Live Resonance Surge Meter (0-100%) and active Resonance Surge banner (meter >= 70)
  *   - Four ESMS token balances
  */
@@ -34,7 +34,7 @@ function escapeAttribute(value: string): string {
 
 export function getOvrTierClass(ovr: number): string {
   if (ovr >= 96) return 'tier-celestial';
-  if (ovr >= 91) return 'tier-aether';
+  if (ovr >= 91) return 'tier-astral';
   if (ovr >= 86) return 'tier-gold';
   if (ovr >= 80) return 'tier-silver';
   return 'tier-copper';
@@ -44,8 +44,8 @@ export function getSealTierClass(tier: SealTier): string {
   switch (tier) {
     case 'Celestial':
       return 'tier-celestial';
-    case 'Aether':
-      return 'tier-aether';
+    case 'Astral':
+      return 'tier-astral';
     case 'Gold':
       return 'tier-gold';
     case 'Silver':
@@ -66,11 +66,23 @@ export class VesselCardHUD {
     if (event.key === 'Escape' && this.visible) this.hide();
   };
 
-  constructor(parent: HTMLElement = document.body) {
-    this.container = document.createElement('div');
+  constructor(parent?: HTMLElement) {
+    const root = parent ?? (typeof document !== 'undefined' ? document.body : undefined);
+    this.container = typeof document !== 'undefined' && typeof document.createElement === 'function'
+      ? document.createElement('div')
+      : ({
+          style: {},
+          className: '',
+          innerHTML: '',
+          querySelector: () => null,
+          querySelectorAll: () => [],
+          parentElement: null,
+        } as any);
     this.container.className = 'pk-vessel-card-hud-overlay';
     this.container.style.display = 'none';
-    parent.appendChild(this.container);
+    if (root?.appendChild) {
+      root.appendChild(this.container);
+    }
 
     // Keyboard listener: Escape to close
     if (typeof window !== 'undefined') {
@@ -158,7 +170,7 @@ export class VesselCardHUD {
     const factionGlyph = PLANET_GLYPHS[p.faction] || '★';
     const ovrTier = getOvrTierClass(p.ovr);
     const appearance = p.appearance ?? resolveAgentAppearance(p.key, p.faction, p.archetype);
-    const portrait = appearance.portraitUrl ?? appearance.portraitSvgDataUri ?? createVesselPortraitSvg(appearance);
+    const portrait = appearance.portraitSvgDataUri ?? appearance.portraitUrl ?? createVesselPortraitSvg(appearance);
     const eraLabel = appearance.era.charAt(0).toUpperCase() + appearance.era.slice(1);
     const relicLabel = VESSEL_RELIC_LABELS[appearance.signatureRelic];
 

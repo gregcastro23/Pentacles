@@ -105,7 +105,7 @@
   box-shadow: 0 0 18px rgba(245, 158, 11, 0.45);
 }
 
-.pk-vessel-ovr-badge.tier-aether {
+.pk-vessel-ovr-badge.tier-astral {
   border-color: #38bdf8;
   background: linear-gradient(135deg, #0369a1, #0f172a);
   box-shadow: 0 0 16px rgba(56, 189, 248, 0.35);
@@ -412,7 +412,7 @@
   border: 1px solid #f59e0b;
 }
 
-.pk-seal-tier-tag.tier-aether {
+.pk-seal-tier-tag.tier-astral {
   background: #0c4a6e;
   color: #bae6fd;
   border: 1px solid #38bdf8;

@@ -106,7 +106,7 @@ describe('3D Vessel Avatar Mesh & Procedural Animation System', () => {
       expect(getSealShardCount('Copper')).toBe(1);
       expect(getSealShardCount('Silver')).toBe(2);
       expect(getSealShardCount('Gold')).toBe(3);
-      expect(getSealShardCount('Aether')).toBe(4);
+      expect(getSealShardCount('Astral')).toBe(4);
       expect(getSealShardCount('Celestial')).toBe(5);
     });
 

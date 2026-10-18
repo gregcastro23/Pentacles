@@ -5,12 +5,21 @@ import * as THREE from 'three';
 import { createVesselSilhouette } from '../src/lib/agents/vessel-silhouettes';
 
 describe('Vessel historical appearance', () => {
-  it('gives the four pilot vessels their recognizable period silhouettes and relics', () => {
+  it('gives the pilot vessels their recognizable period silhouettes and relics', () => {
     const pilots = [
       ['isaac-newton', 'enlightenment', 'newton-curls', 'enlightenment-coat', 'high-cravat', 'prism-octahedron'],
       ['leonardo-da-vinci', 'renaissance', 'da-vinci-beret-beard', 'renaissance-drape', 'renaissance-collar', 'vitruvian-gyroscope'],
       ['emily-dickinson', 'romantic', 'dickinson-parted-bun', 'victorian-shawl', 'lace-tippet', 'herbarium-quill-lantern'],
       ['user-avatar-neo', 'astral', 'sovereign-crest', 'alchemical-vestments', 'astral-gorget', 'solar-astrolabe'],
+      ['nikola-tesla-1856', 'modern', 'tesla-parted-mustache', 'victorian-frock-coat', 'wing-collar', 'tesla-induction-coil'],
+      ['marie-curie-1867', 'modern', 'curie-edwardian-updo', 'edwardian-high-dress', 'lace-tippet', 'radium-phial-luminary'],
+      ['albert-einstein', 'modern', 'einstein-wild-halo', 'knit-professor-sweater', 'wing-collar', 'relativity-geodesic-ring'],
+      ['frida-kahlo', 'modern', 'kahlo-floral-braid', 'tehuana-huipil-shawl', 'none', 'retablo-sacred-heart'],
+      ['william-shakespeare', 'renaissance', 'shakespeare-ruff-ringlets', 'elizabethan-doublet', 'elizabethan-ruff', 'quill-and-first-folio'],
+      ['charles-darwin-1809', 'romantic', 'darwin-naturalist-beard', 'enlightenment-coat', 'high-cravat', 'beagle-naturalist-specimen'],
+      ['cleopatra', 'ancient', 'cleopatra-nemes-uraeus', 'scholar-robe', 'astral-gorget', 'solar-astrolabe'],
+      ['joan-of-arc', 'renaissance', 'joan-battle-bob', 'plate-armor-cuirass', 'plate-gorget', 'saintly-oriflamme-banner'],
+      ['siddhartha-gautama-buddha', 'ancient', 'buddha-ushnisha-topknot', 'saffron-monk-robe', 'none', 'solar-astrolabe'],
     ];
     for (const [key, era, crown, mantle, collar, relic] of pilots) {
       const appearance = resolveAgentAppearance(key);
@@ -40,7 +49,21 @@ describe('Vessel historical appearance', () => {
   });
 
   it('provides visible, distinct head, shoulder and held relic attachments for every pilot', () => {
-    const keys = ['isaac-newton', 'leonardo-da-vinci', 'emily-dickinson', 'user-avatar-neo'];
+    const keys = [
+      'isaac-newton',
+      'leonardo-da-vinci',
+      'emily-dickinson',
+      'user-avatar-neo',
+      'nikola-tesla-1856',
+      'marie-curie-1867',
+      'albert-einstein',
+      'frida-kahlo',
+      'william-shakespeare',
+      'charles-darwin-1809',
+      'cleopatra',
+      'joan-of-arc',
+      'siddhartha-gautama-buddha',
+    ];
     const headBounds: string[] = [];
     for (const key of keys) {
       const profile = resolveAgentAppearance(key);
@@ -56,7 +79,7 @@ describe('Vessel historical appearance', () => {
       }
       headBounds.push(new THREE.Box3().setFromObject(silhouette.head).getSize(new THREE.Vector3()).toArray().join(','));
     }
-    expect(new Set(headBounds).size).toBe(4);
+    expect(new Set(headBounds).size).toBe(keys.length);
   });
 
   it('uses the fallback faction palette and isolates per-vessel customization', () => {
@@ -69,5 +92,26 @@ describe('Vessel historical appearance', () => {
     mercury.headSilhouette.faceProportion.jawWidth = 5;
     expect(resolveAgentAppearance('custom-scholar', 2, 'Scholar').paletteOverrides.secondaryTrimHex).toBe('#00daf3');
     expect(resolveAgentAppearance('custom-scholar', 2, 'Scholar').headSilhouette.faceProportion.jawWidth).toBeLessThan(1.2);
+  });
+
+  it('renders cameo SVG portraits and era/relic subtitles in VesselCardHUD header', () => {
+    const { VesselCardHUD } = require('../src/lib/agents/player-card-hud');
+    const { FIXTURE_AGENTS } = require('../src/lib/agents/rating-contract');
+    const hud = new VesselCardHUD();
+    const pilots = [
+      { key: 'isaac-newton', era: 'Enlightenment', relic: 'Prism Octahedron' },
+      { key: 'leonardo-da-vinci', era: 'Renaissance', relic: 'Vitruvian Gyroscope' },
+      { key: 'emily-dickinson', era: 'Romantic', relic: 'Herbarium Lantern' },
+      { key: 'user-avatar-neo', era: 'Astral', relic: 'Solar Astrolabe' },
+    ];
+    for (const pilot of pilots) {
+      const payload = FIXTURE_AGENTS.find((a: any) => a.key === pilot.key)!;
+      hud.show(payload);
+      const html = (hud as any).container.innerHTML;
+      expect(html).toContain('pk-vessel-portrait');
+      expect(html).toContain('data:image/svg+xml,');
+      expect(html).toContain(`${pilot.era} · ${pilot.relic}`);
+    }
+    hud.destroy();
   });
 });

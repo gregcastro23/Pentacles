@@ -483,7 +483,7 @@ pub const OWA_WEIGHT_SUM: i32 = 3900;
 pub const SEAL_MULT_COPPER: i32 = 1000;    // 1.00x
 pub const SEAL_MULT_SILVER: i32 = 1050;    // 1.05x
 pub const SEAL_MULT_GOLD: i32 = 1100;      // 1.10x
-pub const SEAL_MULT_AETHER: i32 = 1160;    // 1.16x
+pub const SEAL_MULT_ASTRAL: i32 = 1160;    // 1.16x
 pub const SEAL_MULT_CELESTIAL: i32 = 1250; // 1.25x
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -491,7 +491,7 @@ pub enum SealTier {
     Copper,
     Silver,
     Gold,
-    Aether,
+    Astral,
     Celestial,
 }
 
@@ -501,7 +501,7 @@ impl SealTier {
             SealTier::Copper => SEAL_MULT_COPPER,
             SealTier::Silver => SEAL_MULT_SILVER,
             SealTier::Gold => SEAL_MULT_GOLD,
-            SealTier::Aether => SEAL_MULT_AETHER,
+            SealTier::Astral => SEAL_MULT_ASTRAL,
             SealTier::Celestial => SEAL_MULT_CELESTIAL,
         }
     }
@@ -602,7 +602,7 @@ export function simulateRustVesselCombatRating(vessel: {
     Copper: 1000,
     Silver: 1050,
     Gold: 1100,
-    Aether: 1160,
+    Astral: 1160,
     Celestial: 1250,
   };
   const sealMult = sealMultipliers[vessel.sealTier];
