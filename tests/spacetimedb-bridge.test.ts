@@ -1,15 +1,121 @@
-import { describe, it, expect } from 'bun:test';
+import { describe, it, expect, mock } from 'bun:test';
 import {
   spacetimedbBridge,
   normalizeOwnerFaction,
   simulateRustVesselCombatRating,
   RUST_VESSEL_CONTEST_MODULE,
+  SpacetimeDBBridge,
 } from '../src/lib/agents/spacetimedb-bridge';
 import { PentacleArena3D } from '../src/lib/agents/pentacle-arena-3d';
 import { FIXTURE_AGENTS } from '../src/lib/agents/rating-contract';
 import { liveWalletSync } from '../src/lib/agents/live-wallet-sync';
 
 describe('SpacetimeDB Client Bridge & Rust Server Reducer Alignment', () => {
+  it('uses the new row in SDK update callbacks and removes listeners on disconnect', () => {
+    const updates = new Set<Function>();
+    const bridge = new SpacetimeDBBridge();
+    const arena = new PentacleArena3D();
+    bridge.attachArena(arena);
+    bridge.connect({ db: { zone: {
+      iter: () => [],
+      onUpdate: (listener: Function) => updates.add(listener),
+      removeOnUpdate: (listener: Function) => updates.delete(listener),
+    } } });
+    for (const update of updates) update(
+      { event: 'update' },
+      { zoneId: 0, owner: { tag: 'Sun' }, control: 100 },
+      { zoneId: 0, owner: { tag: 'Jupiter' }, control: 800, inFlux: true, fluxLevel: 90 },
+    );
+    expect(arena.zones.get(0)?.owner).toBe(5);
+    expect(arena.zones.get(0)?.control).toBe(800);
+    expect(arena.zones.get(0)?.inFlux).toBe(true);
+    bridge.disconnect();
+    expect(updates.size).toBe(0);
+    arena.destroy();
+  });
+
+  it('waits for applied snapshots, queues fresh beats once, and rehydrates reconnects without replay', async () => {
+    const snapshots: Record<string, any[]> = {
+      zone: [{ zone_id: 0, owner: 6, control: 500 }],
+      agent_chart: [{ identity: 'newton-id', handle: 'Isaac Newton' }, { identity: 'emily-id', handle: 'Emily Dickinson' }],
+      player: [],
+      melee_table: [{ table_id: 10n, zone_id: 0, state: 'Seated', round_index: 1n }],
+      melee_seat: [
+        { seat_id: 1n, table_id: 10n, occupant: 'newton-id', faction: 6, is_human: false },
+        { seat_id: 2n, table_id: 10n, occupant: 'emily-id', faction: 3, is_human: false },
+      ],
+      melee_play: [{ play_id: 1n, table_id: 10n, seat_id: 1n, trick_number: 0 }],
+      melee_trick: [],
+    };
+    const listeners = new Map<string, (rows: any[]) => void>();
+    const bridge = new SpacetimeDBBridge();
+    const arena = new PentacleArena3D();
+    const completed: Array<() => void> = [];
+    const clash = mock(() => new Promise<void>(resolve => completed.push(resolve)));
+    arena.animateZoneContest = clash;
+    bridge.attachArena(arena);
+    let applied = false;
+    const client = { conn: {}, isApplied: () => applied, subscribe: (table: string, callback: (rows: any[]) => void) => {
+      listeners.set(table, callback);
+      callback([]);
+      return () => listeners.delete(table);
+    } };
+    bridge.connect(client);
+    expect(arena.avatarRegistry.size).toBe(0);
+    applied = true;
+    for (const [table, callback] of listeners) callback(snapshots[table]);
+    const newton = arena.avatarRegistry.get('isaac-newton')!.group;
+    expect(arena.avatarRegistry.size).toBe(2);
+    expect(clash).toHaveBeenCalledTimes(0);
+    snapshots.melee_play.push({ play_id: 2n, table_id: 10n, seat_id: 2n, trick_number: 0 });
+    listeners.get('melee_play')!(snapshots.melee_play);
+    listeners.get('melee_play')!(snapshots.melee_play);
+    expect(clash).toHaveBeenCalledTimes(1);
+    expect(clash).toHaveBeenLastCalledWith(0, 'emily-dickinson', 'isaac-newton');
+    listeners.get('melee_trick')!([{ trick_id: 1n, table_id: 10n, winner_seat: 1n, trick_number: 0 }]);
+    expect(clash).toHaveBeenCalledTimes(1);
+    completed.shift()!();
+    await Promise.resolve();
+    expect(clash).toHaveBeenCalledTimes(2);
+    expect(clash).toHaveBeenLastCalledWith(0, 'isaac-newton', 'emily-dickinson');
+    completed.shift()!();
+    await Promise.resolve();
+    client.conn = {};
+    snapshots.melee_play.push({ play_id: 3n, table_id: 10n, seat_id: 1n, trick_number: 1 });
+    for (const [table, callback] of listeners) callback(snapshots[table]);
+    expect(clash).toHaveBeenCalledTimes(2);
+    listeners.get('melee_table')!([{ ...snapshots.melee_table[0], zone_id: 1 }]);
+    for (let i = 0; i < 10; i++) arena.update(0.1);
+    expect(arena.avatarRegistry.get('isaac-newton')!.group === newton).toBe(true);
+    expect(newton.userData.zoneId).toBe(1);
+    expect(arena.avatarRegistry.size).toBe(2);
+    listeners.get('melee_seat')!([]);
+    expect(arena.avatarRegistry.size).toBe(0);
+    bridge.disconnect();
+    expect(listeners.size).toBe(0);
+    arena.destroy();
+  });
+
+  it('notifies agent/table listeners through the connected SDK path', () => {
+    const callbacks = new Map<string, Function>();
+    const handle = (name: string) => ({
+      iter: () => [],
+      onUpdate: (callback: Function) => callbacks.set(name, callback),
+      removeOnUpdate: () => callbacks.delete(name),
+    });
+    const bridge = new SpacetimeDBBridge();
+    const chartListener = mock(() => {}), tableListener = mock(() => {});
+    bridge.onAgentChartUpdate(chartListener);
+    bridge.onMeleeTableUpdate(tableListener);
+    bridge.connect({ db: { agentChart: handle('chart'), meleeTable: handle('table') } });
+    const chart = { identity: 'npc', handle: 'Isaac Newton' };
+    const table = { tableId: 1n, zoneId: 0, roundIndex: 1n };
+    callbacks.get('chart')!({}, { ...chart, handle: 'old' }, chart);
+    callbacks.get('table')!({}, { ...table, zoneId: 4 }, table);
+    expect(chartListener).toHaveBeenLastCalledWith(chart);
+    expect(tableListener).toHaveBeenLastCalledWith(table);
+    bridge.disconnect();
+  });
   describe('Client-Side Bridge & Offline Fallback', () => {
     it('operates safely in offline mock mode without active connection', () => {
       spacetimedbBridge.connect();

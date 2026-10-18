@@ -10,6 +10,8 @@
  * Resonance Surge ignition.
  */
 
+import type { VesselAppearanceProfile } from './vessel-appearance-manifest';
+
 export const SACRED_STAT_KEYS = [
   'power',
   'resonance',
@@ -21,6 +23,8 @@ export const SACRED_STAT_KEYS = [
 ] as const;
 
 export type SacredStatKey = (typeof SACRED_STAT_KEYS)[number];
+/** Compatibility alias for rendering consumers; the seven canonical keys remain authoritative. */
+export type SacredStat = SacredStatKey;
 
 export const ESMS_KEYS = ['spirit', 'essence', 'matter', 'substance'] as const;
 export type EsmsKey = (typeof ESMS_KEYS)[number];
@@ -79,6 +83,9 @@ export interface RatedAgentPayload {
   factionName: string;
   isPlaceholder?: boolean;
   provenance?: 'historical' | 'user' | 'placeholder';
+  appearance?: VesselAppearanceProfile;
+  avatarModelUrl?: string;
+  headMeshUrl?: string;
   ratings: Record<SacredStatKey, number>; // [25, 99] raw scale
   relativeAdvantage: Record<SacredStatKey, number>; // delta against pinned roster baseline
   ovr: number; // [25, 99] via OWA (1.6 top, 1.3 second, 1.0 rest)

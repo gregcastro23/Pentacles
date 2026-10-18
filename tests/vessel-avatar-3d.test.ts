@@ -1,12 +1,16 @@
-import { describe, it, expect } from 'bun:test';
+import { afterEach, describe, it, expect } from 'bun:test';
 import * as THREE from 'three';
 import {
-  createVesselAvatarMesh,
+  createVesselAvatarMesh as createAvatar,
   updateVesselAvatarAnimation,
   pickVesselAvatar,
   getSealShardCount,
   SEAL_TIER_HEX_COLORS,
   SACRED_STAT_HEX_COLORS,
+  registerCustomModelLoader,
+  refreshVesselFromPayload,
+  disposeVesselAvatar,
+  setVesselAnimationState,
 } from '../src/lib/agents/vessel-avatar-3d';
 import {
   PentacleArena3D,
@@ -18,8 +22,32 @@ import {
 } from '../src/lib/agents/rating-contract';
 import { liveWalletSync } from '../src/lib/agents/live-wallet-sync';
 
+const createdAvatars = new Set<THREE.Group>();
+function createVesselAvatarMesh(...args: Parameters<typeof createAvatar>): THREE.Group {
+  const avatar = createAvatar(...args);
+  createdAvatars.add(avatar);
+  return avatar;
+}
+afterEach(() => {
+  for (const avatar of createdAvatars) disposeVesselAvatar(avatar);
+  createdAvatars.clear();
+  liveWalletSync.clearCache();
+});
+
 describe('3D Vessel Avatar Mesh & Procedural Animation System', () => {
   describe('Procedural Avatar Hierarchy Generation', () => {
+    it('attaches each pilot likeness and held relic to the animated pivots', () => {
+      for (const payload of FIXTURE_AGENTS) {
+        const avatar = createVesselAvatarMesh(payload);
+        const profile = avatar.userData.appearance;
+        expect(avatar.getObjectByName(profile.headSilhouette.crownStyle)?.parent).toBe(avatar.userData.headGroup);
+        expect(avatar.getObjectByName(profile.garmentSilhouette.mantleStyle)?.parent).toBe(avatar.userData.torsoGroup);
+        expect(avatar.getObjectByName(profile.signatureRelic)?.parent).toBe(avatar.userData.rightArm);
+        expect(avatar.getObjectByName(profile.signatureRelic)?.position.y).toBeCloseTo(-0.65, 5);
+        disposeVesselAvatar(avatar);
+      }
+    });
+
     it('creates complete articulated vessel hierarchy with under-foot ring', () => {
       const newton = FIXTURE_AGENTS[0];
       const avatar = createVesselAvatarMesh(newton, { zoneId: 10, slot: 'owner' });
@@ -103,11 +131,34 @@ describe('3D Vessel Avatar Mesh & Procedural Animation System', () => {
   });
 
   describe('Procedural Animation Controller State Transitions', () => {
-    it('executes deterministic transforms for all 4 animation states', () => {
+    it('hovers with a trailing ring pulse and faster core while travelling, then resets the ring', () => {
+      const travel = createVesselAvatarMesh(FIXTURE_AGENTS[0]);
+      const idle = createVesselAvatarMesh(FIXTURE_AGENTS[0]);
+      for (let frame = 0; frame < 30; frame++) {
+        updateVesselAvatarAnimation(travel, 1 / 60, 50, 'travel');
+        updateVesselAvatarAnimation(idle, 1 / 60, 50, 'idle');
+      }
+      expect(travel.userData.torsoGroup.position.y).toBeGreaterThan(idle.userData.torsoGroup.position.y + 0.1);
+      expect(Math.abs(travel.userData.coreGem.rotation.y)).toBeGreaterThan(Math.abs(idle.userData.coreGem.rotation.y) * 3);
+      const ring = travel.userData.footRing;
+      expect(ring.scale.y).toBeGreaterThan(1.25);
+      expect(ring.position.z).toBeLessThan(-0.25);
+      expect(ring.material.uniforms.uActive.value).toBe(0);
+      for (let frame = 0; frame < 180; frame++) updateVesselAvatarAnimation(travel, 1 / 60, 100, 'idle');
+      expect(ring.scale.x).toBeCloseTo(1, 8);
+      expect(ring.scale.y).toBeCloseTo(1, 8);
+      expect(ring.position.z).toBeCloseTo(0, 8);
+    });
+
+    it('blends into all five animation states', () => {
       const newton = FIXTURE_AGENTS[0];
       const avatar = createVesselAvatarMesh(newton);
       const torso = avatar.userData.torsoGroup as THREE.Group;
       const wardShield = avatar.userData.wardShield as THREE.Mesh;
+      const settle = (state: any) => {
+        setVesselAnimationState(avatar, state);
+        for (let frame = 0; frame < 60; frame++) updateVesselAvatarAnimation(avatar, 1 / 60, 50 + frame / 60);
+      };
 
       // 1. Idle state
       updateVesselAvatarAnimation(avatar, 0.016, 0.0, 'idle');
@@ -116,19 +167,170 @@ describe('3D Vessel Avatar Mesh & Procedural Animation System', () => {
       expect(wardShield.scale.x).toBeLessThan(0.01);
 
       // 2. Surge state (elevated levitation)
-      updateVesselAvatarAnimation(avatar, 0.016, 0.0, 'surge');
+      settle('surge');
       expect(avatar.userData.animationState).toBe('surge');
       expect(torso.position.y).toBeGreaterThan(1.5); // levitation above base 1.35
 
       // 3. Contest-Attack state (forward lunge)
-      updateVesselAvatarAnimation(avatar, 0.016, 0.5, 'contest-attack');
+      settle('travel');
+      expect(avatar.userData.animationState).toBe('travel');
+      expect(torso.rotation.x).toBeGreaterThan(0.15);
+      settle('contest-attack');
       expect(avatar.userData.animationState).toBe('contest-attack');
       expect(torso.rotation.x).toBeGreaterThan(0.2); // leaning forward
 
       // 4. Contest-Defend state (ward shield expansion)
-      updateVesselAvatarAnimation(avatar, 0.016, 1.0, 'contest-defend');
+      settle('contest-defend');
       expect(avatar.userData.animationState).toBe('contest-defend');
       expect(wardShield.scale.x).toBeGreaterThan(0.8); // expanded ward shield
+      disposeVesselAvatar(avatar);
+    });
+
+    it('returns every pose axis to idle without retaining combat offsets over repeated cycles', () => {
+      const avatar = createVesselAvatarMesh(FIXTURE_AGENTS[0]);
+      const control = createVesselAvatarMesh(FIXTURE_AGENTS[0]);
+      for (let cycle = 0; cycle < 8; cycle++) {
+        for (const state of ['surge', 'travel', 'contest-attack', 'contest-defend'] as const) {
+          setVesselAnimationState(avatar, state);
+          for (let frame = 0; frame < 25; frame++) updateVesselAvatarAnimation(avatar, 1 / 60, 900 + cycle);
+        }
+      }
+      // A direct public metadata change must reset phase just like the setter.
+      avatar.userData.animationState = 'idle';
+      for (let frame = 0; frame < 180; frame++) {
+        updateVesselAvatarAnimation(avatar, 1 / 60, 5000 + frame);
+        updateVesselAvatarAnimation(control, 1 / 60, frame);
+      }
+      expect(avatar.userData.stateElapsed).toBeCloseTo(3, 5);
+      for (const key of ['torsoGroup', 'headGroup', 'leftArm', 'rightArm']) {
+        expect(avatar.userData[key].position.distanceTo(control.userData[key].position)).toBeLessThan(0.00001);
+        expect(avatar.userData[key].quaternion.angleTo(control.userData[key].quaternion)).toBeLessThan(0.00001);
+      }
+      expect(avatar.userData.headGroup.position.z).toBeCloseTo(0, 8);
+      disposeVesselAvatar(avatar);
+      disposeVesselAvatar(control);
+    });
+
+    it('starts an attack from the same local phase regardless of arena uptime', () => {
+      const early = createVesselAvatarMesh(FIXTURE_AGENTS[0]);
+      const late = createVesselAvatarMesh(FIXTURE_AGENTS[0]);
+      for (let frame = 0; frame < 30; frame++) {
+        updateVesselAvatarAnimation(early, 1 / 60, frame / 60, 'contest-attack');
+        updateVesselAvatarAnimation(late, 1 / 60, 100000 + frame / 60, 'contest-attack');
+      }
+      expect(early.userData.headGroup.position.distanceTo(late.userData.headGroup.position)).toBe(0);
+      expect(early.userData.stateElapsed).toBeCloseTo(0.5, 6);
+      disposeVesselAvatar(early);
+      disposeVesselAvatar(late);
+    });
+  });
+
+  describe('Live vessel body refresh and external model ownership', () => {
+    it('disposes attached badge textures and shared materials once', () => {
+      const avatar = createVesselAvatarMesh(FIXTURE_AGENTS[0]);
+      const texture = new THREE.Texture();
+      const material = new THREE.SpriteMaterial({ map: texture });
+      let textureDisposals = 0;
+      let materialDisposals = 0;
+      texture.addEventListener('dispose', () => textureDisposals++);
+      material.addEventListener('dispose', () => materialDisposals++);
+      avatar.add(new THREE.Sprite(material), new THREE.Sprite(material));
+      disposeVesselAvatar(avatar);
+      disposeVesselAvatar(avatar);
+      expect(textureDisposals).toBe(1);
+      expect(materialDisposals).toBe(1);
+    });
+
+    it('refreshes seal geometry, corona, resting state and ring from the same payload', () => {
+      const payload = structuredClone(FIXTURE_AGENTS[0]);
+      const avatar = createVesselAvatarMesh(payload);
+      const oldSealCount = avatar.userData.sealOrbiters.children.length;
+      payload.seals[0].tier = 'Copper';
+      payload.surge = { ...payload.surge, active: true, meter: 90, surgeType: 'equilibrium' };
+      payload.esms.spirit = 250;
+      refreshVesselFromPayload(avatar, payload);
+      expect(avatar.userData.sealOrbiters.children.length).toBeLessThan(oldSealCount);
+      expect(avatar.getObjectByName('SurgePillarInner')).toBeDefined();
+      expect(avatar.userData.animationState).toBe('surge');
+      expect(avatar.userData.footRing.material.uniforms.uActive.value).toBe(1);
+      payload.surge.active = false;
+      refreshVesselFromPayload(avatar, payload);
+      expect(avatar.getObjectByName('SurgeCorona')).toBeUndefined();
+      expect(avatar.userData.animationState).toBe('idle');
+      disposeVesselAvatar(avatar);
+    });
+
+    it('normalizes and grounds an external scene, advances clips, and leaves fallback pivots alone', async () => {
+      const scene = new THREE.Group();
+      const body = new THREE.Mesh(new THREE.BoxGeometry(2, 4, 2), new THREE.MeshBasicMaterial());
+      body.name = 'ExternalBody';
+      body.position.set(5, 8, -3);
+      scene.add(body);
+      const clip = new THREE.AnimationClip('idle', 1, [new THREE.NumberKeyframeTrack('ExternalBody.rotation[y]', [0, 1], [0, 1])]);
+      registerCustomModelLoader(async () => ({ scene, animations: [clip] }));
+      const avatar = createVesselAvatarMesh({ ...FIXTURE_AGENTS[0], avatarModelUrl: '/test-avatar.glb' }, { loadModelAsync: true });
+      try {
+        await avatar.userData.modelReady;
+        const bounds = new THREE.Box3().setFromObject(avatar.userData.externalModel);
+        expect(bounds.min.y).toBeCloseTo(0, 6);
+        expect(bounds.getSize(new THREE.Vector3()).y).toBeCloseTo(2.7, 6);
+        expect(bounds.getCenter(new THREE.Vector3()).x).toBeCloseTo(0, 6);
+        const restY = avatar.userData.torsoGroup.position.y;
+        updateVesselAvatarAnimation(avatar, 0.1, 500, 'surge');
+        expect(avatar.userData.mixer.time).toBeCloseTo(0.1, 6);
+        expect(avatar.userData.torsoGroup.position.y).toBe(restY);
+        expect(body.rotation.y).toBeGreaterThan(0);
+      } finally {
+        disposeVesselAvatar(avatar);
+        registerCustomModelLoader(null);
+      }
+    });
+
+    it('keeps normalization outside root position and scale animation tracks', async () => {
+      const scene = new THREE.Group();
+      scene.position.set(5, 8, -3);
+      scene.scale.set(2, 2, 2);
+      scene.add(new THREE.Mesh(new THREE.BoxGeometry(2, 2, 2), new THREE.MeshBasicMaterial()));
+      const clip = new THREE.AnimationClip('idle', 1, [
+        new THREE.VectorKeyframeTrack('.position', [0, 1], [5, 8, -3, 5, 8, -3]),
+        new THREE.VectorKeyframeTrack('.scale', [0, 1], [2, 2, 2, 2, 2, 2]),
+      ]);
+      registerCustomModelLoader(async () => ({ scene, animations: [clip] }));
+      const avatar = createVesselAvatarMesh({ ...FIXTURE_AGENTS[0], avatarModelUrl: '/root-tracks.glb' }, { loadModelAsync: true });
+      try {
+        await avatar.userData.modelReady;
+        const wrapper = avatar.userData.externalModel as THREE.Group;
+        const originalWrapperScale = wrapper.scale.clone();
+        updateVesselAvatarAnimation(avatar, 0.1, 0.1);
+        const bounds = new THREE.Box3().setFromObject(wrapper);
+        expect(scene.position.toArray()).toEqual([5, 8, -3]);
+        expect(scene.scale.toArray()).toEqual([2, 2, 2]);
+        expect(wrapper.scale.equals(originalWrapperScale)).toBe(true);
+        expect(bounds.min.y).toBeCloseTo(0, 6);
+        expect(bounds.getSize(new THREE.Vector3()).y).toBeCloseTo(2.7, 6);
+        expect(bounds.getCenter(new THREE.Vector3()).x).toBeCloseTo(0, 6);
+      } finally { registerCustomModelLoader(null); }
+    });
+
+    it('disposes a late model response without attaching it to a removed avatar', async () => {
+      let finish!: (value: { scene: THREE.Group }) => void;
+      const model = new THREE.Group();
+      const geometry = new THREE.BoxGeometry(1, 2, 1);
+      let disposalCount = 0;
+      geometry.addEventListener('dispose', () => disposalCount++);
+      model.add(new THREE.Mesh(geometry, new THREE.MeshBasicMaterial()));
+      registerCustomModelLoader(() => new Promise((resolve) => { finish = resolve; }));
+      const avatar = createVesselAvatarMesh({ ...FIXTURE_AGENTS[0], avatarModelUrl: '/late-avatar.glb' }, { loadModelAsync: true });
+      try {
+        await Promise.resolve();
+        disposeVesselAvatar(avatar);
+        finish({ scene: model });
+        await avatar.userData.modelReady;
+        expect(avatar.getObjectByName('ExternalGLTFModel')).toBeUndefined();
+        expect(disposalCount).toBe(1);
+        disposeVesselAvatar(avatar);
+        expect(disposalCount).toBe(1);
+      } finally { registerCustomModelLoader(null); }
     });
   });
 

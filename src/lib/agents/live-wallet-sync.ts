@@ -17,6 +17,7 @@ import {
   type RatedAgentPayload,
   type EsmsBalances,
   type SealTier,
+  type ResonanceSurgeState,
   FIXTURE_AGENTS,
   evaluateSealTier,
   SEAL_TIER_MULTIPLIERS,
@@ -24,6 +25,7 @@ import {
 import { updateFootRingEsmsAndSurge } from './avatar-foot-ring';
 
 export type AgentSyncListener = (payload: RatedAgentPayload) => void;
+type VesselRefresh = (avatar: any, payload: RatedAgentPayload) => void;
 
 export interface HydrationOptions {
   baseUrl?: string;
@@ -68,8 +70,10 @@ export function resolvePlanetaryAgentsUrl(options?: HydrationOptions): string {
 
 class LiveWalletSyncManager {
   private agentCache: Map<string, RatedAgentPayload> = new Map();
+  private authoritativeAgents = new Set<string>();
   private inFlightRequests: Map<string, Promise<RatedAgentPayload>> = new Map();
-  private meshRegistry: Map<string, any> = new Map();
+  private meshRegistry: Map<string, Set<any>> = new Map();
+  private vesselRegistry: Map<string, Map<any, VesselRefresh>> = new Map();
   private hudInstance: any = null;
   private listeners: Set<AgentSyncListener> = new Set();
 
@@ -91,14 +95,60 @@ class LiveWalletSyncManager {
    * Register a 3D avatar foot ring mesh for in-place uniform updates
    */
   public registerFootRingMesh(agentKey: string, mesh: any): void {
-    this.meshRegistry.set(agentKey, mesh);
+    const meshes = this.meshRegistry.get(agentKey) ?? new Set();
+    meshes.add(mesh);
+    this.meshRegistry.set(agentKey, meshes);
   }
 
   /**
    * Unregister a foot ring mesh on avatar removal
    */
-  public unregisterFootRingMesh(agentKey: string): void {
-    this.meshRegistry.delete(agentKey);
+  public unregisterFootRingMesh(agentKey: string, mesh?: any): void {
+    if (!mesh) this.meshRegistry.delete(agentKey);
+    else {
+      const meshes = this.meshRegistry.get(agentKey);
+      meshes?.delete(mesh);
+      if (!meshes?.size) this.meshRegistry.delete(agentKey);
+    }
+  }
+
+  /** A refresh callback keeps this service independent of the Three.js avatar module. */
+  public registerVesselAvatar(agentKey: string, avatar: any, refresh: VesselRefresh, payload?: RatedAgentPayload): void {
+    const vessels = this.vesselRegistry.get(agentKey) ?? new Map();
+    vessels.set(avatar, refresh);
+    this.vesselRegistry.set(agentKey, vessels);
+    const cached = this.agentCache.get(agentKey);
+    if (cached && this.authoritativeAgents.has(agentKey)) refresh(avatar, cached);
+    else if (payload) this.agentCache.set(agentKey, JSON.parse(JSON.stringify(payload)));
+  }
+
+  public unregisterVesselAvatar(agentKey: string, avatar: any): void {
+    const vessels = this.vesselRegistry.get(agentKey);
+    vessels?.delete(avatar);
+    if (!vessels?.size) this.vesselRegistry.delete(agentKey);
+  }
+
+  /** Apply an authoritative rating/Surge payload to both body and ring in one dispatch. */
+  public syncAgentRatingPayload(payload: RatedAgentPayload): RatedAgentPayload {
+    const agent = JSON.parse(JSON.stringify(payload)) as RatedAgentPayload;
+    this.agentCache.set(agent.key, agent);
+    this.authoritativeAgents.add(agent.key);
+    this.publishAgent(agent);
+    return agent;
+  }
+
+  private publishAgent(agent: RatedAgentPayload): void {
+    for (const mesh of this.meshRegistry.get(agent.key) ?? []) {
+      updateFootRingEsmsAndSurge(mesh, agent.esms, agent.surge);
+    }
+    for (const [avatar, refresh] of this.vesselRegistry.get(agent.key) ?? []) {
+      refresh(avatar, agent);
+    }
+    if (this.hudInstance?.refreshAgentPayload) this.hudInstance.refreshAgentPayload(agent);
+    else if (this.hudInstance?.updateAgentEsms) this.hudInstance.updateAgentEsms(agent.key, agent.esms);
+    for (const listener of this.listeners) {
+      try { listener(agent); } catch { /* Isolate listener failures. */ }
+    }
   }
 
   /**
@@ -177,6 +227,7 @@ class LiveWalletSyncManager {
         const data = await res.json();
         if (data && data.key) {
           this.agentCache.set(data.key, data);
+          this.authoritativeAgents.add(data.key);
           return data;
         }
       }
@@ -192,6 +243,7 @@ class LiveWalletSyncManager {
           const altData = await altRes.json();
           if (altData && altData.key) {
             this.agentCache.set(altData.key, altData);
+            this.authoritativeAgents.add(altData.key);
             return altData;
           }
         }
@@ -228,7 +280,8 @@ class LiveWalletSyncManager {
    */
   public syncAgentEsmsFromSpacetime(
     agentId: string,
-    esmsBalances: EsmsBalances
+    esmsBalances: EsmsBalances,
+    surge?: ResonanceSurgeState
   ): RatedAgentPayload | null {
     let agent = this.agentCache.get(agentId);
     if (!agent) {
@@ -240,9 +293,11 @@ class LiveWalletSyncManager {
     }
 
     if (!agent) return null;
+    this.authoritativeAgents.add(agentId);
 
     // 1. Update balances
     agent.esms = { ...esmsBalances };
+    if (surge) agent.surge = { ...surge, statBoosts: { ...surge.statBoosts } };
 
     // 2. Re-evaluate Alchemical Seal tiers against updated holdings
     const isPlaceholder = Boolean(agent.isPlaceholder);
@@ -272,25 +327,7 @@ class LiveWalletSyncManager {
 
     agent.seals = updatedSeals;
 
-    // 3. Update 3D foot ring shader uniforms in-place
-    const mesh = this.meshRegistry.get(agent.key);
-    if (mesh) {
-      updateFootRingEsmsAndSurge(mesh, agent.esms, agent.surge);
-    }
-
-    // 4. Update Vessel Card HUD if open
-    if (this.hudInstance?.updateAgentEsms) {
-      this.hudInstance.updateAgentEsms(agent.key, agent.esms);
-    }
-
-    // Notify listeners
-    for (const listener of this.listeners) {
-      try {
-        listener(agent);
-      } catch {
-        // Safe listener dispatch
-      }
-    }
+    this.publishAgent(agent);
 
     return agent;
   }
@@ -307,6 +344,7 @@ class LiveWalletSyncManager {
    */
   public clearCache(): void {
     this.agentCache.clear();
+    this.authoritativeAgents.clear();
     for (const fixture of FIXTURE_AGENTS) {
       this.agentCache.set(fixture.key, JSON.parse(JSON.stringify(fixture)));
     }
@@ -321,9 +359,14 @@ export const liveWalletSync = new LiveWalletSyncManager();
  */
 export function syncAgentEsmsFromSpacetime(
   agentId: string,
-  esmsBalances: EsmsBalances
+  esmsBalances: EsmsBalances,
+  surge?: ResonanceSurgeState
 ): RatedAgentPayload | null {
-  return liveWalletSync.syncAgentEsmsFromSpacetime(agentId, esmsBalances);
+  return liveWalletSync.syncAgentEsmsFromSpacetime(agentId, esmsBalances, surge);
+}
+
+export function syncAgentRatingPayload(payload: RatedAgentPayload): RatedAgentPayload {
+  return liveWalletSync.syncAgentRatingPayload(payload);
 }
 
 /**

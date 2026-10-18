@@ -4,7 +4,7 @@
    ============================================================================ */
 
 .pk-vessel-card-hud-overlay {
-  position: absolute;
+  position: fixed;
   top: 0;
   left: 0;
   width: 100%;
@@ -30,7 +30,8 @@
   border: 1px solid rgba(216, 180, 106, 0.4);
   border-radius: 18px;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6), 0 0 24px rgba(216, 180, 106, 0.15);
-  overflow: hidden;
+  max-height: calc(100dvh - 64px);
+  overflow-y: auto;
   transition: transform 0.25s ease, opacity 0.25s ease;
   animation: pk-slide-in 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -54,7 +55,34 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
+}
+
+.pk-vessel-identity {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.pk-vessel-portrait {
+  display: block;
+  width: 58px;
+  height: 58px;
+  border: 1px solid var(--faction-color, #d8b46a);
+  border-radius: 50%;
+  background: #111827;
+  object-fit: cover;
+}
+
+.pk-vessel-identity .pk-vessel-ovr-badge {
+  width: 46px;
+  height: 58px;
+  border-radius: 12px;
+}
+
+.pk-vessel-identity .pk-vessel-ovr-val {
+  font-size: 25px;
 }
 
 .pk-vessel-ovr-badge {
@@ -120,7 +148,7 @@
 }
 
 .pk-vessel-handle {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 800;
   color: #ffffff;
   white-space: nowrap;
@@ -149,6 +177,13 @@
   font-size: 11px;
   color: #94a3b8;
   margin-top: 2px;
+}
+
+.pk-vessel-appearance {
+  color: #d4c7ae;
+  font-size: 10px;
+  line-height: 1.4;
+  margin-top: 4px;
 }
 
 .pk-vessel-close-btn {
@@ -470,4 +505,12 @@
 .pk-nav-btn:hover {
   background: rgba(255, 255, 255, 0.18);
   color: #ffffff;
+}
+
+@media (max-width: 480px) {
+  .pk-vessel-card-hud-overlay { padding: 12px; }
+  .pk-vessel-card-hud { max-width: 100%; max-height: calc(100dvh - 24px); }
+  .pk-vessel-header { flex-wrap: wrap; }
+  .pk-vessel-meta { flex-basis: 100%; }
+  .pk-vessel-close-btn { position: absolute; top: 14px; right: 14px; }
 }

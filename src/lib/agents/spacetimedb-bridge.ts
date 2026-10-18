@@ -18,10 +18,14 @@ import {
   type RatedAgentPayload,
   type EsmsBalances,
   type SealTier,
-  SEAL_TIER_MULTIPLIERS,
+  FIXTURE_AGENTS,
+  SACRED_STAT_KEYS,
+  computeRelativeAdvantage,
+  resolveArchetype,
+  type SacredStatKey,
 } from './rating-contract';
-import { syncAgentEsmsFromSpacetime } from './live-wallet-sync';
-import { resolveTileContest, type TileContestResult } from './tile-contest';
+import { liveWalletSync, syncAgentEsmsFromSpacetime } from './live-wallet-sync';
+import { HISTORICAL_AGENTS, PLANET_NAMES } from '../../alchm-chart/historical-agents.js';
 
 export interface SpacetimeZoneRow {
   zoneId: number;
@@ -56,29 +60,58 @@ export type MeleeTableListener = (table: SpacetimeMeleeTableRow) => void;
  */
 export function normalizeOwnerFaction(owner: any): number | null {
   if (owner == null) return null;
-  if (typeof owner === 'number') return owner;
-  if (typeof owner === 'object' && 'tag' in owner) {
-    const planetMap: Record<string, number> = {
-      Sun: 0,
-      Moon: 1,
-      Mercury: 2,
-      Venus: 3,
-      Mars: 4,
-      Jupiter: 5,
-      Saturn: 6,
-      Uranus: 7,
-      Neptune: 8,
-      Pluto: 9,
-    };
-    return planetMap[owner.tag] ?? null;
+  if (typeof owner === 'number') return Number.isInteger(owner) && owner >= 0 && owner < 10 ? owner : null;
+  if (typeof owner === 'object') {
+    if ('some' in owner) return normalizeOwnerFaction(owner.some);
+    if ('none' in owner) return null;
+    if (owner.tag === 'Some') return normalizeOwnerFaction(owner.value);
+    if (owner.tag === 'None') return null;
+    return normalizeOwnerFaction(owner.tag ?? Object.keys(owner)[0]);
   }
-  return null;
+  const index = PLANET_NAMES.findIndex((name: string) => name.toLowerCase() === String(owner).toLowerCase());
+  return index < 0 ? null : index;
+}
+
+type Row = Record<string, any>;
+const TABLE_KEYS = {
+  zone: 'zoneId', agent_chart: 'identity', player: 'identity', melee_table: 'tableId',
+  melee_seat: 'seatId', melee_play: 'playId', melee_trick: 'trickId',
+} as const;
+type TableName = keyof typeof TABLE_KEYS;
+interface CombatBeat { tableId: string; attacker: string; defender: string }
+
+function identityKey(value: any): string {
+  return String(value?.toHexString?.() ?? value?.__identity__ ?? value ?? '').replace(/^0x/i, '').toLowerCase();
+}
+
+function normalizeRow(row: Row): Row {
+  return Object.fromEntries(Object.entries(row).map(([key, value]) => [
+    key.replace(/_([a-z])/g, (_, letter: string) => letter.toUpperCase()), value,
+  ]));
+}
+
+function compareIds(a: any, b: any): number {
+  const left = BigInt(a ?? 0), right = BigInt(b ?? 0);
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
+function nameKey(value: string): string {
+  return value.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/^sir\s+/, '').replace(/[^a-z0-9]+/g, '-');
 }
 
 export class SpacetimeDBBridge {
   private arena: PentacleArena3D | null = null;
   private isConnected: boolean = false;
-  private clientInstance: any = null;
+  private cleanup: Array<() => void> = [];
+  private rows = new Map<TableName, Map<string, Row>>();
+  private seenPlays = new Set<string>();
+  private seenTricks = new Set<string>();
+  private managedAgents = new Set<string>();
+  private ready = false;
+  private generation = 0;
+  private activeTables = new Set<string>();
+  private combatQueues = new Map<number, CombatBeat[]>();
+  private busyZones = new Set<number>();
   private zoneListeners: Set<ZoneRowListener> = new Set();
   private agentListeners: Set<AgentChartListener> = new Set();
   private meleeListeners: Set<MeleeTableListener> = new Set();
@@ -88,6 +121,8 @@ export class SpacetimeDBBridge {
    */
   public attachArena(arena: PentacleArena3D): void {
     this.arena = arena;
+    for (const row of this.tableRows('zone').values()) this.handleZoneUpdate(row as SpacetimeZoneRow);
+    this.reconcile();
   }
 
   /**
@@ -101,46 +136,251 @@ export class SpacetimeDBBridge {
    * Connect to SpacetimeDB client instance or start in offline mock mode
    */
   public connect(client?: any): void {
-    this.clientInstance = client || null;
-    this.isConnected = Boolean(client);
+    this.disconnect();
+    if (!client) return;
+    const generation = this.generation;
+    this.isConnected = true;
+    // The application facade owns subscription/reconnection and emits snake-case snapshots.
+    if (typeof client.subscribe === 'function' && typeof client.subscriptionBuilder !== 'function') {
+      this.ready = true;
+      for (const table of Object.keys(TABLE_KEYS) as TableName[]) {
+        let first = true;
+        let connection = client.conn;
+        const stop = client.subscribe(table, (rows: Row[]) => {
+          if (generation !== this.generation) return;
+          if (client.conn !== connection) { connection = client.conn; first = true; }
+          if (typeof client.isApplied === 'function' && !client.isApplied(table)) { first = true; return; }
+          this.replaceRows(table, rows, first);
+          first = false;
+        });
+        if (typeof stop === 'function') this.cleanup.push(stop);
+      }
+      return;
+    }
+    // A raw SDK connection uses camelCase table accessors and (ctx, oldRow, newRow).
+    const handles: Array<[TableName, any]> = [];
+    for (const table of Object.keys(TABLE_KEYS) as TableName[]) {
+      const camelName = table.replace(/_([a-z])/g, (_, letter: string) => letter.toUpperCase());
+      const handle = client.db?.[camelName] ?? client.db?.[table];
+      if (!handle) continue;
+      handles.push([table, handle]);
+      const insert = (_ctx: any, row: Row) => {
+        if (generation === this.generation) this.upsertRow(table, row);
+      };
+      const update = (_ctx: any, _oldRow: Row, newRow: Row) => {
+        if (generation === this.generation) this.upsertRow(table, newRow);
+      };
+      const remove = (_ctx: any, row: Row) => {
+        if (generation !== this.generation) return;
+        this.tableRows(table).delete(this.rowKey(table, normalizeRow(row)));
+        this.reconcile();
+      };
+      for (const [event, callback] of [['Insert', insert], ['Update', update], ['Delete', remove]] as const) {
+        handle[`on${event}`]?.(callback);
+        this.cleanup.push(() => handle[`removeOn${event}`]?.(callback));
+      }
+      this.replaceRows(table, Array.from(handle.iter?.() ?? []), true);
+    }
+    const applied = () => {
+      if (generation !== this.generation) return;
+      for (const [table, handle] of handles) this.replaceRows(table, Array.from(handle.iter?.() ?? []), true);
+      this.ready = true;
+      for (const [table] of handles) for (const row of this.tableRows(table).values()) this.notifyRow(table, row);
+      this.reconcile();
+    };
+    if (typeof client.subscriptionBuilder === 'function') {
+      const subscription = client.subscriptionBuilder().onApplied(applied)
+        .subscribe(handles.map(([table]) => `SELECT * FROM ${table}`));
+      this.cleanup.push(() => subscription?.unsubscribe?.());
+    } else applied();
+  }
 
-    if (client && client.db) {
-      try {
-        // Subscribe to Zone table if registered in client
-        if (client.db.zone && typeof client.db.zone.onUpdate === 'function') {
-          client.db.zone.onUpdate((_oldRow: any, newRow: any) => {
-            this.handleZoneUpdate(newRow);
-          });
-        }
+  public disconnect(): void {
+    this.generation++;
+    for (const stop of this.cleanup.splice(0)) stop();
+    this.ready = false;
+    this.isConnected = false;
+    this.rows.clear();
+    this.seenPlays.clear();
+    this.seenTricks.clear();
+    this.activeTables.clear();
+    this.combatQueues.clear();
+    this.busyZones.clear();
+    for (const key of this.managedAgents) this.arena?.removeAvatar(key);
+    this.managedAgents.clear();
+  }
 
-        // Subscribe to AgentChart table
-        if (client.db.agentChart && typeof client.db.agentChart.onUpdate === 'function') {
-          client.db.agentChart.onUpdate((_oldRow: any, newRow: any) => {
-            this.handleAgentChartUpdate(newRow);
-          });
-        }
+  private tableRows(table: TableName): Map<string, Row> {
+    let rows = this.rows.get(table);
+    if (!rows) { rows = new Map(); this.rows.set(table, rows); }
+    return rows;
+  }
 
-        // Subscribe to MeleeTable table
-        if (client.db.meleeTable && typeof client.db.meleeTable.onUpdate === 'function') {
-          client.db.meleeTable.onUpdate((_oldRow: any, newRow: any) => {
-            this.handleMeleeTableUpdate(newRow);
-          });
-        }
-      } catch (err) {
-        console.warn('[SpacetimeDBBridge] Error attaching live table listeners:', err);
+  private rowKey(table: TableName, row: Row): string {
+    const value = row[TABLE_KEYS[table]];
+    return table === 'agent_chart' || table === 'player' ? identityKey(value) : String(value);
+  }
+
+  private replaceRows(table: TableName, incoming: Row[], initial: boolean): void {
+    const rows = this.tableRows(table);
+    rows.clear();
+    for (const input of incoming) {
+      const row = normalizeRow(input);
+      const key = this.rowKey(table, row);
+      rows.set(key, row);
+      if (initial && table === 'melee_play') this.seenPlays.add(key);
+      if (initial && table === 'melee_trick') this.seenTricks.add(key);
+    }
+    if (this.ready) {
+      for (const row of rows.values()) this.notifyRow(table, row);
+      this.reconcile();
+    }
+  }
+
+  private upsertRow(table: TableName, input: Row): void {
+    const row = normalizeRow(input);
+    const key = this.rowKey(table, row);
+    this.tableRows(table).set(key, row);
+    if (!this.ready && table === 'melee_play') this.seenPlays.add(key);
+    if (!this.ready && table === 'melee_trick') this.seenTricks.add(key);
+    if (this.ready) {
+      this.notifyRow(table, row);
+      this.reconcile();
+    }
+  }
+
+  private notifyRow(table: TableName, row: Row): void {
+    if (table === 'zone') this.handleZoneUpdate(row as SpacetimeZoneRow);
+    if (table === 'agent_chart') for (const listener of this.agentListeners) listener(row as SpacetimeAgentChartRow);
+    if (table === 'melee_table') for (const listener of this.meleeListeners) listener(row as SpacetimeMeleeTableRow);
+  }
+
+  private payloadForSeat(seat: Row): RatedAgentPayload | null {
+    const identity = identityKey(seat.occupant);
+    const chart = this.tableRows('agent_chart').get(identity) ?? this.tableRows('player').get(identity);
+    if (!chart && !seat.isHuman) return null;
+    const handle = chart?.handle ?? `Seeker ${identity.slice(-6)}`;
+    const historical = !seat.isHuman && HISTORICAL_AGENTS.find((agent: any) => nameKey(agent.handle) === nameKey(handle));
+    const key = historical?.key ?? `seeker-${identity}`;
+    const faction = normalizeOwnerFaction(seat.faction) ?? historical?.faction ?? 0;
+    const cached = liveWalletSync.getCachedAgent(key) ?? FIXTURE_AGENTS.find((agent) => agent.key === key);
+    if (cached) return { ...cached, handle, faction, factionName: PLANET_NAMES[faction] };
+    // A chart provides identity/natal data, not ratings or holdings. Keep missing ratings explicit.
+    const ratings = Object.fromEntries(SACRED_STAT_KEYS.map((stat) => [stat, 25])) as Record<SacredStatKey, number>;
+    const relativeAdvantage = computeRelativeAdvantage(ratings);
+    return {
+      key, handle, faction, factionName: PLANET_NAMES[faction], isPlaceholder: true,
+      provenance: historical ? 'historical' : 'user', ratings, relativeAdvantage, ovr: 25,
+      archetype: resolveArchetype(relativeAdvantage), esms: { spirit: 0, essence: 0, matter: 0, substance: 0 },
+      seals: [], surge: { meter: 0, active: false, surgeType: 'inferno', monica: null,
+        monicaState: 'absent', heat: 0, reactivity: 0, statBoosts: {} },
+    };
+  }
+
+  private reconcile(): void {
+    if (!this.ready || !this.arena) return;
+    const latest = new Map<number, Row>();
+    for (const table of this.tableRows('melee_table').values()) {
+      const previous = latest.get(table.zoneId);
+      if (!previous || compareIds(previous.tableId, table.tableId) < 0) latest.set(table.zoneId, table);
+    }
+    const activeTables = new Set([...latest.values()].map((table) => String(table.tableId)));
+    this.activeTables = activeTables;
+    const desired = new Map<string, { payload: RatedAgentPayload; zoneId: number; slot: 'owner' | 'challenger' }>();
+    const seatAgents = new Map<string, string>();
+    const seats = [...this.tableRows('melee_seat').values()].sort((a, b) => compareIds(a.seatId, b.seatId));
+    for (const seat of seats) {
+      const table = this.tableRows('melee_table').get(String(seat.tableId));
+      if (!table || !activeTables.has(String(table.tableId))) continue;
+      const payload = this.payloadForSeat(seat);
+      if (!payload) continue;
+      seatAgents.set(String(seat.seatId), payload.key);
+      const sameZone = [...desired.values()].some((value) => value.zoneId === table.zoneId);
+      const owner = this.arena.zones.get(table.zoneId)?.owner;
+      const slot = !sameZone || owner === payload.faction ? 'owner' : 'challenger';
+      // If a retained seat briefly exists in two rounds, the newer table wins.
+      desired.set(payload.key, { payload, zoneId: table.zoneId, slot });
+    }
+    for (const key of this.managedAgents) if (!desired.has(key)) this.arena.removeAvatar(key);
+    this.managedAgents = new Set(desired.keys());
+    for (const [key, target] of desired) {
+      const registered = this.arena.avatarRegistry.get(key);
+      if (!registered) {
+        this.arena.placeAvatarOnZone(target.zoneId, target.payload, target.slot);
+      } else if ((registered.targetZoneId ?? registered.group.userData.zoneId) !== target.zoneId) {
+        void this.arena.moveAvatarToZone(key, target.zoneId, 900, target.slot);
+      } else if (registered.payload.handle !== target.payload.handle || registered.payload.faction !== target.payload.faction) {
+        this.arena.refreshAvatar(target.payload);
       }
     }
+    this.dispatchCombat(seatAgents, activeTables);
+  }
+
+  private dispatchCombat(seatAgents: Map<string, string>, activeTables: Set<string>): void {
+    if (!this.arena) return;
+    const plays = [...this.tableRows('melee_play').values()].sort((a, b) => compareIds(a.playId, b.playId));
+    for (const play of plays) {
+      const key = String(play.playId);
+      if (this.seenPlays.has(key)) continue;
+      if (!activeTables.has(String(play.tableId))) { this.seenPlays.add(key); continue; }
+      const table = this.tableRows('melee_table').get(String(play.tableId));
+      const attacker = seatAgents.get(String(play.seatId));
+      const rival = [...seatAgents.entries()].find(([seatId, agent]) => agent !== attacker &&
+        String(this.tableRows('melee_seat').get(seatId)?.tableId) === String(play.tableId));
+      if (!table || !attacker || !rival) continue;
+      this.seenPlays.add(key);
+      this.enqueueCombat(table.zoneId, { tableId: String(play.tableId), attacker, defender: rival[1] });
+    }
+    for (const trick of this.tableRows('melee_trick').values()) {
+      const key = String(trick.trickId);
+      if (this.seenTricks.has(key)) continue;
+      if (!activeTables.has(String(trick.tableId))) { this.seenTricks.add(key); continue; }
+      const table = this.tableRows('melee_table').get(String(trick.tableId));
+      const winner = seatAgents.get(String(trick.winnerSeat));
+      const lastRival = [...plays].reverse().find((play) => String(play.tableId) === String(trick.tableId) &&
+        play.trickNumber === trick.trickNumber && String(play.seatId) !== String(trick.winnerSeat));
+      const rival = lastRival && seatAgents.get(String(lastRival.seatId));
+      if (!table || !winner || !rival) continue;
+      this.seenTricks.add(key);
+      this.enqueueCombat(table.zoneId, { tableId: String(trick.tableId), attacker: winner, defender: rival });
+    }
+  }
+
+  private enqueueCombat(zoneId: number, beat: CombatBeat): void {
+    const queue = this.combatQueues.get(zoneId) ?? [];
+    queue.push(beat);
+    this.combatQueues.set(zoneId, queue);
+    this.playNextCombat(zoneId);
+  }
+
+  private playNextCombat(zoneId: number): void {
+    if (!this.arena || this.busyZones.has(zoneId)) return;
+    const queue = this.combatQueues.get(zoneId);
+    let beat = queue?.shift();
+    while (beat && (!this.activeTables.has(beat.tableId) ||
+      !this.arena.avatarRegistry.has(beat.attacker) || !this.arena.avatarRegistry.has(beat.defender))) beat = queue?.shift();
+    if (!beat) { this.combatQueues.delete(zoneId); return; }
+    this.busyZones.add(zoneId);
+    const generation = this.generation;
+    const finished = () => {
+      if (generation !== this.generation) return;
+      this.busyZones.delete(zoneId);
+      this.playNextCombat(zoneId);
+    };
+    // Snapshot batches often contain several plays. Let each visual beat finish before the next.
+    this.arena.animateZoneContest(zoneId, beat.attacker, beat.defender).then(finished, finished);
   }
 
   /**
    * Handles incoming Zone row update from SpacetimeDB
    */
   public handleZoneUpdate(row: SpacetimeZoneRow): void {
+    this.tableRows('zone').set(String(row.zoneId), row);
     const ownerFaction = normalizeOwnerFaction(row.owner);
 
     // Update 3D arena if attached
     if (this.arena) {
-      this.arena.updateZoneStatus(row.zoneId, ownerFaction, row.control);
+      this.arena.updateZoneStatus(row.zoneId, ownerFaction, row.control, row.inFlux, row.fluxLevel);
     }
 
     // Notify registered listeners
@@ -157,6 +397,8 @@ export class SpacetimeDBBridge {
    * Handles incoming AgentChart update from SpacetimeDB
    */
   public handleAgentChartUpdate(chart: SpacetimeAgentChartRow): void {
+    this.tableRows('agent_chart').set(identityKey(chart.identity), chart);
+    this.reconcile();
     for (const listener of this.agentListeners) {
       try {
         listener(chart);
@@ -170,6 +412,8 @@ export class SpacetimeDBBridge {
    * Handles incoming MeleeTable update from SpacetimeDB
    */
   public handleMeleeTableUpdate(table: SpacetimeMeleeTableRow): void {
+    this.tableRows('melee_table').set(String(table.tableId), table);
+    this.reconcile();
     for (const listener of this.meleeListeners) {
       try {
         listener(table);

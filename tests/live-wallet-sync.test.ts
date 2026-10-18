@@ -1,8 +1,24 @@
-import { describe, it, expect } from 'bun:test';
+import { afterEach, beforeEach, describe, it, expect } from 'bun:test';
 import {
   liveWalletSync,
   syncAgentEsmsFromSpacetime,
+  syncAgentRatingPayload,
 } from '../src/lib/agents/live-wallet-sync';
+import { FIXTURE_AGENTS } from '../src/lib/agents/rating-contract';
+import { createVesselAvatarMesh as createAvatar, disposeVesselAvatar } from '../src/lib/agents/vessel-avatar-3d';
+
+const createdAvatars = new Set<ReturnType<typeof createAvatar>>();
+function createVesselAvatarMesh(...args: Parameters<typeof createAvatar>): ReturnType<typeof createAvatar> {
+  const avatar = createAvatar(...args);
+  createdAvatars.add(avatar);
+  return avatar;
+}
+beforeEach(() => liveWalletSync.clearCache());
+afterEach(() => {
+  for (const avatar of createdAvatars) disposeVesselAvatar(avatar);
+  createdAvatars.clear();
+  liveWalletSync.clearCache();
+});
 
 describe('Live Wallet ESMS & Rating Hydration Service', () => {
   it('hydrates known fixture agents from local cache when offline', async () => {
@@ -83,6 +99,83 @@ describe('Live Wallet ESMS & Rating Hydration Service', () => {
 
     expect(notifiedKey).toBe('emily-dickinson');
     unsubscribe();
+  });
+
+  it('refreshes the body and foot ring together when live balances and Surge change', () => {
+    const payload = structuredClone(FIXTURE_AGENTS[3]);
+    const avatar = createVesselAvatarMesh(payload);
+    const beforeCount = avatar.userData.sealOrbiters.children.length;
+    const surge = { ...payload.surge, active: true, meter: 85, surgeType: 'tempest' as const };
+    const updated = syncAgentEsmsFromSpacetime(payload.key, { ...payload.esms, essence: 65 }, surge)!;
+    expect(updated.seals.find((seal) => seal.statKey === 'charisma')?.tier).toBe('Aether');
+    expect(avatar.userData.agentPayload).toEqual(updated);
+    expect(avatar.userData.agentPayload).not.toBe(updated);
+    expect(avatar.userData.sealOrbiters.children.length).toBeGreaterThan(beforeCount);
+    expect(avatar.getObjectByName('SurgeCorona')).toBeDefined();
+    expect(avatar.userData.animationState).toBe('surge');
+    expect(avatar.userData.footRing.material.uniforms.uActive.value).toBe(1);
+    syncAgentRatingPayload({ ...updated, surge: { ...surge, active: false, meter: 20 } });
+    expect(avatar.getObjectByName('SurgeCorona')).toBeUndefined();
+    expect(avatar.userData.animationState).toBe('idle');
+    expect(avatar.userData.footRing.material.uniforms.uActive.value).toBe(0);
+    disposeVesselAvatar(avatar);
+    liveWalletSync.clearCache();
+  });
+
+  it('unregisters only the removed vessel when another view of the same agent is live', () => {
+    const first = createVesselAvatarMesh(structuredClone(FIXTURE_AGENTS[0]));
+    const second = createVesselAvatarMesh(structuredClone(FIXTURE_AGENTS[0]));
+    disposeVesselAvatar(first);
+    const payload = { ...structuredClone(FIXTURE_AGENTS[0]), surge: { ...FIXTURE_AGENTS[0].surge, active: true, meter: 99 } };
+    syncAgentRatingPayload(payload);
+    expect(second.getObjectByName('SurgeCorona')).toBeDefined();
+    expect(second.userData.footRing.material.uniforms.uActive.value).toBe(1);
+    expect(first.userData.disposed).toBe(true);
+    disposeVesselAvatar(second);
+    liveWalletSync.clearCache();
+  });
+
+  it('owns its payload and never mutates caller or shared fixture data during wallet refresh', () => {
+    const fixtureSnapshot = structuredClone(FIXTURE_AGENTS[0]);
+    const caller = structuredClone(FIXTURE_AGENTS[0]);
+    const fixtureAvatar = createVesselAvatarMesh(FIXTURE_AGENTS[0]);
+    const callerAvatar = createVesselAvatarMesh(caller);
+    const surge = { ...caller.surge, active: true, meter: 98 };
+    syncAgentEsmsFromSpacetime(caller.key, { spirit: 250, essence: 250, matter: 250, substance: 250 }, surge);
+    expect(FIXTURE_AGENTS[0]).toEqual(fixtureSnapshot);
+    expect(caller).toEqual(fixtureSnapshot);
+    expect(fixtureAvatar.userData.agentPayload.surge.active).toBe(true);
+    expect(callerAvatar.userData.agentPayload.surge.active).toBe(true);
+    const refreshed = structuredClone(caller);
+    liveWalletSync.syncAgentRatingPayload(refreshed);
+    syncAgentEsmsFromSpacetime(caller.key, { spirit: 25, essence: 25, matter: 25, substance: 25 }, surge);
+    expect(refreshed).toEqual(caller);
+    expect(FIXTURE_AGENTS[0]).toEqual(fixtureSnapshot);
+  });
+
+  it('hydrates a stale second view from authoritative cache and preserves it through the next wallet update', () => {
+    const stale = structuredClone(FIXTURE_AGENTS[0]);
+    const first = createVesselAvatarMesh(stale);
+    const authoritative = {
+      ...structuredClone(stale),
+      ovr: 98,
+      ratings: { ...stale.ratings, power: 99 },
+      surge: { ...stale.surge, active: true, meter: 95 },
+    };
+    syncAgentRatingPayload(authoritative);
+    const second = createVesselAvatarMesh(stale);
+    expect(second.userData.agentPayload.ovr).toBe(98);
+    expect(second.userData.animationState).toBe('surge');
+    expect(second.userData.footRing.material.uniforms.uActive.value).toBe(1);
+    expect(liveWalletSync.getCachedAgent(stale.key)?.surge.active).toBe(true);
+    syncAgentEsmsFromSpacetime(stale.key, { ...stale.esms, spirit: 200 });
+    for (const avatar of [first, second]) {
+      expect(avatar.userData.agentPayload.ovr).toBe(98);
+      expect(avatar.userData.agentPayload.ratings.power).toBe(99);
+      expect(avatar.userData.agentPayload.surge.active).toBe(true);
+      expect(avatar.userData.animationState).toBe('surge');
+    }
+    expect(stale.surge.active).toBe(false);
   });
 
   describe('Endpoint Resolution and Batch Hydration', () => {

@@ -15,6 +15,7 @@
 import type { RatedAgentPayload, SealTier, EsmsBalances } from './rating-contract';
 import { SACRED_STAT_KEYS } from './rating-contract';
 import { FACTION_HEX_COLORS } from './avatar-foot-ring';
+import { createVesselPortraitSvg, resolveAgentAppearance, VESSEL_RELIC_LABELS } from './vessel-appearance-manifest';
 
 // Safe stylesheet injection for browsers & tests
 if (typeof document !== 'undefined') {
@@ -26,6 +27,10 @@ if (typeof document !== 'undefined') {
 }
 
 const PLANET_GLYPHS = ['☉', '☽', '☿', '♀', '♂', '♃', '♄', '♅', '♆', '♇'];
+
+function escapeAttribute(value: string): string {
+  return value.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]!);
+}
 
 export function getOvrTierClass(ovr: number): string {
   if (ovr >= 96) return 'tier-celestial';
@@ -57,6 +62,9 @@ export class VesselCardHUD {
   private roster: RatedAgentPayload[] = [];
   private currentIndex = 0;
   private visible = false;
+  private readonly handleKeyDown = (event: KeyboardEvent): void => {
+    if (event.key === 'Escape' && this.visible) this.hide();
+  };
 
   constructor(parent: HTMLElement = document.body) {
     this.container = document.createElement('div');
@@ -66,11 +74,7 @@ export class VesselCardHUD {
 
     // Keyboard listener: Escape to close
     if (typeof window !== 'undefined') {
-      window.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && this.visible) {
-          this.hide();
-        }
-      });
+      window.addEventListener('keydown', this.handleKeyDown);
     }
   }
 
@@ -122,6 +126,15 @@ export class VesselCardHUD {
     return this.visible;
   }
 
+  /** Keep the open card, including its Surge, seals and portrait, on the live payload. */
+  public refreshAgentPayload(payload: RatedAgentPayload): void {
+    this.roster = this.roster.map((agent) => agent.key === payload.key ? payload : agent);
+    if (this.currentPayload?.key === payload.key) {
+      this.currentPayload = payload;
+      this.render();
+    }
+  }
+
   /**
    * Update ESMS balances in-place and re-render if the active card matches
    */
@@ -144,6 +157,10 @@ export class VesselCardHUD {
     const factionColor = FACTION_HEX_COLORS[p.faction] || '#38bdf8';
     const factionGlyph = PLANET_GLYPHS[p.faction] || '★';
     const ovrTier = getOvrTierClass(p.ovr);
+    const appearance = p.appearance ?? resolveAgentAppearance(p.key, p.faction, p.archetype);
+    const portrait = appearance.portraitUrl ?? appearance.portraitSvgDataUri ?? createVesselPortraitSvg(appearance);
+    const eraLabel = appearance.era.charAt(0).toUpperCase() + appearance.era.slice(1);
+    const relicLabel = VESSEL_RELIC_LABELS[appearance.signatureRelic];
 
     const isSurgeActive = p.surge.active;
     const surgeTypeStr = p.surge.surgeType;
@@ -189,9 +206,9 @@ export class VesselCardHUD {
     const sealsHtml = p.seals.map((s) => {
       const tierClass = getSealTierClass(s.tier);
       return `
-        <div class="pk-seal-card" title="${s.description}">
+        <div class="pk-seal-card" title="${escapeAttribute(s.description)}">
           <span class="pk-seal-tier-tag ${tierClass}">${s.tier}</span>
-          <span class="pk-seal-name">${s.name}</span>
+          <span class="pk-seal-name">${escapeAttribute(s.name)}</span>
         </div>
       `;
     }).join('');
@@ -200,17 +217,21 @@ export class VesselCardHUD {
       <div class="pk-vessel-card-hud" style="--faction-color: ${factionColor};">
         <!-- Header -->
         <div class="pk-vessel-header">
-          <div class="pk-vessel-ovr-badge ${ovrTier}">
-            <span class="pk-vessel-ovr-val">${p.ovr}</span>
-            <span class="pk-vessel-ovr-lbl">OVR</span>
+          <div class="pk-vessel-identity">
+            ${portrait ? `<img class="pk-vessel-portrait" src="${escapeAttribute(portrait)}" alt="Stylized portrait of ${escapeAttribute(p.handle)}" width="58" height="58" />` : ''}
+            <div class="pk-vessel-ovr-badge ${ovrTier}">
+              <span class="pk-vessel-ovr-val">${p.ovr}</span>
+              <span class="pk-vessel-ovr-lbl">OVR</span>
+            </div>
           </div>
           <div class="pk-vessel-meta">
             <div class="pk-vessel-handle">
               <span class="pk-vessel-faction-glyph">${factionGlyph}</span>
-              <span>${p.handle}</span>
+              <span>${escapeAttribute(p.handle)}</span>
             </div>
-            <div class="pk-vessel-archetype">${p.archetype.title}</div>
-            <div class="pk-vessel-provenance">${p.factionName} Faction • ${p.provenance || 'vessel'}</div>
+            <div class="pk-vessel-archetype">${escapeAttribute(p.archetype.title)}</div>
+            <div class="pk-vessel-appearance">${eraLabel} · ${relicLabel}</div>
+            <div class="pk-vessel-provenance">${escapeAttribute(p.factionName)} Faction • ${escapeAttribute(p.provenance || 'vessel')}</div>
           </div>
           <button class="pk-vessel-close-btn" id="pk_hud_close" aria-label="Close Vessel Card">✕</button>
         </div>
@@ -292,6 +313,8 @@ export class VesselCardHUD {
   }
 
   public destroy(): void {
+    if (typeof window !== 'undefined') window.removeEventListener('keydown', this.handleKeyDown);
+    this.hide();
     if (this.container.parentElement) {
       this.container.parentElement.removeChild(this.container);
     }

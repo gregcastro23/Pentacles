@@ -28,13 +28,11 @@ import {
 import {
   createVesselAvatarMesh,
   updateVesselAvatarAnimation,
+  refreshVesselFromPayload,
+  disposeVesselAvatar,
+  setVesselAnimationState,
   pickVesselAvatar,
-  type VesselAnimationState,
 } from './vessel-avatar-3d';
-import {
-  resolveTileContest,
-  type TileContestResult,
-} from './tile-contest';
 import {
   canAccessZone,
   accessRefusalReason,
@@ -51,12 +49,83 @@ export interface ZoneNode3D {
   owner: number | null; // 0..9 planet index or null
   control: number; // -1000..+1000
   inFlux: boolean;
+  fluxLevel: number;
+  accessLocked: boolean;
   avatarMesh?: THREE.Group; // Primary/owner avatar
   footRingMesh?: THREE.Mesh;
   currentAgent?: RatedAgentPayload;
   challengerMesh?: THREE.Group; // Challenger avatar
   challengerFootRing?: THREE.Mesh;
   challengerAgent?: RatedAgentPayload;
+}
+
+type AvatarSlot = 'owner' | 'challenger';
+
+export interface ArenaAvatarRegistration {
+  group: THREE.Group;
+  footRing: THREE.Mesh;
+  payload: RatedAgentPayload;
+  zoneId: number;
+  slot: AvatarSlot | 'spectator';
+  /** Destination while in flight; zoneId remains the last occupied node until landing. */
+  targetZoneId?: number;
+}
+
+interface TravelWaypoint {
+  position: THREE.Vector3;
+  zoneId: number;
+}
+
+interface AvatarTravel {
+  waypoints: TravelWaypoint[];
+  lengths: number[];
+  totalLength: number;
+  elapsed: number;
+  duration: number;
+  targetZoneId: number;
+  slot: AvatarSlot;
+  segment: number;
+  pulse: THREE.Line<THREE.BufferGeometry, THREE.LineBasicMaterial>;
+  promise: Promise<boolean>;
+  resolve: (completed: boolean) => void;
+}
+
+interface ContestAnimation {
+  zoneId: number;
+  attackerId: string;
+  defenderId: string;
+  stage: 'assembling' | 'clash';
+  assemblyRemaining: number;
+  elapsed: number;
+  resolve: () => void;
+}
+
+/** Every travel route uses exactly the conduits drawn on the arena. */
+export const LEY_LINE_CONNECTIONS: ReadonlyArray<readonly [number, number]> = [
+  ...Array.from({ length: 5 }, (_, i) => [i, (i + 1) % 5] as const),
+  ...Array.from({ length: 5 }, (_, i) => [i + 5, i] as const),
+  ...Array.from({ length: 5 }, (_, i) => [i + 5, (i + 4) % 5] as const),
+  ...Array.from({ length: 5 }, (_, i) => [i + 5, 10] as const),
+];
+
+/** Breadth-first traversal keeps a trip on connected ley lines, including Crown trips. */
+export function getLeyLineRoute(source: number, target: number): number[] {
+  if (!Number.isInteger(source) || !Number.isInteger(target) || source < 0 || source > 10 || target < 0 || target > 10) return [];
+  const queue: number[][] = [[source]];
+  const visited = new Set([source]);
+  for (let index = 0; index < queue.length; index++) {
+    const route = queue[index];
+    const node = route[route.length - 1];
+    if (node === target) return route;
+    for (const [a, b] of LEY_LINE_CONNECTIONS) {
+      const neighbor = a === node ? b : b === node ? a : undefined;
+      if (neighbor !== undefined && !visited.has(neighbor)) {
+        visited.add(neighbor);
+        queue.push([...route, neighbor]);
+      }
+    }
+  }
+  return [];
 }
 
 export interface ArenaOptions {
@@ -110,13 +179,17 @@ export class PentacleArena3D {
   public renderer: THREE.WebGLRenderer;
   public container: HTMLElement;
   public zones: Map<number, ZoneNode3D> = new Map();
-  public avatarRegistry: Map<string, { group: THREE.Group; footRing: THREE.Mesh; payload: RatedAgentPayload }> = new Map();
+  public avatarRegistry: Map<string, ArenaAvatarRegistration> = new Map();
   public leyLinesMesh: THREE.LineSegments | null = null;
   public leyLineMaterial: THREE.LineBasicMaterial | null = null;
 
   private animFrameId: number | null = null;
-  private startTime: number = performance.now();
   private lastTime: number = performance.now();
+  private elapsedTime = 0;
+  private destroyed = false;
+  private travels = new Map<string, AvatarTravel>();
+  private contests = new Set<ContestAnimation>();
+  private pointerHandler?: (event: MouseEvent) => void;
   private raycaster: THREE.Raycaster = new THREE.Raycaster();
   private mouse: THREE.Vector2 = new THREE.Vector2(-999, -999);
   private onSelectAgent?: (agent: RatedAgentPayload) => void;
@@ -305,6 +378,8 @@ export class PentacleArena3D {
         owner: null,
         control: 0,
         inFlux: false,
+        fluxLevel: 0,
+        accessLocked: false,
       });
     }
   }
@@ -319,29 +394,10 @@ export class PentacleArena3D {
     const conduitGeo = new THREE.BufferGeometry();
     const positions: number[] = [];
 
-    // 1. Pentagon lines between adjacent Houses (0->1->2->3->4->0)
-    for (let i = 0; i < 5; i++) {
-      const p1 = this.zones.get(i)!.position;
-      const p2 = this.zones.get((i + 1) % 5)!.position;
-      positions.push(p1.x, p1.y, p1.z, p2.x, p2.y, p2.z);
-    }
-
-    // 2. Lines from Spires (5..9) to their two adjacent Houses
-    for (let s = 5; s < 10; s++) {
-      const spirePos = this.zones.get(s)!.position;
-      const spireIdx = s - 5;
-      const houseA = this.zones.get(spireIdx)!.position;
-      const houseB = this.zones.get((spireIdx + 4) % 5)!.position;
-
-      positions.push(spirePos.x, spirePos.y, spirePos.z, houseA.x, houseA.y, houseA.z);
-      positions.push(spirePos.x, spirePos.y, spirePos.z, houseB.x, houseB.y, houseB.z);
-    }
-
-    // 3. Lines from all 5 Spires to the Crown Zenith (Zone 10)
-    const crownPos = this.zones.get(10)!.position;
-    for (let s = 5; s < 10; s++) {
-      const spirePos = this.zones.get(s)!.position;
-      positions.push(spirePos.x, spirePos.y, spirePos.z, crownPos.x, crownPos.y, crownPos.z);
+    for (const [source, target] of LEY_LINE_CONNECTIONS) {
+      const a = this.zones.get(source)!.position;
+      const b = this.zones.get(target)!.position;
+      positions.push(a.x, a.y, a.z, b.x, b.y, b.z);
     }
 
     conduitGeo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
@@ -374,11 +430,25 @@ export class PentacleArena3D {
     const zone = this.zones.get(zoneId);
     if (!zone || !zone.barrierMesh) return;
 
-    zone.barrierMesh.visible = isLocked;
+    zone.accessLocked = isLocked;
+    this.refreshZoneBarrier(zone);
+  }
+
+  private refreshZoneBarrier(zone: ZoneNode3D): void {
+    if (!zone.barrierMesh) return;
+    zone.barrierMesh.visible = zone.accessLocked || zone.inFlux;
     const mat = zone.barrierMesh.material as THREE.MeshBasicMaterial;
-    if (mat) {
-      mat.opacity = isLocked ? 0.65 : 0.0;
-    }
+    mat.color.setHex(zone.accessLocked ? 0xef4444 : 0xffaa00);
+    mat.opacity = zone.accessLocked ? 0.65 : zone.inFlux ? 0.25 + zone.fluxLevel / 1000 * 0.5 : 0;
+  }
+
+  /** Flux and access locking share the dome without overwriting each other's state. */
+  public updateZoneFlux(zoneId: number, inFlux: boolean, fluxLevel = 0): void {
+    const zone = this.zones.get(zoneId);
+    if (!zone) return;
+    zone.inFlux = inFlux;
+    zone.fluxLevel = Math.max(0, Math.min(1000, Number.isFinite(fluxLevel) ? fluxLevel : 0));
+    this.refreshZoneBarrier(zone);
   }
 
   /**
@@ -412,70 +482,220 @@ export class PentacleArena3D {
       this.updateZoneBarrier(zoneId, true);
     }
 
-    // Tangent calculation for dual slot positioning
-    const P = zone.position;
-    let T = new THREE.Vector3(1, 0, 0);
-    if (zoneId !== 10) {
-      const R = new THREE.Vector3(P.x, 0, P.z).normalize();
-      T = new THREE.Vector3(-R.z, 0, R.x).normalize();
+    if (this.destroyed) return null;
+    this.cancelContestsFor(payload.key);
+    this.cancelTravel(payload.key);
+    let registration = this.avatarRegistry.get(payload.key);
+    if (registration) {
+      this.clearZoneSlot(registration);
+      registration.payload = payload;
+      refreshVesselFromPayload(registration.group, payload);
+    } else {
+      const group = createVesselAvatarMesh(payload, {
+        zoneId,
+        slot,
+        footRingRadius: zone.kind === 'crown' ? 2.6 : 1.9,
+      });
+      const sprite = this.createAvatarSprite(payload);
+      sprite.name = 'VesselIdentityBadge';
+      sprite.position.y = 2.8;
+      group.add(sprite);
+      registration = { group, footRing: group.userData.footRing, payload, zoneId, slot };
+      this.avatarRegistry.set(payload.key, registration);
+      this.scene.add(group);
     }
+    this.assignZoneSlot(registration, zoneId, slot);
+    setVesselAnimationState(registration.group, payload.surge.active ? 'surge' : 'idle');
+    return registration.group;
+  }
 
-    // Create 3D Vessel Avatar hierarchy using the procedural avatar factory
-    const avatarGroup = createVesselAvatarMesh(payload, {
-      zoneId,
-      slot,
-      footRingRadius: zone.kind === 'crown' ? 2.6 : 1.9,
-    });
+  private tangent(zoneId: number): THREE.Vector3 {
+    const point = this.zones.get(zoneId)!.position;
+    return zoneId === 10 ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(-point.z, 0, point.x).normalize();
+  }
 
-    const sprite = this.createAvatarSprite(payload);
-    sprite.position.y = 2.8;
-    avatarGroup.add(sprite);
-
-    // Remove old avatar in this slot if already occupied
-    if (slot === 'owner' && zone.avatarMesh) {
-      this.scene.remove(zone.avatarMesh);
-      this.avatarRegistry.delete(zone.currentAgent?.key || '');
-    } else if (slot === 'challenger' && zone.challengerMesh) {
-      this.scene.remove(zone.challengerMesh);
-      this.avatarRegistry.delete(zone.challengerAgent?.key || '');
+  private clearZoneSlot(registration: ArenaAvatarRegistration): void {
+    const zone = this.zones.get(registration.zoneId);
+    if (!zone) return;
+    if (zone.avatarMesh === registration.group) {
+      zone.avatarMesh = undefined;
+      zone.currentAgent = undefined;
+      zone.footRingMesh = undefined;
     }
+    if (zone.challengerMesh === registration.group) {
+      zone.challengerMesh = undefined;
+      zone.challengerAgent = undefined;
+      zone.challengerFootRing = undefined;
+    }
+    // Travelling agents have already vacated the node's stationary layout.
+    this.layoutZone(zone.zoneId, registration.payload.key);
+  }
 
+  private assignZoneSlot(registration: ArenaAvatarRegistration, zoneId: number, slot: AvatarSlot): void {
+    const zone = this.zones.get(zoneId)!;
+    const previous = slot === 'owner' ? zone.currentAgent : zone.challengerAgent;
+    if (previous && previous.key !== registration.payload.key) {
+      const displaced = this.avatarRegistry.get(previous.key);
+      if (displaced) {
+        displaced.slot = 'spectator';
+        displaced.group.userData.slot = 'spectator';
+      }
+    }
+    registration.zoneId = zoneId;
+    registration.slot = slot;
+    registration.group.userData.zoneId = zoneId;
+    registration.group.userData.slot = slot;
     if (slot === 'owner') {
-      zone.avatarMesh = avatarGroup;
-      zone.currentAgent = payload;
-      zone.footRingMesh = avatarGroup.userData.footRing;
+      zone.avatarMesh = registration.group;
+      zone.currentAgent = registration.payload;
+      zone.footRingMesh = registration.footRing;
     } else {
-      zone.challengerMesh = avatarGroup;
-      zone.challengerAgent = payload;
-      zone.challengerFootRing = avatarGroup.userData.footRing;
+      zone.challengerMesh = registration.group;
+      zone.challengerAgent = registration.payload;
+      zone.challengerFootRing = registration.footRing;
     }
+    this.layoutZone(zoneId);
+  }
 
-    // Offset symmetrically across pedestal if both slots are occupied
+  private layoutZone(zoneId: number, excludeAgentId?: string): void {
+    const zone = this.zones.get(zoneId)!;
+    const center = zone.position;
+    const tangent = this.tangent(zoneId);
+    const occupants = [...this.avatarRegistry.values()].filter(registration =>
+      registration.zoneId === zoneId && registration.payload.key !== excludeAgentId && !this.travels.has(registration.payload.key));
+    let spectatorIndex = 0;
+    const spectators = occupants.filter(registration => registration.slot === 'spectator');
+    for (const registration of occupants) {
+      if (registration.slot === 'spectator') {
+        const angle = Math.PI / 2 + spectatorIndex++ * Math.PI * 2 / Math.max(1, spectators.length);
+        registration.group.position.copy(center).add(new THREE.Vector3(Math.cos(angle) * 2.2, 0, Math.sin(angle) * 2.2));
+      } else {
+        const offset = registration.slot === 'challenger' ? 1.1 : zone.challengerMesh ? -1.1 : 0;
+        registration.group.position.copy(center).addScaledVector(tangent, offset);
+      }
+      const facing = registration.slot === 'owner' ? zone.challengerMesh : zone.avatarMesh;
+      if (facing && facing !== registration.group) {
+        registration.group.lookAt(facing.position.x, center.y, facing.position.z);
+      }
+    }
     if (zone.avatarMesh && zone.challengerMesh) {
-      const ownerPos = P.clone().add(T.clone().multiplyScalar(-1.1));
-      const challPos = P.clone().add(T.clone().multiplyScalar(+1.1));
-
-      zone.avatarMesh.position.copy(ownerPos);
-      zone.challengerMesh.position.copy(challPos);
-
-      // Avatars face each other in duel stance
-      zone.avatarMesh.lookAt(challPos.x, ownerPos.y, challPos.z);
-      zone.challengerMesh.lookAt(ownerPos.x, challPos.y, ownerPos.z);
-    } else if (slot === 'owner') {
-      avatarGroup.position.copy(P);
-    } else {
-      // Single challenger facing inward
-      avatarGroup.position.copy(P.clone().add(T.clone().multiplyScalar(1.1)));
+      zone.avatarMesh.lookAt(zone.challengerMesh.position.x, center.y, zone.challengerMesh.position.z);
+      zone.challengerMesh.lookAt(zone.avatarMesh.position.x, center.y, zone.avatarMesh.position.z);
     }
+  }
 
-    this.scene.add(avatarGroup);
-    this.avatarRegistry.set(payload.key, {
-      group: avatarGroup,
-      footRing: avatarGroup.userData.footRing,
-      payload,
-    });
+  /** Explicit removal releases the body, ring, badge textures and pending animations. */
+  public removeAvatar(agentId: string): void {
+    const registration = this.avatarRegistry.get(agentId);
+    if (!registration) return;
+    this.cancelContestsFor(agentId);
+    this.cancelTravel(agentId);
+    this.avatarRegistry.delete(agentId);
+    this.clearZoneSlot(registration);
+    disposeVesselAvatar(registration.group);
+  }
 
-    return avatarGroup;
+  /** Tick-driven travel is independent of browser timers and follows connected edges. */
+  public moveAvatarToZone(agentId: string, targetZoneId: number, durationMs = 900, slot: AvatarSlot = 'owner'): Promise<boolean> {
+    return this.beginTravel(agentId, targetZoneId, durationMs, slot, false);
+  }
+
+  private beginTravel(agentId: string, targetZoneId: number, durationMs: number, slot: AvatarSlot, preserveContest: boolean): Promise<boolean> {
+    const registration = this.avatarRegistry.get(agentId);
+    if (!registration || !this.zones.has(targetZoneId) || this.destroyed) return Promise.resolve(false);
+    const currentTravel = this.travels.get(agentId);
+    if (currentTravel?.targetZoneId === targetZoneId && currentTravel.slot === slot) return currentTravel.promise;
+    if (!preserveContest) this.cancelContestsFor(agentId);
+    let sourceZoneId = registration.zoneId;
+    let departureZoneId = sourceZoneId;
+    let returnToEdge = false;
+    if (currentTravel) {
+      const from = currentTravel.waypoints[currentTravel.segment];
+      const to = currentTravel.waypoints[currentTravel.segment + 1];
+      sourceZoneId = registration.group.position.distanceTo(from.position) < registration.group.position.distanceTo(to.position) ? from.zoneId : to.zoneId;
+      departureZoneId = sourceZoneId === from.zoneId ? to.zoneId : from.zoneId;
+      returnToEdge = true;
+    }
+    this.cancelTravel(agentId);
+    const sourcePosition = registration.group.position.clone();
+    this.clearZoneSlot(registration);
+    const route = getLeyLineRoute(sourceZoneId, targetZoneId);
+    const waypoints: TravelWaypoint[] = [{ position: sourcePosition, zoneId: departureZoneId }];
+    if (returnToEdge && sourcePosition.distanceTo(this.zones.get(sourceZoneId)!.position) > 0.001) {
+      waypoints.push({ position: this.zones.get(sourceZoneId)!.position.clone(), zoneId: sourceZoneId });
+    }
+    for (const zoneId of route.slice(1)) waypoints.push({ position: this.zones.get(zoneId)!.position.clone(), zoneId });
+    // The landing offset is applied only on the final node, including same-node assembly.
+    const targetZone = this.zones.get(targetZoneId)!;
+    const targetPosition = targetZone.position.clone().addScaledVector(this.tangent(targetZoneId), slot === 'challenger' ? 1.1 : targetZone.challengerMesh ? -1.1 : 0);
+    if (waypoints.length === 1) waypoints.push({ position: targetPosition, zoneId: targetZoneId });
+    else waypoints[waypoints.length - 1].position.copy(targetPosition);
+    const lengths = waypoints.slice(1).map((point, index) => Math.max(0.00001, point.position.distanceTo(waypoints[index].position)));
+    const totalLength = lengths.reduce((total, length) => total + length, 0);
+    if (totalLength < 0.001 || durationMs <= 0) {
+      this.assignZoneSlot(registration, targetZoneId, slot);
+      setVesselAnimationState(registration.group, registration.payload.surge.active ? 'surge' : 'idle');
+      return Promise.resolve(true);
+    }
+    let resolve!: (completed: boolean) => void;
+    const promise = new Promise<boolean>(done => { resolve = done; });
+    const pulse = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xffd56a, transparent: true, opacity: 0.9 }));
+    pulse.name = `ActiveLeyLine_${agentId}`;
+    this.scene.add(pulse);
+    this.travels.set(agentId, { waypoints, lengths, totalLength, elapsed: 0, duration: Math.max(0.001, Number.isFinite(durationMs) ? durationMs / 1000 : 0.9), targetZoneId, slot, segment: 0, pulse, promise, resolve });
+    registration.targetZoneId = targetZoneId;
+    registration.group.userData.targetZoneId = targetZoneId;
+    setVesselAnimationState(registration.group, 'travel');
+    return promise;
+  }
+
+  private cancelTravel(agentId: string): void {
+    const travel = this.travels.get(agentId);
+    if (!travel) return;
+    this.travels.delete(agentId);
+    const registration = this.avatarRegistry.get(agentId);
+    if (registration) {
+      registration.targetZoneId = undefined;
+      delete registration.group.userData.targetZoneId;
+    }
+    travel.pulse.removeFromParent();
+    travel.pulse.geometry.dispose();
+    travel.pulse.material.dispose();
+    travel.resolve(false);
+  }
+
+  private advanceTravels(deltaSec: number): void {
+    for (const [agentId, travel] of [...this.travels]) {
+      const registration = this.avatarRegistry.get(agentId)!;
+      travel.elapsed = Math.min(travel.duration, travel.elapsed + deltaSec);
+      let distance = travel.elapsed / travel.duration * travel.totalLength;
+      let segment = 0;
+      while (segment < travel.lengths.length - 1 && distance > travel.lengths[segment]) distance -= travel.lengths[segment++];
+      travel.segment = segment;
+      const from = travel.waypoints[segment];
+      const to = travel.waypoints[segment + 1];
+      const phase = Math.min(1, distance / travel.lengths[segment]);
+      registration.group.position.lerpVectors(from.position, to.position, phase);
+      registration.group.position.y += 4 * phase * (1 - phase) * Math.min(4, Math.max(1.5, travel.lengths[segment] * 0.15));
+      const direction = to.position.clone().sub(from.position);
+      if (direction.x !== 0 || direction.z !== 0) registration.group.rotation.y = Math.atan2(direction.x, direction.z);
+      const a = this.zones.get(from.zoneId)!.position;
+      const b = this.zones.get(to.zoneId)!.position;
+      travel.pulse.geometry.setFromPoints([a, b]);
+      travel.pulse.visible = from.zoneId !== to.zoneId;
+      travel.pulse.material.opacity = 0.65 + Math.sin(this.elapsedTime * 12) * 0.3;
+      if (travel.elapsed >= travel.duration) {
+        this.travels.delete(agentId);
+        registration.targetZoneId = undefined;
+        delete registration.group.userData.targetZoneId;
+        travel.pulse.removeFromParent();
+        travel.pulse.geometry.dispose();
+        travel.pulse.material.dispose();
+        this.assignZoneSlot(registration, travel.targetZoneId, travel.slot);
+        setVesselAnimationState(registration.group, registration.payload.surge.active ? 'surge' : 'idle');
+        travel.resolve(true);
+      }
+    }
   }
 
   /**
@@ -540,96 +760,122 @@ export class PentacleArena3D {
     return sprite;
   }
 
-  /**
-   * Animate a Tile Contest between attacker and defender on a zone
-   */
-  public async animateZoneContest(
+  /** Assemble both actors before a visual clash; server ownership remains authoritative. */
+  public animateZoneContest(
     zoneId: number,
-    attackerPayload: RatedAgentPayload,
-    defenderPayload: RatedAgentPayload
-  ): Promise<TileContestResult> {
-    const zone = this.zones.get(zoneId);
-    const currentControl = zone ? zone.control : 0;
-
-    // 1. Resolve mathematical contest result
-    const result = resolveTileContest(attackerPayload, defenderPayload, {
-      zoneId,
-      kind: zone?.kind ?? 'house',
-      owner: zone?.owner ?? null,
-      control: currentControl,
+    attacker: string | RatedAgentPayload,
+    defender: string | RatedAgentPayload
+  ): Promise<void> {
+    if (this.destroyed || !this.zones.has(zoneId)) return Promise.resolve();
+    const attackerId = typeof attacker === 'string' ? attacker : attacker.key;
+    const defenderId = typeof defender === 'string' ? defender : defender.key;
+    if (attackerId === defenderId) return Promise.resolve();
+    if (typeof attacker !== 'string') {
+      if (!this.avatarRegistry.has(attackerId)) this.placeAvatarOnZone(zoneId, attacker, 'challenger');
+      else this.refreshAvatar(attacker);
+    }
+    if (typeof defender !== 'string') {
+      if (!this.avatarRegistry.has(defenderId)) this.placeAvatarOnZone(zoneId, defender, 'owner');
+      else this.refreshAvatar(defender);
+    }
+    if (!this.avatarRegistry.has(attackerId) || !this.avatarRegistry.has(defenderId)) return Promise.resolve();
+    this.cancelContestsFor(attackerId);
+    this.cancelContestsFor(defenderId);
+    // The owner occupies -1.1, the challenger +1.1 after both arrive.
+    this.beginTravel(defenderId, zoneId, 450, 'owner', true);
+    this.beginTravel(attackerId, zoneId, 450, 'challenger', true);
+    return new Promise<void>(resolve => {
+      const assemblyRemaining = Math.max(...[attackerId, defenderId].map(id => {
+        const travel = this.travels.get(id);
+        return travel ? travel.duration - travel.elapsed : 0;
+      }));
+      this.contests.add({ zoneId, attackerId, defenderId, stage: 'assembling', assemblyRemaining, elapsed: 0, resolve });
     });
+  }
 
-    // 2. Set animation states on avatars
-    const attackerReg = this.avatarRegistry.get(attackerPayload.key);
-    const defenderReg = this.avatarRegistry.get(defenderPayload.key);
+  private finishContest(contest: ContestAnimation): void {
+    this.contests.delete(contest);
+    for (const id of [contest.attackerId, contest.defenderId]) {
+      const registration = this.avatarRegistry.get(id);
+      if (registration && !this.travels.has(id)) setVesselAnimationState(registration.group, registration.payload.surge.active ? 'surge' : 'idle');
+    }
+    const zone = this.zones.get(contest.zoneId);
+    if (zone) this.updateZoneStatus(zone.zoneId, zone.owner, zone.control);
+    contest.resolve();
+  }
 
-    if (attackerReg) {
-      attackerReg.group.userData.animationState = 'contest-attack';
+  private cancelContestsFor(agentId: string): void {
+    for (const contest of [...this.contests]) {
+      if (contest.attackerId === agentId || contest.defenderId === agentId) this.finishContest(contest);
     }
-    if (defenderReg) {
-      defenderReg.group.userData.animationState = 'contest-defend';
-    }
+  }
 
-    // 3. Flash ley-line conduits and pedestal glow
-    if (this.leyLineMaterial) {
-      this.leyLineMaterial.opacity = 0.85;
-      this.leyLineMaterial.color.setHex(0xffaa00);
-    }
-    if (zone && zone.glowMesh.material instanceof THREE.MeshBasicMaterial) {
-      zone.glowMesh.material.opacity = 1.0;
-    }
-
-    // 4. Update zone control and ownership
-    if (zone) {
-      let newOwner = zone.owner;
-      if (result.winner === 'challenger' && result.newZoneControl <= -500) {
-        newOwner = attackerPayload.faction;
-      } else if (result.winner === 'defender' && result.newZoneControl >= 500) {
-        newOwner = defenderPayload.faction;
+  private advanceContests(deltaSec: number): void {
+    for (const contest of [...this.contests]) {
+      const attacker = this.avatarRegistry.get(contest.attackerId);
+      const defender = this.avatarRegistry.get(contest.defenderId);
+      if (!attacker || !defender) {
+        this.finishContest(contest);
+        continue;
       }
-      this.updateZoneStatus(zoneId, newOwner, result.newZoneControl);
+      if (contest.stage === 'assembling') {
+        contest.assemblyRemaining -= deltaSec;
+        if (this.travels.has(contest.attackerId) || this.travels.has(contest.defenderId)) continue;
+        if (attacker.zoneId !== contest.zoneId || defender.zoneId !== contest.zoneId) {
+          this.finishContest(contest);
+          continue;
+        }
+        contest.stage = 'clash';
+        contest.elapsed = Math.max(0, -contest.assemblyRemaining);
+        setVesselAnimationState(attacker.group, 'contest-attack');
+        setVesselAnimationState(defender.group, 'contest-defend');
+        if (typeof window !== 'undefined' && typeof CustomEvent !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('pentacle:zone-contest', {
+            detail: { zoneId: contest.zoneId, attacker: attacker.payload, defender: defender.payload },
+          }));
+        }
+      } else contest.elapsed += deltaSec;
+      if (contest.elapsed >= 1.8) {
+        this.finishContest(contest);
+        continue;
+      }
+      const zone = this.zones.get(contest.zoneId)!;
+      (zone.glowMesh.material as THREE.MeshBasicMaterial).opacity = 0.85 + Math.sin(contest.elapsed * 18) * 0.15;
     }
+  }
 
-    // Emit custom event for UI / VesselCardHUD listeners
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(
-        new CustomEvent('pentacle:zone-contest', {
-          detail: {
-            zoneId,
-            result,
-            attacker: attackerPayload,
-            defender: defenderPayload,
-          },
-        })
-      );
+  /** Refresh live ratings without interrupting travel or changing a combat slot. */
+  public refreshAvatar(payload: RatedAgentPayload): boolean {
+    const registration = this.avatarRegistry.get(payload.key);
+    if (!registration) return false;
+    refreshVesselFromPayload(registration.group, payload);
+    registration.payload = registration.group.userData.agentPayload;
+    const zone = this.zones.get(registration.zoneId);
+    if (zone?.avatarMesh === registration.group) zone.currentAgent = registration.payload;
+    if (zone?.challengerMesh === registration.group) zone.challengerAgent = registration.payload;
+    const previousBadge = registration.group.getObjectByName('VesselIdentityBadge') as THREE.Sprite | undefined;
+    if (previousBadge) {
+      previousBadge.removeFromParent();
+      previousBadge.material.map?.dispose();
+      previousBadge.material.dispose();
+      const badge = this.createAvatarSprite(payload);
+      badge.name = 'VesselIdentityBadge';
+      badge.position.y = 2.8;
+      registration.group.add(badge);
     }
-
-    // Reset effects and animation states after contest duration
-    setTimeout(() => {
-      if (attackerReg) {
-        attackerReg.group.userData.animationState = attackerPayload.surge.active ? 'surge' : 'idle';
-      }
-      if (defenderReg) {
-        defenderReg.group.userData.animationState = defenderPayload.surge.active ? 'surge' : 'idle';
-      }
-      if (this.leyLineMaterial) {
-        this.leyLineMaterial.opacity = 0.35;
-        this.leyLineMaterial.color.setHex(0x38bdf8);
-      }
-    }, 1800);
-
-    return result;
+    return true;
   }
 
   /**
    * Update zone ownership and control status from SpacetimeDB table feed
    */
-  public updateZoneStatus(zoneId: number, ownerFaction: number | null, control: number): void {
+  public updateZoneStatus(zoneId: number, ownerFaction: number | null, control: number, inFlux?: boolean, fluxLevel?: number): void {
     const zone = this.zones.get(zoneId);
     if (!zone) return;
 
     zone.owner = ownerFaction;
     zone.control = Math.max(-1000, Math.min(1000, control));
+    if (inFlux !== undefined || fluxLevel !== undefined) this.updateZoneFlux(zoneId, inFlux ?? zone.inFlux, fluxLevel ?? zone.fluxLevel);
 
     const colorHex = ownerFaction != null ? FACTION_HEX_COLORS[ownerFaction] : '#38bdf8';
     const c = new THREE.Color(colorHex);
@@ -673,9 +919,6 @@ export class PentacleArena3D {
       const picked = pickVesselAvatar(this.raycaster, this.scene);
       if (picked) {
         this.onSelectAgent?.(picked.payload);
-        if (picked.zoneId !== null) {
-          this.onSelectZone?.(picked.zoneId);
-        }
         return;
       }
 
@@ -693,27 +936,40 @@ export class PentacleArena3D {
       }
     };
 
+    this.pointerHandler = handlePointerDown;
     canvas.addEventListener('click', handlePointerDown);
   }
 
+  /** Advance visual state deterministically; the browser loop uses this same path. */
+  public update(deltaSec: number, elapsedSec?: number): void {
+    if (this.destroyed) return;
+    const delta = Number.isFinite(deltaSec) ? Math.max(0, deltaSec) : 0;
+    this.elapsedTime = elapsedSec !== undefined && Number.isFinite(elapsedSec) ? elapsedSec : this.elapsedTime + delta;
+    // Live wallet refreshes replace the body's payload, so never overwrite them with a stale ring snapshot.
+    for (const registration of this.avatarRegistry.values()) {
+      const payload = registration.group.userData.agentPayload as RatedAgentPayload | undefined;
+      if (payload && payload !== registration.payload) this.refreshAvatar(payload);
+    }
+    this.advanceTravels(delta);
+    this.advanceContests(delta);
+    for (const registration of this.avatarRegistry.values()) {
+      updateFootRing(registration.footRing, registration.payload, this.elapsedTime);
+      updateVesselAvatarAnimation(registration.group, delta, this.elapsedTime);
+    }
+  }
+
   public startLoop(): void {
+    if (this.destroyed || this.animFrameId !== null || typeof requestAnimationFrame !== 'function') return;
+    this.lastTime = performance.now();
     const animate = () => {
-      this.animFrameId = requestAnimationFrame(animate);
+      if (this.destroyed) return;
       const now = performance.now();
-      const elapsedSec = (now - this.startTime) / 1000;
-      const deltaSec = Math.min(0.1, (now - this.lastTime) / 1000);
+      this.update(Math.min(0.1, Math.max(0, (now - this.lastTime) / 1000)));
       this.lastTime = now;
-
-      // Update foot ring shaders and articulated vessel avatar animations
-      for (const [_, reg] of this.avatarRegistry) {
-        updateFootRing(reg.footRing, reg.payload, elapsedSec);
-        updateVesselAvatarAnimation(reg.group, deltaSec, elapsedSec);
-      }
-
       this.renderer.render(this.scene, this.camera);
+      this.animFrameId = requestAnimationFrame(animate);
     };
-
-    animate();
+    this.animFrameId = requestAnimationFrame(animate);
   }
 
   public resize(width: number, height: number): void {
@@ -723,15 +979,37 @@ export class PentacleArena3D {
   }
 
   public destroy(): void {
-    if (this.animFrameId) {
+    if (this.destroyed) return;
+    this.destroyed = true;
+    if (this.animFrameId !== null) {
       cancelAnimationFrame(this.animFrameId);
       this.animFrameId = null;
     }
+    if (this.pointerHandler) this.renderer.domElement.removeEventListener('click', this.pointerHandler);
+    this.pointerHandler = undefined;
+    for (const contest of [...this.contests]) this.finishContest(contest);
+    for (const agentId of [...this.avatarRegistry.keys()]) this.removeAvatar(agentId);
+    const geometries = new Set<THREE.BufferGeometry>();
+    const materials = new Set<THREE.Material>();
+    this.scene.traverse(object => {
+      const renderable = object as THREE.Mesh;
+      if (renderable.geometry) geometries.add(renderable.geometry);
+      if (renderable.material) {
+        for (const material of Array.isArray(renderable.material) ? renderable.material : [renderable.material]) materials.add(material);
+      }
+      const light = object as THREE.Light & { shadow?: THREE.LightShadow };
+      light.shadow?.dispose();
+    });
+    for (const geometry of geometries) geometry.dispose();
+    for (const material of materials) material.dispose();
+    this.scene.clear();
+    this.zones.clear();
+    this.leyLinesMesh = null;
+    this.leyLineMaterial = null;
     this.renderer.dispose();
-    if (this.renderer.domElement.parentElement) {
-      this.renderer.domElement.parentElement.removeChild(this.renderer.domElement);
-    }
+    if (this.renderer.domElement.parentElement) this.renderer.domElement.parentElement.removeChild(this.renderer.domElement);
   }
+
 }
 
 /** Standalone helper for placing avatars on arena */
@@ -748,8 +1026,8 @@ export function placeAvatarOnZone(
 export function animateZoneContest(
   arena: PentacleArena3D,
   zoneId: number,
-  attackerPayload: RatedAgentPayload,
-  defenderPayload: RatedAgentPayload
-): Promise<TileContestResult> {
+  attackerPayload: string | RatedAgentPayload,
+  defenderPayload: string | RatedAgentPayload
+): Promise<void> {
   return arena.animateZoneContest(zoneId, attackerPayload, defenderPayload);
 }
