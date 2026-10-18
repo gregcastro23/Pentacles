@@ -50,7 +50,7 @@
     const wordDuels = Array.from({ length: 210 }, (_, i) => ({
       duel_id: i, player: players[i % players.length].identity, won: Math.random() > 0.45,
       tokens_awarded: rnd(120), player_score: rnd(40), agent_score: rnd(40),
-      player_word: pick(["AETHER","QUARTZ","NEBULA","ZENITH","ORACLE"]), created_at: agoMicros(rnd(36) * 3600e3),
+      player_word: pick(["ASTRAL","QUARTZ","NEBULA","ZENITH","ORACLE"]), created_at: agoMicros(rnd(36) * 3600e3),
     }));
     const stakes = Array.from({ length: 23 }, (_, i) => ({
       stake_id: i, element: rnd(4), principal_usdc: (100 + rnd(900)) * 1e6,

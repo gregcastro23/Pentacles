@@ -40,12 +40,17 @@ import {
   notifyDailySignInReward,
 } from './faucet/index.js'
 import historicalAgents from './alchm-chart/historical-agents.js'
+import * as ratedAgents from './lib/agents/index.ts'
 import './alchm-chart/alchm-chart.css'
 
 const Pentacles = (window.Pentacles = window.Pentacles || {})
 Pentacles.version = '0.2.0'
 Pentacles.historicalAgents = historicalAgents
 window.AlchmHistoricalAgents = historicalAgents
+Pentacles.ratedAgents = ratedAgents
+window.PentaclesRatedAgents = ratedAgents
+Pentacles.mountPentacleVesselDemo = ratedAgents.mountPentacleVesselDemo
+window.mountPentacleVesselDemo = ratedAgents.mountPentacleVesselDemo
 Pentacles.initSingularityShaderCanvas = initSingularityShaderCanvas
 Pentacles.cleanupSingularityShaderCanvas = cleanupSingularityShaderCanvas
 window.initSingularityShaderCanvas = initSingularityShaderCanvas
