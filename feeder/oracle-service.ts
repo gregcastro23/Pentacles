@@ -35,6 +35,7 @@ import { BRAIN_PRIMARY_URL as PA_URL, brainCall } from "./brain";
 // unavailable), and only falls back to a direct Anthropic call when the brain
 // is unreachable AND a key is configured. So the key is now OPTIONAL: without
 // it, the service still runs fully on the brain path.
+let anthropicAuthFailed = false;
 const anthropic = process.env.ANTHROPIC_API_KEY
   ? new Anthropic({
       apiKey: process.env.ANTHROPIC_API_KEY,
@@ -59,6 +60,10 @@ const { db: DB, uri: SPACETIMEDB_URI, token: SPACETIME_TOKEN } = resolveFeederEn
 // re-sending it — leaving it unanswered would re-bill Claude on every sweep forever.
 const ORACLE_FALLBACK =
   "The Oracle's vision is clouded for now — rephrase your question and seek again.";
+
+// Bounds repeated retries on transient errors so a wedged question never re-bills indefinitely
+const MAX_ORACLE_ATTEMPTS = 3;
+const requestAttempts = new Map<number, number>();
 
 // Push an answer back through the owner-gated reducer (HTTP with the bearer token,
 // or the spacetime CLI's logged-in owner identity when the token is blank).
@@ -113,6 +118,9 @@ let drainTimer: ReturnType<typeof setTimeout> | null = null;
 function pruneWindow(): void {
   const cutoff = Date.now() - HOUR_MS;
   while (recentCalls.length && recentCalls[0] <= cutoff) recentCalls.shift();
+  if (requestAttempts.size > 500) {
+    requestAttempts.clear();
+  }
 }
 
 // Arm (once) a wake-up for when the oldest in-window call expires, then hand
@@ -322,6 +330,23 @@ async function processRequest(row: Record<string, any>): Promise<void> {
     return;
   }
 
+  const attempts = (requestAttempts.get(requestId) ?? 0) + 1;
+  requestAttempts.set(requestId, attempts);
+
+  if (attempts > MAX_ORACLE_ATTEMPTS) {
+    console.warn(
+      `[Oracle] Request #${requestId} exceeded max attempts (${attempts}/${MAX_ORACLE_ATTEMPTS}); closing with fallback.`
+    );
+    try {
+      await answerOracle(requestId, ORACLE_FALLBACK, "error");
+    } catch (err) {
+      console.error(`[Oracle] Failed to close #${requestId} after max attempts:`, (err as Error).message);
+    } finally {
+      requestAttempts.delete(requestId);
+    }
+    return;
+  }
+
   const modelId = isCacheable ? "claude-haiku-4-5" : "claude-sonnet-4-6";
   const modelTier = isCacheable ? "haiku" : "sonnet";
 
@@ -330,7 +355,7 @@ async function processRequest(row: Record<string, any>): Promise<void> {
   // what dedupes it against reconnect backlogs and the re-sweep.
   await acquireClaudeSlot(requestId);
 
-  console.log(`\n[Oracle] Processing request #${requestId}...`);
+  console.log(`\n[Oracle] Processing request #${requestId}... (attempt ${attempts}/${MAX_ORACLE_ATTEMPTS})`);
   console.log(`  Question: "${question}"`);
   console.log(`  Model: ${modelId} (${isCacheable ? "cacheable rules/lore" : "live strategy"})`);
 
@@ -358,6 +383,7 @@ async function processRequest(row: Record<string, any>): Promise<void> {
     console.log(`[Oracle] Reply via brain; pushing to SpacetimeDB...`);
     try {
       await answerOracle(requestId, brainAnswer, "brain");
+      requestAttempts.delete(requestId);
       console.log(`[Oracle] Request #${requestId} successfully answered (brain).`);
     } catch (pushErr) {
       console.error(
@@ -368,11 +394,17 @@ async function processRequest(row: Record<string, any>): Promise<void> {
     return;
   }
 
-  // The brain was unreachable. Without a direct Anthropic key there's nothing
+  // The brain was unreachable. Without a working direct Anthropic key there's nothing
   // left to try — close with the fallback so the re-sweep stops re-delivering.
-  if (!anthropic) {
-    console.warn(`[Oracle] Brain unreachable and no Anthropic key for #${requestId}; closing with fallback.`);
-    await answerOracle(requestId, ORACLE_FALLBACK, "error");
+  if (!anthropic || anthropicAuthFailed) {
+    console.warn(
+      `[Oracle] Brain unreachable and ${anthropicAuthFailed ? "Anthropic key invalid (401)" : "no Anthropic key"} for #${requestId}; closing with fallback.`
+    );
+    try {
+      await answerOracle(requestId, ORACLE_FALLBACK, "error");
+    } finally {
+      requestAttempts.delete(requestId);
+    }
     return;
   }
 
@@ -424,13 +456,18 @@ async function processRequest(row: Record<string, any>): Promise<void> {
       console.warn(
         `[Oracle] No text for #${requestId} (stop_reason=${response.stop_reason}); closing with fallback.`,
       );
-      await answerOracle(requestId, ORACLE_FALLBACK, "error");
+      try {
+        await answerOracle(requestId, ORACLE_FALLBACK, "error");
+      } finally {
+        requestAttempts.delete(requestId);
+      }
       return;
     }
 
     console.log(`[Oracle] Reply generated; pushing to SpacetimeDB...`);
     try {
       await answerOracle(requestId, replyText, modelTier);
+      requestAttempts.delete(requestId);
     } catch (pushErr) {
       // The server will prune unanswered requests after 24h, so a request that
       // waited in the rate-limit queue (or through a long outage) can outlive
@@ -447,24 +484,55 @@ async function processRequest(row: Record<string, any>): Promise<void> {
     }
     console.log(`[Oracle] Request #${requestId} successfully answered.`);
   } catch (err) {
-    // Transient — the SDK already retried with backoff. Leave the request
-    // unanswered; the periodic re-sweep (RESWEEP_MS, default 5 min) or a WS
-    // reconnect backlog re-delivers it. Don't burn a fallback on a blip.
+    if (err instanceof Anthropic.AuthenticationError) {
+      console.error(
+        `[Oracle] ANTHROPIC_API_KEY is invalid (401 Unauthorized). Disabling direct Anthropic fallback; using planetary-agents brain only.`
+      );
+      anthropicAuthFailed = true;
+      try {
+        await answerOracle(requestId, ORACLE_FALLBACK, "error");
+      } catch (pushErr) {
+        console.error(`[Oracle] Failed to close #${requestId} after auth error:`, pushErr);
+      } finally {
+        requestAttempts.delete(requestId);
+      }
+      return;
+    }
+
+    // Transient — the SDK already retried with backoff.
     if (
       err instanceof Anthropic.RateLimitError ||
       err instanceof Anthropic.InternalServerError ||
       err instanceof Anthropic.APIConnectionError
     ) {
-      console.warn(`[Oracle] Transient error on #${requestId} (${(err as Error).name}); the re-sweep will retry it.`);
+      if (attempts >= MAX_ORACLE_ATTEMPTS) {
+        console.warn(
+          `[Oracle] Transient error on #${requestId} (${(err as Error).name}) reached max attempts (${attempts}/${MAX_ORACLE_ATTEMPTS}); closing with fallback to stop re-billing loop.`
+        );
+        try {
+          await answerOracle(requestId, ORACLE_FALLBACK, "error");
+        } catch (pushErr) {
+          console.error(`[Oracle] Failed to close #${requestId} after max transient retries:`, pushErr);
+        } finally {
+          requestAttempts.delete(requestId);
+        }
+        return;
+      }
+      console.warn(
+        `[Oracle] Transient error on #${requestId} (${(err as Error).name}, attempt ${attempts}/${MAX_ORACLE_ATTEMPTS}); the re-sweep will retry it.`
+      );
       return;
     }
-    // Non-retryable (400 / auth / refusal / bad input): close it with a fallback so
+
+    // Non-retryable (400 / refusal / bad input): close it with a fallback so
     // we never re-bill Claude for a question that will deterministically fail.
     console.error(`[Oracle] Non-retryable error on #${requestId}:`, err);
     try {
       await answerOracle(requestId, ORACLE_FALLBACK, "error");
     } catch (pushErr) {
       console.error(`[Oracle] Failed to close #${requestId} after error:`, pushErr);
+    } finally {
+      requestAttempts.delete(requestId);
     }
   }
 }

@@ -7,7 +7,7 @@
 // on ANY failure — network error, timeout, non-2xx, malformed JSON, or a body
 // that fails the caller's contract check — logs one concise line and retries
 // the SAME payload against the FALLBACK (BRAIN_FALLBACK_URL, default
-// https://alchm-agents-eth.vercel.app, the original Next.js brain). Only when
+// https://agents.alchm.kitchen, the production Next.js brain). Only when
 // BOTH fail does it return null, so the calling service can use its local
 // fallback (duel: greedy candidate; jing: counter graph).
 //
@@ -23,7 +23,7 @@ export const BRAIN_PRIMARY_URL = (
 ).replace(/\/+$/, "");
 
 export const BRAIN_FALLBACK_URL = (
-  process.env.BRAIN_FALLBACK_URL ?? "https://alchm-agents-eth.vercel.app"
+  process.env.BRAIN_FALLBACK_URL ?? "https://agents.alchm.kitchen"
 ).replace(/\/+$/, "");
 
 const BRAIN_TIMEOUT_MS = 15_000; // per attempt (primary and fallback each get one)
