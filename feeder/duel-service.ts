@@ -13,7 +13,7 @@
 // Environment options:
 //   SPACETIMEDB_DB (default: cookingwithcastrollc)
 //   PLANETARY_AGENTS_BACKEND_URL (default: https://api.agents.alchm.kitchen) primary brain
-//   BRAIN_FALLBACK_URL (default: https://alchm-agents-eth.vercel.app) fallback brain
+//   BRAIN_FALLBACK_URL (default: https://agents.alchm.kitchen) fallback brain
 //   RESWEEP_MS (default: 300000) unanswered-row re-sweep period
 
 import { startFeed } from "./stdb-feed";

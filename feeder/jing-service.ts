@@ -14,7 +14,7 @@
 // Env:     SPACETIMEDB_DB (default cookingwithcastrollc), RESWEEP_MS (300000),
 //          PLANETARY_AGENTS_BACKEND_URL (default https://api.agents.alchm.kitchen)
 //          primary brain, BRAIN_FALLBACK_URL (default
-//          https://alchm-agents-eth.vercel.app) fallback brain.
+//          https://agents.alchm.kitchen) fallback brain.
 
 import { startFeed } from "./stdb-feed";
 import { cliCall, resolveFeederEnv } from "./spacetime-cli";
