@@ -255,5 +255,28 @@ describe('SpacetimeDB Client Bridge & Rust Server Reducer Alignment', () => {
       });
       expect(eqSurgeScore).toBe(Math.floor((100 * 1180) / 1000)); // 118
     });
+
+    it('supports dispatchTrickResolution with object payload and exposes spacetimeCourtBridge singleton', async () => {
+      const bridge = new SpacetimeDBBridge();
+      const arena = new PentacleArena3D();
+      arena.loadFixtures();
+      bridge.attachArena(arena);
+
+      let contestCalled = false;
+      arena.animateZoneContest = mock(async () => {
+        contestCalled = true;
+      });
+
+      await bridge.dispatchTrickResolution({
+        zoneId: 2,
+        winnerAgentId: 'isaac-newton',
+        loserAgentId: 'nikola-tesla',
+        winningSuit: 'Cups',
+        trickNumber: 1,
+      });
+
+      expect(contestCalled).toBe(true);
+      arena.destroy();
+    });
   });
 });

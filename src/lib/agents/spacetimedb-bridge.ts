@@ -552,12 +552,41 @@ export class SpacetimeDBBridge {
    * Directly dispatch a confirmed trick outcome for live table melee choreography
    */
   public dispatchTrickResolution(
-    zoneId: number,
-    winnerKey: string,
-    rivalKey: string,
-    suit: 'wands' | 'cups' | 'swords' | 'pentacles' | string = 'wands',
-    trickNumber = 1
+    zoneOrOptions: number | {
+      zoneId?: number;
+      winnerKey?: string;
+      winnerAgentId?: string;
+      rivalKey?: string;
+      loserAgentId?: string;
+      suit?: 'wands' | 'cups' | 'swords' | 'pentacles' | string;
+      winningSuit?: 'wands' | 'cups' | 'swords' | 'pentacles' | string;
+      trickNumber?: number;
+    },
+    winnerKeyArg?: string,
+    rivalKeyArg?: string,
+    suitArg: 'wands' | 'cups' | 'swords' | 'pentacles' | string = 'wands',
+    trickNumberArg = 1
   ): Promise<void> {
+    let zoneId: number;
+    let winnerKey: string;
+    let rivalKey: string;
+    let suit: string;
+    let trickNumber: number;
+
+    if (typeof zoneOrOptions === 'object' && zoneOrOptions !== null) {
+      zoneId = Number(zoneOrOptions.zoneId ?? 0);
+      winnerKey = String(zoneOrOptions.winnerKey ?? zoneOrOptions.winnerAgentId ?? '');
+      rivalKey = String(zoneOrOptions.rivalKey ?? zoneOrOptions.loserAgentId ?? '');
+      suit = String(zoneOrOptions.suit ?? zoneOrOptions.winningSuit ?? 'wands');
+      trickNumber = Number(zoneOrOptions.trickNumber ?? 1);
+    } else {
+      zoneId = Number(zoneOrOptions);
+      winnerKey = String(winnerKeyArg ?? '');
+      rivalKey = String(rivalKeyArg ?? '');
+      suit = String(suitArg ?? 'wands');
+      trickNumber = Number(trickNumberArg ?? 1);
+    }
+
     const element = suitToEsmsElement(suit);
     const suitName = suitToSuitName(suit);
     const winner = this.arena?.avatarRegistry.get(winnerKey)?.payload;
@@ -576,7 +605,18 @@ export class SpacetimeDBBridge {
       summary: `${winnerHandle} triumphed over ${rivalHandle} in trick ${trickNumber} (${suitName})`,
       detail: `Secured trick momentum for ${getZoneTitle(zoneId)} with ${element.toUpperCase()} elemental clash`,
     });
-    return this.arena ? this.arena.animateTrickOutcome(zoneId, winnerKey, rivalKey, element) : Promise.resolve();
+
+    if (!this.arena) return Promise.resolve();
+
+    const winnerReg = this.arena.avatarRegistry.get(winnerKey);
+    const rivalReg = this.arena.avatarRegistry.get(rivalKey);
+
+    if (winnerReg && rivalReg && winnerReg.zoneId === zoneId && rivalReg.zoneId === zoneId &&
+        !this.arena.travels.has(winnerKey) && !this.arena.travels.has(rivalKey)) {
+      return this.arena.animateTrickOutcome(zoneId, winnerKey, rivalKey, element);
+    }
+
+    return this.arena.animateZoneContest(zoneId, winnerKey, rivalKey, element);
   }
 
   /**
@@ -1003,3 +1043,22 @@ export function simulateRustVesselCombatRating(vessel: {
 
   return Math.floor((withSeal * surgeMult) / 1000);
 }
+
+export let spacetimeCourtBridge: SpacetimeDBBridge | null = null;
+
+export function setGlobalSpacetimeCourtBridge(bridge: SpacetimeDBBridge | null): void {
+  spacetimeCourtBridge = bridge;
+  if (typeof window !== 'undefined') {
+    (window as any).spacetimeCourtBridge = bridge;
+    (window as any).__pentacleCourtBridge = bridge;
+  }
+}
+
+export default {
+  get current() {
+    return spacetimeCourtBridge;
+  },
+  dispatchTrickResolution(...args: any[]) {
+    return (spacetimeCourtBridge?.dispatchTrickResolution as any)?.(...args);
+  },
+};

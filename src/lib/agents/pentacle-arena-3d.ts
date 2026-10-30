@@ -40,6 +40,7 @@ import {
   canAccessZone,
   accessRefusalReason,
 } from '../../alchm-chart/zone-access.js';
+import { HISTORICAL_AGENTS } from '../../alchm-chart/historical-agents.js';
 import { CourtAudioSynth, type EsmsAudioElement } from './court-audio-synth';
 
 export interface ZoneNode3D {
@@ -989,13 +990,44 @@ export class PentacleArena3D {
     const attackerId = typeof attacker === 'string' ? attacker : attacker.key;
     const defenderId = typeof defender === 'string' ? defender : defender.key;
     if (attackerId === defenderId) return Promise.resolve();
+    const resolveAgent = (id: string): RatedAgentPayload | null => {
+      const norm = id.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      const fix = FIXTURE_AGENTS.find(a => a.key === id || a.key.includes(norm) || norm.includes(a.key));
+      if (fix) return fix;
+      const hist = (HISTORICAL_AGENTS as any[]).find(a => a.key === id || a.key?.includes(norm) || norm.includes(a.key?.split('-')[0]) || (a.handle && a.handle.toLowerCase().replace(/[^a-z0-9]+/g, '-') === norm));
+      if (hist) {
+        return {
+          key: hist.key,
+          handle: hist.handle,
+          title: hist.title || hist.handle,
+          faction: hist.faction ?? 0,
+          ovr: 72,
+          ratings: { power: 65, resilience: 60, agility: 70, perception: 75, wisdom: 80, harmony: 65, intensity: 70 },
+          relativeAdvantage: { power: 0, resilience: 0, agility: 0, perception: 0, wisdom: 0, harmony: 0, intensity: 0 },
+          archetypeTitle: 'Adept',
+          sealTier: 'Copper',
+          seals: [],
+          esms: { spirit: 100, essence: 100, matter: 100, substance: 100 },
+          surge: { meter: 40, active: false, surgeType: 'equilibrium', monica: null, monicaState: 'absent', heat: 0.3, reactivity: 0.3, statBoosts: {} },
+        };
+      }
+      return null;
+    };
+
     if (typeof attacker !== 'string') {
       if (!this.avatarRegistry.has(attackerId)) this.placeAvatarOnZone(zoneId, attacker, 'challenger');
       else this.refreshAvatar(attacker);
+    } else if (!this.avatarRegistry.has(attackerId)) {
+      const resolved = resolveAgent(attackerId);
+      if (resolved) this.placeAvatarOnZone(zoneId, resolved, 'challenger');
     }
+
     if (typeof defender !== 'string') {
       if (!this.avatarRegistry.has(defenderId)) this.placeAvatarOnZone(zoneId, defender, 'owner');
       else this.refreshAvatar(defender);
+    } else if (!this.avatarRegistry.has(defenderId)) {
+      const resolved = resolveAgent(defenderId);
+      if (resolved) this.placeAvatarOnZone(zoneId, resolved, 'owner');
     }
     if (!this.avatarRegistry.has(attackerId) || !this.avatarRegistry.has(defenderId)) return Promise.resolve();
     this.cancelContestsForZone(zoneId);

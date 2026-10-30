@@ -2,7 +2,7 @@ import { ratingFeedStatus } from './agent-rating-feed';
 import * as THREE from 'three';
 import { PentacleArena3D, getZoneTitle } from './pentacle-arena-3d';
 import { ArenaNavigation } from './arena-navigation';
-import { SpacetimeDBBridge, type CourtTimelineEvent } from './spacetimedb-bridge';
+import { SpacetimeDBBridge, setGlobalSpacetimeCourtBridge, type CourtTimelineEvent } from './spacetimedb-bridge';
 import { SACRED_STAT_KEYS } from './rating-contract';
 import { PLANET_NAMES, accessRefusalReason } from '../../alchm-chart/zone-access.js';
 import { FACTION_HEX_COLORS } from './avatar-foot-ring';
@@ -311,6 +311,8 @@ export function openPentacleCourt(options: CourtViewOptions = {}) {
     navigation = arena.webglAvailable ? new ArenaNavigation(arena) : undefined;
     bridge = new SpacetimeDBBridge();
     bridge.attachArena(arena);
+    setGlobalSpacetimeCourtBridge(bridge);
+    if (typeof window !== 'undefined') (window as any).__pentacleArena = arena;
     bridge.onZoneUpdate(row => receivedZones.add(row.zoneId));
     bridge.onTimelineEvent(evt => {
       if (!disposed && !rebuilding) {
@@ -384,6 +386,10 @@ export function openPentacleCourt(options: CourtViewOptions = {}) {
     observer.disconnect();
     bridge.disconnect();
     bridge.detachArena();
+    setGlobalSpacetimeCourtBridge(null);
+    if (typeof window !== 'undefined' && (window as any).__pentacleArena === arena) {
+      delete (window as any).__pentacleArena;
+    }
     navigation?.destroy();
     arena.destroy();
     dialog.close();
