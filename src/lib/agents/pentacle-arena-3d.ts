@@ -968,7 +968,13 @@ export class PentacleArena3D {
   /** Fast-forward and settle active contests on a specific zone pedestal */
   public cancelContestsForZone(zoneId: number): void {
     for (const contest of [...this.contests]) {
-      if (contest.zoneId === zoneId) this.finishContest(contest);
+      if (contest.zoneId === zoneId) {
+        const attacker = this.avatarRegistry.get(contest.attackerId);
+        const defender = this.avatarRegistry.get(contest.defenderId);
+        if (attacker) delete attacker.group.userData.attackElementOverride;
+        if (defender) delete defender.group.userData.attackElementOverride;
+        this.finishContest(contest);
+      }
     }
   }
 
@@ -1022,6 +1028,9 @@ export class PentacleArena3D {
     this.cancelContestsForZone(zoneId);
     this.cancelContestsFor(winnerId);
     this.cancelContestsFor(rivalId);
+    if (element) {
+      winner.group.userData.attackElementOverride = element;
+    }
     setVesselAnimationState(winner.group, 'victory');
     setVesselAnimationState(rival.group, 'stagger');
     const dominant = element ?? (winner.group.userData.dominantElement as EsmsAudioElement) ?? 'spirit';
@@ -1036,7 +1045,12 @@ export class PentacleArena3D {
     this.contests.delete(contest);
     for (const id of [contest.attackerId, contest.defenderId]) {
       const registration = this.avatarRegistry.get(id);
-      if (registration && !this.travels.has(id)) setVesselAnimationState(registration.group, registration.payload.surge.active ? 'surge' : 'idle');
+      if (registration) {
+        delete registration.group.userData.attackElementOverride;
+        if (!this.travels.has(id)) {
+          setVesselAnimationState(registration.group, registration.payload.surge.active ? 'surge' : 'idle');
+        }
+      }
     }
     const zone = this.zones.get(contest.zoneId);
     if (zone) this.updateZoneStatus(zone.zoneId, zone.owner, zone.control);
@@ -1066,6 +1080,9 @@ export class PentacleArena3D {
         }
         contest.stage = 'clash';
         contest.elapsed = Math.max(0, -contest.assemblyRemaining);
+        if (contest.element) {
+          attacker.group.userData.attackElementOverride = contest.element;
+        }
         setVesselAnimationState(attacker.group, 'contest-attack');
         setVesselAnimationState(defender.group, 'contest-defend');
         const dominant = contest.element ?? (attacker.group.userData.dominantElement as EsmsAudioElement) ?? 'spirit';

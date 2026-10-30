@@ -24,7 +24,7 @@ import {
   resolveArchetype,
   type SacredStatKey,
 } from './rating-contract';
-import { syncAgentEsmsFromSpacetime } from './live-wallet-sync';
+import { syncAgentEsmsFromSpacetime, liveWalletSync } from './live-wallet-sync';
 import { applyRatingSnapshot } from './agent-rating-feed';
 import { HISTORICAL_AGENTS, PLANET_NAMES } from '../../alchm-chart/historical-agents.js';
 
@@ -117,8 +117,17 @@ type Row = Record<string, any>;
 const TABLE_KEYS = {
   zone: 'zoneId', agent_chart: 'identity', agent_rating: 'identity', player: 'identity', melee_table: 'tableId',
   melee_seat: 'seatId', melee_play: 'playId', melee_trick: 'trickId',
+  pentacle_conversion_escrow: 'conversionId', star_stake: 'stakeId',
 } as const;
 type TableName = keyof typeof TABLE_KEYS;
+
+function parseAtomBigInt(val: any): bigint {
+  if (typeof val === 'bigint') return val;
+  const s = String(val ?? '0').trim();
+  if (!/^\d+$/.test(s)) return 0n;
+  return BigInt(s);
+}
+
 interface CombatBeat {
   kind: 'strike' | 'result';
   tableId: string;
@@ -268,8 +277,13 @@ export class SpacetimeDBBridge {
   }
 
   private rowKey(table: TableName, row: Row): string {
-    const value = row[TABLE_KEYS[table]];
-    return table === 'agent_chart' || table === 'agent_rating' || table === 'player' ? identityKey(value) : String(value);
+    const pk = TABLE_KEYS[table];
+    const value = row[pk] ?? (
+      table === 'pentacle_conversion_escrow' ? (row.conversion_id ?? row.conversionId) :
+      table === 'star_stake' ? (row.stake_id ?? row.stakeId) :
+      undefined
+    );
+    return table === 'agent_chart' || table === 'agent_rating' || table === 'player' ? identityKey(value) : String(value ?? '');
   }
 
   private replaceRows(table: TableName, incoming: Row[], initial: boolean): void {
@@ -304,6 +318,8 @@ export class SpacetimeDBBridge {
     if (table === 'zone') this.handleZoneUpdate(row as SpacetimeZoneRow);
     if (table === 'agent_chart') for (const listener of this.agentListeners) listener(row as SpacetimeAgentChartRow);
     if (table === 'melee_table') for (const listener of this.meleeListeners) listener(row as SpacetimeMeleeTableRow);
+    if (table === 'pentacle_conversion_escrow') this.handleConversionEscrowUpdate(row);
+    if (table === 'star_stake') this.handleStarStakeUpdate(row);
   }
 
   private payloadForSeat(seat: Row): RatedAgentPayload | null {
@@ -561,6 +577,156 @@ export class SpacetimeDBBridge {
       detail: `Secured trick momentum for ${getZoneTitle(zoneId)} with ${element.toUpperCase()} elemental clash`,
     });
     return this.arena ? this.arena.animateTrickOutcome(zoneId, winnerKey, rivalKey, element) : Promise.resolve();
+  }
+
+  /**
+   * Handle incoming Pentacle ↔ ESMS conversion escrow updates from SpacetimeDB
+   */
+  public handleConversionEscrowUpdate(row: Row): void {
+    const status = String(row.status ?? '').toLowerCase();
+    if (status !== 'settled') return;
+    const conversionId = String(row.conversionId ?? row.conversion_id ?? 'unknown');
+    const identity = identityKey(row.identity);
+    const rawAtoms = row.atoms ?? [];
+
+    const spiritAtoms = parseAtomBigInt(rawAtoms[0]);
+    const essenceAtoms = parseAtomBigInt(rawAtoms[1]);
+    const matterAtoms = parseAtomBigInt(rawAtoms[2]);
+    const substanceAtoms = parseAtomBigInt(rawAtoms[3]);
+
+    const formatAtom = (val: bigint) => {
+      if (val >= 10n ** 10n) {
+        return (Number(val / 10n ** 14n) / 10000).toFixed(4);
+      }
+      return (Number(val) / 10000).toFixed(4);
+    };
+
+    const atomsSummary = `Spirit: ${formatAtom(spiritAtoms)}, Essence: ${formatAtom(essenceAtoms)}, Matter: ${formatAtom(matterAtoms)}, Substance: ${formatAtom(substanceAtoms)}`;
+
+    let matchedAgent: RatedAgentPayload | null = null;
+    let agentKey = identity;
+    if (this.arena) {
+      for (const [key, reg] of this.arena.avatarRegistry) {
+        if (identityKey(reg.payload.key) === identity || key === identity) {
+          matchedAgent = reg.payload;
+          agentKey = key;
+          break;
+        }
+      }
+    }
+    if (!matchedAgent) {
+      for (const [key, cached] of liveWalletSync.getCachedAgents()) {
+        if (identityKey(key) === identity || key === identity) {
+          matchedAgent = cached;
+          agentKey = key;
+          break;
+        }
+      }
+    }
+
+    const agentHandle = matchedAgent?.handle ?? (identity.length > 12 ? `Wallet ${identity.slice(0, 6)}...${identity.slice(-4)}` : (identity || 'Unknown'));
+    const faction = matchedAgent?.faction ?? 0;
+
+    this.recordTimelineEvent({
+      type: 'rating',
+      agentKey,
+      agentHandle,
+      faction,
+      summary: `Pentacle conversion ${conversionId} settled on Solana`,
+      detail: `Settled Token-2022 conversion escrow with ${atomsSummary}`,
+    });
+
+    const toTokens = (val: bigint) => (val >= 10n ** 10n ? Number(val / 10n ** 14n) / 10000 : Number(val) / 10000);
+    const esmsBalances: EsmsBalances = {
+      spirit: toTokens(spiritAtoms),
+      essence: toTokens(essenceAtoms),
+      matter: toTokens(matterAtoms),
+      substance: toTokens(substanceAtoms),
+    };
+
+    if (agentKey) {
+      const updated = liveWalletSync.syncAgentEsmsFromSpacetime(agentKey, esmsBalances);
+      if (updated && this.arena?.avatarRegistry.has(agentKey)) {
+        this.arena.refreshAvatar(updated);
+      }
+    }
+  }
+
+  /**
+   * Handle incoming Star Stake updates from SpacetimeDB
+   */
+  public handleStarStakeUpdate(row: Row): void {
+    const stakeId = String(row.stakeId ?? row.stake_id ?? '0');
+    const stakerKey = identityKey(row.staker);
+    const starId = Number(row.starId ?? row.star_id ?? 0);
+    const principalRaw = parseAtomBigInt(row.principalUsdc ?? row.principal_usdc ?? 0);
+    const principalUsdc = (Number(principalRaw) / 1e6).toFixed(2);
+    const claimedRaw = parseAtomBigInt(row.claimedEssence ?? row.claimed_essence ?? 0);
+    const elementId = Number(row.element ?? 0);
+    const elementNames = ['Spirit', 'Essence', 'Matter', 'Substance'];
+    const elementName = elementNames[elementId] ?? 'Spirit';
+
+    let matchedAgent: RatedAgentPayload | null = null;
+    let agentKey = stakerKey;
+    if (this.arena) {
+      for (const [key, reg] of this.arena.avatarRegistry) {
+        if (identityKey(reg.payload.key) === stakerKey || key === stakerKey) {
+          matchedAgent = reg.payload;
+          agentKey = key;
+          break;
+        }
+      }
+    }
+
+    const agentHandle = matchedAgent?.handle ?? (stakerKey.length > 12 ? `Staker ${stakerKey.slice(0, 6)}...${stakerKey.slice(-4)}` : (stakerKey || 'Staker'));
+    const faction = matchedAgent?.faction ?? elementId;
+
+    this.recordTimelineEvent({
+      type: 'rating',
+      agentKey,
+      agentHandle,
+      faction,
+      summary: `Star stake #${stakeId} updated for star ${starId}`,
+      detail: `Principal: ${principalUsdc} USDC | Claimed: ${(claimedRaw / 10n ** 14n).toString()} atoms (${elementName})`,
+    });
+  }
+
+  /**
+   * Directly dispatch a confirmed Pentacle ↔ ESMS conversion escrow settlement on Solana
+   */
+  public dispatchConversionSettlement(
+    conversionId: string,
+    identity: string,
+    atoms: Array<string | number | bigint>,
+    status: 'settled' | 'escrowed' | 'refunded' = 'settled'
+  ): void {
+    this.handleConversionEscrowUpdate({
+      conversionId,
+      identity,
+      atoms: atoms.map(String),
+      status,
+    });
+  }
+
+  /**
+   * Directly dispatch a star staking position update on Solana
+   */
+  public dispatchStarStakeUpdate(
+    stakeId: string | number,
+    staker: string,
+    starId: number,
+    principalUsdc: string | number | bigint,
+    claimedEssence: string | number | bigint = 0n,
+    element = 0
+  ): void {
+    this.handleStarStakeUpdate({
+      stakeId,
+      staker,
+      starId,
+      principalUsdc: String(principalUsdc),
+      claimedEssence: String(claimedEssence),
+      element,
+    });
   }
 
   /**

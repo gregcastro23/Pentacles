@@ -721,3 +721,21 @@ export function resolveAgentAppearance(
   return structuredClone(profile);
 }
 
+/**
+ * Non-blocking manifest probe that checks if an authored .glb model is configured for the agent.
+ */
+export function probeAuthoredModelUrl(agentId: string): string | undefined {
+  return VESSEL_APPEARANCE_MANIFEST[agentId]?.avatarModelUrl;
+}
+
+/**
+ * Register or override an authored .glb model asset URL for an agent profile.
+ */
+export function registerAuthoredModel(agentId: string, modelUrl: string): void {
+  if (VESSEL_APPEARANCE_MANIFEST[agentId]) {
+    VESSEL_APPEARANCE_MANIFEST[agentId].avatarModelUrl = modelUrl;
+  }
+  if (pilotDefinitions[agentId]) {
+    pilotDefinitions[agentId].avatarModelUrl = modelUrl;
+  }
+}

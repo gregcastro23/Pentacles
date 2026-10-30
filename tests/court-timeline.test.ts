@@ -13,6 +13,7 @@ import {
 import { PentacleArena3D } from '../src/lib/agents/pentacle-arena-3d';
 import { FIXTURE_AGENTS } from '../src/lib/agents/rating-contract';
 import { setupVesselDomGlobals } from './helpers/vessel-dom';
+import { liveWalletSync } from '../src/lib/agents/live-wallet-sync';
 
 describe('Court Event Timeline (Arrivals & Contests)', () => {
   it('formats relative timestamps cleanly', () => {
@@ -380,6 +381,81 @@ describe('Court Event Timeline (Arrivals & Contests)', () => {
       court.destroy();
     } finally {
       cleanup();
+    }
+  });
+
+  it('handles Solana conversion escrow settlements, updating live wallet ESMS and seated court seals', () => {
+    const bridge = new SpacetimeDBBridge();
+    const arena = new PentacleArena3D();
+    bridge.attachArena(arena);
+
+    try {
+      // Place Newton in zone 0
+      const seated = arena.placeAvatarOnZone(0, FIXTURE_AGENTS[0], 'owner')!;
+      const initialShards = seated.userData.sealOrbiters.children.length;
+      expect(initialShards).toBe(12); // Celestial (5) + Gold (3) + Astral (4)
+
+      // Dispatch a confirmed Solana conversion escrow with high Spirit & Matter (15,000 ESMS each = 150000000 atoms)
+      bridge.dispatchConversionSettlement('conv-sol-9821', FIXTURE_AGENTS[0].key, [
+        '150000000', // 15,000 Spirit (4-dp atoms)
+        '0',
+        '200000000', // 20,000 Matter (4-dp atoms)
+        '0',
+      ]);
+
+      // Check timeline event was recorded under 'rating'
+      const timeline = bridge.getTimeline();
+      const event = timeline.find(e => e.summary.includes('conv-sol-9821'));
+      expect(event).toBeDefined();
+      expect(event?.type).toBe('rating');
+      expect(event?.agentHandle).toBe(FIXTURE_AGENTS[0].handle);
+      expect(event?.detail).toContain('Spirit: 15000.0000');
+      expect(event?.detail).toContain('Matter: 20000.0000');
+
+      // LiveWalletSync was updated
+      const cached = liveWalletSync.getCachedAgent(FIXTURE_AGENTS[0].key);
+      expect(cached?.esms.spirit).toBe(15000);
+      expect(cached?.esms.matter).toBe(20000);
+      // Seal tiers upgraded from ESMS thresholds
+      expect(cached?.seals.length).toBeGreaterThanOrEqual(3);
+
+      // Seated court avatar was refreshed in-place
+      expect(seated.userData.sealOrbiters.children.length).toBeGreaterThanOrEqual(initialShards);
+      expect(arena.avatarRegistry.get(FIXTURE_AGENTS[0].key)?.group).toBe(seated);
+    } finally {
+      liveWalletSync.clearCache();
+      arena.destroy();
+    }
+  });
+
+  it('handles Solana Star Stake updates and formats USDC principal and claimed essence atoms accurately', () => {
+    const bridge = new SpacetimeDBBridge();
+    const arena = new PentacleArena3D();
+    bridge.attachArena(arena);
+
+    try {
+      arena.placeAvatarOnZone(3, FIXTURE_AGENTS[1], 'owner');
+
+      // Dispatch Star Stake position update for Hipparcos Star 44248
+      // Principal: 50,000,000 (50 USDC at 6-dp), Claimed: 25000000000000000000 (25 ESMS at 18-dp)
+      bridge.dispatchStarStakeUpdate(
+        '77',
+        FIXTURE_AGENTS[1].key,
+        44248,
+        '50000000', // 50 USDC
+        '25000000000000000000', // 25 ESMS
+        1 // Essence
+      );
+
+      const timeline = bridge.getTimeline();
+      const event = timeline.find(e => e.summary.includes('Star stake #77'));
+      expect(event).toBeDefined();
+      expect(event?.type).toBe('rating');
+      expect(event?.agentHandle).toBe(FIXTURE_AGENTS[1].handle);
+      expect(event?.detail).toContain('Principal: 50.00 USDC');
+      expect(event?.detail).toContain('Claimed: 250000 atoms (Essence)');
+    } finally {
+      arena.destroy();
     }
   });
 });

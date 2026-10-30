@@ -340,6 +340,20 @@ class LiveWalletSyncManager {
   }
 
   /**
+   * Get a cached agent payload by key
+   */
+  public getCachedAgent(agentKey: string): RatedAgentPayload | undefined {
+    return this.agentCache.get(agentKey);
+  }
+
+  /**
+   * Get all currently cached agents
+   */
+  public getCachedAgents(): IterableIterator<[string, RatedAgentPayload]> {
+    return this.agentCache.entries();
+  }
+
+  /**
    * Clear cache (useful for test resets)
    */
   public clearCache(): void {

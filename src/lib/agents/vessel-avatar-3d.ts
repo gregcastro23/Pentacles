@@ -761,7 +761,7 @@ export function createVesselAvatarMesh(
     stateElapsed: 0,
     activeAnimationState: agent.surge.active ? 'surge' : 'idle',
     modelLoadVersion: 0,
-    loadModelAsync: options.loadModelAsync ?? false,
+    loadModelAsync: options.loadModelAsync ?? Boolean(agent.avatarModelUrl ?? appearance.avatarModelUrl),
     disposed: false,
   };
   captureRestTransforms(root);
@@ -956,7 +956,7 @@ export function updateVesselAvatarAnimation(
       if (rightKnee) rightKnee.rotation.x = 0.2;
     }
   } else if (state === 'contest-attack') {
-    const dominant: EsmsKey = (u.dominantElement as EsmsKey) ?? 'spirit';
+    const dominant: EsmsKey = (u.attackElementOverride as EsmsKey) ?? (u.dominantElement as EsmsKey) ?? 'spirit';
     const lunge = Math.sin(Math.min(t / 0.75, 1) * Math.PI);
 
     if (dominant === 'spirit') {
@@ -1205,7 +1205,7 @@ export function updateVesselAvatarAnimation(
   const material = u.wardShield.material as THREE.MeshBasicMaterial;
   material.opacity = THREE.MathUtils.lerp(material.opacity, wardOpacity, alpha);
   const orbiters = u.sealOrbiters as THREE.Group;
-  const dominantElement: EsmsKey = (u.dominantElement as EsmsKey) ?? 'spirit';
+  const dominantElement: EsmsKey = (u.attackElementOverride as EsmsKey) ?? (u.dominantElement as EsmsKey) ?? 'spirit';
   const orbitSpeed = state === 'victory' ? 4.2 : state === 'surge' ? 3.5 : state === 'contest-attack' ? (dominantElement === 'substance' ? 5.2 : 2.4) : 0.9;
   orbiters.rotation.y = t * orbitSpeed;
   orbiters.children.forEach((child, i) => {
@@ -1310,6 +1310,22 @@ function loadExternalModel(avatar: THREE.Group, url?: string): void {
     wrapper.position.set(-center.x * scale, -bounds.min.y * scale, -center.z * scale);
     wrapper.add(scene);
     applyVesselShadowPolicy(wrapper);
+    const factionHex = FACTION_HEX_COLORS[u.agentPayload?.faction ?? 0] ?? '#00daf3';
+    wrapper.traverse((child) => {
+      const mesh = child as THREE.Mesh;
+      if (mesh.isMesh && mesh.material) {
+        const mat = mesh.material;
+        if (Array.isArray(mat)) {
+          mat.forEach((m) => {
+            if (m instanceof THREE.MeshStandardMaterial) {
+              attachFresnelRim(m, factionHex, 2.8, 0.65);
+            }
+          });
+        } else if (mat instanceof THREE.MeshStandardMaterial) {
+          attachFresnelRim(mat, factionHex, 2.8, 0.65);
+        }
+      }
+    });
     avatar.add(wrapper);
     u.externalModel = wrapper;
     u.modelScene = scene;
@@ -1320,6 +1336,7 @@ function loadExternalModel(avatar: THREE.Group, url?: string): void {
   }).catch((error) => {
     if (!u.disposed && generation === u.modelLoadVersion) {
       u.modelError = error;
+      if (u.rig) u.rig.visible = true;
       console.warn(`[VesselAvatar3D] Failed to load external model for ${u.agentId}:`, error);
     }
   });

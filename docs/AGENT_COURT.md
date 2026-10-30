@@ -33,6 +33,9 @@ The inspector's **Arrival & Contest Timeline** records:
   - **Essence**: Dual resonant harmonic sine/triangle wave sweep.
   - **Matter**: Heavy sub-bass pitch drop (140 Hz $\to$ 42 Hz).
   - **Substance**: High-pass filtered noise blade slash.
+- **Progressive .glb Hot-Swap & Procedural Fallback**: Zero-latency procedural spawn at frame 0 with background `GLTFLoader` hot-swap into live `avatarRoot`. Swaps only the inner figure/armature child mesh while strictly preserving `SealOrbiters`, `UnderFootResonanceRing`, and overhead HUD badges. Applies `applyVesselShadowPolicy()` and `attachFresnelRim()` to imported materials using faction colors, and retains the procedural rig as an interactive fallback if the URL returns 404 or fails validation.
+- **Skeletal Suit-Override Parity**: Setting `winner.avatar.userData.attackElementOverride = element` during trick outcomes and zone contests lets `updateVesselAvatarAnimation()` drive matching 3D skeletal choreography (spirit overhead spear thrust, essence dual-arm wave sweep, matter knee-bend slam, substance pirouette slash) and orbiter velocities, synchronizing visual combat choreography with `CourtAudioSynth` even if the agent's innate dominant ESMS stat differs.
+- **Deterministic Solana Settlement & Escrow Sweeps**: `SpacetimeDBBridge` monitors `pentacle_conversion_escrow` and `star_stake` tables. Enforces integer atom bounds without lossy float coercion, formats 6-dp USDC principal and 18-dp claimed essence atoms, propagates confirmed settlements through `liveWalletSync` into seated court avatars (refreshing avatars and upgrading seal tiers in-place), and dispatches settlement updates to the Ratings timeline feed.
 - **Live Rating Arena Sweep**: Authoritative table deltas update seated avatars in place: updating overhead OVR badges, pulsing `UnderFootResonanceRing` scale (1.25 on positive delta, 0.85 on negative delta with smooth lerp restoration), and triggering non-interruptive surge or stagger reactions.
 
 Live court uses the application's SpacetimeDB facade and the existing seat
@@ -88,9 +91,10 @@ pulls the camera back to a previously selected vessel after a navigation action.
 
 ## Verification
 
-- `bun run test:court` runs 130 tests across 14 test files with 1,278 assertions (100% pass, 0 skipped), verifying camera framing, navigation, selection, avatar batching, Fresnel rim shading, 2D/3D trait parity, procedural audio transients, timeline category filtering, live rating sweeps, elemental suit mapping, non-blocking clash queues, and spectator auto-focus.
+- `bun run test:court` runs 136 tests across 14 test files with 1,314 assertions (100% pass, 0 skipped), verifying camera framing, navigation, selection, avatar batching, Fresnel rim shading, 2D/3D trait parity, procedural audio transients, timeline category filtering, live rating sweeps, elemental suit mapping, progressive .glb hot-swap, suit-override parity, Solana conversion settlement propagation, non-blocking clash queues, and spectator auto-focus.
 - `bun run test:vessel` runs 26 tests (100% pass, 0 skipped, 59 assertions) verifying vessel models, drawer lifecycle, and wallet sync.
-- `bun run build` verifies the full production bundle compiles via Vite (with dynamic code-splitting for `court-view.ts` preserved in a separate ~17 kB chunk).
+- `bun run test:solana` runs 78 tests (100% pass, 0 skipped, 552 assertions) verifying star staking escrow invariants, infallible saturating checkpoints, and CAIP-2 chain boundaries.
+- `bun run build` verifies the full production bundle compiles via Vite (with dynamic code-splitting for `court-view.ts` preserved in a separate ~17.2 kB chunk, and async `GLTFLoader`/`DRACOLoader` chunks).
 - `/tests/fixtures/court-test.html` is a local UI harness with no network or
   gameplay writes. Open it under the Vite development server.
 - Check live/offline labels, explicit example mode, event timeline items and category filters,
@@ -103,6 +107,6 @@ pulls the camera back to a previously selected vessel after a navigation action.
   to inspect either outcome; use **Motion off** to check queue completion. The
   fixture does not connect to a database or write gameplay state.
 
-Validated on 2026-10-30: 130 court tests passed (0 skipped), 26 vessel tests passed (1,337 total assertions),
+Validated on 2026-10-30: 136 court tests passed (0 skipped), 26 vessel tests passed, 78 solana tests passed (1,925 total assertions),
 and the production build passed cleanly. Browser checks covered both outcome poses,
 return to surge, queued strikes, reduced motion, timeline category filtering, and persistent Overview framing.

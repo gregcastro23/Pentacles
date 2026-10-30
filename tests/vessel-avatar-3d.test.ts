@@ -24,6 +24,8 @@ import {
   resolveAgentAppearance,
   mixModularTraits,
   createVesselPortraitSvg,
+  probeAuthoredModelUrl,
+  registerAuthoredModel,
 } from '../src/lib/agents/vessel-appearance-manifest';
 import { createVesselSilhouette } from '../src/lib/agents/vessel-silhouettes';
 import {
@@ -363,6 +365,102 @@ describe('3D Vessel Avatar Mesh & Procedural Animation System', () => {
         disposeVesselAvatar(avatar);
         expect(disposalCount).toBe(1);
       } finally { registerCustomModelLoader(null); }
+    });
+
+    it('spawns procedural rig at frame 0 and hot-swaps external GLTF while preserving orbiters, foot ring, and badges', async () => {
+      const scene = new THREE.Group();
+      const geom = new THREE.CylinderGeometry(0.5, 0.5, 2, 8);
+      const mat = new THREE.MeshStandardMaterial({ color: 0x999999 });
+      scene.add(new THREE.Mesh(geom, mat));
+      registerCustomModelLoader(async () => ({ scene }));
+
+      const agent = { ...FIXTURE_AGENTS[0], avatarModelUrl: '/async-newton.glb' };
+      const avatar = createVesselAvatarMesh(agent);
+      try {
+        // Frame 0: procedural rig is immediately visible with zero latency
+        expect(avatar.userData.rig.visible).toBe(true);
+        expect(avatar.getObjectByName('UnderFootResonanceRing')).toBeDefined();
+        expect(avatar.getObjectByName('ArticulatedVesselRig')).toBeDefined();
+        expect(avatar.getObjectByName('SealOrbiters')).toBeDefined();
+
+        // Await background resolution
+        await avatar.userData.modelReady;
+
+        // Hot swap complete: external model attached, rig hidden, orbiters & foot ring preserved
+        expect(avatar.userData.rig.visible).toBe(false);
+        const externalModel = avatar.getObjectByName('ExternalGLTFModel');
+        expect(externalModel).toBeDefined();
+        expect(avatar.getObjectByName('UnderFootResonanceRing')).toBeDefined();
+        expect(avatar.getObjectByName('SealOrbiters')).toBeDefined();
+
+        // View-space Fresnel rim applied to imported MeshStandardMaterial
+        expect(mat.userData.fresnelRim).toBeDefined();
+        expect(mat.customProgramCacheKey?.()).toBe('vessel-fresnel-rim');
+      } finally {
+        disposeVesselAvatar(avatar);
+        registerCustomModelLoader(null);
+      }
+    });
+
+    it('retains procedural rig as an interactive fallback when external model fails to load', async () => {
+      registerCustomModelLoader(async () => {
+        throw new Error('404 Not Found');
+      });
+
+      const agent = { ...FIXTURE_AGENTS[1], avatarModelUrl: '/missing-model.glb' };
+      const avatar = createVesselAvatarMesh(agent);
+      try {
+        expect(avatar.userData.rig.visible).toBe(true);
+        await avatar.userData.modelReady;
+        // After failure: procedural rig remains visible and active
+        expect(avatar.userData.rig.visible).toBe(true);
+        expect(avatar.userData.modelError).toBeDefined();
+        expect(avatar.getObjectByName('ExternalGLTFModel')).toBeUndefined();
+      } finally {
+        disposeVesselAvatar(avatar);
+        registerCustomModelLoader(null);
+      }
+    });
+
+    it('attackElementOverride overrides innate dominant ESMS and drives matching 3D skeletal choreography', () => {
+      // Newton's innate dominant element is 'matter'
+      const newton = FIXTURE_AGENTS[0];
+      const avatar = createVesselAvatarMesh(newton);
+      try {
+        setVesselAnimationState(avatar, 'contest-attack');
+
+        // 1. Substance Override (Swords: accelerated SealOrbiters velocity 5.2 vs 2.4)
+        avatar.userData.attackElementOverride = 'substance';
+        for (let i = 0; i < 2; i++) updateVesselAvatarAnimation(avatar, 0.1, 100);
+        expect(avatar.userData.sealOrbiters.rotation.y).toBeCloseTo(0.2 * 5.2, 1);
+
+        // 2. Matter Override (Pentacles: grounded knee-bend slam + ward shield expansion)
+        avatar.userData.attackElementOverride = 'matter';
+        avatar.userData.stateElapsed = 0;
+        for (let i = 0; i < 5; i++) updateVesselAvatarAnimation(avatar, 0.1, 100);
+        expect(avatar.userData.wardShield.scale.x).toBeGreaterThan(1.0);
+
+        // 3. Spirit Override (Wands: high overhead spear thrust + forward torso pitch)
+        avatar.userData.attackElementOverride = 'spirit';
+        avatar.userData.stateElapsed = 0;
+        for (let i = 0; i < 3; i++) updateVesselAvatarAnimation(avatar, 0.1, 100);
+        expect(avatar.userData.rightArm.rotation.x).toBeLessThan(-1.4);
+
+        // 4. Essence Override (Cups: harmonic counter-rotating sweep + relic z-spin)
+        avatar.userData.attackElementOverride = 'essence';
+        avatar.userData.stateElapsed = 0;
+        for (let i = 0; i < 3; i++) updateVesselAvatarAnimation(avatar, 0.1, 100);
+        expect(Math.abs(avatar.userData.relic.rotation.z)).toBeGreaterThan(0.5);
+      } finally {
+        disposeVesselAvatar(avatar);
+      }
+    });
+
+    it('probes authored model manifest and registers overrides', () => {
+      expect(probeAuthoredModelUrl('isaac-newton')).toBeUndefined();
+      registerAuthoredModel('isaac-newton', '/models/authored-newton.glb');
+      expect(probeAuthoredModelUrl('isaac-newton')).toBe('/models/authored-newton.glb');
+      registerAuthoredModel('isaac-newton', undefined as any);
     });
   });
 
