@@ -54,7 +54,7 @@ territory, roster and event timeline inspector remains usable.
 This is a read-only inspection surface. It does not move agents, submit
 contests, change ownership or edit models on the server.
 
-## Confirmed trick reactions
+## Confirmed trick reactions & Live Table Melee Choreography
 
 Fresh card plays animate attack and defense. A new `melee_trick` result queues
 a separate reaction after the preceding strikes: the recorded winner raises
@@ -62,6 +62,18 @@ its relic in victory, and its last opposing participant recoils. A card play
 alone never implies a winner. Both reactions run for 1.6 seconds, then restore
 the latest idle or surge state. The inspector labels the winner as celebrating
 and the opponent as recovering.
+
+### Live Table Melee Choreography Bridge & Elemental Suit Mapping
+- **Winning Card Suit to ESMS Elemental Attack**:
+  - **Wands** $\to$ `spirit`: triggers flame crackle audio transient and spirit strike choreography.
+  - **Cups** $\to$ `essence`: triggers dual resonant harmonic wave sweep and essence arc choreography.
+  - **Pentacles** $\to$ `matter`: triggers heavy sub-bass pitch drop (140 Hz $\to$ 42 Hz) and matter slam choreography.
+  - **Swords** $\to$ `substance`: triggers high-pass filtered noise blade slash and substance slash choreography.
+- **Non-Blocking Pedestal Clash Queue (`cancelContestsForZone`)**:
+  - When rapid successive tricks resolve on the same zone pedestal before the 1.1s clash window or 1.6s outcome window elapses, the prior stage fast-forwards immediately into the new clash. Active combat state never drops frames, leaks unresolved promises, or desyncs from the live multiplayer card table.
+- **Spectator Auto-Focus Mode (`Follow action`)**:
+  - The Court HUD includes an interactive `Follow action` toggle button (`[data-action="spectate"]`).
+  - When enabled, incoming live trick outcomes, combat beats, or agent arrivals smoothly re-orient camera look-at and focus on the contested pedestal, keeping spectators centered on the table's highest-intensity action in real time.
 
 Reactions preserve seat positions, selection, ratings and authoritative
 territory control. A departed or travelling participant is not pulled back into
@@ -76,9 +88,9 @@ pulls the camera back to a previously selected vessel after a navigation action.
 
 ## Verification
 
-- `bun run test:court` runs 127 tests across 14 test files with 1,254 assertions (100% pass, 0 skipped), verifying camera framing, navigation, selection, avatar batching, Fresnel rim shading, 2D/3D trait parity, procedural audio transients, timeline category filtering, and live rating sweeps.
+- `bun run test:court` runs 130 tests across 14 test files with 1,278 assertions (100% pass, 0 skipped), verifying camera framing, navigation, selection, avatar batching, Fresnel rim shading, 2D/3D trait parity, procedural audio transients, timeline category filtering, live rating sweeps, elemental suit mapping, non-blocking clash queues, and spectator auto-focus.
 - `bun run test:vessel` runs 26 tests (100% pass, 0 skipped, 59 assertions) verifying vessel models, drawer lifecycle, and wallet sync.
-- `bun run build` verifies the full production bundle compiles via Vite (with dynamic code-splitting for `court-view.ts`).
+- `bun run build` verifies the full production bundle compiles via Vite (with dynamic code-splitting for `court-view.ts` preserved in a separate ~17 kB chunk).
 - `/tests/fixtures/court-test.html` is a local UI harness with no network or
   gameplay writes. Open it under the Vite development server.
 - Check live/offline labels, explicit example mode, event timeline items and category filters,
@@ -91,6 +103,6 @@ pulls the camera back to a previously selected vessel after a navigation action.
   to inspect either outcome; use **Motion off** to check queue completion. The
   fixture does not connect to a database or write gameplay state.
 
-Validated on 2026-10-30: 127 court tests passed (0 skipped), 26 vessel tests passed,
+Validated on 2026-10-30: 130 court tests passed (0 skipped), 26 vessel tests passed (1,337 total assertions),
 and the production build passed cleanly. Browser checks covered both outcome poses,
 return to surge, queued strikes, reduced motion, timeline category filtering, and persistent Overview framing.

@@ -102,6 +102,7 @@ interface ContestAnimation {
   assemblyRemaining: number;
   elapsed: number;
   resolve: () => void;
+  element?: EsmsAudioElement;
 }
 
 /** Every travel route uses exactly the conduits drawn on the arena. */
@@ -964,11 +965,19 @@ export class PentacleArena3D {
     return sprite;
   }
 
+  /** Fast-forward and settle active contests on a specific zone pedestal */
+  public cancelContestsForZone(zoneId: number): void {
+    for (const contest of [...this.contests]) {
+      if (contest.zoneId === zoneId) this.finishContest(contest);
+    }
+  }
+
   /** Assemble both actors before a visual clash; server ownership remains authoritative. */
   public animateZoneContest(
     zoneId: number,
     attacker: string | RatedAgentPayload,
-    defender: string | RatedAgentPayload
+    defender: string | RatedAgentPayload,
+    element?: EsmsAudioElement
   ): Promise<void> {
     if (this.destroyed || !this.zones.has(zoneId)) return Promise.resolve();
     const attackerId = typeof attacker === 'string' ? attacker : attacker.key;
@@ -983,6 +992,7 @@ export class PentacleArena3D {
       else this.refreshAvatar(defender);
     }
     if (!this.avatarRegistry.has(attackerId) || !this.avatarRegistry.has(defenderId)) return Promise.resolve();
+    this.cancelContestsForZone(zoneId);
     this.cancelContestsFor(attackerId);
     this.cancelContestsFor(defenderId);
     // The owner occupies -1.1, the challenger +1.1 after both arrive.
@@ -993,24 +1003,32 @@ export class PentacleArena3D {
         const travel = this.travels.get(id);
         return travel ? travel.duration - travel.elapsed : 0;
       }));
-      this.contests.add({ zoneId, attackerId, defenderId, stage: 'assembling', assemblyRemaining, elapsed: 0, resolve });
+      this.contests.add({ zoneId, attackerId, defenderId, stage: 'assembling', assemblyRemaining, elapsed: 0, resolve, element });
     });
   }
 
   /** React to a confirmed trick result without moving seats or deciding territory ownership. */
-  public animateTrickOutcome(zoneId: number, winnerId: string, rivalId: string): Promise<void> {
+  public animateTrickOutcome(
+    zoneId: number,
+    winnerId: string,
+    rivalId: string,
+    element?: EsmsAudioElement
+  ): Promise<void> {
     if (this.destroyed || !this.motionEnabled || !this.zones.has(zoneId) || winnerId === rivalId) return Promise.resolve();
     const winner = this.avatarRegistry.get(winnerId);
     const rival = this.avatarRegistry.get(rivalId);
     if (!winner || !rival || winner.zoneId !== zoneId || rival.zoneId !== zoneId ||
       this.travels.has(winnerId) || this.travels.has(rivalId)) return Promise.resolve();
+    this.cancelContestsForZone(zoneId);
     this.cancelContestsFor(winnerId);
     this.cancelContestsFor(rivalId);
     setVesselAnimationState(winner.group, 'victory');
     setVesselAnimationState(rival.group, 'stagger');
+    const dominant = element ?? (winner.group.userData.dominantElement as EsmsAudioElement) ?? 'spirit';
+    this.audioSynth.triggerClash(dominant);
     return new Promise<void>(resolve => {
       this.contests.add({ zoneId, attackerId: winnerId, defenderId: rivalId,
-        stage: 'result', assemblyRemaining: 0, elapsed: 0, resolve });
+        stage: 'result', assemblyRemaining: 0, elapsed: 0, resolve, element: dominant });
     });
   }
 
@@ -1050,7 +1068,7 @@ export class PentacleArena3D {
         contest.elapsed = Math.max(0, -contest.assemblyRemaining);
         setVesselAnimationState(attacker.group, 'contest-attack');
         setVesselAnimationState(defender.group, 'contest-defend');
-        const dominant = (attacker.group.userData.dominantElement as EsmsAudioElement) ?? 'spirit';
+        const dominant = contest.element ?? (attacker.group.userData.dominantElement as EsmsAudioElement) ?? 'spirit';
         this.audioSynth.triggerClash(dominant);
         if (typeof window !== 'undefined' && typeof CustomEvent !== 'undefined') {
           window.dispatchEvent(new CustomEvent('pentacle:zone-contest', {
@@ -1058,7 +1076,7 @@ export class PentacleArena3D {
           }));
         }
       } else contest.elapsed += deltaSec;
-      if (contest.elapsed >= (contest.stage === 'result' ? 1.6 : 1.8)) {
+      if (contest.elapsed >= (contest.stage === 'result' ? 1.6 : 1.1)) {
         this.finishContest(contest);
         continue;
       }

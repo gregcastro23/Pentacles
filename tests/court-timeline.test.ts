@@ -2,6 +2,8 @@ import { describe, expect, it, mock } from 'bun:test';
 import {
   SpacetimeDBBridge,
   type CourtTimelineEvent,
+  suitToEsmsElement,
+  suitToSuitName,
 } from '../src/lib/agents/spacetimedb-bridge';
 import {
   formatCourtTimeAgo,
@@ -287,5 +289,97 @@ describe('Court Event Timeline (Arrivals & Contests)', () => {
 
     bridge.disconnect();
     arena.destroy();
+  });
+
+  it('maps winning card suits to elemental ESMS attack choreographies', () => {
+    expect(suitToEsmsElement('wands')).toBe('spirit');
+    expect(suitToEsmsElement('cups')).toBe('essence');
+    expect(suitToEsmsElement('pentacles')).toBe('matter');
+    expect(suitToEsmsElement('swords')).toBe('substance');
+
+    expect(suitToSuitName('wands')).toBe('Wands');
+    expect(suitToSuitName('cups')).toBe('Cups');
+    expect(suitToSuitName('pentacles')).toBe('Pentacles');
+    expect(suitToSuitName('swords')).toBe('Swords');
+
+    const bridge = new SpacetimeDBBridge();
+    const arena = new PentacleArena3D();
+    bridge.attachArena(arena);
+    arena.placeAvatarOnZone(0, FIXTURE_AGENTS[0], 'owner');
+    arena.placeAvatarOnZone(0, FIXTURE_AGENTS[3], 'challenger');
+
+    // Dispatch a trick won with Swords (substance element)
+    void bridge.dispatchTrickResolution(0, FIXTURE_AGENTS[0].key, FIXTURE_AGENTS[3].key, 'swords', 3);
+    const event = bridge.getTimeline()[0];
+    expect(event).toBeDefined();
+    expect(event.type).toBe('contest');
+    expect(event.summary).toContain('Swords');
+    expect(event.detail).toContain('SUBSTANCE');
+
+    bridge.disconnect();
+    arena.destroy();
+  });
+
+  it('fast-forwards rapid successive pedestal clashes without dropped animations or state desync', async () => {
+    const arena = new PentacleArena3D();
+    const winner = arena.placeAvatarOnZone(1, FIXTURE_AGENTS[0], 'owner')!;
+    const rival = arena.placeAvatarOnZone(1, FIXTURE_AGENTS[1], 'challenger')!;
+
+    // Start trick 1 outcome
+    const trick1 = arena.animateTrickOutcome(1, FIXTURE_AGENTS[0].key, FIXTURE_AGENTS[1].key, 'spirit');
+    arena.update(0.1);
+    expect(winner.userData.animationState).toBe('victory');
+    expect(rival.userData.animationState).toBe('stagger');
+
+    // While trick 1 is still ongoing, a rapid trick 2 resolves on the same pedestal
+    let trick1Settled = false;
+    trick1.then(() => { trick1Settled = true; });
+
+    const trick2 = arena.animateTrickOutcome(1, FIXTURE_AGENTS[1].key, FIXTURE_AGENTS[0].key, 'essence');
+    // Trick 1 should have been fast-forwarded / settled immediately by cancelContestsForZone
+    await Promise.resolve();
+    expect(trick1Settled).toBe(true);
+
+    // Trick 2 roles should be active without delay
+    arena.update(0.1);
+    expect(rival.userData.animationState).toBe('victory');
+    expect(winner.userData.animationState).toBe('stagger');
+
+    arena.update(1.6);
+    await trick2;
+    expect(winner.userData.animationState).toBe('idle');
+    expect(rival.userData.animationState).toBe('surge'); // Emily Dickinson restores to active surge state
+    arena.destroy();
+  });
+
+  it('follows live combat in spectator mode when Follow Action toggle is enabled', () => {
+    const { cleanup } = setupVesselDomGlobals();
+    try {
+      const court = openPentacleCourt({ faction: 0 });
+      const dialog = court.getDialog();
+      expect(court.isFollowingLive()).toBe(false);
+
+      // Click spectator button
+      const spectateBtn = dialog.querySelector('button[data-action="spectate"]') as HTMLButtonElement;
+      expect(spectateBtn).toBeDefined();
+      spectateBtn.click();
+      expect(court.isFollowingLive()).toBe(true);
+      expect(spectateBtn.getAttribute('aria-pressed')).toBe('true');
+
+      // Trigger a live contest event through bridge
+      const bridge = court.getBridge()!;
+      const arena = court.getArena()!;
+      arena.placeAvatarOnZone(2, FIXTURE_AGENTS[1], 'owner');
+      arena.placeAvatarOnZone(2, FIXTURE_AGENTS[2], 'challenger');
+
+      void bridge.dispatchTrickResolution(2, FIXTURE_AGENTS[1].key, FIXTURE_AGENTS[2].key, 'cups', 1);
+
+      // Because followAction is true, the active pedestal was auto-selected
+      expect(arena.selection?.agentId).toBe(FIXTURE_AGENTS[1].key);
+
+      court.destroy();
+    } finally {
+      cleanup();
+    }
   });
 });

@@ -106,6 +106,7 @@ export function openPentacleCourt(options: CourtViewOptions = {}) {
           <button type="button" data-action="overview">Overview</button><button type="button" data-action="top">Top view</button>
           <button type="button" data-action="in" aria-label="Zoom in">＋</button><button type="button" data-action="out" aria-label="Zoom out">−</button>
           <button type="button" data-action="motion" aria-pressed="true">Motion on</button>
+          <button type="button" data-action="spectate" aria-pressed="false" class="pk-court-spectate-btn">Follow action</button>
         </div>
         <p class="pk-court-help">Drag to orbit · Scroll or pinch to zoom · Select a vessel to inspect</p>
       </section>
@@ -151,6 +152,7 @@ export function openPentacleCourt(options: CourtViewOptions = {}) {
   let disposed = false;
   let rebuilding = false;
   let motion = !(typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)')?.matches);
+  let followAction = false;
   let detailSignature = '';
   let frame = 0;
   let lastTime = performance.now();
@@ -310,11 +312,26 @@ export function openPentacleCourt(options: CourtViewOptions = {}) {
     bridge = new SpacetimeDBBridge();
     bridge.attachArena(arena);
     bridge.onZoneUpdate(row => receivedZones.add(row.zoneId));
-    bridge.onTimelineEvent(() => { if (!disposed && !rebuilding) refresh(); });
+    bridge.onTimelineEvent(evt => {
+      if (!disposed && !rebuilding) {
+        if (followAction && (evt.type === 'contest' || evt.type === 'arrival')) {
+          if (arena.avatarRegistry.has(evt.agentKey)) {
+            arena.selectAgent(evt.agentKey);
+          } else {
+            arena.selectZone(evt.zoneId);
+          }
+          navigation?.focusSelection();
+        }
+        refresh();
+      }
+    });
     if (mode === 'examples') arena.loadFixtures();
     else if (options.client) bridge.connect(options.client);
     get('.pk-court-fallback').hidden = arena.webglAvailable;
-    for (const action of ['overview', 'top', 'in', 'out']) get<HTMLButtonElement>(`[data-action="${action}"]`).disabled = !arena.webglAvailable;
+    for (const action of ['overview', 'top', 'in', 'out', 'spectate']) {
+      const btn = get<HTMLButtonElement>(`[data-action="${action}"]`);
+      if (btn) btn.disabled = !arena.webglAvailable;
+    }
     if (arena.webglAvailable) {
       for (const [id, zone] of arena.zones) {
         const label = document.createElement('button');
@@ -401,6 +418,23 @@ export function openPentacleCourt(options: CourtViewOptions = {}) {
       case 'out': navigation?.zoom(1.25); break;
       case 'focus': navigation?.focusSelection(); get('.pk-court-body').scrollTop = 0; break;
       case 'motion': motion = !motion; updateMotion(); break;
+      case 'spectate': {
+        followAction = !followAction;
+        const spectateBtn = get<HTMLButtonElement>('[data-action="spectate"]');
+        spectateBtn.setAttribute('aria-pressed', String(followAction));
+        spectateBtn.textContent = followAction ? 'Following live' : 'Follow action';
+        if (followAction && navigation) {
+          const latestContest = (mode === 'examples' ? EXAMPLE_TIMELINE_EVENTS : bridge.getTimeline())
+            .find(e => e.type === 'contest' || e.type === 'arrival');
+          if (latestContest) {
+            if (arena.avatarRegistry.has(latestContest.agentKey)) arena.selectAgent(latestContest.agentKey);
+            else arena.selectZone(latestContest.zoneId);
+            navigation.focusSelection();
+            refresh();
+          }
+        }
+        break;
+      }
     }
   });
   territory.addEventListener('change', () => {
@@ -426,5 +460,29 @@ export function openPentacleCourt(options: CourtViewOptions = {}) {
     returnFocus?.focus();
     throw error;
   }
-  return { destroy };
+  return {
+    destroy,
+    isFollowingLive: () => followAction,
+    setFollowingLive: (following: boolean) => {
+      followAction = following;
+      const btn = dialog.querySelector<HTMLButtonElement>('[data-action="spectate"]');
+      if (btn) {
+        btn.setAttribute('aria-pressed', String(followAction));
+        btn.textContent = followAction ? 'Following live' : 'Follow action';
+      }
+      if (followAction && navigation) {
+        const latestContest = (mode === 'examples' ? EXAMPLE_TIMELINE_EVENTS : bridge.getTimeline())
+          .find(e => e.type === 'contest' || e.type === 'arrival');
+        if (latestContest) {
+          if (arena.avatarRegistry.has(latestContest.agentKey)) arena.selectAgent(latestContest.agentKey);
+          else arena.selectZone(latestContest.zoneId);
+          navigation.focusSelection();
+          refresh();
+        }
+      }
+    },
+    getBridge: () => bridge,
+    getArena: () => arena,
+    getDialog: () => dialog,
+  };
 }

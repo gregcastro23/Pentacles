@@ -14,6 +14,7 @@
  */
 
 import { type PentacleArena3D, getZoneTitle } from './pentacle-arena-3d';
+import { type EsmsAudioElement } from './court-audio-synth';
 import {
   type RatedAgentPayload,
   type EsmsBalances,
@@ -26,6 +27,24 @@ import {
 import { syncAgentEsmsFromSpacetime } from './live-wallet-sync';
 import { applyRatingSnapshot } from './agent-rating-feed';
 import { HISTORICAL_AGENTS, PLANET_NAMES } from '../../alchm-chart/historical-agents.js';
+
+export function suitToSuitName(suit: any): string {
+  const norm = String(suit?.tag ?? suit ?? '').toLowerCase();
+  if (norm.includes('wand') || norm.includes('fire')) return 'Wands';
+  if (norm.includes('cup') || norm.includes('water')) return 'Cups';
+  if (norm.includes('pentacle') || norm.includes('earth') || norm.includes('coin')) return 'Pentacles';
+  if (norm.includes('sword') || norm.includes('air')) return 'Swords';
+  return 'Wands';
+}
+
+export function suitToEsmsElement(suit: any): EsmsAudioElement {
+  const norm = String(suit?.tag ?? suit ?? '').toLowerCase();
+  if (norm.includes('wand') || norm.includes('fire')) return 'spirit';
+  if (norm.includes('cup') || norm.includes('water')) return 'essence';
+  if (norm.includes('pentacle') || norm.includes('earth') || norm.includes('coin')) return 'matter';
+  if (norm.includes('sword') || norm.includes('air')) return 'substance';
+  return 'spirit';
+}
 
 export interface CourtTimelineEvent {
   id: string;
@@ -100,7 +119,14 @@ const TABLE_KEYS = {
   melee_seat: 'seatId', melee_play: 'playId', melee_trick: 'trickId',
 } as const;
 type TableName = keyof typeof TABLE_KEYS;
-interface CombatBeat { kind: 'strike' | 'result'; tableId: string; attacker: string; defender: string }
+interface CombatBeat {
+  kind: 'strike' | 'result';
+  tableId: string;
+  attacker: string;
+  defender: string;
+  element?: EsmsAudioElement;
+  winningCard?: { suit?: any; rank?: number; isMajor?: boolean };
+}
 
 function identityKey(value: any): string {
   return String(value?.toHexString?.() ?? value?.__identity__ ?? value ?? '').replace(/^0x/i, '').toLowerCase();
@@ -404,7 +430,14 @@ export class SpacetimeDBBridge {
         String(this.tableRows('melee_seat').get(seatId)?.tableId) === String(play.tableId));
       if (!table || !attacker || !rival) continue;
       this.seenPlays.add(key);
-      this.enqueueCombat(table.zoneId, { kind: 'strike', tableId: String(play.tableId), attacker, defender: rival[1] });
+      const element = play.suit != null ? suitToEsmsElement(play.suit) : undefined;
+      this.enqueueCombat(table.zoneId, {
+        kind: 'strike',
+        tableId: String(play.tableId),
+        attacker,
+        defender: rival[1],
+        element,
+      });
       const attackerPayload = this.arena.avatarRegistry.get(attacker)?.payload;
       const defenderPayload = this.arena.avatarRegistry.get(rival[1])?.payload;
       const attackerHandle = attackerPayload?.handle ?? attacker;
@@ -435,7 +468,19 @@ export class SpacetimeDBBridge {
       const rival = lastRival && seatAgents.get(String(lastRival.seatId));
       if (!table || !winner || !rival) continue;
       this.seenTricks.add(key);
-      this.enqueueCombat(table.zoneId, { kind: 'result', tableId: String(trick.tableId), attacker: winner, defender: rival });
+      const winningPlay = [...plays].find((play) => String(play.tableId) === String(trick.tableId) &&
+        String(play.trickNumber) === String(trick.trickNumber) && String(play.seatId) === String(trick.winnerSeat));
+      const rawSuit = winningPlay?.suit ?? trick.ledSuit;
+      const element = rawSuit != null ? suitToEsmsElement(rawSuit) : undefined;
+      const suitName = rawSuit != null ? suitToSuitName(rawSuit) : undefined;
+      this.enqueueCombat(table.zoneId, {
+        kind: 'result',
+        tableId: String(trick.tableId),
+        attacker: winner,
+        defender: rival,
+        element,
+        winningCard: winningPlay ? { suit: winningPlay.suit, rank: winningPlay.rank, isMajor: winningPlay.isMajor } : undefined,
+      });
       const winnerPayload = this.arena.avatarRegistry.get(winner)?.payload;
       const rivalPayload = this.arena.avatarRegistry.get(rival)?.payload;
       const winnerHandle = winnerPayload?.handle ?? winner;
@@ -449,8 +494,12 @@ export class SpacetimeDBBridge {
         rivalKey: rival,
         rivalHandle: rivalHandle,
         rivalFaction: rivalPayload?.faction ?? 0,
-        summary: `${winnerHandle} triumphed over ${rivalHandle} in trick ${trick.trickNumber}`,
-        detail: `Secured trick momentum for ${getZoneTitle(table.zoneId)}`,
+        summary: suitName
+          ? `${winnerHandle} triumphed over ${rivalHandle} in trick ${trick.trickNumber} (${suitName})`
+          : `${winnerHandle} triumphed over ${rivalHandle} in trick ${trick.trickNumber}`,
+        detail: element
+          ? `Secured trick momentum for ${getZoneTitle(table.zoneId)} with ${element.toUpperCase()} elemental clash`
+          : `Secured trick momentum for ${getZoneTitle(table.zoneId)}`,
       });
     }
   }
@@ -478,9 +527,40 @@ export class SpacetimeDBBridge {
     };
     // Snapshot batches often contain several plays. Let each visual beat finish before the next.
     const animation = beat.kind === 'result'
-      ? this.arena.animateTrickOutcome(zoneId, beat.attacker, beat.defender)
-      : this.arena.animateZoneContest(zoneId, beat.attacker, beat.defender);
+      ? (beat.element !== undefined ? this.arena.animateTrickOutcome(zoneId, beat.attacker, beat.defender, beat.element) : this.arena.animateTrickOutcome(zoneId, beat.attacker, beat.defender))
+      : (beat.element !== undefined ? this.arena.animateZoneContest(zoneId, beat.attacker, beat.defender, beat.element) : this.arena.animateZoneContest(zoneId, beat.attacker, beat.defender));
     animation.then(finished, finished);
+  }
+
+  /**
+   * Directly dispatch a confirmed trick outcome for live table melee choreography
+   */
+  public dispatchTrickResolution(
+    zoneId: number,
+    winnerKey: string,
+    rivalKey: string,
+    suit: 'wands' | 'cups' | 'swords' | 'pentacles' | string = 'wands',
+    trickNumber = 1
+  ): Promise<void> {
+    const element = suitToEsmsElement(suit);
+    const suitName = suitToSuitName(suit);
+    const winner = this.arena?.avatarRegistry.get(winnerKey)?.payload;
+    const rival = this.arena?.avatarRegistry.get(rivalKey)?.payload;
+    const winnerHandle = winner?.handle ?? winnerKey;
+    const rivalHandle = rival?.handle ?? rivalKey;
+    this.recordTimelineEvent({
+      type: 'contest',
+      zoneId,
+      agentKey: winnerKey,
+      agentHandle: winnerHandle,
+      faction: winner?.faction ?? 0,
+      rivalKey,
+      rivalHandle,
+      rivalFaction: rival?.faction ?? 0,
+      summary: `${winnerHandle} triumphed over ${rivalHandle} in trick ${trickNumber} (${suitName})`,
+      detail: `Secured trick momentum for ${getZoneTitle(zoneId)} with ${element.toUpperCase()} elemental clash`,
+    });
+    return this.arena ? this.arena.animateTrickOutcome(zoneId, winnerKey, rivalKey, element) : Promise.resolve();
   }
 
   /**
