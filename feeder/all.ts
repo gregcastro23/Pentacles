@@ -14,6 +14,7 @@
 //   ephemeris          push-ephemeris.ts            real ephemeris → push_ephemeris
 //   solana-sync        solana-sync-service.ts       Solana Token-2022 event settlement
 //   historical-agents  historical-agent-service.ts  Historical agent simulation
+//   agent-ratings      agent-rating-service.ts      ASOL historical vessel ratings
 //   war-table          war-table.ts                 the 60s multi-seat zone melee round
 //   indoor-spatial     indoor-spatial-service.ts    Indoor spatial location mapping
 //
@@ -60,6 +61,7 @@ export const SERVICES: Service[] = [
   { name: "ephemeris", file: "push-ephemeris.ts" },
   { name: "solana-sync", file: "solana-sync-service.ts" },
   { name: "historical-agents", file: "historical-agent-service.ts" },
+  { name: "agent-ratings", file: "agent-rating-service.ts" },
   { name: "war-table", file: "war-table.ts" },
   { name: "indoor-spatial", file: "indoor-spatial-service.ts" },
 ];

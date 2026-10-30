@@ -413,7 +413,7 @@ class SpacetimeClient {
     // Bind delta handlers once per table; each delta re-emits the snapshot.
     for (const table of this._subscribed) {
       if (this._boundTables.has(table)) continue
-      const handle = this.conn.db?.[table]
+      const handle = this._tableHandle(table)
       if (!handle) continue
       const onChange = () => this._scheduleEmit(table)
       try { handle.onInsert?.(onChange) } catch {}
@@ -524,6 +524,12 @@ class SpacetimeClient {
     })
   }
 
+  /** Resolve SQL table names to generated SDK accessors. */
+  _tableHandle(table) {
+    const accessor = table.replace(/_([a-z0-9])/g, (_, letter) => letter.toUpperCase())
+    return this.conn?.db?.[accessor] ?? this.conn?.db?.[table]
+  }
+
   /** Read the current cache for a table, normalize, and fan out to listeners. */
   _emitTable(table, onlyCb = null) {
     if (!this.conn) return
@@ -531,7 +537,7 @@ class SpacetimeClient {
     if (!targets || (targets.size ?? targets.length) === 0) return // nobody to tell: skip the snapshot
     let rows
     try {
-      rows = [...this.conn.db[table].iter()].map(normalizeWsRow)
+      rows = [...this._tableHandle(table).iter()].map(normalizeWsRow)
     } catch {
       return
     }

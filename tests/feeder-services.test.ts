@@ -12,12 +12,13 @@ describe("Feeder supervisor SERVICES registry", () => {
     { name: "ephemeris", file: "push-ephemeris.ts" },
     { name: "solana-sync", file: "solana-sync-service.ts" },
     { name: "historical-agents", file: "historical-agent-service.ts" },
+    { name: "agent-ratings", file: "agent-rating-service.ts" },
     { name: "war-table", file: "war-table.ts" },
     { name: "indoor-spatial", file: "indoor-spatial-service.ts" },
   ];
 
-  test("contains exactly the 9 active supervised companion services", () => {
-    expect(SERVICES.length).toBe(9);
+  test("contains exactly the 10 active supervised companion services", () => {
+    expect(SERVICES.length).toBe(10);
     expect(SERVICES).toEqual(EXPECTED_SERVICES);
   });
 

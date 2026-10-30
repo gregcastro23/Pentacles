@@ -500,6 +500,7 @@ fn purge_player_fully(ctx: &ReducerContext, id: Identity) {
     for s in slots { ctx.db.deck_slot().slot_id().delete(&s); }
     let decans: Vec<u64> = ctx.db.natal_decan().owner().filter(&id).map(|d| d.decan_id).collect();
     for d in decans { ctx.db.natal_decan().decan_id().delete(&d); }
+    ctx.db.agent_rating().identity().delete(&id);
     if ctx.db.agent_chart().identity().find(&id).is_some() { ctx.db.agent_chart().identity().delete(&id); }
     if ctx.db.natal_chart().identity().find(&id).is_some() { ctx.db.natal_chart().identity().delete(&id); }
     if ctx.db.round_state().identity().find(&id).is_some() { ctx.db.round_state().identity().delete(&id); }

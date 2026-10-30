@@ -1,0 +1,17 @@
+# Dedicated NPC rating worker. No gameplay or settlement services are started.
+FROM oven/bun:1-slim AS build
+WORKDIR /app
+COPY package.json bun.lock ./
+RUN bun install --frozen-lockfile --production
+COPY feeder/agent-rating-service.ts feeder/spacetime-cli.ts feeder/stdb-feed.ts ./feeder/
+COPY scripts/agents-data.ts ./scripts/
+COPY src/lib/agents/agent-rating-feed.ts src/lib/agents/rating-contract.ts ./src/lib/agents/
+COPY src/module_bindings ./src/module_bindings
+COPY src/net/ws-normalize.js ./src/net/ws-normalize.js
+RUN bun build feeder/agent-rating-service.ts --target bun --outfile agent-rating-worker.js
+
+FROM oven/bun:1-slim
+WORKDIR /app
+COPY --from=build /app/agent-rating-worker.js ./agent-rating-worker.js
+ENV NODE_ENV=production
+CMD ["bun", "run", "agent-rating-worker.js"]

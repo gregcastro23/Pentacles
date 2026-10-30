@@ -12,8 +12,10 @@
 //!   reducers.rs — the only writers: create_player, resolve_star_battle,
 //!                 tick_sky, enqueue_duel, push_ephemeris, init
 
+mod agent_ratings;
 mod catalog;
 mod chart;
+mod conversion;
 pub mod faucet;
 mod melee;
 mod combat;

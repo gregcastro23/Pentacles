@@ -51,6 +51,27 @@ Pentacles.ratedAgents = ratedAgents
 window.PentaclesRatedAgents = ratedAgents
 Pentacles.mountPentacleVesselDemo = ratedAgents.mountPentacleVesselDemo
 window.mountPentacleVesselDemo = ratedAgents.mountPentacleVesselDemo
+let agentCourt = null
+let agentCourtOpening = false
+window.openAgentCourt = async () => {
+  if (agentCourt || agentCourtOpening) return
+  agentCourtOpening = true
+  try {
+    const { openPentacleCourt } = await import('./lib/agents/court-view.ts')
+    agentCourt = openPentacleCourt({
+      client: spacetime,
+      faction: warMyFaction(),
+      zoneId: window.state?.selectedZone,
+      onClose: () => { agentCourt = null },
+    })
+  } catch (error) {
+    console.error('[Pentacles] Agent court failed to open', error)
+    toast('The agent court could not open. Please try again.', { type: 'error' })
+  } finally {
+    agentCourtOpening = false
+  }
+}
+Pentacles.openAgentCourt = window.openAgentCourt
 Pentacles.initSingularityShaderCanvas = initSingularityShaderCanvas
 Pentacles.cleanupSingularityShaderCanvas = cleanupSingularityShaderCanvas
 window.initSingularityShaderCanvas = initSingularityShaderCanvas

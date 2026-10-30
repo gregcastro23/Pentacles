@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>Agent Court — Harness</title>
+<style>body { background: #080c16; color: #eee; font: 16px system-ui; } button { padding: 12px; } .mobile-preview .pk-court { width: 390px; } </style></head>
+<body>
+  <button id="open">Open Agent Court</button>
+  <p>Local UI harness. No network connection or game writes.</p>
+  <script type="module">
+    import { openPentacleCourt } from '/src/lib/agents/court-view.ts';
+    document.querySelector('#open').onclick = () => openPentacleCourt({ faction: 6 });
+  </script>
+</body></html>

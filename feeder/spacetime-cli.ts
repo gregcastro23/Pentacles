@@ -40,7 +40,7 @@ export function resolveFeederEnv(): { db: string; uri: string; token: string } {
       throw new Error("SPACETIME_TOKEN must be explicitly set in production.");
     }
   }
-  const db = process.env.SPACETIMEDB_DB ?? "pentacles";
+  const db = process.env.SPACETIMEDB_DB ?? "asol";
   const uri = (process.env.SPACETIMEDB_URI ?? "https://maincloud.spacetimedb.com").replace(/\/+$/, "");
   const token = process.env.SPACETIME_TOKEN || "";
   return { db, uri, token };
@@ -79,7 +79,7 @@ function encodeCliArg(arg: CliArg): string {
 // exactly like the HTTP path throws on a non-OK status — call sites treat both
 // identically. (The HTTP bearer path builds a JSON body itself and never goes
 // through this encoding.)
-export async function cliCall(db: string, reducer: string, args: CliArg[]): Promise<void> {
+export async function cliCall(db: string, reducer: string, args: CliArg[], server?: string): Promise<void> {
   if (process.env.NODE_ENV === "production") {
     throw new Error(
       "CLI write fallback is prohibited in production. Explicit SPACETIME_TOKEN and HTTP bearer auth are required.",
@@ -92,5 +92,5 @@ export async function cliCall(db: string, reducer: string, args: CliArg[]): Prom
         "set the token for production.",
     );
   }
-  await run(SPACETIMEDB_CLI, ["call", db, reducer, "--", ...args.map(encodeCliArg)]);
+  await run(SPACETIMEDB_CLI, ["call", db, reducer, ...(server ? ["--server", server] : []), "--", ...args.map(encodeCliArg)], { timeout: 30_000 });
 }

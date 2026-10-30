@@ -46,6 +46,15 @@ export const AgentMeleeTurn = __t.object("AgentMeleeTurn", {
 });
 export type AgentMeleeTurn = __Infer<typeof AgentMeleeTurn>;
 
+export const AgentRating = __t.object("AgentRating", {
+  identity: __t.identity(),
+  agentKey: __t.string(),
+  snapshotJson: __t.string(),
+  observedAtMs: __t.u64(),
+  receivedAtMs: __t.u64(),
+});
+export type AgentRating = __Infer<typeof AgentRating>;
+
 export const AgentRest = __t.object("AgentRest", {
   identity: __t.identity(),
   restedAtRound: __t.u64(),
@@ -703,6 +712,35 @@ export const OracleRequest = __t.object("OracleRequest", {
   createdAt: __t.timestamp(),
 });
 export type OracleRequest = __Infer<typeof OracleRequest>;
+
+export const PentacleBalance = __t.object("PentacleBalance", {
+  identity: __t.string(),
+  freeAtoms: __t.array(__t.string()),
+  boundAtoms: __t.array(__t.string()),
+  updatedAt: __t.timestamp(),
+});
+export type PentacleBalance = __Infer<typeof PentacleBalance>;
+
+export const PentacleConversionEscrow = __t.object("PentacleConversionEscrow", {
+  conversionId: __t.string(),
+  identity: __t.string(),
+  status: __t.string(),
+  createdAt: __t.string(),
+  atoms: __t.array(__t.string()),
+});
+export type PentacleConversionEscrow = __Infer<typeof PentacleConversionEscrow>;
+
+export const PentacleGate = __t.object("PentacleGate", {
+  identity: __t.string(),
+  spiritGate: __t.f64(),
+  essenceGate: __t.f64(),
+  matterGate: __t.f64(),
+  substanceGate: __t.f64(),
+  dominantElement: __t.string(),
+  isImmutable: __t.bool(),
+  updatedAt: __t.timestamp(),
+});
+export type PentacleGate = __Infer<typeof PentacleGate>;
 
 export const PillarCast = __t.object("PillarCast", {
   castId: __t.u64(),

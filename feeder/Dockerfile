@@ -23,6 +23,8 @@ RUN cd feeder && bun install --frozen-lockfile --production
 COPY src ./src
 COPY public ./public
 COPY feeder ./feeder
+# The rating feeder resolves canonical NPC identities from the seeded roster.
+COPY scripts/agents-data.ts ./scripts/agents-data.ts
 
 ENV NODE_ENV=production
 CMD ["bun", "run", "feeder/all.ts"]

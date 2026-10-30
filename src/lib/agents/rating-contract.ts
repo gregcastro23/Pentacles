@@ -77,6 +77,14 @@ export interface ResonanceSurgeState {
 }
 
 export interface RatedAgentPayload {
+  ratingSource?: 'live';
+  /** Present only for the live court; absent on explicitly selected examples. */
+  ratingFeed?: {
+    sourceKey: string;
+    receivedAt: number;
+    esmsAvailable: boolean;
+    skyAvailable: boolean;
+  };
   key: string;
   handle: string;
   faction: number; // 0..9 planet index

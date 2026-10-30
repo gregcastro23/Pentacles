@@ -19,6 +19,7 @@
     "gen": "spacetime generate --lang typescript --module-path server --out-dir src/module_bindings --include-private -y && node scripts/patch-bindings.mjs",
     "test:module": "cargo test --manifest-path server/Cargo.toml",
     "test:vessel": "bun test tests/vessel-model.test.ts tests/vessel-drawer.test.ts",
+    "test:court": "bun test tests/arena-navigation.test.ts tests/pentacle-arena-movement.test.ts tests/pentacle-arena-hud-lighting.test.ts tests/court-outcome.test.ts tests/vessel-avatar-3d.test.ts tests/vessel-appearance.test.ts tests/spacetimedb-bridge.test.ts tests/avatar-foot-ring.test.ts tests/live-wallet-sync.test.ts tests/rating-contract.test.ts tests/tile-contest.test.ts tests/agent-rating-feed.test.ts tests/spacetime-client.test.ts tests/court-timeline.test.ts",
     "test:war": "bun scripts/war-table.test.mjs && bun scripts/agent-round-tracking.test.mjs && bun test tests/war-ledger.test.ts tests/live-standings.test.ts",
     "test:decan": "bun scripts/decan-authority.test.mjs",
     "test:views": "bun test tests/oracle-ask.test.ts tests/jing-pool.test.ts tests/natal-chart.test.ts tests/star-stake.test.ts tests/trace-attestation.test.ts",
@@ -28,8 +29,8 @@
     "test:tarot": "bun scripts/tarot-card-rendering.test.mjs && node scripts/deck-card-lookup.test.mjs",
     "test:cards": "node scripts/validate-card-definitions.test.mjs",
     "build:cards": "node scripts/build-tarot-database.mjs",
-    "test:feeder": "bun test tests/feeder-services.test.ts tests/historical-agents.test.ts tests/war-archive.test.ts tests/stdb-feed.test.ts",
-    "test:client": "bun run test:vessel && bun run test:views && bun run test:jing && bun run test:gameplay && bun run test:tarot && bun run test:cards && bun run test:war && bun run test:decan && bun run test:warmodel && bun run test:routing && bun run test:chart",
+    "test:feeder": "bun test tests/feeder-services.test.ts tests/historical-agents.test.ts tests/war-archive.test.ts tests/stdb-feed.test.ts tests/agent-rating-feed.test.ts",
+    "test:client": "bun run test:vessel && bun run test:court && bun run test:views && bun run test:jing && bun run test:gameplay && bun run test:tarot && bun run test:cards && bun run test:war && bun run test:decan && bun run test:warmodel && bun run test:routing && bun run test:chart",
     "test:smoke": "bun scripts/smoke.test.mjs",
     "test:live": "node scripts/production-live.test.mjs",
     "test:all": "bun run check:env && bun run test:client && bun run test:solana && bun run test:feeder && bun run test:parity && bun run test:smoke",
@@ -37,13 +38,15 @@
     "test:benchmark": "bun scripts/testdrive-math-and-gameplay.mjs",
     "testdrive": "bun scripts/testdrive-math-and-gameplay.mjs",
     "audit:cards": "bun scripts/verify-card-art-completeness.mjs",
-    "deck:generate": "bun scripts/generate-tarot-deck.mjs"
+    "deck:generate": "bun scripts/generate-tarot-deck.mjs",
+    "test:ratings": "bun test tests/agent-rating-feed.test.ts tests/spacetime-client.test.ts"
   },
   "devDependencies": {
     "vercel": "^59.10.0",
     "vite": "^8.0.16"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "0.125.0",
     "@coral-xyz/anchor": "0.30.1",
     "@dynamic-labs/sdk-react-core": "^4.90.0",
     "@solana/spl-token": "^0.4.15",
@@ -53,6 +56,7 @@
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "spacetimedb": "^2.10.0",
-    "three": "^0.185.0"
+    "three": "^0.185.0",
+    "tweetnacl": "^1.0.3"
   }
 }

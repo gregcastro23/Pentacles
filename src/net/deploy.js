@@ -23,4 +23,3 @@ export async function strikeStarSingleLive(hipId, cardId) {
 }
 
 export default { deployCardLive, strikeStarSingleLive }
-

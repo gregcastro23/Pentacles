@@ -110,6 +110,19 @@ pub struct AgentChart {
     pub intercepted_signs: Option<Vec<u8>>,
 }
 
+/// Public, versioned rating projection. Only the owner feeder can publish for
+/// Identity::from_claims("pentacles:agent", agent_key) with an existing NPC chart.
+#[spacetimedb::table(accessor = agent_rating, public)]
+#[derive(Clone)]
+pub struct AgentRating {
+    #[primary_key]
+    pub identity: Identity,
+    pub agent_key: String,
+    pub snapshot_json: String,
+    pub observed_at_ms: u64,
+    pub received_at_ms: u64,
+}
+
 /// A player's 36-decan natal attribution — one row per placement, the raw
 /// Golden Dawn Minor-Arcana card for each body by degree. PUBLIC and queryable
 /// id-for-id, so any alchm surface (agents site, constellation LP) can read a
@@ -1467,4 +1480,47 @@ pub struct FaucetTransaction {
     pub total: u32,
     pub created_at: Timestamp,
 }
+
+// ── Phase 4.5: ASOL Pentacle ↔ ESMS Conversion & Natal Gate Tables ──────────
+
+/// Committed natal conversion gates per user/wallet identity (PENTACLE_GATE_V1).
+#[spacetimedb::table(accessor = pentacle_gate, public)]
+#[derive(Clone)]
+pub struct PentacleGate {
+    #[primary_key]
+    pub identity: String,
+    pub spirit_gate: f64,
+    pub essence_gate: f64,
+    pub matter_gate: f64,
+    pub substance_gate: f64,
+    pub dominant_element: String,
+    pub is_immutable: bool,
+    pub updated_at: Timestamp,
+}
+
+/// Per-identity free and bound Pentacle atom balances ([spirit, essence, matter, substance]).
+#[spacetimedb::table(accessor = pentacle_balance, public)]
+#[derive(Clone)]
+pub struct PentacleBalance {
+    #[primary_key]
+    pub identity: String,
+    pub free_atoms: Vec<String>,
+    pub bound_atoms: Vec<String>,
+    pub updated_at: Timestamp,
+}
+
+/// Two-phase conversion escrow row tracked by ASOL reconciler.
+#[spacetimedb::table(accessor = pentacle_conversion_escrow, public)]
+#[derive(Clone)]
+pub struct PentacleConversionEscrow {
+    #[primary_key]
+    pub conversion_id: String,
+    #[index(btree)]
+    pub identity: String,
+    #[index(btree)]
+    pub status: String, // "escrowed" | "settled" | "refunded"
+    pub created_at: String,
+    pub atoms: Vec<String>,
+}
+
 

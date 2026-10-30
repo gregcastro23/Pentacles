@@ -79,8 +79,19 @@ Strictly ordered — each unblocks the next. Full context in
 | Item | Status | Notes |
 | :-- | :-- | :-- |
 | **Leftover branches** | Verified | On 2026-10-15 the 30 branch refs whose tip was exactly a merged PR's head, or already in `main`, were deleted. Left: ten branches whose PRs merged but whose tips differ from what was merged, so they may carry later commits (`codex/testnet-deployment-session`, `docs/morning-after-word-duel-cross-project`, `feat/alchm-chart-sponsored-swaps`, `feat/full-sky-star-catalog`, `feat/perpetual-hardening`, `feat/web-client-vite-onchain`, `refactor/major-arcana-rename`, `claude/gallant-ride-436PI`, `feat/melee-manifold-consolidation`, `feat/stardex-horizon-spacetimedb`); PRs #58 and #61 (closed unmerged); `feat/alchm-vessel-drawer` (superseded by #68 and #69); `release/v0.1.1-pre-migration` (a snapshot); and the June-era `claude/serene-turing-SJeCA` and local `claude/cool-archimedes-XgDVn`, which also has a stash. Check each for commits beyond its PR before deleting. |
-| **Vendor `alchm-astro-core`** | Verified | [`server/Cargo.toml`](../server/Cargo.toml) resolves it through `../../../AlchmAgentsSolana/alchm-astro-core`. Repointed this pass because the old path no longer existed and the module could not build at all — but a clean checkout on another machine still cannot build it. Vendor or publish the crate. |
-| **Bundle size** | Verified | `main.js` is 735 kB and `render-dome.js` 585 kB, both over the 500 kB warning. Non-blocking; the dome already lazy-loads Three. |
+| ~~Vendor `alchm-astro-core`~~ | Verified | **Done.** In-tree vendored at [`server/vendor/alchm-astro-core`](../server/vendor/alchm-astro-core) and referenced via `path = "vendor/alchm-astro-core"` in [`server/Cargo.toml`](../server/Cargo.toml) for reproducible offline builds. |
+| **Bundle size** | Verified | `main.js` is 735 kB and `render-dome.js` 585 kB, both over the 500 kB warning. Non-blocking; the dome already lazy-loads Three, and `court-view` is dynamically chunked (~17.2 kB). |
+
+---
+
+## 4.5 Completed Subsystems (October 2026 Milestones)
+
+| System | Status | Deliverables & Verification |
+| :-- | :-- | :-- |
+| **3D Vessel Avatar System & Progressive .glb Hot-Swap** | Verified | 71-agent procedural avatars (13 bespoke + 58 trait-mixed via `mixModularTraits`), 2D Cameo SVG trait parity, view-space Fresnel rim shading (`vessel-fresnel-rim`), selective opaque shadows, and frame-0 procedural spawn with non-destructive background GLTF hot-swapping into live `avatarRoot`. Verified via `bun run test:court` (136 tests) and `bun run test:vessel` (26 tests). |
+| **Live Table Melee Choreography Bridge** | Verified | Card suit mapping (Wands/Cups/Pentacles/Swords $\to$ Spirit/Essence/Matter/Substance) driving skeletal choreography and procedural `CourtAudioSynth` transients, non-blocking pedestal clash queue (`cancelContestsForZone`), and HUD `Follow action` spectator auto-focus. Verified via `tests/court-timeline.test.ts`. |
+| **Solana Settlement Conformance & Escrow Sweeps** | Verified | BigInt atom precision (`parseAtomBigInt`) for 18-dp ESMS and 6-dp USDC, live `pentacle_conversion_escrow` and `star_stake` reducers/listeners, and live wallet seal tier upgrades on seated court avatars. Verified via `bun run test:solana` (78 tests). |
+| **Historical Agent Rating Feed & Reducers** | Verified | Owner-gated `publish_agent_rating` reducer (`server/src/agent_ratings.rs`), dedicated Railway worker (`feeder/agent-rating-service.ts`), version-1 snapshot validation (`src/lib/agents/agent-rating-feed.ts`), and camelCase SDK accessor normalization. Verified via `tests/agent-rating-feed.test.ts` and `cargo test`. |
 
 ---
 

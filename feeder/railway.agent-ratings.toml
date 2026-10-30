@@ -1,0 +1,6 @@
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "feeder/Dockerfile.agent-ratings"
+
+[deploy]
+restartPolicyType = "ALWAYS"

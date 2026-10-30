@@ -64,15 +64,18 @@ import ClaimDuelTimeoutReducer from "./claim_duel_timeout_reducer";
 import ClaimProfileReducer from "./claim_profile_reducer";
 import CombineCardsReducer from "./combine_cards_reducer";
 import CommitDuelReducer from "./commit_duel_reducer";
+import CommitPentacleGateReducer from "./commit_pentacle_gate_reducer";
 import ConfirmTradeReducer from "./confirm_trade_reducer";
 import ConfirmYieldClaimReducer from "./confirm_yield_claim_reducer";
 import CounterJingReducer from "./counter_jing_reducer";
 import CounterPillarReducer from "./counter_pillar_reducer";
 import CreatePlayerReducer from "./create_player_reducer";
+import CreditPentaclesFromConversionReducer from "./credit_pentacles_from_conversion_reducer";
 import DecayTensionReducer from "./decay_tension_reducer";
 import DeletePlayerDataReducer from "./delete_player_data_reducer";
 import DeployCardReducer from "./deploy_card_reducer";
 import EnqueueDuelReducer from "./enqueue_duel_reducer";
+import EscrowPentaclesForConversionReducer from "./escrow_pentacles_for_conversion_reducer";
 import JoinMeleeQueueReducer from "./join_melee_queue_reducer";
 import LeaveMeleeQueueReducer from "./leave_melee_queue_reducer";
 import LockAnomalyReducer from "./lock_anomaly_reducer";
@@ -81,11 +84,13 @@ import OpenMeleeRoundReducer from "./open_melee_round_reducer";
 import PlayMeleeCardReducer from "./play_melee_card_reducer";
 import ProposeTradeReducer from "./propose_trade_reducer";
 import PruneWarHistoryReducer from "./prune_war_history_reducer";
+import PublishAgentRatingReducer from "./publish_agent_rating_reducer";
 import PurgeStaleAgentsReducer from "./purge_stale_agents_reducer";
 import PushEphemerisReducer from "./push_ephemeris_reducer";
 import RecordMeleePlayReducer from "./record_melee_play_reducer";
 import RecordStarStakeReducer from "./record_star_stake_reducer";
 import RecordStarUnstakeReducer from "./record_star_unstake_reducer";
+import RefundPentacleConversionReducer from "./refund_pentacle_conversion_reducer";
 import ReportServiceHealthReducer from "./report_service_health_reducer";
 import RequestYieldClaimReducer from "./request_yield_claim_reducer";
 import ResolveRoundReducer from "./resolve_round_reducer";
@@ -94,6 +99,7 @@ import SeedAgentPlayerReducer from "./seed_agent_player_reducer";
 import SetLoadoutReducer from "./set_loadout_reducer";
 import SetLocationReducer from "./set_location_reducer";
 import SettleDecanBoundaryReducer from "./settle_decan_boundary_reducer";
+import SettlePentacleConversionReducer from "./settle_pentacle_conversion_reducer";
 import SiegeHorizonStarReducer from "./siege_horizon_star_reducer";
 import StardexClaimConstellationReducer from "./stardex_claim_constellation_reducer";
 import StardexFortifyNodeReducer from "./stardex_fortify_node_reducer";
@@ -113,6 +119,7 @@ import UpdateSeekerEnvironmentReducer from "./update_seeker_environment_reducer"
 // Import all table schema definitions
 import AgentChartRow from "./agent_chart_table";
 import AgentMeleeTurnRow from "./agent_melee_turn_table";
+import AgentRatingRow from "./agent_rating_table";
 import AgentRestRow from "./agent_rest_table";
 import ArConstellationCaptureRow from "./ar_constellation_capture_table";
 import BattleRow from "./battle_table";
@@ -164,6 +171,9 @@ import OracleCacheRow from "./oracle_cache_table";
 import OracleRateRow from "./oracle_rate_table";
 import OracleReplyRow from "./oracle_reply_table";
 import OracleRequestRow from "./oracle_request_table";
+import PentacleBalanceRow from "./pentacle_balance_table";
+import PentacleConversionEscrowRow from "./pentacle_conversion_escrow_table";
+import PentacleGateRow from "./pentacle_gate_table";
 import PillarCastRow from "./pillar_cast_table";
 import PillarDuelRow from "./pillar_duel_table";
 import PillarPoolRow from "./pillar_pool_table";
@@ -234,6 +244,17 @@ const tablesSchema = __schema({
       { name: 'agent_melee_turn_turn_id_key', constraint: 'unique', columns: ['turnId'] },
     ],
   }, AgentMeleeTurnRow),
+  agentRating: __table({
+    name: 'agent_rating',
+    indexes: [
+      { accessor: 'identity', name: 'agent_rating_identity_idx_btree', algorithm: 'btree', columns: [
+        'identity',
+      ] },
+    ],
+    constraints: [
+      { name: 'agent_rating_identity_key', constraint: 'unique', columns: ['identity'] },
+    ],
+  }, AgentRatingRow),
   agentRest: __table({
     name: 'agent_rest',
     indexes: [
@@ -814,6 +835,45 @@ const tablesSchema = __schema({
       { name: 'oracle_request_request_id_key', constraint: 'unique', columns: ['requestId'] },
     ],
   }, OracleRequestRow),
+  pentacleBalance: __table({
+    name: 'pentacle_balance',
+    indexes: [
+      { accessor: 'identity', name: 'pentacle_balance_identity_idx_btree', algorithm: 'btree', columns: [
+        'identity',
+      ] },
+    ],
+    constraints: [
+      { name: 'pentacle_balance_identity_key', constraint: 'unique', columns: ['identity'] },
+    ],
+  }, PentacleBalanceRow),
+  pentacleConversionEscrow: __table({
+    name: 'pentacle_conversion_escrow',
+    indexes: [
+      { accessor: 'conversion_id', name: 'pentacle_conversion_escrow_conversion_id_idx_btree', algorithm: 'btree', columns: [
+        'conversionId',
+      ] },
+      { accessor: 'identity', name: 'pentacle_conversion_escrow_identity_idx_btree', algorithm: 'btree', columns: [
+        'identity',
+      ] },
+      { accessor: 'status', name: 'pentacle_conversion_escrow_status_idx_btree', algorithm: 'btree', columns: [
+        'status',
+      ] },
+    ],
+    constraints: [
+      { name: 'pentacle_conversion_escrow_conversion_id_key', constraint: 'unique', columns: ['conversionId'] },
+    ],
+  }, PentacleConversionEscrowRow),
+  pentacleGate: __table({
+    name: 'pentacle_gate',
+    indexes: [
+      { accessor: 'identity', name: 'pentacle_gate_identity_idx_btree', algorithm: 'btree', columns: [
+        'identity',
+      ] },
+    ],
+    constraints: [
+      { name: 'pentacle_gate_identity_key', constraint: 'unique', columns: ['identity'] },
+    ],
+  }, PentacleGateRow),
   pillarCast: __table({
     name: 'pillar_cast',
     indexes: [
@@ -1289,15 +1349,18 @@ const reducersSchema = __reducers(
   __reducerSchema("claim_profile", ClaimProfileReducer),
   __reducerSchema("combine_cards", CombineCardsReducer),
   __reducerSchema("commit_duel", CommitDuelReducer),
+  __reducerSchema("commit_pentacle_gate", CommitPentacleGateReducer),
   __reducerSchema("confirm_trade", ConfirmTradeReducer),
   __reducerSchema("confirm_yield_claim", ConfirmYieldClaimReducer),
   __reducerSchema("counter_jing", CounterJingReducer),
   __reducerSchema("counter_pillar", CounterPillarReducer),
   __reducerSchema("create_player", CreatePlayerReducer),
+  __reducerSchema("credit_pentacles_from_conversion", CreditPentaclesFromConversionReducer),
   __reducerSchema("decay_tension", DecayTensionReducer),
   __reducerSchema("delete_player_data", DeletePlayerDataReducer),
   __reducerSchema("deploy_card", DeployCardReducer),
   __reducerSchema("enqueue_duel", EnqueueDuelReducer),
+  __reducerSchema("escrow_pentacles_for_conversion", EscrowPentaclesForConversionReducer),
   __reducerSchema("join_melee_queue", JoinMeleeQueueReducer),
   __reducerSchema("leave_melee_queue", LeaveMeleeQueueReducer),
   __reducerSchema("lock_anomaly", LockAnomalyReducer),
@@ -1306,11 +1369,13 @@ const reducersSchema = __reducers(
   __reducerSchema("play_melee_card", PlayMeleeCardReducer),
   __reducerSchema("propose_trade", ProposeTradeReducer),
   __reducerSchema("prune_war_history", PruneWarHistoryReducer),
+  __reducerSchema("publish_agent_rating", PublishAgentRatingReducer),
   __reducerSchema("purge_stale_agents", PurgeStaleAgentsReducer),
   __reducerSchema("push_ephemeris", PushEphemerisReducer),
   __reducerSchema("record_melee_play", RecordMeleePlayReducer),
   __reducerSchema("record_star_stake", RecordStarStakeReducer),
   __reducerSchema("record_star_unstake", RecordStarUnstakeReducer),
+  __reducerSchema("refund_pentacle_conversion", RefundPentacleConversionReducer),
   __reducerSchema("report_service_health", ReportServiceHealthReducer),
   __reducerSchema("request_yield_claim", RequestYieldClaimReducer),
   __reducerSchema("resolve_round", ResolveRoundReducer),
@@ -1319,6 +1384,7 @@ const reducersSchema = __reducers(
   __reducerSchema("set_loadout", SetLoadoutReducer),
   __reducerSchema("set_location", SetLocationReducer),
   __reducerSchema("settle_decan_boundary", SettleDecanBoundaryReducer),
+  __reducerSchema("settle_pentacle_conversion", SettlePentacleConversionReducer),
   __reducerSchema("siege_horizon_star", SiegeHorizonStarReducer),
   __reducerSchema("stardex_claim_constellation", StardexClaimConstellationReducer),
   __reducerSchema("stardex_fortify_node", StardexFortifyNodeReducer),
@@ -1344,6 +1410,8 @@ type __SchemaWithTableAccessorAliases = Omit<typeof tablesSchema.schemaType, "ta
     readonly "agent_chart": Omit<typeof tablesSchema.schemaType.tables["agentChart"], "accessorName"> & { readonly accessorName: "agent_chart" };
     /** @deprecated Use `agentMeleeTurn` instead. This alias will be removed in the next major version. */
     readonly "agent_melee_turn": Omit<typeof tablesSchema.schemaType.tables["agentMeleeTurn"], "accessorName"> & { readonly accessorName: "agent_melee_turn" };
+    /** @deprecated Use `agentRating` instead. This alias will be removed in the next major version. */
+    readonly "agent_rating": Omit<typeof tablesSchema.schemaType.tables["agentRating"], "accessorName"> & { readonly accessorName: "agent_rating" };
     /** @deprecated Use `agentRest` instead. This alias will be removed in the next major version. */
     readonly "agent_rest": Omit<typeof tablesSchema.schemaType.tables["agentRest"], "accessorName"> & { readonly accessorName: "agent_rest" };
     /** @deprecated Use `arConstellationCapture` instead. This alias will be removed in the next major version. */
@@ -1418,6 +1486,12 @@ type __SchemaWithTableAccessorAliases = Omit<typeof tablesSchema.schemaType, "ta
     readonly "oracle_reply": Omit<typeof tablesSchema.schemaType.tables["oracleReply"], "accessorName"> & { readonly accessorName: "oracle_reply" };
     /** @deprecated Use `oracleRequest` instead. This alias will be removed in the next major version. */
     readonly "oracle_request": Omit<typeof tablesSchema.schemaType.tables["oracleRequest"], "accessorName"> & { readonly accessorName: "oracle_request" };
+    /** @deprecated Use `pentacleBalance` instead. This alias will be removed in the next major version. */
+    readonly "pentacle_balance": Omit<typeof tablesSchema.schemaType.tables["pentacleBalance"], "accessorName"> & { readonly accessorName: "pentacle_balance" };
+    /** @deprecated Use `pentacleConversionEscrow` instead. This alias will be removed in the next major version. */
+    readonly "pentacle_conversion_escrow": Omit<typeof tablesSchema.schemaType.tables["pentacleConversionEscrow"], "accessorName"> & { readonly accessorName: "pentacle_conversion_escrow" };
+    /** @deprecated Use `pentacleGate` instead. This alias will be removed in the next major version. */
+    readonly "pentacle_gate": Omit<typeof tablesSchema.schemaType.tables["pentacleGate"], "accessorName"> & { readonly accessorName: "pentacle_gate" };
     /** @deprecated Use `pillarCast` instead. This alias will be removed in the next major version. */
     readonly "pillar_cast": Omit<typeof tablesSchema.schemaType.tables["pillarCast"], "accessorName"> & { readonly accessorName: "pillar_cast" };
     /** @deprecated Use `pillarDuel` instead. This alias will be removed in the next major version. */
@@ -1510,6 +1584,7 @@ const REMOTE_MODULE = {
 const tableAccessorAliases = {
   "agent_chart": "agentChart",
   "agent_melee_turn": "agentMeleeTurn",
+  "agent_rating": "agentRating",
   "agent_rest": "agentRest",
   "ar_constellation_capture": "arConstellationCapture",
   "bridge_transfer": "bridgeTransfer",
@@ -1547,6 +1622,9 @@ const tableAccessorAliases = {
   "oracle_rate": "oracleRate",
   "oracle_reply": "oracleReply",
   "oracle_request": "oracleRequest",
+  "pentacle_balance": "pentacleBalance",
+  "pentacle_conversion_escrow": "pentacleConversionEscrow",
+  "pentacle_gate": "pentacleGate",
   "pillar_cast": "pillarCast",
   "pillar_duel": "pillarDuel",
   "pillar_pool": "pillarPool",
@@ -1607,6 +1685,8 @@ export type DbView = __DbViewBase & {
   readonly "agent_chart": __DbViewBase["agentChart"];
   /** @deprecated Use `agentMeleeTurn` instead. This alias will be removed in the next major version. */
   readonly "agent_melee_turn": __DbViewBase["agentMeleeTurn"];
+  /** @deprecated Use `agentRating` instead. This alias will be removed in the next major version. */
+  readonly "agent_rating": __DbViewBase["agentRating"];
   /** @deprecated Use `agentRest` instead. This alias will be removed in the next major version. */
   readonly "agent_rest": __DbViewBase["agentRest"];
   /** @deprecated Use `arConstellationCapture` instead. This alias will be removed in the next major version. */
@@ -1681,6 +1761,12 @@ export type DbView = __DbViewBase & {
   readonly "oracle_reply": __DbViewBase["oracleReply"];
   /** @deprecated Use `oracleRequest` instead. This alias will be removed in the next major version. */
   readonly "oracle_request": __DbViewBase["oracleRequest"];
+  /** @deprecated Use `pentacleBalance` instead. This alias will be removed in the next major version. */
+  readonly "pentacle_balance": __DbViewBase["pentacleBalance"];
+  /** @deprecated Use `pentacleConversionEscrow` instead. This alias will be removed in the next major version. */
+  readonly "pentacle_conversion_escrow": __DbViewBase["pentacleConversionEscrow"];
+  /** @deprecated Use `pentacleGate` instead. This alias will be removed in the next major version. */
+  readonly "pentacle_gate": __DbViewBase["pentacleGate"];
   /** @deprecated Use `pillarCast` instead. This alias will be removed in the next major version. */
   readonly "pillar_cast": __DbViewBase["pillarCast"];
   /** @deprecated Use `pillarDuel` instead. This alias will be removed in the next major version. */
@@ -1761,6 +1847,8 @@ export type Tables = __TablesBase & {
   readonly "agent_chart": __TablesBase["agentChart"];
   /** @deprecated Use `agentMeleeTurn` instead. This alias will be removed in the next major version. */
   readonly "agent_melee_turn": __TablesBase["agentMeleeTurn"];
+  /** @deprecated Use `agentRating` instead. This alias will be removed in the next major version. */
+  readonly "agent_rating": __TablesBase["agentRating"];
   /** @deprecated Use `agentRest` instead. This alias will be removed in the next major version. */
   readonly "agent_rest": __TablesBase["agentRest"];
   /** @deprecated Use `arConstellationCapture` instead. This alias will be removed in the next major version. */
@@ -1835,6 +1923,12 @@ export type Tables = __TablesBase & {
   readonly "oracle_reply": __TablesBase["oracleReply"];
   /** @deprecated Use `oracleRequest` instead. This alias will be removed in the next major version. */
   readonly "oracle_request": __TablesBase["oracleRequest"];
+  /** @deprecated Use `pentacleBalance` instead. This alias will be removed in the next major version. */
+  readonly "pentacle_balance": __TablesBase["pentacleBalance"];
+  /** @deprecated Use `pentacleConversionEscrow` instead. This alias will be removed in the next major version. */
+  readonly "pentacle_conversion_escrow": __TablesBase["pentacleConversionEscrow"];
+  /** @deprecated Use `pentacleGate` instead. This alias will be removed in the next major version. */
+  readonly "pentacle_gate": __TablesBase["pentacleGate"];
   /** @deprecated Use `pillarCast` instead. This alias will be removed in the next major version. */
   readonly "pillar_cast": __TablesBase["pillarCast"];
   /** @deprecated Use `pillarDuel` instead. This alias will be removed in the next major version. */

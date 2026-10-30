@@ -138,6 +138,7 @@ export async function sqlOneShot(
   db: string,
   token: string | undefined,
   query: string,
+  signal?: AbortSignal,
 ): Promise<Array<Record<string, any>>> {
   const headers: Record<string, string> = { "Content-Type": "text/plain" };
   if (token) headers["Authorization"] = `Bearer ${token}`;
@@ -145,6 +146,7 @@ export async function sqlOneShot(
     method: "POST",
     headers,
     body: query,
+    signal,
   });
   if (!res.ok) throw new Error(`sql ${res.status}: ${await res.text().catch(() => "")}`);
   const json = await res.json() as unknown;
