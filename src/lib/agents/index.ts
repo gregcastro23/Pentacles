@@ -20,6 +20,9 @@ export * from './player-card-hud';
 export * from './tile-contest';
 export * from './live-wallet-sync';
 export * from './spacetimedb-bridge';
+export * from './agent-rating-feed';
+export * from './arena-navigation';
+export * from './court-audio-synth';
 
 export interface PentacleVesselDemoInstance {
   arena: PentacleArena3D;

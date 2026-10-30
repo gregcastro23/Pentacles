@@ -1,14 +1,21 @@
 import * as THREE from 'three';
-import type { VesselAppearanceProfile } from './vessel-appearance-manifest';
+import {
+  type VesselAppearanceProfile,
+  mixModularTraits,
+} from './vessel-appearance-manifest';
 
 export interface VesselSilhouette {
   head: THREE.Group;
   garment: THREE.Group;
   relic: THREE.Group;
+  offHand?: THREE.Group;
 }
 
 /** Build readable period outlines around the existing head, torso and hand pivots. */
-export function createVesselSilhouette(profile: VesselAppearanceProfile): VesselSilhouette {
+export function createVesselSilhouette(
+  profile: VesselAppearanceProfile,
+  seedOrAgentId?: string | number,
+): VesselSilhouette {
   const palette = profile.paletteOverrides;
   const cloth = new THREE.MeshStandardMaterial({ color: palette.primaryGarmentHex, roughness: 0.8, metalness: 0.1, side: THREE.DoubleSide });
   const trim = new THREE.MeshStandardMaterial({ color: palette.secondaryTrimHex, roughness: 0.35, metalness: 0.7, emissive: palette.secondaryTrimHex, emissiveIntensity: 0.14 });
@@ -34,6 +41,9 @@ export function createVesselSilhouette(profile: VesselAppearanceProfile): Vessel
   relic.name = profile.signatureRelic;
   relic.userData.signatureRelic = profile.signatureRelic;
   relic.position.set(0, -0.65, 0.15);
+  const offHand = new THREE.Group();
+  offHand.name = 'OffHandAccessory';
+  offHand.position.set(0, -0.65, 0.15);
 
   function mesh(parent: THREE.Group, name: string, geometry: THREE.BufferGeometry, material: THREE.Material, x = 0, y = 0, z = 0): THREE.Mesh {
     const result = new THREE.Mesh(geometry, material);
@@ -439,6 +449,177 @@ export function createVesselSilhouette(profile: VesselAppearanceProfile): Vessel
       break;
     }
   }
-  return { head, garment, relic };
+  // --- Deterministic Combinatorial Trait Mixer ---
+  const traits = profile.modularTraits ?? (seedOrAgentId ? mixModularTraits(String(seedOrAgentId), profile.era) : undefined);
+  if (traits) {
+    // 1. Headwear / Coiffure Accent
+    switch (traits.headwearAccent) {
+      case 'feather-plume': {
+        const plume = mesh(head, 'HeadwearPlume', new THREE.CylinderGeometry(0.015, 0.04, 0.45, 6), trim, 0.18, 0.32, 0.05);
+        plume.rotation.z = -0.35;
+        mesh(plume, 'PlumeTip', new THREE.ConeGeometry(0.04, 0.15, 6), trim, 0, 0.28, 0);
+        break;
+      }
+      case 'circlet-gem': {
+        mesh(head, 'HeadwearCircletGem', new THREE.OctahedronGeometry(0.065), glow, 0, 0.22, 0.29);
+        break;
+      }
+      case 'crown-spikes': {
+        for (const x of [-0.14, 0, 0.14]) {
+          const spike = mesh(head, 'HeadwearSpike', new THREE.ConeGeometry(0.038, 0.18, 5), trim, x, 0.32, 0);
+          spike.rotation.z = -x * 1.2;
+        }
+        break;
+      }
+      case 'laurel-sprig': {
+        const sprig = mesh(head, 'HeadwearLaurelSprig', new THREE.CylinderGeometry(0.01, 0.01, 0.25, 4), hair, 0.24, 0.15, 0.15);
+        sprig.rotation.z = -0.5;
+        for (let l = 0; l < 3; l++) {
+          mesh(sprig, 'SprigLeaf', new THREE.SphereGeometry(0.045, 4, 3), trim, 0.04 * (l % 2 === 0 ? 1 : -1), (l - 1) * 0.08, 0).scale.set(0.6, 1.3, 0.4);
+        }
+        break;
+      }
+      case 'coiffure-ribbon': {
+        band(head, 'CoiffureRibbon', 0.14, 0.02, 0.05, trim).position.z = -0.22;
+        for (const side of [-1, 1]) {
+          const tail = mesh(head, 'RibbonTail', new THREE.BoxGeometry(0.03, 0.28, 0.01), trim, side * 0.05, -0.1, -0.25);
+          tail.rotation.z = side * 0.2;
+        }
+        break;
+      }
+    }
+
+    // 2. Collar / Pauldron Accent
+    switch (traits.collarPauldronAccent) {
+      case 'winged-pauldrons': {
+        for (const side of [-1, 1]) {
+          const pauldron = mesh(garment, 'WingedPauldron', new THREE.BoxGeometry(0.16, 0.06, 0.28), steel, side * 0.46, 0.26, 0);
+          pauldron.rotation.z = side * 0.3;
+          mesh(pauldron, 'PauldronTrim', new THREE.BoxGeometry(0.18, 0.02, 0.3), trim, 0, 0.02, 0);
+        }
+        break;
+      }
+      case 'spiked-guard': {
+        for (const side of [-1, 1]) {
+          const spike = mesh(garment, 'SpikedShoulderGuard', new THREE.ConeGeometry(0.1, 0.22, 4), trim, side * 0.44, 0.32, 0);
+          spike.rotation.z = side * -0.25;
+        }
+        break;
+      }
+      case 'fur-trim': {
+        const furMat = new THREE.MeshStandardMaterial({ color: palette.secondaryTrimHex, roughness: 0.95, metalness: 0.05 });
+        const fur = mesh(garment, 'FurTrimCollar', new THREE.TorusGeometry(0.32, 0.06, 6, 16), furMat, 0, 0.34, 0);
+        fur.rotation.x = Math.PI / 2;
+        fur.scale.set(1.05, 1, 0.75);
+        break;
+      }
+      case 'epaulette-tassels': {
+        for (const side of [-1, 1]) {
+          const epaulette = mesh(garment, 'EpauletteBoard', new THREE.CylinderGeometry(0.11, 0.11, 0.03, 8), gold, side * 0.42, 0.28, 0);
+          for (let t = 0; t < 5; t++) {
+            mesh(epaulette, 'EpauletteTassel', new THREE.CylinderGeometry(0.008, 0.008, 0.16, 4), gold, side * 0.08, -0.09, (t - 2) * 0.04);
+          }
+        }
+        break;
+      }
+      case 'stole-brooch': {
+        mesh(garment, 'StoleBroochClasp', new THREE.IcosahedronGeometry(0.08), glow, 0, 0.22, 0.34);
+        break;
+      }
+    }
+
+    // 3. Face Accent (glasses, monocle, beard, veil, goatee)
+    switch (traits.faceAccent) {
+      case 'wire-spectacles': {
+        const specsGroup = new THREE.Group();
+        specsGroup.name = 'WireSpectacles';
+        for (const side of [-1, 1]) {
+          const rim = new THREE.Mesh(new THREE.TorusGeometry(0.055, 0.008, 4, 16), trim);
+          rim.position.set(side * 0.105, 0.02, 0.285);
+          specsGroup.add(rim);
+        }
+        const bridge = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.08, 4), trim);
+        bridge.position.set(0, 0.02, 0.29);
+        bridge.rotation.z = Math.PI / 2;
+        specsGroup.add(bridge);
+        head.add(specsGroup);
+        break;
+      }
+      case 'scholar-monocle': {
+        const monocle = new THREE.Group();
+        monocle.name = 'ScholarMonocle';
+        const rim = new THREE.Mesh(new THREE.TorusGeometry(0.06, 0.009, 4, 16), gold);
+        rim.position.set(0.105, 0.02, 0.285);
+        monocle.add(rim);
+        const chain = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.26, 4), gold);
+        chain.position.set(0.16, -0.1, 0.27);
+        chain.rotation.z = 0.25;
+        monocle.add(chain);
+        head.add(monocle);
+        break;
+      }
+      case 'philosopher-beard': {
+        const pBeard = mesh(head, 'PhilosopherBeard', new THREE.ConeGeometry(0.14, 0.38, 6), hair, 0, -0.28, 0.16);
+        pBeard.rotation.z = Math.PI;
+        pBeard.scale.z = 0.7;
+        break;
+      }
+      case 'mystic-veil': {
+        const veilMat = new THREE.MeshStandardMaterial({ color: palette.secondaryTrimHex, transparent: true, opacity: 0.65, roughness: 0.7, side: THREE.DoubleSide });
+        const veil = mesh(head, 'MysticVeil', new THREE.CylinderGeometry(0.24, 0.2, 0.28, 10, 1, true, 0, Math.PI), veilMat, 0, -0.12, 0.05);
+        veil.rotation.y = 0;
+        break;
+      }
+      case 'goatee-accent': {
+        const goatee = mesh(head, 'GoateeAccent', new THREE.ConeGeometry(0.06, 0.18, 5), hair, 0, -0.24, 0.22);
+        goatee.rotation.z = Math.PI;
+        break;
+      }
+    }
+
+    // 4. Off-Hand Accessory
+    switch (traits.offHandAccessory) {
+      case 'parchment-scroll': {
+        const scroll = mesh(offHand, 'OffHandScroll', new THREE.CylinderGeometry(0.045, 0.045, 0.38, 8), linen, 0, 0, 0);
+        scroll.rotation.z = 0.35;
+        band(offHand, 'ScrollSealBand', 0.048, 0.012, 0, trim);
+        break;
+      }
+      case 'astral-codex': {
+        const codex = mesh(offHand, 'OffHandCodex', new THREE.BoxGeometry(0.2, 0.28, 0.06), cloth, 0, 0, 0);
+        codex.rotation.y = 0.2;
+        mesh(offHand, 'CodexTrim', new THREE.BoxGeometry(0.21, 0.02, 0.07), gold, 0, 0.12, 0);
+        break;
+      }
+      case 'alchemical-compass': {
+        for (const side of [-1, 1]) {
+          const leg = mesh(offHand, 'CompassLeg', new THREE.CylinderGeometry(0.01, 0.01, 0.32, 4), gold, side * 0.04, -0.06, 0);
+          leg.rotation.z = side * 0.25;
+        }
+        mesh(offHand, 'CompassHinge', new THREE.CylinderGeometry(0.025, 0.025, 0.03, 6), gold, 0, 0.1, 0).rotation.x = Math.PI / 2;
+        break;
+      }
+      case 'hourglass': {
+        for (const side of [-1, 1]) {
+          const bulb = mesh(offHand, 'HourglassBulb', new THREE.ConeGeometry(0.06, 0.12, 6), linen, 0, side * 0.06, 0);
+          if (side === 1) bulb.rotation.z = Math.PI;
+          band(offHand, 'HourglassCap', 0.07, 0.015, side * 0.13, gold);
+        }
+        break;
+      }
+      case 'crystal-lens': {
+        mesh(offHand, 'LensRim', new THREE.TorusGeometry(0.09, 0.014, 5, 18), gold);
+        mesh(offHand, 'LensGlass', new THREE.CylinderGeometry(0.085, 0.085, 0.01, 12), electricCyan);
+        mesh(offHand, 'LensHandle', new THREE.CylinderGeometry(0.012, 0.012, 0.2, 4), gold, 0, -0.18, 0);
+        break;
+      }
+    }
+  }
+
+  const result: VesselSilhouette = { head, garment, relic };
+  if (offHand.children.length > 0) {
+    result.offHand = offHand;
+  }
+  return result;
 }
 

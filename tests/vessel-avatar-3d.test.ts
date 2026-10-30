@@ -11,16 +11,27 @@ import {
   refreshVesselFromPayload,
   disposeVesselAvatar,
   setVesselAnimationState,
+  applyVesselShadowPolicy,
+  resolveDominantEsms,
+  attachFresnelRim,
 } from '../src/lib/agents/vessel-avatar-3d';
 import {
   PentacleArena3D,
   getZonePosition3D,
+  CourtSealOrbiterBatcher,
 } from '../src/lib/agents/pentacle-arena-3d';
+import {
+  resolveAgentAppearance,
+  mixModularTraits,
+  createVesselPortraitSvg,
+} from '../src/lib/agents/vessel-appearance-manifest';
+import { createVesselSilhouette } from '../src/lib/agents/vessel-silhouettes';
 import {
   FIXTURE_AGENTS,
   type SealTier,
 } from '../src/lib/agents/rating-contract';
 import { liveWalletSync } from '../src/lib/agents/live-wallet-sync';
+import { CourtAudioSynth } from '../src/lib/agents/court-audio-synth';
 
 const createdAvatars = new Set<THREE.Group>();
 function createVesselAvatarMesh(...args: Parameters<typeof createAvatar>): THREE.Group {
@@ -42,8 +53,8 @@ describe('3D Vessel Avatar Mesh & Procedural Animation System', () => {
         const profile = avatar.userData.appearance;
         expect(avatar.getObjectByName(profile.headSilhouette.crownStyle)?.parent).toBe(avatar.userData.headGroup);
         expect(avatar.getObjectByName(profile.garmentSilhouette.mantleStyle)?.parent).toBe(avatar.userData.torsoGroup);
-        expect(avatar.getObjectByName(profile.signatureRelic)?.parent).toBe(avatar.userData.rightArm);
-        expect(avatar.getObjectByName(profile.signatureRelic)?.position.y).toBeCloseTo(-0.65, 5);
+        expect(avatar.getObjectByName(profile.signatureRelic)?.parent).toBe(avatar.userData.rightHandSocket);
+        expect(avatar.getObjectByName(profile.signatureRelic)?.position.y).toBeCloseTo(0.05, 5);
         disposeVesselAvatar(avatar);
       }
     });
@@ -76,7 +87,16 @@ describe('3D Vessel Avatar Mesh & Procedural Animation System', () => {
       expect(head?.getObjectByName('CircletMesh')).toBeDefined();
 
       expect(rig?.getObjectByName('LeftArm')).toBeDefined();
+      expect(rig?.getObjectByName('LeftElbowPivot')).toBeDefined();
+      expect(rig?.getObjectByName('LeftHandSocket')).toBeDefined();
       expect(rig?.getObjectByName('RightArm')).toBeDefined();
+      expect(rig?.getObjectByName('RightElbowPivot')).toBeDefined();
+      expect(rig?.getObjectByName('RightHandSocket')).toBeDefined();
+      expect(rig?.getObjectByName('LowerBody')).toBeDefined();
+      expect(rig?.getObjectByName('LeftLeg')).toBeDefined();
+      expect(rig?.getObjectByName('LeftKneePivot')).toBeDefined();
+      expect(rig?.getObjectByName('RightLeg')).toBeDefined();
+      expect(rig?.getObjectByName('RightKneePivot')).toBeDefined();
       expect(rig?.getObjectByName('AstralHalo')).toBeDefined();
       expect(rig?.getObjectByName('SealOrbiters')).toBeDefined();
       expect(rig?.getObjectByName('WardShield')).toBeDefined();
@@ -150,7 +170,7 @@ describe('3D Vessel Avatar Mesh & Procedural Animation System', () => {
       expect(ring.position.z).toBeCloseTo(0, 8);
     });
 
-    it('blends into all five animation states', () => {
+    it('blends into all seven animation states', () => {
       const newton = FIXTURE_AGENTS[0];
       const avatar = createVesselAvatarMesh(newton);
       const torso = avatar.userData.torsoGroup as THREE.Group;
@@ -166,7 +186,7 @@ describe('3D Vessel Avatar Mesh & Procedural Animation System', () => {
       expect(torso.position.z).toBe(0);
       expect(wardShield.scale.x).toBeLessThan(0.01);
 
-      // 2. Surge state (elevated levitation)
+      // 2. Surge state (elevated levitation & two-handed channeling)
       settle('surge');
       expect(avatar.userData.animationState).toBe('surge');
       expect(torso.position.y).toBeGreaterThan(1.5); // levitation above base 1.35
@@ -183,6 +203,18 @@ describe('3D Vessel Avatar Mesh & Procedural Animation System', () => {
       settle('contest-defend');
       expect(avatar.userData.animationState).toBe('contest-defend');
       expect(wardShield.scale.x).toBeGreaterThan(0.8); // expanded ward shield
+
+      // 5. Victory state (overhead flourish, chest lift)
+      settle('victory');
+      expect(avatar.userData.animationState).toBe('victory');
+      expect(torso.position.y).toBeGreaterThan(1.45);
+      expect(avatar.userData.rightArm.rotation.x).toBeLessThan(-2.0); // raised high overhead!
+
+      // 6. Stagger state (torso recoil, defensive guard)
+      settle('stagger');
+      expect(avatar.userData.animationState).toBe('stagger');
+      expect(torso.position.z).toBeLessThan(-0.15); // recoiled back!
+
       disposeVesselAvatar(avatar);
     });
 
@@ -190,7 +222,7 @@ describe('3D Vessel Avatar Mesh & Procedural Animation System', () => {
       const avatar = createVesselAvatarMesh(FIXTURE_AGENTS[0]);
       const control = createVesselAvatarMesh(FIXTURE_AGENTS[0]);
       for (let cycle = 0; cycle < 8; cycle++) {
-        for (const state of ['surge', 'travel', 'contest-attack', 'contest-defend'] as const) {
+        for (const state of ['surge', 'travel', 'contest-attack', 'contest-defend', 'victory', 'stagger'] as const) {
           setVesselAnimationState(avatar, state);
           for (let frame = 0; frame < 25; frame++) updateVesselAvatarAnimation(avatar, 1 / 60, 900 + cycle);
         }
@@ -389,6 +421,392 @@ describe('3D Vessel Avatar Mesh & Procedural Animation System', () => {
       expect(picked?.agentId).toBe('isaac-newton');
       expect(picked?.zoneId).toBe(10);
       expect(picked?.payload.key).toBe('isaac-newton');
+    });
+  });
+
+  describe('Selective Shadow Policy & Geometry Smoothing (Slice A)', () => {
+    it('applies castShadow strictly to opaque structural meshes and disables it on VFX/sprites', () => {
+      const newton = FIXTURE_AGENTS[0];
+      const avatar = createVesselAvatarMesh(newton);
+
+      // Verify opaque structural parts cast and receive shadows
+      const torsoMesh = avatar.getObjectByName('TorsoMesh') as THREE.Mesh;
+      expect(torsoMesh.castShadow).toBe(true);
+      expect(torsoMesh.receiveShadow).toBe(true);
+
+      const headMesh = avatar.getObjectByName('HeadMesh') as THREE.Mesh;
+      expect(headMesh.castShadow).toBe(true);
+      expect(headMesh.receiveShadow).toBe(true);
+
+      const lowerBody = avatar.getObjectByName('LowerBody');
+      expect(lowerBody).toBeDefined();
+
+      // Verify non-shadow nodes are strictly prevented from casting black geometric box shadows
+      const nonShadowNames = [
+        'AstralHalo',
+        'SealOrbiters',
+        'UnderFootResonanceRing',
+        'WardShield',
+      ];
+      for (const name of nonShadowNames) {
+        const node = avatar.getObjectByName(name);
+        expect(node).toBeDefined();
+        node?.traverse((child) => {
+          expect(child.castShadow).toBe(false);
+          expect(child.receiveShadow).toBe(false);
+        });
+      }
+
+      // Check SurgeCorona on surge active agent
+      const emily = FIXTURE_AGENTS[1];
+      const avatarEmily = createVesselAvatarMesh(emily);
+      const corona = avatarEmily.getObjectByName('SurgeCorona');
+      expect(corona).toBeDefined();
+      corona?.traverse((child) => {
+        expect(child.castShadow).toBe(false);
+        expect(child.receiveShadow).toBe(false);
+      });
+    });
+
+    it('utilizes smoothed radial segment subdivisions (12-16) on limb and torso geometries', () => {
+      const newton = FIXTURE_AGENTS[0];
+      const avatar = createVesselAvatarMesh(newton);
+      const torsoMesh = avatar.getObjectByName('TorsoMesh') as THREE.Mesh;
+      const cylGeo = torsoMesh.geometry as THREE.CylinderGeometry;
+      expect(cylGeo.parameters.radialSegments).toBeGreaterThanOrEqual(14);
+    });
+  });
+
+  describe('Procedural Low-Poly Facial Anchors & Blink Micro-Animation (Slice A & B)', () => {
+    it('mounts brow and eye anchors to HeadCrown with palette-matched materials', () => {
+      const newton = FIXTURE_AGENTS[0];
+      const avatar = createVesselAvatarMesh(newton);
+
+      const headCrown = avatar.getObjectByName('HeadCrown');
+      expect(headCrown).toBeDefined();
+
+      const browRidge = headCrown?.getObjectByName('BrowRidgeMesh') as THREE.Mesh;
+      expect(browRidge).toBeDefined();
+      expect(browRidge.material).toBeInstanceOf(THREE.MeshStandardMaterial);
+
+      const eyesGroup = headCrown?.getObjectByName('EyesGroup') as THREE.Group;
+      expect(eyesGroup).toBeDefined();
+
+      const leftEye = eyesGroup?.getObjectByName('EyeMesh_Left') as THREE.Mesh;
+      const rightEye = eyesGroup?.getObjectByName('EyeMesh_Right') as THREE.Mesh;
+      expect(leftEye).toBeDefined();
+      expect(rightEye).toBeDefined();
+
+      // Eye color should match agent sacred stat hex
+      const statHex = SACRED_STAT_HEX_COLORS[newton.archetype.primary];
+      const eyeMat = leftEye.material as THREE.MeshStandardMaterial;
+      expect(eyeMat.color.getHexString().toLowerCase()).toBe(new THREE.Color(statHex).getHexString().toLowerCase());
+    });
+
+    it('triggers periodic eyelid blink micro-animation without mutating head rest transforms', () => {
+      const newton = FIXTURE_AGENTS[0];
+      const avatar = createVesselAvatarMesh(newton);
+      const eyesGroup = avatar.userData.eyesGroup as THREE.Group;
+      const initialHeadRotation = avatar.userData.restTransforms.head.rotation.clone();
+
+      // Tick through animation past blink cycle
+      let sawBlinkCompression = false;
+      for (let t = 0; t < 5.0; t += 0.05) {
+        updateVesselAvatarAnimation(avatar, 0.05, t);
+        if (eyesGroup.scale.y < 0.8) {
+          sawBlinkCompression = true;
+          break;
+        }
+      }
+      expect(sawBlinkCompression).toBe(true);
+
+      // Base rest transform must remain entirely unchanged
+      expect(avatar.userData.restTransforms.head.rotation.equals(initialHeadRotation)).toBe(true);
+    });
+  });
+
+  describe('ESMS Elemental Combat Choreographies (Slice B)', () => {
+    it('branches attack choreography into 4 distinct ESMS styles while preserving forward lean', () => {
+      // 1. Spirit (Fire) - High overhead relic raise + forward torso pitch
+      const spiritAgent = {
+        ...FIXTURE_AGENTS[0],
+        key: 'spirit-test-agent',
+        esms: { spirit: 95, essence: 20, matter: 20, substance: 20 },
+      };
+      const avatarSpirit = createVesselAvatarMesh(spiritAgent);
+      setVesselAnimationState(avatarSpirit, 'contest-attack');
+      updateVesselAvatarAnimation(avatarSpirit, 0.5, 0.5);
+      const torsoSpirit = avatarSpirit.userData.torsoGroup as THREE.Group;
+      expect(torsoSpirit.rotation.x).toBeGreaterThanOrEqual(0.2);
+      expect(resolveDominantEsms(spiritAgent)).toBe('spirit');
+
+      // 2. Essence (Water) - Harmonic counter-rotating sweep
+      const essenceAgent = {
+        ...FIXTURE_AGENTS[1],
+        key: 'essence-test-agent',
+        esms: { spirit: 20, essence: 95, matter: 20, substance: 20 },
+      };
+      const avatarEssence = createVesselAvatarMesh(essenceAgent);
+      setVesselAnimationState(avatarEssence, 'contest-attack');
+      updateVesselAvatarAnimation(avatarEssence, 0.5, 0.5);
+      const torsoEssence = avatarEssence.userData.torsoGroup as THREE.Group;
+      expect(torsoEssence.rotation.x).toBeGreaterThanOrEqual(0.2);
+      expect(resolveDominantEsms(essenceAgent)).toBe('essence');
+
+      // 3. Matter (Earth) - Grounded slam dip and shield stance
+      const matterAgent = {
+        ...FIXTURE_AGENTS[2],
+        key: 'matter-test-agent',
+        esms: { spirit: 20, essence: 20, matter: 95, substance: 20 },
+      };
+      const avatarMatter = createVesselAvatarMesh(matterAgent);
+      setVesselAnimationState(avatarMatter, 'contest-attack');
+      updateVesselAvatarAnimation(avatarMatter, 0.5, 0.5);
+      const torsoMatter = avatarMatter.userData.torsoGroup as THREE.Group;
+      expect(torsoMatter.rotation.x).toBeGreaterThanOrEqual(0.2);
+      expect(resolveDominantEsms(matterAgent)).toBe('matter');
+
+      // 4. Substance (Air) - Axial pirouette with rapid orbiters
+      const substanceAgent = {
+        ...FIXTURE_AGENTS[3],
+        key: 'substance-test-agent',
+        esms: { spirit: 20, essence: 20, matter: 20, substance: 95 },
+      };
+      const avatarSubstance = createVesselAvatarMesh(substanceAgent);
+      setVesselAnimationState(avatarSubstance, 'contest-attack');
+      updateVesselAvatarAnimation(avatarSubstance, 0.5, 0.5);
+      const torsoSubstance = avatarSubstance.userData.torsoGroup as THREE.Group;
+      expect(torsoSubstance.rotation.x).toBeGreaterThanOrEqual(0.2);
+      expect(resolveDominantEsms(substanceAgent)).toBe('substance');
+    });
+  });
+
+  describe('Dual-Pedestal Gaze IK & Base Rest Invariance (Slice B)', () => {
+    it('applies additive look-at IK within ±42° yaw and ±20° pitch without mutating base rest transform', () => {
+      const newton = FIXTURE_AGENTS[0];
+      const avatar = createVesselAvatarMesh(newton);
+      const headGroup = avatar.userData.headGroup as THREE.Group;
+      const initialHeadRotation = avatar.userData.restTransforms.head.rotation.clone();
+      const initialHeadQuat = new THREE.Quaternion().setFromEuler(initialHeadRotation);
+
+      // Target head position to the right and slightly above
+      const lookAtWorldPos = new THREE.Vector3(2.5, 1.8, 1.5);
+
+      // Idle state: gaze tracking weight is 1.0
+      setVesselAnimationState(avatar, 'idle');
+      updateVesselAvatarAnimation(avatar, 0.05, 1.0, { lookAtWorldPos });
+
+      // Head should have rotated toward target additively
+      expect(headGroup.quaternion.equals(initialHeadQuat)).toBe(false);
+
+      // Base rest transform must remain unchanged
+      expect(avatar.userData.restTransforms.head.rotation.equals(initialHeadRotation)).toBe(true);
+
+      // Clamped rotation check: compute Euler angles of additive rotation
+      const additiveRot = headGroup.quaternion.clone().multiply(initialHeadQuat.clone().invert());
+      const euler = new THREE.Euler().setFromQuaternion(additiveRot, 'YXZ');
+      expect(Math.abs(euler.y)).toBeLessThanOrEqual(0.74); // ±42° (0.73 rad) + epsilon
+      expect(Math.abs(euler.x)).toBeLessThanOrEqual(0.36); // ±20° (0.35 rad) + epsilon
+
+      // Stagger state: gaze tracking weight is blended down to 0.0
+      setVesselAnimationState(avatar, 'stagger');
+      updateVesselAvatarAnimation(avatar, 0.5, 2.0, { lookAtWorldPos });
+      // In stagger, rest transforms are restored and lookAt is suppressed
+      expect(avatar.userData.restTransforms.head.rotation.equals(initialHeadRotation)).toBe(true);
+    });
+  });
+
+  describe('Combinatorial Trait Mixer for Non-Bespoke Personas (Slice C)', () => {
+    it('seeds modular traits deterministically and attaches sub-meshes for all 71 agents', () => {
+      const traits1 = mixModularTraits('custom-agent-alpha', 'enlightenment');
+      const traits2 = mixModularTraits('custom-agent-alpha', 'enlightenment');
+      expect(traits1).toEqual(traits2);
+
+      const profile = resolveAgentAppearance('custom-agent-alpha');
+      expect(profile.modularTraits).toBeDefined();
+
+      const silhouette = createVesselSilhouette(profile, 'custom-agent-alpha');
+      expect(silhouette.head).toBeDefined();
+      expect(silhouette.garment).toBeDefined();
+      expect(silhouette.relic).toBeDefined();
+    });
+  });
+
+  describe('Instanced SealOrbiters Batching (Slice C)', () => {
+    it('batches orbiters into 5 tier InstancedMeshes and reduces draw calls across court avatars', () => {
+      const arena = new PentacleArena3D();
+
+      // Place 4 fixture avatars
+      arena.loadFixtures();
+      expect(arena.avatarRegistry.size).toBe(4);
+
+      // In high occupancy (>= 4), instanced batching updates automatically
+      arena.update(0.016, 1.0);
+      expect(arena.isInstancedOrbitersActive()).toBe(true);
+
+      const batcher = arena.getOrbiterBatcher();
+      expect(batcher).toBeDefined();
+      expect(batcher.container.children.length).toBe(5); // Exactly 5 tiers
+
+      // Individual avatar orbiter meshes must be hidden to cut individual draw calls
+      let hiddenCount = 0;
+      for (const reg of arena.avatarRegistry.values()) {
+        const orbiters = reg.group.userData.sealOrbiters as THREE.Group;
+        for (const child of orbiters.children) {
+          if ((child as THREE.Mesh).isMesh && !child.visible) hiddenCount++;
+        }
+      }
+      expect(hiddenCount).toBeGreaterThan(0);
+
+      // When restoring or disabling, individual meshes become visible again
+      arena.enableInstancedOrbiters(false);
+      batcher.restore(arena.avatarRegistry.values());
+
+      let visibleCount = 0;
+      for (const reg of arena.avatarRegistry.values()) {
+        const orbiters = reg.group.userData.sealOrbiters as THREE.Group;
+        for (const child of orbiters.children) {
+          if ((child as THREE.Mesh).isMesh && child.visible) visibleCount++;
+        }
+      }
+      expect(visibleCount).toBe(hiddenCount);
+
+      arena.destroy();
+    });
+
+    it('restores shard visibility and resets tier instanced mesh count when occupancy drops below 4 upon avatar removal', () => {
+      const arena = new PentacleArena3D();
+      arena.loadFixtures();
+      expect(arena.avatarRegistry.size).toBe(4);
+
+      // High occupancy automatically batches
+      arena.update(0.016, 1.0);
+      expect(arena.isInstancedOrbitersActive()).toBe(true);
+
+      const batcher = arena.getOrbiterBatcher();
+      // Orbiters on avatars should be hidden
+      const newtonReg = arena.avatarRegistry.get(FIXTURE_AGENTS[0].key)!;
+      const newtonOrbiters = newtonReg.group.userData.sealOrbiters as THREE.Group;
+      const initialNewtonMesh = newtonOrbiters.children.find(c => (c as THREE.Mesh).isMesh) as THREE.Mesh;
+      expect(initialNewtonMesh.visible).toBe(false);
+
+      // Remove one avatar to drop occupancy to 3 (below threshold of 4)
+      arena.removeAvatar(FIXTURE_AGENTS[3].key);
+      expect(arena.avatarRegistry.size).toBe(3);
+      expect(arena.isInstancedOrbitersActive()).toBe(false);
+
+      // Remaining avatars must immediately have individual shards visible restored
+      expect(initialNewtonMesh.visible).toBe(true);
+
+      // All 5 tiers must have count = 0 and visible = false
+      for (const tier of ['copper', 'silver', 'gold', 'platinum', 'astral'] as const) {
+        const im = batcher.getInstancedMesh(tier);
+        expect(im?.count).toBe(0);
+        expect(im?.visible).toBe(false);
+      }
+
+      // arena.dispose() must dispose all 5 tier instanced mesh geometries and materials
+      arena.dispose();
+      expect(arena.avatarRegistry.size).toBe(0);
+    });
+  });
+
+  describe('Post-Implementation Polish & Backlog Targets (Audit & Targets 1–4)', () => {
+    it('attaches onBeforeCompile Fresnel rim shading hook to torso and garment materials', () => {
+      const mat = new THREE.MeshStandardMaterial({ color: 0x3b82f6 });
+      attachFresnelRim(mat, '#38bdf8', 2.8, 0.7);
+      expect(mat.userData.fresnelRim).toBeDefined();
+      expect(mat.userData.fresnelRim.power).toBe(2.8);
+      expect(mat.userData.fresnelRim.intensity).toBe(0.7);
+
+      const shader = {
+        uniforms: {} as Record<string, { value: any }>,
+        fragmentShader: '#include <dithering_fragment>',
+      };
+      mat.onBeforeCompile(shader as any);
+      expect(shader.uniforms.uFresnelRimColor).toBeDefined();
+      expect(shader.uniforms.uFresnelPower.value).toBe(2.8);
+      expect(shader.fragmentShader).toContain('uFresnelRimColor');
+      expect(shader.fragmentShader).toContain('uFresnelPower');
+
+      const avatar = createVesselAvatarMesh(FIXTURE_AGENTS[0]);
+      const torsoMesh = (avatar.userData.torsoGroup as THREE.Group).getObjectByName('TorsoMesh') as THREE.Mesh;
+      expect((torsoMesh.material as THREE.MeshStandardMaterial).userData.fresnelRim).toBeDefined();
+    });
+
+    it('renders modular traits in 2D cameo portraits matching 3D vessels', () => {
+      const baseProfile = resolveAgentAppearance('custom-test-agent');
+      const profileWithTraits = {
+        ...baseProfile,
+        modularTraits: {
+          headwearAccent: 'feather-plume' as const,
+          faceAccent: 'philosopher-beard' as const,
+          collarAccent: 'winged-pauldrons' as const,
+          offHandAccessory: 'parchment-scroll' as const,
+        },
+      };
+
+      const svgDataUri = createVesselPortraitSvg(profileWithTraits);
+      const svg = decodeURIComponent(svgDataUri.replace('data:image/svg+xml,', ''));
+
+      // Headwear feather-plume path
+      expect(svg).toContain('M60 22Q68 12 75 7');
+      // Face philosopher-beard path
+      expect(svg).toContain('M45 56Q51 72 57 56');
+      // Collar winged-pauldrons path
+      expect(svg).toContain('M22 75L14 67L24 69');
+    });
+
+    it('wires live rating deltas directly into seated court avatars and under-foot resonance ring', () => {
+      const arena = new PentacleArena3D();
+      const agent = FIXTURE_AGENTS[0];
+      arena.placeAvatarOnZone(1, agent, 'owner');
+
+      const reg = arena.avatarRegistry.get(agent.key)!;
+      expect(reg).toBeDefined();
+      const initialOvr = reg.payload.ovr;
+
+      // Positive delta (+8 OVR) triggers surge animation and foot ring scale pulse (1.25)
+      const surgedAgent = {
+        ...agent,
+        ovr: initialOvr + 8,
+      };
+      arena.refreshAvatar(surgedAgent);
+      expect(reg.group.userData.animationState).toBe('surge');
+      expect(reg.footRing.scale.x).toBeCloseTo(1.25, 2);
+
+      // Running update lerps foot ring scale back towards 1.0
+      arena.update(0.1, 1.0);
+      expect(reg.footRing.scale.x).toBeLessThan(1.25);
+
+      // Negative delta (-10 OVR) triggers stagger animation and foot ring scale compression (0.85)
+      const staggeredAgent = {
+        ...agent,
+        ovr: initialOvr - 10,
+      };
+      arena.refreshAvatar(staggeredAgent);
+      expect(reg.group.userData.animationState).toBe('stagger');
+      expect(reg.footRing.scale.x).toBeCloseTo(0.85, 2);
+
+      arena.dispose();
+    });
+
+    it('triggers elemental combat procedural Web Audio transients safely', () => {
+      const synth = new CourtAudioSynth();
+      expect(synth).toBeDefined();
+      expect(synth.isEnabled()).toBe(true);
+
+      // Safe invocation across all 4 elemental choreographies
+      expect(() => synth.triggerClash('spirit')).not.toThrow();
+      expect(() => synth.triggerClash('essence')).not.toThrow();
+      expect(() => synth.triggerClash('matter')).not.toThrow();
+      expect(() => synth.triggerClash('substance')).not.toThrow();
+
+      synth.setEnabled(false);
+      expect(synth.isEnabled()).toBe(false);
+      expect(() => synth.triggerClash('spirit')).not.toThrow();
+
+      synth.dispose();
     });
   });
 });

@@ -56,6 +56,87 @@ export type VesselSignatureRelic =
   | 'beagle-naturalist-specimen'
   | 'saintly-oriflamme-banner';
 
+export type VesselLowerBodyStyle =
+  | 'full-robe'
+  | 'tunic-greaves'
+  | 'trousers-boots'
+  | 'armored-cuisses';
+
+export type HeadwearAccent =
+  | 'none'
+  | 'feather-plume'
+  | 'circlet-gem'
+  | 'crown-spikes'
+  | 'laurel-sprig'
+  | 'coiffure-ribbon';
+
+export type CollarPauldronAccent =
+  | 'none'
+  | 'winged-pauldrons'
+  | 'spiked-guard'
+  | 'fur-trim'
+  | 'epaulette-tassels'
+  | 'stole-brooch';
+
+export type FaceAccent =
+  | 'none'
+  | 'wire-spectacles'
+  | 'scholar-monocle'
+  | 'philosopher-beard'
+  | 'mystic-veil'
+  | 'goatee-accent';
+
+export type OffHandAccessory =
+  | 'none'
+  | 'parchment-scroll'
+  | 'astral-codex'
+  | 'alchemical-compass'
+  | 'hourglass'
+  | 'crystal-lens';
+
+export interface VesselModularTraits {
+  headwearAccent: HeadwearAccent;
+  collarPauldronAccent: CollarPauldronAccent;
+  faceAccent: FaceAccent;
+  offHandAccessory: OffHandAccessory;
+}
+
+export const HEADWEAR_ACCENTS: readonly HeadwearAccent[] = [
+  'none',
+  'feather-plume',
+  'circlet-gem',
+  'crown-spikes',
+  'laurel-sprig',
+  'coiffure-ribbon',
+];
+
+export const COLLAR_PAULDRON_ACCENTS: readonly CollarPauldronAccent[] = [
+  'none',
+  'winged-pauldrons',
+  'spiked-guard',
+  'fur-trim',
+  'epaulette-tassels',
+  'stole-brooch',
+];
+
+export const FACE_ACCENTS: readonly FaceAccent[] = [
+  'none',
+  'wire-spectacles',
+  'scholar-monocle',
+  'philosopher-beard',
+  'mystic-veil',
+  'goatee-accent',
+];
+
+export const OFF_HAND_ACCESSORIES: readonly OffHandAccessory[] = [
+  'none',
+  'parchment-scroll',
+  'astral-codex',
+  'alchemical-compass',
+  'hourglass',
+  'crystal-lens',
+];
+
 export interface VesselAppearanceProfile {
   era: VesselEra;
   headSilhouette: {
@@ -63,7 +144,9 @@ export interface VesselAppearanceProfile {
     faceProportion: { jawWidth: number; browDepth: number; cranialHeight: number };
   };
   garmentSilhouette: { mantleStyle: VesselMantleStyle; collarStyle: VesselCollarStyle };
+  lowerBodyStyle?: VesselLowerBodyStyle;
   signatureRelic: VesselSignatureRelic;
+  modularTraits?: VesselModularTraits;
   paletteOverrides: {
     primaryGarmentHex: string;
     secondaryTrimHex: string;
@@ -95,6 +178,7 @@ const pilotDefinitions: Record<string, VesselAppearanceProfile> = {
     era: 'enlightenment',
     headSilhouette: { crownStyle: 'newton-curls', faceProportion: { jawWidth: 0.86, browDepth: 1.14, cranialHeight: 1.08 } },
     garmentSilhouette: { mantleStyle: 'enlightenment-coat', collarStyle: 'high-cravat' },
+    lowerBodyStyle: 'full-robe',
     signatureRelic: 'prism-octahedron',
     paletteOverrides: { primaryGarmentHex: '#481f32', secondaryTrimHex: '#d8c4a0', hairOrCrownHex: '#d6c9b5', skinOrMaterialToneHex: '#e8c7a5' },
     portraitUrl: '/avatars/newton.png',
@@ -103,6 +187,7 @@ const pilotDefinitions: Record<string, VesselAppearanceProfile> = {
     era: 'renaissance',
     headSilhouette: { crownStyle: 'da-vinci-beret-beard', faceProportion: { jawWidth: 1.04, browDepth: 1.16, cranialHeight: 1.04 } },
     garmentSilhouette: { mantleStyle: 'renaissance-drape', collarStyle: 'renaissance-collar' },
+    lowerBodyStyle: 'full-robe',
     signatureRelic: 'vitruvian-gyroscope',
     paletteOverrides: { primaryGarmentHex: '#302b68', secondaryTrimHex: '#deb968', hairOrCrownHex: '#c6bba6', skinOrMaterialToneHex: '#d6af8a' },
     portraitUrl: '/avatars/leonardo-da-vinci.png',
@@ -111,6 +196,7 @@ const pilotDefinitions: Record<string, VesselAppearanceProfile> = {
     era: 'romantic',
     headSilhouette: { crownStyle: 'dickinson-parted-bun', faceProportion: { jawWidth: 0.8, browDepth: 0.88, cranialHeight: 1.16 } },
     garmentSilhouette: { mantleStyle: 'victorian-shawl', collarStyle: 'lace-tippet' },
+    lowerBodyStyle: 'full-robe',
     signatureRelic: 'herbarium-quill-lantern',
     paletteOverrides: { primaryGarmentHex: '#ece6d8', secondaryTrimHex: '#bfcfbd', hairOrCrownHex: '#653a2c', skinOrMaterialToneHex: '#e6bea2' },
     portraitUrl: '/avatars/emily-dickinson.png',
@@ -119,6 +205,7 @@ const pilotDefinitions: Record<string, VesselAppearanceProfile> = {
     era: 'astral',
     headSilhouette: { crownStyle: 'sovereign-crest', faceProportion: { jawWidth: 1.02, browDepth: 1.1, cranialHeight: 1.1 } },
     garmentSilhouette: { mantleStyle: 'alchemical-vestments', collarStyle: 'astral-gorget' },
+    lowerBodyStyle: 'armored-cuisses',
     signatureRelic: 'solar-astrolabe',
     paletteOverrides: { primaryGarmentHex: '#171b2c', secondaryTrimHex: '#efc45c', hairOrCrownHex: '#e5bd66', skinOrMaterialToneHex: '#a4bcc7' },
   },
@@ -126,6 +213,7 @@ const pilotDefinitions: Record<string, VesselAppearanceProfile> = {
     era: 'modern',
     headSilhouette: { crownStyle: 'tesla-parted-mustache', faceProportion: { jawWidth: 0.84, browDepth: 1.15, cranialHeight: 1.06 } },
     garmentSilhouette: { mantleStyle: 'victorian-frock-coat', collarStyle: 'wing-collar' },
+    lowerBodyStyle: 'trousers-boots',
     signatureRelic: 'tesla-induction-coil',
     paletteOverrides: { primaryGarmentHex: '#141824', secondaryTrimHex: '#00e5ff', hairOrCrownHex: '#1b1a1c', skinOrMaterialToneHex: '#e8cbb0' },
     portraitUrl: '/avatars/tesla.png',
@@ -134,6 +222,7 @@ const pilotDefinitions: Record<string, VesselAppearanceProfile> = {
     era: 'modern',
     headSilhouette: { crownStyle: 'curie-edwardian-updo', faceProportion: { jawWidth: 0.82, browDepth: 0.94, cranialHeight: 1.12 } },
     garmentSilhouette: { mantleStyle: 'edwardian-high-dress', collarStyle: 'lace-tippet' },
+    lowerBodyStyle: 'full-robe',
     signatureRelic: 'radium-phial-luminary',
     paletteOverrides: { primaryGarmentHex: '#1b1d28', secondaryTrimHex: '#4bf0a5', hairOrCrownHex: '#524036', skinOrMaterialToneHex: '#e5be9e' },
     portraitUrl: '/avatars/curie.png',
@@ -142,6 +231,7 @@ const pilotDefinitions: Record<string, VesselAppearanceProfile> = {
     era: 'modern',
     headSilhouette: { crownStyle: 'einstein-wild-halo', faceProportion: { jawWidth: 0.96, browDepth: 1.14, cranialHeight: 1.1 } },
     garmentSilhouette: { mantleStyle: 'knit-professor-sweater', collarStyle: 'wing-collar' },
+    lowerBodyStyle: 'trousers-boots',
     signatureRelic: 'relativity-geodesic-ring',
     paletteOverrides: { primaryGarmentHex: '#383028', secondaryTrimHex: '#f6cf83', hairOrCrownHex: '#e8eaed', skinOrMaterialToneHex: '#dfb798' },
     portraitUrl: '/avatars/albert-einstein.png',
@@ -150,6 +240,7 @@ const pilotDefinitions: Record<string, VesselAppearanceProfile> = {
     era: 'modern',
     headSilhouette: { crownStyle: 'kahlo-floral-braid', faceProportion: { jawWidth: 0.88, browDepth: 1.02, cranialHeight: 1.06 } },
     garmentSilhouette: { mantleStyle: 'tehuana-huipil-shawl', collarStyle: 'none' },
+    lowerBodyStyle: 'full-robe',
     signatureRelic: 'retablo-sacred-heart',
     paletteOverrides: { primaryGarmentHex: '#7f1932', secondaryTrimHex: '#f59e0b', hairOrCrownHex: '#171415', skinOrMaterialToneHex: '#c7926b' },
     portraitUrl: '/avatars/frida.png',
@@ -158,6 +249,7 @@ const pilotDefinitions: Record<string, VesselAppearanceProfile> = {
     era: 'renaissance',
     headSilhouette: { crownStyle: 'shakespeare-ruff-ringlets', faceProportion: { jawWidth: 0.92, browDepth: 1.1, cranialHeight: 1.06 } },
     garmentSilhouette: { mantleStyle: 'elizabethan-doublet', collarStyle: 'elizabethan-ruff' },
+    lowerBodyStyle: 'trousers-boots',
     signatureRelic: 'quill-and-first-folio',
     paletteOverrides: { primaryGarmentHex: '#2b1b36', secondaryTrimHex: '#deb968', hairOrCrownHex: '#69412a', skinOrMaterialToneHex: '#e2be9b' },
     portraitUrl: '/avatars/shakespeare.png',
@@ -166,6 +258,7 @@ const pilotDefinitions: Record<string, VesselAppearanceProfile> = {
     era: 'romantic',
     headSilhouette: { crownStyle: 'darwin-naturalist-beard', faceProportion: { jawWidth: 1.06, browDepth: 1.22, cranialHeight: 1.04 } },
     garmentSilhouette: { mantleStyle: 'enlightenment-coat', collarStyle: 'high-cravat' },
+    lowerBodyStyle: 'trousers-boots',
     signatureRelic: 'beagle-naturalist-specimen',
     paletteOverrides: { primaryGarmentHex: '#2e3528', secondaryTrimHex: '#8cb369', hairOrCrownHex: '#d2d5d8', skinOrMaterialToneHex: '#dfb99c' },
     portraitUrl: '/avatars/darwin.png',
@@ -174,6 +267,7 @@ const pilotDefinitions: Record<string, VesselAppearanceProfile> = {
     era: 'ancient',
     headSilhouette: { crownStyle: 'cleopatra-nemes-uraeus', faceProportion: { jawWidth: 0.85, browDepth: 1.05, cranialHeight: 1.08 } },
     garmentSilhouette: { mantleStyle: 'scholar-robe', collarStyle: 'astral-gorget' },
+    lowerBodyStyle: 'full-robe',
     signatureRelic: 'solar-astrolabe',
     paletteOverrides: { primaryGarmentHex: '#0f293b', secondaryTrimHex: '#ffd700', hairOrCrownHex: '#111116', skinOrMaterialToneHex: '#c2946c' },
     portraitUrl: '/avatars/cleopatra.png',
@@ -182,6 +276,7 @@ const pilotDefinitions: Record<string, VesselAppearanceProfile> = {
     era: 'renaissance',
     headSilhouette: { crownStyle: 'joan-battle-bob', faceProportion: { jawWidth: 0.9, browDepth: 1.05, cranialHeight: 1.05 } },
     garmentSilhouette: { mantleStyle: 'plate-armor-cuirass', collarStyle: 'plate-gorget' },
+    lowerBodyStyle: 'armored-cuisses',
     signatureRelic: 'saintly-oriflamme-banner',
     paletteOverrides: { primaryGarmentHex: '#252936', secondaryTrimHex: '#93c5fd', hairOrCrownHex: '#4d3324', skinOrMaterialToneHex: '#e2bf9f' },
     portraitUrl: '/avatars/joan-of-arc.png',
@@ -190,9 +285,100 @@ const pilotDefinitions: Record<string, VesselAppearanceProfile> = {
     era: 'ancient',
     headSilhouette: { crownStyle: 'buddha-ushnisha-topknot', faceProportion: { jawWidth: 0.92, browDepth: 0.95, cranialHeight: 1.15 } },
     garmentSilhouette: { mantleStyle: 'saffron-monk-robe', collarStyle: 'none' },
+    lowerBodyStyle: 'full-robe',
     signatureRelic: 'solar-astrolabe',
     paletteOverrides: { primaryGarmentHex: '#d97706', secondaryTrimHex: '#fef08a', hairOrCrownHex: '#1e1b2e', skinOrMaterialToneHex: '#c59567' },
     portraitUrl: '/avatars/siddhartha-gautama-buddha.png',
+  },
+  'socrates': {
+    era: 'ancient',
+    headSilhouette: { crownStyle: 'scholar-hood', faceProportion: { jawWidth: 1.08, browDepth: 1.18, cranialHeight: 1.02 } },
+    garmentSilhouette: { mantleStyle: 'scholar-robe', collarStyle: 'none' },
+    lowerBodyStyle: 'full-robe',
+    signatureRelic: 'solar-astrolabe',
+    paletteOverrides: { primaryGarmentHex: '#1e293b', secondaryTrimHex: '#00daf3', hairOrCrownHex: '#c7cbd1', skinOrMaterialToneHex: '#d8af88' },
+    portraitUrl: '/avatars/socrates.png',
+  },
+  'plato': {
+    era: 'ancient',
+    headSilhouette: { crownStyle: 'laurel-wreath', faceProportion: { jawWidth: 0.94, browDepth: 1.12, cranialHeight: 1.14 } },
+    garmentSilhouette: { mantleStyle: 'scholar-robe', collarStyle: 'none' },
+    lowerBodyStyle: 'full-robe',
+    signatureRelic: 'solar-astrolabe',
+    paletteOverrides: { primaryGarmentHex: '#3b2210', secondaryTrimHex: '#ff9800', hairOrCrownHex: '#e5e7eb', skinOrMaterialToneHex: '#dfb892' },
+    portraitUrl: '/avatars/plato.png',
+  },
+  'aristotle': {
+    era: 'ancient',
+    headSilhouette: { crownStyle: 'laurel-wreath', faceProportion: { jawWidth: 0.98, browDepth: 1.1, cranialHeight: 1.08 } },
+    garmentSilhouette: { mantleStyle: 'scholar-robe', collarStyle: 'none' },
+    lowerBodyStyle: 'full-robe',
+    signatureRelic: 'vitruvian-gyroscope',
+    paletteOverrides: { primaryGarmentHex: '#2e1218', secondaryTrimHex: '#f44336', hairOrCrownHex: '#9ca3af', skinOrMaterialToneHex: '#dbaf84' },
+    portraitUrl: '/avatars/aristotle.png',
+  },
+  'marcus-aurelius': {
+    era: 'ancient',
+    headSilhouette: { crownStyle: 'laurel-wreath', faceProportion: { jawWidth: 1.02, browDepth: 1.15, cranialHeight: 1.08 } },
+    garmentSilhouette: { mantleStyle: 'plate-armor-cuirass', collarStyle: 'plate-gorget' },
+    lowerBodyStyle: 'armored-cuisses',
+    signatureRelic: 'solar-astrolabe',
+    paletteOverrides: { primaryGarmentHex: '#3b1042', secondaryTrimHex: '#00e5ff', hairOrCrownHex: '#423329', skinOrMaterialToneHex: '#d9ad84' },
+    portraitUrl: '/avatars/marcus-aurelius.png',
+  },
+  'alexander-the-great': {
+    era: 'ancient',
+    headSilhouette: { crownStyle: 'sovereign-crest', faceProportion: { jawWidth: 0.95, browDepth: 1.08, cranialHeight: 1.1 } },
+    garmentSilhouette: { mantleStyle: 'plate-armor-cuirass', collarStyle: 'plate-gorget' },
+    lowerBodyStyle: 'armored-cuisses',
+    signatureRelic: 'solar-astrolabe',
+    paletteOverrides: { primaryGarmentHex: '#181b22', secondaryTrimHex: '#cd7f32', hairOrCrownHex: '#e0a94b', skinOrMaterialToneHex: '#e0b896' },
+    portraitUrl: '/avatars/alexander-the-great.png',
+  },
+  'galileo-galilei': {
+    era: 'renaissance',
+    headSilhouette: { crownStyle: 'da-vinci-beret-beard', faceProportion: { jawWidth: 0.98, browDepth: 1.16, cranialHeight: 1.06 } },
+    garmentSilhouette: { mantleStyle: 'renaissance-drape', collarStyle: 'renaissance-collar' },
+    lowerBodyStyle: 'full-robe',
+    signatureRelic: 'prism-octahedron',
+    paletteOverrides: { primaryGarmentHex: '#10223b', secondaryTrimHex: '#00e5ff', hairOrCrownHex: '#d4d8de', skinOrMaterialToneHex: '#d8b08e' },
+    portraitUrl: '/avatars/galileo-galilei.png',
+  },
+  'dante-alighieri': {
+    era: 'renaissance',
+    headSilhouette: { crownStyle: 'laurel-wreath', faceProportion: { jawWidth: 0.88, browDepth: 1.22, cranialHeight: 1.08 } },
+    garmentSilhouette: { mantleStyle: 'scholar-robe', collarStyle: 'renaissance-collar' },
+    lowerBodyStyle: 'full-robe',
+    signatureRelic: 'quill-and-first-folio',
+    paletteOverrides: { primaryGarmentHex: '#6b1818', secondaryTrimHex: '#00daf3', hairOrCrownHex: '#1c1917', skinOrMaterialToneHex: '#dbaf88' },
+    portraitUrl: '/avatars/dante-alighieri.png',
+  },
+  'vincent-van-gogh-1853': {
+    era: 'modern',
+    headSilhouette: { crownStyle: 'darwin-naturalist-beard', faceProportion: { jawWidth: 0.88, browDepth: 1.18, cranialHeight: 1.06 } },
+    garmentSilhouette: { mantleStyle: 'victorian-frock-coat', collarStyle: 'high-cravat' },
+    lowerBodyStyle: 'trousers-boots',
+    signatureRelic: 'retablo-sacred-heart',
+    paletteOverrides: { primaryGarmentHex: '#192b45', secondaryTrimHex: '#ff9800', hairOrCrownHex: '#b45309', skinOrMaterialToneHex: '#deb896' },
+    portraitUrl: '/avatars/vincent-van-gogh.png',
+  },
+  'edgar-allan-poe-1809': {
+    era: 'romantic',
+    headSilhouette: { crownStyle: 'tesla-parted-mustache', faceProportion: { jawWidth: 0.86, browDepth: 1.2, cranialHeight: 1.12 } },
+    garmentSilhouette: { mantleStyle: 'enlightenment-coat', collarStyle: 'high-cravat' },
+    lowerBodyStyle: 'trousers-boots',
+    signatureRelic: 'quill-and-first-folio',
+    paletteOverrides: { primaryGarmentHex: '#13111c', secondaryTrimHex: '#9c27b0', hairOrCrownHex: '#18181b', skinOrMaterialToneHex: '#ecd7c7' },
+    portraitUrl: '/avatars/edgar-allan-poe.png',
+  },
+  'thomas-aquinas': {
+    era: 'renaissance',
+    headSilhouette: { crownStyle: 'scholar-hood', faceProportion: { jawWidth: 1.04, browDepth: 1.1, cranialHeight: 1.08 } },
+    garmentSilhouette: { mantleStyle: 'scholar-robe', collarStyle: 'none' },
+    lowerBodyStyle: 'full-robe',
+    signatureRelic: 'solar-astrolabe',
+    paletteOverrides: { primaryGarmentHex: '#181c2e', secondaryTrimHex: '#00e5ff', hairOrCrownHex: '#3b322a', skinOrMaterialToneHex: '#dbc3a7' },
+    portraitUrl: '/avatars/thomas-aquinas.png',
   },
 };
 
@@ -260,7 +446,46 @@ export function createVesselPortraitSvg(profile: VesselAppearanceProfile): strin
                     ? `<path d="M75 66L75 92" stroke="${trim}" stroke-width="2.5"/><path d="M76 68L92 73L76 79Z" fill="#3b82f6" stroke="${trim}" stroke-width="1.5"/><circle cx="82" cy="73" r="2" fill="#ffd700"/>`
                     : `<g fill="none" stroke="${trim}" stroke-width="2"><circle cx="81" cy="81" r="10"/><ellipse cx="81" cy="81" rx="4" ry="10"/><path d="M70 81L92 81M81 70L81 92"/></g>`;
 
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 104 104" role="img"><rect width="104" height="104" rx="52" fill="#111827"/><circle cx="52" cy="52" r="46" fill="#1d2839" stroke="${trim}" stroke-width="1.5"/><path d="M17 101L23 78Q29 66 44 64L59 64Q76 67 84 80L91 103Z" fill="${cloth}" stroke="${trim}" stroke-width="2"/><ellipse cx="51" cy="41" rx="16" ry="22" fill="${skin}"/><path d="M46 44L48 44M58 44L60 44M51 48L50 53L54 53M47 59Q52 62 57 58" stroke="#695044" stroke-width="1.4" fill="none"/>${silhouette[style]}${collar}${relic}</svg>`;
+  const headwearAccent = profile.modularTraits?.headwearAccent;
+  const headwearAccentSvg = headwearAccent === 'feather-plume'
+    ? `<path d="M60 22Q68 12 75 7Q74 15 65 24Z" fill="${trim}" stroke="${cloth}" stroke-width="0.8"/><path d="M60 22Q68 12 75 7" stroke="#ffffff" stroke-width="0.8"/>`
+    : headwearAccent === 'circlet-gem'
+      ? `<path d="M38 31Q51 34 64 31" stroke="${trim}" stroke-width="1.8" fill="none"/><circle cx="51" cy="33" r="2.2" fill="#38bdf8" stroke="${trim}" stroke-width="0.8"/>`
+      : headwearAccent === 'crown-spikes'
+        ? `<path d="M43 25L46 17L51 22L56 17L59 25Z" fill="${trim}" stroke="#ffffff" stroke-width="0.5"/>`
+        : headwearAccent === 'laurel-sprig'
+          ? `<path d="M36 29Q43 26 51 28" stroke="${trim}" stroke-width="1.2" fill="none"/><ellipse cx="40" cy="26" rx="2.4" ry="1.2" fill="${trim}" transform="rotate(-20 40 26)"/><ellipse cx="46" cy="25" rx="2.4" ry="1.2" fill="${trim}" transform="rotate(-10 46 25)"/>`
+          : headwearAccent === 'coiffure-ribbon'
+            ? `<path d="M63 26Q70 24 68 31Q66 38 61 31Z" fill="${trim}"/><path d="M65 31L71 41M65 31L67 43" stroke="${trim}" stroke-width="1.2"/>`
+            : '';
+
+  const faceAccent = profile.modularTraits?.faceAccent;
+  const faceAccentSvg = faceAccent === 'wire-spectacles'
+    ? `<circle cx="47" cy="44" r="3.2" fill="none" stroke="${trim}" stroke-width="1.2"/><circle cx="55" cy="44" r="3.2" fill="none" stroke="${trim}" stroke-width="1.2"/><path d="M50.2 44L51.8 44" stroke="${trim}" stroke-width="1.2"/>`
+    : faceAccent === 'scholar-monocle'
+      ? `<circle cx="55" cy="44" r="3.6" fill="none" stroke="${trim}" stroke-width="1.4"/><path d="M58.6 44L61 53" stroke="${trim}" stroke-width="0.8"/>`
+      : faceAccent === 'philosopher-beard'
+        ? `<path d="M45 56Q51 72 57 56L55 68L51 76L47 68Z" fill="${hair}" stroke="${trim}" stroke-width="0.6"/>`
+        : faceAccent === 'mystic-veil'
+          ? `<path d="M40 48Q51 51 62 48L60 62Q51 66 42 62Z" fill="${cloth}" fill-opacity="0.6" stroke="${trim}" stroke-width="0.8"/>`
+          : faceAccent === 'goatee-accent'
+            ? `<path d="M49 57L53 57L51 64Z" fill="${hair}" stroke="${trim}" stroke-width="0.5"/>`
+            : '';
+
+  const collarAccent = profile.modularTraits?.collarAccent;
+  const collarAccentSvg = collarAccent === 'winged-pauldrons'
+    ? `<path d="M22 75L14 67L24 69L28 77Z" fill="${trim}" stroke="#ffffff" stroke-width="0.5"/><path d="M80 75L88 67L78 69L74 77Z" fill="${trim}" stroke="#ffffff" stroke-width="0.5"/>`
+    : collarAccent === 'spiked-guard'
+      ? `<path d="M20 74L16 68L22 70L21 64L25 71Z" fill="${trim}"/><path d="M82 74L86 68L80 70L81 64L77 71Z" fill="${trim}"/>`
+      : collarAccent === 'fur-trim'
+        ? `<path d="M30 67Q51 76 72 67Q75 73 70 78Q51 86 32 78Q27 73 30 67Z" fill="#e5e7eb" stroke="${trim}" stroke-width="0.8"/>`
+        : collarAccent === 'epaulette-tassels'
+          ? `<path d="M19 74L29 71L27 76L17 79Z" fill="${trim}"/><path d="M18 79L18 85M21 78L21 86M24 77L24 85" stroke="${trim}" stroke-width="1.2"/><path d="M83 74L73 71L75 76L85 79Z" fill="${trim}"/><path d="M84 79L84 85M81 78L81 86M78 77L78 85" stroke="${trim}" stroke-width="1.2"/>`
+          : collarAccent === 'stole-brooch'
+            ? `<circle cx="51" cy="67" r="3" fill="${trim}" stroke="#ffffff" stroke-width="0.8"/><path d="M48 70L46 88M54 70L56 88" stroke="${trim}" stroke-width="2"/>`
+            : '';
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 104 104" role="img"><rect width="104" height="104" rx="52" fill="#111827"/><circle cx="52" cy="52" r="46" fill="#1d2839" stroke="${trim}" stroke-width="1.5"/><path d="M17 101L23 78Q29 66 44 64L59 64Q76 67 84 80L91 103Z" fill="${cloth}" stroke="${trim}" stroke-width="2"/><ellipse cx="51" cy="41" rx="16" ry="22" fill="${skin}"/><path d="M46 44L48 44M58 44L60 44M51 48L50 53L54 53M47 59Q52 62 57 58" stroke="#695044" stroke-width="1.4" fill="none"/>${faceAccentSvg}${silhouette[style]}${collar}${collarAccentSvg}${headwearAccentSvg}${relic}</svg>`;
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 
@@ -299,6 +524,46 @@ function factionGarment(hex: string, seed: number): string {
   const value = Number.parseInt(hex.slice(1), 16);
   const dim = 0.22 + (seed % 15) / 100;
   return `#${[16, 8, 0].map((shift) => Math.round(((value >> shift) & 255) * dim + 13).toString(16).padStart(2, '0')).join('')}`;
+}
+
+export function mixModularTraits(agentId: string, era?: VesselEra, seed?: number): VesselModularTraits {
+  const s = seed ?? seedFor(`${agentId}|modular_traits`);
+  let headwear: HeadwearAccent = HEADWEAR_ACCENTS[s % HEADWEAR_ACCENTS.length];
+  let collarPauldron: CollarPauldronAccent = COLLAR_PAULDRON_ACCENTS[(s >>> 3) % COLLAR_PAULDRON_ACCENTS.length];
+  let face: FaceAccent = FACE_ACCENTS[(s >>> 6) % FACE_ACCENTS.length];
+  let offHand: OffHandAccessory = OFF_HAND_ACCESSORIES[(s >>> 9) % OFF_HAND_ACCESSORIES.length];
+
+  if (/spectacle|optics|scholar|mathematician|scribe|poet/i.test(agentId)) {
+    if ((s % 2) === 0) face = 'wire-spectacles';
+  } else if (/monocle|wit|critic|aristocrat/i.test(agentId)) {
+    face = 'scholar-monocle';
+  } else if (/philosopher|sage|hermit|prophet/i.test(agentId)) {
+    face = 'philosopher-beard';
+  } else if (/mystic|alchemist|oracle|priestess/i.test(agentId)) {
+    face = 'mystic-veil';
+  }
+
+  if (/warrior|emperor|caesar|knight|conqueror/i.test(agentId)) {
+    collarPauldron = 'winged-pauldrons';
+    headwear = 'crown-spikes';
+  } else if (/diplomat|statesman|chancellor/i.test(agentId)) {
+    collarPauldron = 'fur-trim';
+  }
+
+  if (/writer|author|dramatist|poet/i.test(agentId)) {
+    if (offHand === 'none') offHand = 'parchment-scroll';
+  } else if (/astronom|cosmol|navigator|astrolog/i.test(agentId)) {
+    if (offHand === 'none') offHand = 'alchemical-compass';
+  } else if (/scholar|historian|philosopher/i.test(agentId)) {
+    if (offHand === 'none') offHand = 'astral-codex';
+  }
+
+  return {
+    headwearAccent: headwear,
+    collarPauldronAccent: collarPauldron,
+    faceAccent: face,
+    offHandAccessory: offHand,
+  };
 }
 
 function deriveAppearance(agentId: string, faction?: number, archetype?: string | { title: string }): VesselAppearanceProfile {
@@ -400,6 +665,14 @@ function deriveAppearance(agentId: string, faction?: number, archetype?: string 
     signatureRelic = 'herbarium-quill-lantern';
   }
 
+  const lowerBodyStyle: VesselLowerBodyStyle = mantleStyle === 'plate-armor-cuirass' ? 'armored-cuisses'
+    : (mantleStyle === 'victorian-frock-coat' || mantleStyle === 'enlightenment-coat' || mantleStyle === 'knit-professor-sweater' || mantleStyle === 'elizabethan-doublet') ? 'trousers-boots'
+    : (era === 'ancient' && mantleStyle !== 'saffron-monk-robe' && mantleStyle !== 'scholar-robe') ? 'tunic-greaves'
+    : mantleStyle === 'alchemical-vestments' ? 'armored-cuisses'
+    : 'full-robe';
+
+  const modularTraits = mixModularTraits(agentId, era, seed);
+
   return withPortrait({
     era,
     headSilhouette: {
@@ -407,7 +680,9 @@ function deriveAppearance(agentId: string, faction?: number, archetype?: string 
       faceProportion: { jawWidth: 0.84 + (seed % 23) / 100, browDepth: 0.9 + ((seed >>> 5) % 25) / 100, cranialHeight: 0.96 + ((seed >>> 10) % 20) / 100 },
     },
     garmentSilhouette: { mantleStyle, collarStyle },
+    lowerBodyStyle,
     signatureRelic,
+    modularTraits,
     paletteOverrides: {
       primaryGarmentHex: factionGarment(trim, seed),
       secondaryTrimHex: trim,
@@ -420,7 +695,13 @@ function deriveAppearance(agentId: string, faction?: number, archetype?: string 
 /** All 71 registry entries plus the custom pilot; generated entries are period-inspired vessels. */
 export const VESSEL_APPEARANCE_MANIFEST: Record<string, VesselAppearanceProfile> = Object.fromEntries([
   ...HISTORICAL_AGENTS.map((agent) => [agent.key, deriveAppearance(agent.key)]),
-  ...Object.entries(pilotDefinitions).map(([key, profile]) => [key, withPortrait(profile)]),
+  ...Object.entries(pilotDefinitions).map(([key, profile]) => {
+    const withTraits = {
+      ...profile,
+      modularTraits: profile.modularTraits ?? mixModularTraits(key, profile.era),
+    };
+    return [key, withPortrait(withTraits)];
+  }),
 ]);
 
 /** Resolve independent profile values, so one vessel's customization cannot mutate another. */
@@ -434,6 +715,9 @@ export function resolveAgentAppearance(
     : faction === undefined && archetype === undefined && Object.hasOwn(VESSEL_APPEARANCE_MANIFEST, agentId)
       ? VESSEL_APPEARANCE_MANIFEST[agentId]
       : deriveAppearance(agentId, faction, archetype);
+  if (!profile.modularTraits) {
+    profile.modularTraits = mixModularTraits(agentId, profile.era);
+  }
   return structuredClone(profile);
 }
 

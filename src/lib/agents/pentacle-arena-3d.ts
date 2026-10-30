@@ -17,8 +17,10 @@
  */
 
 import * as THREE from 'three';
+import { ratingFeedStatus } from './agent-rating-feed';
 import {
   type RatedAgentPayload,
+  type SealTier,
   FIXTURE_AGENTS,
 } from './rating-contract';
 import {
@@ -32,11 +34,13 @@ import {
   disposeVesselAvatar,
   setVesselAnimationState,
   pickVesselAvatar,
+  SEAL_TIER_HEX_COLORS,
 } from './vessel-avatar-3d';
 import {
   canAccessZone,
   accessRefusalReason,
 } from '../../alchm-chart/zone-access.js';
+import { CourtAudioSynth, type EsmsAudioElement } from './court-audio-synth';
 
 export interface ZoneNode3D {
   zoneId: number;
@@ -94,7 +98,7 @@ interface ContestAnimation {
   zoneId: number;
   attackerId: string;
   defenderId: string;
-  stage: 'assembling' | 'clash';
+  stage: 'assembling' | 'clash' | 'result';
   assemblyRemaining: number;
   elapsed: number;
   resolve: () => void;
@@ -173,6 +177,124 @@ export function getZoneTitle(zoneId: number): string {
   return 'The Crown Zenith';
 }
 
+const BATCHED_SEAL_TIERS: readonly SealTier[] = ['copper', 'silver', 'gold', 'platinum', 'astral'];
+
+/**
+ * Batches seal orbiters across all court vessels using 5 THREE.InstancedMesh instances
+ * (one per seal tier: copper, silver, gold, platinum, astral), cutting draw calls from
+ * up to 110 down to 5 across full 22-avatar courts.
+ */
+export class CourtSealOrbiterBatcher {
+  public readonly container: THREE.Group;
+  private readonly instancedMeshes: Map<SealTier, THREE.InstancedMesh> = new Map();
+  private readonly dummy = new THREE.Object3D();
+  private readonly worldPos = new THREE.Vector3();
+  private readonly worldQuat = new THREE.Quaternion();
+  private readonly worldScale = new THREE.Vector3();
+  private isBatching = false;
+
+  constructor() {
+    this.container = new THREE.Group();
+    this.container.name = 'CourtInstancedSealOrbiters';
+    for (const tier of BATCHED_SEAL_TIERS) {
+      const geo = new THREE.OctahedronGeometry(0.09, 0);
+      const color = new THREE.Color(SEAL_TIER_HEX_COLORS[tier]);
+      const mat = new THREE.MeshStandardMaterial({
+        color,
+        roughness: 0.15,
+        metalness: 0.85,
+        emissive: color,
+        emissiveIntensity: 0.85,
+      });
+      const im = new THREE.InstancedMesh(geo, mat, 120);
+      im.name = `InstancedSealOrbiters_${tier}`;
+      im.castShadow = false;
+      im.receiveShadow = false;
+      im.count = 0;
+      im.visible = false;
+      this.instancedMeshes.set(tier, im);
+      this.container.add(im);
+    }
+  }
+
+  public getInstancedMesh(tier: SealTier): THREE.InstancedMesh | undefined {
+    return this.instancedMeshes.get(tier);
+  }
+
+  public getActiveCount(tier: SealTier): number {
+    return this.instancedMeshes.get(tier)?.count ?? 0;
+  }
+
+  public update(registrations: Iterable<ArenaAvatarRegistration>): void {
+    const tierCounts = new Map<SealTier, number>();
+    for (const tier of BATCHED_SEAL_TIERS) tierCounts.set(tier, 0);
+
+    for (const reg of registrations) {
+      const avatar = reg.group;
+      const orbitersGroup = avatar.userData.sealOrbiters as THREE.Group | undefined;
+      if (!orbitersGroup) continue;
+
+      for (const child of orbitersGroup.children) {
+        if ((child as THREE.Mesh).isMesh) {
+          const mesh = child as THREE.Mesh;
+          mesh.visible = false;
+          const tier = mesh.userData.sealTier as SealTier | undefined;
+          if (!tier || !this.instancedMeshes.has(tier)) continue;
+
+          const im = this.instancedMeshes.get(tier)!;
+          const count = tierCounts.get(tier)!;
+          if (count < im.instanceMatrix.count) {
+            mesh.getWorldPosition(this.worldPos);
+            mesh.getWorldQuaternion(this.worldQuat);
+            mesh.getWorldScale(this.worldScale);
+            this.dummy.position.copy(this.worldPos);
+            this.dummy.quaternion.copy(this.worldQuat);
+            this.dummy.scale.copy(this.worldScale);
+            this.dummy.updateMatrix();
+            im.setMatrixAt(count, this.dummy.matrix);
+            tierCounts.set(tier, count + 1);
+          }
+        }
+      }
+    }
+
+    for (const [tier, count] of tierCounts) {
+      const im = this.instancedMeshes.get(tier)!;
+      im.count = count;
+      im.visible = count > 0;
+      im.instanceMatrix.needsUpdate = true;
+    }
+    this.isBatching = true;
+  }
+
+  public restore(registrations: Iterable<ArenaAvatarRegistration>): void {
+    for (const reg of registrations) {
+      const orbitersGroup = reg.group.userData.sealOrbiters as THREE.Group | undefined;
+      if (orbitersGroup) {
+        for (const child of orbitersGroup.children) {
+          if ((child as THREE.Mesh).isMesh) child.visible = true;
+        }
+      }
+    }
+    for (const im of this.instancedMeshes.values()) {
+      im.count = 0;
+      im.visible = false;
+      im.instanceMatrix.needsUpdate = true;
+    }
+    this.isBatching = false;
+  }
+
+  public dispose(): void {
+    for (const im of this.instancedMeshes.values()) {
+      im.geometry.dispose();
+      if (Array.isArray(im.material)) im.material.forEach((m) => m.dispose());
+      else im.material.dispose();
+    }
+    this.instancedMeshes.clear();
+    this.container.clear();
+  }
+}
+
 export class PentacleArena3D {
   public scene: THREE.Scene;
   public camera: THREE.PerspectiveCamera;
@@ -180,8 +302,25 @@ export class PentacleArena3D {
   public container: HTMLElement;
   public zones: Map<number, ZoneNode3D> = new Map();
   public avatarRegistry: Map<string, ArenaAvatarRegistration> = new Map();
+  private orbiterBatcher: CourtSealOrbiterBatcher;
+  private audioSynth = new CourtAudioSynth();
+  private instancedOrbitersEnabled = false;
   public leyLinesMesh: THREE.LineSegments | null = null;
   public leyLineMaterial: THREE.LineBasicMaterial | null = null;
+  public readonly webglAvailable: boolean;
+  public selection: { agentId?: string; zoneId: number } | null = null;
+  public motionEnabled = true;
+  public hoveredAgentId: string | null = null;
+  public cameraFocusTarget: { position: THREE.Vector3; lookAt: THREE.Vector3 } | null = null;
+  private currentCameraLookAt: THREE.Vector3 = new THREE.Vector3(0, 2, 0);
+  private defaultCameraPosition: THREE.Vector3 = new THREE.Vector3(0, 26, 38);
+  private defaultCameraLookAt: THREE.Vector3 = new THREE.Vector3(0, 2, 0);
+  private pmremEnvTexture: THREE.Texture | null = null;
+
+  /** Current animated look-at point, for camera controls sharing this camera. */
+  public get cameraLookAt(): THREE.Vector3 { return this.currentCameraLookAt.clone(); }
+  private selectionRing: THREE.Mesh;
+  private pointerCleanup?: () => void;
 
   private animFrameId: number | null = null;
   private lastTime: number = performance.now();
@@ -228,6 +367,7 @@ export class PentacleArena3D {
     } catch {
       rendererInstance = null;
     }
+    this.webglAvailable = !!rendererInstance;
 
     this.renderer = rendererInstance || ({
       setSize: () => {},
@@ -246,6 +386,16 @@ export class PentacleArena3D {
     this.buildSacredFloor();
     this.buildZoneNodes();
     this.buildLeyLineConduits();
+    this.orbiterBatcher = new CourtSealOrbiterBatcher();
+    this.scene.add(this.orbiterBatcher.container);
+    this.selectionRing = new THREE.Mesh(
+      new THREE.RingGeometry(1, 1.06, 64),
+      new THREE.MeshBasicMaterial({ color: 0xffe6a6, side: THREE.DoubleSide, depthWrite: false }),
+    );
+    this.selectionRing.name = 'CourtSelection';
+    this.selectionRing.rotation.x = -Math.PI / 2;
+    this.selectionRing.visible = false;
+    this.scene.add(this.selectionRing);
     this.bindEvents();
     if (options.autoStartLoop === true) {
       this.startLoop();
@@ -275,6 +425,46 @@ export class PentacleArena3D {
     const fillLight = new THREE.DirectionalLight(0x00daf3, 0.6);
     fillLight.position.set(-20, -10, -20);
     this.scene.add(fillLight);
+
+    // Shared PMREM celestial environment map for armor and crystal relic specular highlights
+    this.setupEnvironmentMap();
+  }
+
+  private setupEnvironmentMap(): void {
+    if (!this.webglAvailable || !this.renderer) return;
+    try {
+      const pmremGenerator = new THREE.PMREMGenerator(this.renderer);
+      if (typeof pmremGenerator.compileEquirectangularShader === 'function') {
+        pmremGenerator.compileEquirectangularShader();
+      }
+
+      const envScene = new THREE.Scene();
+      const envGeo = new THREE.SphereGeometry(100, 16, 12);
+      const envMat = new THREE.MeshBasicMaterial({ color: 0x050a18, side: THREE.BackSide });
+      envScene.add(new THREE.Mesh(envGeo, envMat));
+
+      const goldStar = new THREE.PointLight(0xffdf88, 3.5, 300);
+      goldStar.position.set(50, 60, 40);
+      envScene.add(goldStar);
+
+      const cyanStar = new THREE.PointLight(0x38bdf8, 2.8, 300);
+      cyanStar.position.set(-50, 30, -50);
+      envScene.add(cyanStar);
+
+      const apexStar = new THREE.PointLight(0xfffae0, 4.0, 200);
+      apexStar.position.set(0, 90, 0);
+      envScene.add(apexStar);
+
+      const renderTarget = pmremGenerator.fromScene(envScene, 0.04);
+      this.scene.environment = renderTarget.texture;
+      this.pmremEnvTexture = renderTarget.texture;
+
+      pmremGenerator.dispose();
+      envGeo.dispose();
+      envMat.dispose();
+    } catch {
+      // Safe fallback if WebGL context is headless/mock
+    }
   }
 
   private buildSacredFloor(): void {
@@ -593,6 +783,10 @@ export class PentacleArena3D {
     this.avatarRegistry.delete(agentId);
     this.clearZoneSlot(registration);
     disposeVesselAvatar(registration.group);
+    if (!this.isInstancedOrbitersActive()) {
+      this.orbiterBatcher.restore(this.avatarRegistry.values());
+    }
+    if (this.selection?.agentId === agentId) this.selectZone(registration.zoneId);
   }
 
   /** Tick-driven travel is independent of browser timers and follows connected edges. */
@@ -710,11 +904,20 @@ export class PentacleArena3D {
     }
 
     const canvas = document.createElement('canvas');
-    canvas.width = 256;
-    canvas.height = 128;
+    if (!canvas || typeof canvas.getContext !== 'function') {
+      const spriteMat = new THREE.SpriteMaterial({ transparent: true });
+      const sprite = new THREE.Sprite(spriteMat);
+      sprite.scale.set(3.2, 1.6, 1.0);
+      return sprite;
+    }
+
+    const dpr = Math.min(typeof window !== 'undefined' ? (window.devicePixelRatio || 1) : 1, 2);
+    canvas.width = Math.round(256 * dpr);
+    canvas.height = Math.round(128 * dpr);
     const ctx = canvas.getContext('2d');
 
     if (ctx) {
+      ctx.scale(dpr, dpr);
       ctx.clearRect(0, 0, 256, 128);
 
       // Container background
@@ -738,7 +941,7 @@ export class PentacleArena3D {
       ctx.font = 'bold 24px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(String(payload.ovr), 56, 57);
+      ctx.fillText(ratingFeedStatus(payload) === 'pending' ? '—' : String(payload.ovr), 56, 57);
 
       // Handle & Archetype text
       ctx.fillStyle = '#ffffff';
@@ -748,12 +951,13 @@ export class PentacleArena3D {
 
       ctx.fillStyle = payload.surge.active ? '#ffaa00' : '#94a3b8';
       ctx.font = '12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-      const subText = payload.surge.active ? '⚡ SURGE' : payload.archetype.title;
+      const subText = ratingFeedStatus(payload) === 'pending' ? 'Ratings pending' : payload.surge.active ? '⚡ SURGE' : payload.archetype.title;
       ctx.fillText(subText.substring(0, 16), 92, 68);
     }
 
     const texture = new THREE.CanvasTexture(canvas);
-    texture.minFilter = THREE.LinearFilter;
+    texture.generateMipmaps = true;
+    texture.minFilter = THREE.LinearMipmapLinearFilter;
     const spriteMat = new THREE.SpriteMaterial({ map: texture, transparent: true });
     const sprite = new THREE.Sprite(spriteMat);
     sprite.scale.set(3.2, 1.6, 1.0);
@@ -793,6 +997,23 @@ export class PentacleArena3D {
     });
   }
 
+  /** React to a confirmed trick result without moving seats or deciding territory ownership. */
+  public animateTrickOutcome(zoneId: number, winnerId: string, rivalId: string): Promise<void> {
+    if (this.destroyed || !this.motionEnabled || !this.zones.has(zoneId) || winnerId === rivalId) return Promise.resolve();
+    const winner = this.avatarRegistry.get(winnerId);
+    const rival = this.avatarRegistry.get(rivalId);
+    if (!winner || !rival || winner.zoneId !== zoneId || rival.zoneId !== zoneId ||
+      this.travels.has(winnerId) || this.travels.has(rivalId)) return Promise.resolve();
+    this.cancelContestsFor(winnerId);
+    this.cancelContestsFor(rivalId);
+    setVesselAnimationState(winner.group, 'victory');
+    setVesselAnimationState(rival.group, 'stagger');
+    return new Promise<void>(resolve => {
+      this.contests.add({ zoneId, attackerId: winnerId, defenderId: rivalId,
+        stage: 'result', assemblyRemaining: 0, elapsed: 0, resolve });
+    });
+  }
+
   private finishContest(contest: ContestAnimation): void {
     this.contests.delete(contest);
     for (const id of [contest.attackerId, contest.defenderId]) {
@@ -829,13 +1050,15 @@ export class PentacleArena3D {
         contest.elapsed = Math.max(0, -contest.assemblyRemaining);
         setVesselAnimationState(attacker.group, 'contest-attack');
         setVesselAnimationState(defender.group, 'contest-defend');
+        const dominant = (attacker.group.userData.dominantElement as EsmsAudioElement) ?? 'spirit';
+        this.audioSynth.triggerClash(dominant);
         if (typeof window !== 'undefined' && typeof CustomEvent !== 'undefined') {
           window.dispatchEvent(new CustomEvent('pentacle:zone-contest', {
             detail: { zoneId: contest.zoneId, attacker: attacker.payload, defender: defender.payload },
           }));
         }
       } else contest.elapsed += deltaSec;
-      if (contest.elapsed >= 1.8) {
+      if (contest.elapsed >= (contest.stage === 'result' ? 1.6 : 1.8)) {
         this.finishContest(contest);
         continue;
       }
@@ -848,8 +1071,13 @@ export class PentacleArena3D {
   public refreshAvatar(payload: RatedAgentPayload): boolean {
     const registration = this.avatarRegistry.get(payload.key);
     if (!registration) return false;
+    const oldOvr = registration.payload.ovr;
+    const oldSurge = registration.payload.surge?.active ?? false;
     refreshVesselFromPayload(registration.group, payload);
     registration.payload = registration.group.userData.agentPayload;
+    if (registration.footRing) {
+      updateFootRing(registration.footRing, registration.payload, this.elapsedTime);
+    }
     const zone = this.zones.get(registration.zoneId);
     if (zone?.avatarMesh === registration.group) zone.currentAgent = registration.payload;
     if (zone?.challengerMesh === registration.group) zone.challengerAgent = registration.payload;
@@ -862,6 +1090,24 @@ export class PentacleArena3D {
       badge.name = 'VesselIdentityBadge';
       badge.position.y = 2.8;
       registration.group.add(badge);
+    }
+
+    const inAction = this.travels.has(payload.key) || [...this.contests].some(c => c.attackerId === payload.key || c.defenderId === payload.key);
+    const deltaOvr = payload.ovr - oldOvr;
+    if (deltaOvr > 0 || (payload.surge.active && !oldSurge)) {
+      if (!inAction) {
+        setVesselAnimationState(registration.group, 'surge');
+      }
+      if (registration.footRing) {
+        registration.footRing.scale.set(1.25, 1.25, 1.25);
+      }
+    } else if (deltaOvr < 0) {
+      if (!inAction) {
+        setVesselAnimationState(registration.group, 'stagger');
+      }
+      if (registration.footRing) {
+        registration.footRing.scale.set(0.85, 0.85, 0.85);
+      }
     }
     return true;
   }
@@ -907,9 +1153,47 @@ export class PentacleArena3D {
 
   private bindEvents(): void {
     const canvas = this.renderer.domElement;
+    let start: { x: number; y: number } | null = null;
+    let dragged = false;
+    const down = (e: PointerEvent) => {
+      if (start) { dragged = true; return; }
+      start = { x: e.clientX, y: e.clientY };
+      dragged = false;
+    };
+    const move = (e: PointerEvent) => {
+      if (start && Math.hypot(e.clientX - start.x, e.clientY - start.y) > 6) dragged = true;
+      const rect = canvas.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      this.raycaster.setFromCamera(this.mouse, this.camera);
+      const picked = pickVesselAvatar(this.raycaster, this.scene);
+      const nextHovered = picked ? picked.payload.key : null;
+      if (nextHovered !== this.hoveredAgentId) {
+        this.hoveredAgentId = nextHovered;
+        if (canvas.style) {
+          canvas.style.cursor = nextHovered ? 'pointer' : 'default';
+        }
+      }
+    };
+    const cancel = () => { start = null; dragged = true; };
+    const up = () => { start = null; };
+    canvas.addEventListener('pointerdown', down);
+    canvas.addEventListener('pointermove', move);
+    canvas.addEventListener('pointercancel', cancel);
+    canvas.addEventListener('pointerup', up);
+    this.pointerCleanup = () => {
+      canvas.removeEventListener('pointerdown', down);
+      canvas.removeEventListener('pointermove', move);
+      canvas.removeEventListener('pointercancel', cancel);
+      canvas.removeEventListener('pointerup', up);
+    };
 
     const handlePointerDown = (e: MouseEvent) => {
+      start = null;
+      if (dragged || e.button !== 0) return;
       const rect = canvas.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
       this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
       this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 
@@ -918,7 +1202,7 @@ export class PentacleArena3D {
       // Check avatar selection first via pickVesselAvatar
       const picked = pickVesselAvatar(this.raycaster, this.scene);
       if (picked) {
-        this.onSelectAgent?.(picked.payload);
+        this.selectAgent(picked.payload.key);
         return;
       }
 
@@ -928,7 +1212,7 @@ export class PentacleArena3D {
         let curr: THREE.Object3D | null = hit.object;
         while (curr) {
           if (curr.userData && curr.userData.zoneId !== undefined) {
-            this.onSelectZone?.(curr.userData.zoneId);
+            this.selectZone(curr.userData.zoneId);
             return;
           }
           curr = curr.parent;
@@ -940,22 +1224,163 @@ export class PentacleArena3D {
     canvas.addEventListener('click', handlePointerDown);
   }
 
+  /** The roster and canvas share one selection, including agents in transit. */
+  public selectAgent(agentId: string): boolean {
+    const agent = this.avatarRegistry.get(agentId);
+    if (!agent) return false;
+    this.selection = { agentId, zoneId: agent.zoneId };
+    this.updateSelection();
+    this.onSelectAgent?.(agent.payload);
+
+    // Compute smooth camera focus target for seated avatar
+    const p = agent.group.position;
+    const outward = new THREE.Vector3(p.x, 0, p.z).normalize();
+    if (outward.lengthSq() < 0.01) outward.set(0, 0, 1);
+    this.cameraFocusTarget = {
+      position: new THREE.Vector3(p.x + outward.x * 7.5, p.y + 3.8, p.z + outward.z * 7.5),
+      lookAt: new THREE.Vector3(p.x, p.y + 1.6, p.z),
+    };
+    return true;
+  }
+
+  public selectZone(zoneId: number): boolean {
+    if (!this.zones.has(zoneId)) return false;
+    this.selection = { zoneId };
+    this.updateSelection();
+    this.onSelectZone?.(zoneId);
+
+    const zone = this.zones.get(zoneId)!;
+    const p = zone.position;
+    const outward = new THREE.Vector3(p.x, 0, p.z).normalize();
+    if (outward.lengthSq() < 0.01) outward.set(0, 0, 1);
+    this.cameraFocusTarget = {
+      position: new THREE.Vector3(p.x + outward.x * 9.0, p.y + 4.8, p.z + outward.z * 9.0),
+      lookAt: new THREE.Vector3(p.x, p.y + 1.2, p.z),
+    };
+    return true;
+  }
+
+  public clearSelection(): void {
+    this.selection = null;
+    this.selectionRing.visible = false;
+    this.cameraFocusTarget = {
+      position: this.defaultCameraPosition.clone(),
+      lookAt: this.defaultCameraLookAt.clone(),
+    };
+  }
+
+  private updateSelection(): void {
+    const selected = this.selection;
+    if (!selected) return;
+    const agent = selected.agentId ? this.avatarRegistry.get(selected.agentId) : null;
+    if (agent) selected.zoneId = agent.zoneId;
+    const zone = this.zones.get(selected.zoneId);
+    if (!zone) return;
+    this.selectionRing.position.copy(agent?.group.position ?? zone.position);
+    this.selectionRing.position.y += 0.06;
+    this.selectionRing.scale.setScalar(agent ? 1.55 : zone.kind === 'crown' ? 3.55 : zone.kind === 'spire' ? 2.65 : 2.35);
+    this.selectionRing.visible = true;
+  }
+
   /** Advance visual state deterministically; the browser loop uses this same path. */
   public update(deltaSec: number, elapsedSec?: number): void {
     if (this.destroyed) return;
     const delta = Number.isFinite(deltaSec) ? Math.max(0, deltaSec) : 0;
-    this.elapsedTime = elapsedSec !== undefined && Number.isFinite(elapsedSec) ? elapsedSec : this.elapsedTime + delta;
+    if (this.motionEnabled) this.elapsedTime = elapsedSec !== undefined && Number.isFinite(elapsedSec) ? elapsedSec : this.elapsedTime + delta;
     // Live wallet refreshes replace the body's payload, so never overwrite them with a stale ring snapshot.
     for (const registration of this.avatarRegistry.values()) {
       const payload = registration.group.userData.agentPayload as RatedAgentPayload | undefined;
       if (payload && payload !== registration.payload) this.refreshAvatar(payload);
     }
-    this.advanceTravels(delta);
-    this.advanceContests(delta);
+    // Reduced motion still applies live positions and drains combat queues.
+    // Freezing simulation time would leave agents on obsolete territories.
+    this.advanceTravels(this.motionEnabled ? delta : Number.MAX_VALUE);
+    if (this.motionEnabled) this.advanceContests(delta);
+    else for (const contest of [...this.contests]) this.finishContest(contest);
+
+    // Advance smooth camera focus transition
+    if (this.cameraFocusTarget) {
+      if (this.motionEnabled) {
+        const factor = Math.min(1.0, delta * 3.5);
+        this.camera.position.lerp(this.cameraFocusTarget.position, factor);
+        this.currentCameraLookAt.lerp(this.cameraFocusTarget.lookAt, factor);
+        this.camera.lookAt(this.currentCameraLookAt);
+        if (
+          this.camera.position.distanceTo(this.cameraFocusTarget.position) < 0.02 &&
+          this.currentCameraLookAt.distanceTo(this.cameraFocusTarget.lookAt) < 0.02
+        ) {
+          this.camera.position.copy(this.cameraFocusTarget.position);
+          this.currentCameraLookAt.copy(this.cameraFocusTarget.lookAt);
+          this.camera.lookAt(this.currentCameraLookAt);
+          if (this.selection === null) this.cameraFocusTarget = null;
+        }
+      } else {
+        this.camera.position.copy(this.cameraFocusTarget.position);
+        this.currentCameraLookAt.copy(this.cameraFocusTarget.lookAt);
+        this.camera.lookAt(this.currentCameraLookAt);
+        if (this.selection === null) this.cameraFocusTarget = null;
+      }
+    }
+
+    this.updateSelection();
     for (const registration of this.avatarRegistry.values()) {
       updateFootRing(registration.footRing, registration.payload, this.elapsedTime);
-      updateVesselAvatarAnimation(registration.group, delta, this.elapsedTime);
+      // Dual-pedestal rival gaze IK target
+      let rivalHeadPos: THREE.Vector3 | null = null;
+      const zone = this.zones.get(registration.zoneId);
+      if (zone && zone.avatarMesh && zone.challengerMesh && !this.travels.has(registration.payload.key)) {
+        const isOwner = registration.slot === 'owner';
+        const rivalGroup = isOwner ? zone.challengerMesh : zone.avatarMesh;
+        if (rivalGroup && rivalGroup !== registration.group) {
+          const rivalHead = rivalGroup.userData.headGroup as THREE.Group | undefined;
+          if (rivalHead) {
+            rivalHeadPos = rivalHead.getWorldPosition(new THREE.Vector3());
+          }
+        }
+      }
+
+      if (this.motionEnabled) {
+        updateVesselAvatarAnimation(registration.group, delta, this.elapsedTime, { lookAtWorldPos: rivalHeadPos });
+      }
+
+      // Hover feedback: Emissive boost on torso and foot ring scale boost
+      const isHovered = registration.payload.key === this.hoveredAgentId;
+      const torsoMesh = registration.group.userData.torsoGroup?.getObjectByName('TorsoMesh') as THREE.Mesh | undefined;
+      if (torsoMesh && torsoMesh.material instanceof THREE.MeshStandardMaterial) {
+        const baseIntensity = registration.payload.surge.active ? 0.75 : 0.25;
+        torsoMesh.material.emissiveIntensity = isHovered ? baseIntensity + 0.35 : baseIntensity;
+      }
+      if (registration.footRing) {
+        if (isHovered) {
+          registration.footRing.scale.multiplyScalar(1.08);
+        } else {
+          registration.footRing.scale.lerp(new THREE.Vector3(1, 1, 1), Math.min(1, delta * 5));
+        }
+      }
     }
+
+    // Update Instanced Seal Orbiters Batcher when enabled or occupancy >= 4
+    if (this.instancedOrbitersEnabled || this.avatarRegistry.size >= 4) {
+      this.orbiterBatcher.update(this.avatarRegistry.values());
+    } else {
+      this.orbiterBatcher.restore(this.avatarRegistry.values());
+    }
+  }
+
+  public enableInstancedOrbiters(enabled: boolean = true): void {
+    this.instancedOrbitersEnabled = enabled;
+  }
+
+  public isInstancedOrbitersActive(): boolean {
+    return this.instancedOrbitersEnabled || this.avatarRegistry.size >= 4;
+  }
+
+  public getOrbiterBatcher(): CourtSealOrbiterBatcher {
+    return this.orbiterBatcher;
+  }
+
+  public getAudioSynth(): CourtAudioSynth {
+    return this.audioSynth;
   }
 
   public startLoop(): void {
@@ -973,6 +1398,7 @@ export class PentacleArena3D {
   }
 
   public resize(width: number, height: number): void {
+    if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return;
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height);
@@ -986,7 +1412,17 @@ export class PentacleArena3D {
       this.animFrameId = null;
     }
     if (this.pointerHandler) this.renderer.domElement.removeEventListener('click', this.pointerHandler);
+    this.pointerCleanup?.();
     this.pointerHandler = undefined;
+    if (this.pmremEnvTexture) {
+      this.pmremEnvTexture.dispose();
+      this.pmremEnvTexture = null;
+    }
+    if (this.scene.environment) {
+      this.scene.environment = null;
+    }
+    this.orbiterBatcher.dispose();
+    this.audioSynth.dispose();
     for (const contest of [...this.contests]) this.finishContest(contest);
     for (const agentId of [...this.avatarRegistry.keys()]) this.removeAvatar(agentId);
     const geometries = new Set<THREE.BufferGeometry>();
@@ -1008,6 +1444,10 @@ export class PentacleArena3D {
     this.leyLineMaterial = null;
     this.renderer.dispose();
     if (this.renderer.domElement.parentElement) this.renderer.domElement.parentElement.removeChild(this.renderer.domElement);
+  }
+
+  public dispose(): void {
+    this.destroy();
   }
 
 }

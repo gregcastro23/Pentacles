@@ -13,19 +13,41 @@
  * deterministic Rust companion reducer.
  */
 
-import { type PentacleArena3D } from './pentacle-arena-3d';
+import { type PentacleArena3D, getZoneTitle } from './pentacle-arena-3d';
 import {
   type RatedAgentPayload,
   type EsmsBalances,
   type SealTier,
-  FIXTURE_AGENTS,
   SACRED_STAT_KEYS,
   computeRelativeAdvantage,
   resolveArchetype,
   type SacredStatKey,
 } from './rating-contract';
-import { liveWalletSync, syncAgentEsmsFromSpacetime } from './live-wallet-sync';
+import { syncAgentEsmsFromSpacetime } from './live-wallet-sync';
+import { applyRatingSnapshot } from './agent-rating-feed';
 import { HISTORICAL_AGENTS, PLANET_NAMES } from '../../alchm-chart/historical-agents.js';
+
+export interface CourtTimelineEvent {
+  id: string;
+  type: 'arrival' | 'contest' | 'rating';
+  timestamp: number;
+  zoneId: number;
+  agentKey: string;
+  agentHandle: string;
+  faction: number;
+  fromZoneId?: number;
+  targetZoneId?: number;
+  rivalKey?: string;
+  rivalHandle?: string;
+  rivalFaction?: number;
+  summary: string;
+  detail?: string;
+  ovrBefore?: number;
+  ovrAfter?: number;
+  transitDelta?: number;
+}
+
+export type TimelineEventListener = (event: CourtTimelineEvent) => void;
 
 export interface SpacetimeZoneRow {
   zoneId: number;
@@ -74,11 +96,11 @@ export function normalizeOwnerFaction(owner: any): number | null {
 
 type Row = Record<string, any>;
 const TABLE_KEYS = {
-  zone: 'zoneId', agent_chart: 'identity', player: 'identity', melee_table: 'tableId',
+  zone: 'zoneId', agent_chart: 'identity', agent_rating: 'identity', player: 'identity', melee_table: 'tableId',
   melee_seat: 'seatId', melee_play: 'playId', melee_trick: 'trickId',
 } as const;
 type TableName = keyof typeof TABLE_KEYS;
-interface CombatBeat { tableId: string; attacker: string; defender: string }
+interface CombatBeat { kind: 'strike' | 'result'; tableId: string; attacker: string; defender: string }
 
 function identityKey(value: any): string {
   return String(value?.toHexString?.() ?? value?.__identity__ ?? value ?? '').replace(/^0x/i, '').toLowerCase();
@@ -115,6 +137,8 @@ export class SpacetimeDBBridge {
   private zoneListeners: Set<ZoneRowListener> = new Set();
   private agentListeners: Set<AgentChartListener> = new Set();
   private meleeListeners: Set<MeleeTableListener> = new Set();
+  private timeline: CourtTimelineEvent[] = [];
+  private timelineListeners: Set<TimelineEventListener> = new Set();
 
   /**
    * Attach active 3D Pentacle Court Arena for live pedestal updates
@@ -208,6 +232,7 @@ export class SpacetimeDBBridge {
     this.busyZones.clear();
     for (const key of this.managedAgents) this.arena?.removeAvatar(key);
     this.managedAgents.clear();
+    this.timeline = [];
   }
 
   private tableRows(table: TableName): Map<string, Row> {
@@ -218,13 +243,13 @@ export class SpacetimeDBBridge {
 
   private rowKey(table: TableName, row: Row): string {
     const value = row[TABLE_KEYS[table]];
-    return table === 'agent_chart' || table === 'player' ? identityKey(value) : String(value);
+    return table === 'agent_chart' || table === 'agent_rating' || table === 'player' ? identityKey(value) : String(value);
   }
 
   private replaceRows(table: TableName, incoming: Row[], initial: boolean): void {
     const rows = this.tableRows(table);
     rows.clear();
-    for (const input of incoming) {
+    for (const input of incoming ?? []) {
       const row = normalizeRow(input);
       const key = this.rowKey(table, row);
       rows.set(key, row);
@@ -263,18 +288,24 @@ export class SpacetimeDBBridge {
     const historical = !seat.isHuman && HISTORICAL_AGENTS.find((agent: any) => nameKey(agent.handle) === nameKey(handle));
     const key = historical?.key ?? `seeker-${identity}`;
     const faction = normalizeOwnerFaction(seat.faction) ?? historical?.faction ?? 0;
-    const cached = liveWalletSync.getCachedAgent(key) ?? FIXTURE_AGENTS.find((agent) => agent.key === key);
-    if (cached) return { ...cached, handle, faction, factionName: PLANET_NAMES[faction] };
     // A chart provides identity/natal data, not ratings or holdings. Keep missing ratings explicit.
     const ratings = Object.fromEntries(SACRED_STAT_KEYS.map((stat) => [stat, 25])) as Record<SacredStatKey, number>;
     const relativeAdvantage = computeRelativeAdvantage(ratings);
-    return {
-      key, handle, faction, factionName: PLANET_NAMES[faction], isPlaceholder: true,
+    const base: RatedAgentPayload = {
+      ratingSource: 'live', key, handle, faction, factionName: PLANET_NAMES[faction], isPlaceholder: true,
       provenance: historical ? 'historical' : 'user', ratings, relativeAdvantage, ovr: 25,
       archetype: resolveArchetype(relativeAdvantage), esms: { spirit: 0, essence: 0, matter: 0, substance: 0 },
       seals: [], surge: { meter: 0, active: false, surgeType: 'inferno', monica: null,
         monicaState: 'absent', heat: 0, reactivity: 0, statBoosts: {} },
     };
+    // Ratings join by the actual occupant identity, never by a user-controlled human handle.
+    const rating = !seat.isHuman && this.tableRows('agent_chart').has(identity)
+      ? this.tableRows('agent_rating').get(identity) : undefined;
+    if (rating && historical && rating.agentKey === historical.key) {
+      try { return applyRatingSnapshot(base, rating.snapshotJson, Number(rating.observedAtMs)); }
+      catch { /* Malformed/unsupported snapshots stay explicitly pending. */ }
+    }
+    return base;
   }
 
   private reconcile(): void {
@@ -307,10 +338,54 @@ export class SpacetimeDBBridge {
       const registered = this.arena.avatarRegistry.get(key);
       if (!registered) {
         this.arena.placeAvatarOnZone(target.zoneId, target.payload, target.slot);
-      } else if ((registered.targetZoneId ?? registered.group.userData.zoneId) !== target.zoneId) {
-        void this.arena.moveAvatarToZone(key, target.zoneId, 900, target.slot);
-      } else if (registered.payload.handle !== target.payload.handle || registered.payload.faction !== target.payload.faction) {
-        this.arena.refreshAvatar(target.payload);
+        this.recordTimelineEvent({
+          type: 'arrival',
+          zoneId: target.zoneId,
+          agentKey: target.payload.key,
+          agentHandle: target.payload.handle,
+          faction: target.payload.faction,
+          targetZoneId: target.zoneId,
+          summary: `${target.payload.handle} arrived at ${getZoneTitle(target.zoneId)}`,
+          detail: `Took ${target.slot} position in ${getZoneTitle(target.zoneId)}`,
+        });
+      } else {
+        if (JSON.stringify(registered.payload) !== JSON.stringify(target.payload)) {
+          const oldOvr = registered.payload.ovr;
+          const newOvr = target.payload.ovr;
+          const transitDelta = newOvr - oldOvr;
+          this.arena.refreshAvatar(target.payload);
+          if (transitDelta !== 0) {
+            this.recordTimelineEvent({
+              type: 'rating',
+              zoneId: target.zoneId,
+              agentKey: target.payload.key,
+              agentHandle: target.payload.handle,
+              faction: target.payload.faction,
+              ovrBefore: oldOvr,
+              ovrAfter: newOvr,
+              transitDelta,
+              summary: transitDelta > 0
+                ? `${target.payload.handle} rating surged +${transitDelta} (OVR ${newOvr})`
+                : `${target.payload.handle} rating staggered ${transitDelta} (OVR ${newOvr})`,
+              detail: `Alchemical rating shift in ${getZoneTitle(target.zoneId)}`,
+            });
+          }
+        }
+        const currentZoneId = registered.targetZoneId ?? registered.group.userData.zoneId;
+        if (currentZoneId !== target.zoneId) {
+          void this.arena.moveAvatarToZone(key, target.zoneId, 900, target.slot);
+          this.recordTimelineEvent({
+            type: 'arrival',
+            zoneId: target.zoneId,
+            fromZoneId: currentZoneId,
+            targetZoneId: target.zoneId,
+            agentKey: target.payload.key,
+            agentHandle: target.payload.handle,
+            faction: target.payload.faction,
+            summary: `${target.payload.handle} deployed to ${getZoneTitle(target.zoneId)}`,
+            detail: `Relocated from ${getZoneTitle(currentZoneId)} to ${getZoneTitle(target.zoneId)}`,
+          });
+        }
       }
     }
     this.dispatchCombat(seatAgents, activeTables);
@@ -329,20 +404,54 @@ export class SpacetimeDBBridge {
         String(this.tableRows('melee_seat').get(seatId)?.tableId) === String(play.tableId));
       if (!table || !attacker || !rival) continue;
       this.seenPlays.add(key);
-      this.enqueueCombat(table.zoneId, { tableId: String(play.tableId), attacker, defender: rival[1] });
+      this.enqueueCombat(table.zoneId, { kind: 'strike', tableId: String(play.tableId), attacker, defender: rival[1] });
+      const attackerPayload = this.arena.avatarRegistry.get(attacker)?.payload;
+      const defenderPayload = this.arena.avatarRegistry.get(rival[1])?.payload;
+      const attackerHandle = attackerPayload?.handle ?? attacker;
+      const defenderHandle = defenderPayload?.handle ?? rival[1];
+      const zoneTitle = getZoneTitle(table.zoneId);
+      this.recordTimelineEvent({
+        type: 'contest',
+        zoneId: table.zoneId,
+        agentKey: attacker,
+        agentHandle: attackerHandle,
+        faction: attackerPayload?.faction ?? 0,
+        rivalKey: rival[1],
+        rivalHandle: defenderHandle,
+        rivalFaction: defenderPayload?.faction ?? 0,
+        summary: `${attackerHandle} engaged ${defenderHandle} in ${zoneTitle}`,
+        detail: `Card strike in round ${Number(table.roundIndex ?? 1) + 1} contesting territory control`,
+      });
     }
-    for (const trick of this.tableRows('melee_trick').values()) {
+    const tricks = [...this.tableRows('melee_trick').values()].sort((a, b) => compareIds(a.trickId, b.trickId));
+    for (const trick of tricks) {
       const key = String(trick.trickId);
       if (this.seenTricks.has(key)) continue;
       if (!activeTables.has(String(trick.tableId))) { this.seenTricks.add(key); continue; }
       const table = this.tableRows('melee_table').get(String(trick.tableId));
       const winner = seatAgents.get(String(trick.winnerSeat));
       const lastRival = [...plays].reverse().find((play) => String(play.tableId) === String(trick.tableId) &&
-        play.trickNumber === trick.trickNumber && String(play.seatId) !== String(trick.winnerSeat));
+        String(play.trickNumber) === String(trick.trickNumber) && String(play.seatId) !== String(trick.winnerSeat));
       const rival = lastRival && seatAgents.get(String(lastRival.seatId));
       if (!table || !winner || !rival) continue;
       this.seenTricks.add(key);
-      this.enqueueCombat(table.zoneId, { tableId: String(trick.tableId), attacker: winner, defender: rival });
+      this.enqueueCombat(table.zoneId, { kind: 'result', tableId: String(trick.tableId), attacker: winner, defender: rival });
+      const winnerPayload = this.arena.avatarRegistry.get(winner)?.payload;
+      const rivalPayload = this.arena.avatarRegistry.get(rival)?.payload;
+      const winnerHandle = winnerPayload?.handle ?? winner;
+      const rivalHandle = rivalPayload?.handle ?? rival;
+      this.recordTimelineEvent({
+        type: 'contest',
+        zoneId: table.zoneId,
+        agentKey: winner,
+        agentHandle: winnerHandle,
+        faction: winnerPayload?.faction ?? 0,
+        rivalKey: rival,
+        rivalHandle: rivalHandle,
+        rivalFaction: rivalPayload?.faction ?? 0,
+        summary: `${winnerHandle} triumphed over ${rivalHandle} in trick ${trick.trickNumber}`,
+        detail: `Secured trick momentum for ${getZoneTitle(table.zoneId)}`,
+      });
     }
   }
 
@@ -368,7 +477,10 @@ export class SpacetimeDBBridge {
       this.playNextCombat(zoneId);
     };
     // Snapshot batches often contain several plays. Let each visual beat finish before the next.
-    this.arena.animateZoneContest(zoneId, beat.attacker, beat.defender).then(finished, finished);
+    const animation = beat.kind === 'result'
+      ? this.arena.animateTrickOutcome(zoneId, beat.attacker, beat.defender)
+      : this.arena.animateZoneContest(zoneId, beat.attacker, beat.defender);
+    animation.then(finished, finished);
   }
 
   /**
@@ -459,6 +571,35 @@ export class SpacetimeDBBridge {
 
   public isOnline(): boolean {
     return this.isConnected;
+  }
+
+  public getTimeline(): CourtTimelineEvent[] {
+    return [...this.timeline];
+  }
+
+  public onTimelineEvent(listener: TimelineEventListener): () => void {
+    this.timelineListeners.add(listener);
+    return () => this.timelineListeners.delete(listener);
+  }
+
+  public recordTimelineEvent(
+    event: Omit<CourtTimelineEvent, 'id' | 'timestamp'> & { id?: string; timestamp?: number }
+  ): CourtTimelineEvent {
+    const fullEvent: CourtTimelineEvent = {
+      id: event.id ?? `evt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      timestamp: event.timestamp ?? Date.now(),
+      ...event,
+    };
+    this.timeline.unshift(fullEvent);
+    if (this.timeline.length > 50) this.timeline.pop();
+    for (const listener of this.timelineListeners) {
+      try {
+        listener(fullEvent);
+      } catch (err) {
+        console.error('[SpacetimeDBBridge] Timeline listener error:', err);
+      }
+    }
+    return fullEvent;
   }
 }
 
