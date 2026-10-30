@@ -278,5 +278,47 @@ describe('SpacetimeDB Client Bridge & Rust Server Reducer Alignment', () => {
       expect(contestCalled).toBe(true);
       arena.destroy();
     });
+
+    it('supports dispatchConversionSettlement and dispatchStarStakeUpdate with object payload', () => {
+      const bridge = new SpacetimeDBBridge();
+      const arena = new PentacleArena3D();
+      arena.loadFixtures();
+      bridge.attachArena(arena);
+
+      const timelineEvents: any[] = [];
+      bridge.onTimelineEvent(evt => timelineEvents.push(evt));
+
+      // 1. Conversion settlement on Isaac Newton
+      bridge.dispatchConversionSettlement({
+        escrowId: 'escrow-mainnet-001',
+        agentId: 'isaac-newton',
+        status: 'settled',
+        spiritAtoms: '250000000000000000000',
+        essenceAtoms: '120000000000000000000',
+        matterAtoms: '95000000000000000000',
+        substanceAtoms: '180000000000000000000',
+      });
+
+      expect(timelineEvents.length).toBe(1);
+      expect(timelineEvents[0].type).toBe('rating');
+      expect(timelineEvents[0].agentKey).toBe('isaac-newton');
+      expect(timelineEvents[0].summary).toContain('escrow-mainnet-001');
+
+      // 2. Star stake update
+      bridge.dispatchStarStakeUpdate({
+        stakeId: 42,
+        starId: 'regulus-alpha-leonis',
+        stakerIdentity: 'isaac-newton',
+        usdcPrincipalMicros: '500000000',
+        claimedEssenceAtoms: '75000000000000000000',
+      });
+
+      expect(timelineEvents.length).toBe(2);
+      expect(timelineEvents[1].type).toBe('rating');
+      expect(timelineEvents[1].summary).toContain('regulus-alpha-leonis');
+      expect(timelineEvents[1].detail).toContain('500.00 USDC');
+
+      arena.destroy();
+    });
   });
 });

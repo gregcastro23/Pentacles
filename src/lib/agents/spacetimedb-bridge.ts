@@ -625,14 +625,14 @@ export class SpacetimeDBBridge {
   public handleConversionEscrowUpdate(row: Row): void {
     const status = String(row.status ?? '').toLowerCase();
     if (status !== 'settled') return;
-    const conversionId = String(row.conversionId ?? row.conversion_id ?? 'unknown');
-    const identity = identityKey(row.identity);
+    const conversionId = String(row.conversionId ?? row.conversion_id ?? row.escrowId ?? 'unknown');
+    const identity = identityKey(row.identity ?? row.agentId);
     const rawAtoms = row.atoms ?? [];
 
-    const spiritAtoms = parseAtomBigInt(rawAtoms[0]);
-    const essenceAtoms = parseAtomBigInt(rawAtoms[1]);
-    const matterAtoms = parseAtomBigInt(rawAtoms[2]);
-    const substanceAtoms = parseAtomBigInt(rawAtoms[3]);
+    const spiritAtoms = parseAtomBigInt(rawAtoms[0] ?? row.spiritAtoms);
+    const essenceAtoms = parseAtomBigInt(rawAtoms[1] ?? row.essenceAtoms);
+    const matterAtoms = parseAtomBigInt(rawAtoms[2] ?? row.matterAtoms);
+    const substanceAtoms = parseAtomBigInt(rawAtoms[3] ?? row.substanceAtoms);
 
     const formatAtom = (val: bigint) => {
       if (val >= 10n ** 10n) {
@@ -697,11 +697,11 @@ export class SpacetimeDBBridge {
    */
   public handleStarStakeUpdate(row: Row): void {
     const stakeId = String(row.stakeId ?? row.stake_id ?? '0');
-    const stakerKey = identityKey(row.staker);
-    const starId = Number(row.starId ?? row.star_id ?? 0);
-    const principalRaw = parseAtomBigInt(row.principalUsdc ?? row.principal_usdc ?? 0);
+    const stakerKey = identityKey(row.staker ?? row.stakerIdentity);
+    const starId = String(row.starId ?? row.star_id ?? '0');
+    const principalRaw = parseAtomBigInt(row.usdcPrincipalMicros ?? row.principalUsdc ?? row.principal_usdc ?? 0);
     const principalUsdc = (Number(principalRaw) / 1e6).toFixed(2);
-    const claimedRaw = parseAtomBigInt(row.claimedEssence ?? row.claimed_essence ?? 0);
+    const claimedRaw = parseAtomBigInt(row.claimedEssenceAtoms ?? row.claimedEssence ?? row.claimed_essence ?? 0);
     const elementId = Number(row.element ?? 0);
     const elementNames = ['Spirit', 'Essence', 'Matter', 'Substance'];
     const elementName = elementNames[elementId] ?? 'Spirit';
@@ -735,38 +735,100 @@ export class SpacetimeDBBridge {
    * Directly dispatch a confirmed Pentacle ↔ ESMS conversion escrow settlement on Solana
    */
   public dispatchConversionSettlement(
-    conversionId: string,
-    identity: string,
-    atoms: Array<string | number | bigint>,
-    status: 'settled' | 'escrowed' | 'refunded' = 'settled'
+    conversionOrOptions: string | {
+      conversionId?: string;
+      escrowId?: string;
+      identity?: string;
+      agentId?: string;
+      atoms?: Array<string | number | bigint>;
+      spiritAtoms?: string | number | bigint;
+      essenceAtoms?: string | number | bigint;
+      matterAtoms?: string | number | bigint;
+      substanceAtoms?: string | number | bigint;
+      status?: 'settled' | 'escrowed' | 'refunded' | string;
+    },
+    identityArg?: string,
+    atomsArg?: Array<string | number | bigint>,
+    statusArg: 'settled' | 'escrowed' | 'refunded' | string = 'settled'
   ): void {
-    this.handleConversionEscrowUpdate({
-      conversionId,
-      identity,
-      atoms: atoms.map(String),
-      status,
-    });
+    if (typeof conversionOrOptions === 'object' && conversionOrOptions !== null) {
+      const opts = conversionOrOptions;
+      const conversionId = String(opts.conversionId ?? opts.escrowId ?? 'conversion-live');
+      const identity = String(opts.identity ?? opts.agentId ?? '');
+      const atoms = opts.atoms
+        ? opts.atoms.map(String)
+        : [
+            String(opts.spiritAtoms ?? 0),
+            String(opts.essenceAtoms ?? 0),
+            String(opts.matterAtoms ?? 0),
+            String(opts.substanceAtoms ?? 0),
+          ];
+      const status = String(opts.status ?? 'settled');
+      this.handleConversionEscrowUpdate({
+        conversionId,
+        identity,
+        atoms,
+        spiritAtoms: opts.spiritAtoms,
+        essenceAtoms: opts.essenceAtoms,
+        matterAtoms: opts.matterAtoms,
+        substanceAtoms: opts.substanceAtoms,
+        status,
+      });
+    } else {
+      const conversionId = String(conversionOrOptions);
+      const identity = String(identityArg ?? '');
+      const atoms = (atomsArg ?? []).map(String);
+      const status = String(statusArg ?? 'settled');
+      this.handleConversionEscrowUpdate({
+        conversionId,
+        identity,
+        atoms,
+        status,
+      });
+    }
   }
 
   /**
    * Directly dispatch a star staking position update on Solana
    */
   public dispatchStarStakeUpdate(
-    stakeId: string | number,
-    staker: string,
-    starId: number,
-    principalUsdc: string | number | bigint,
-    claimedEssence: string | number | bigint = 0n,
-    element = 0
+    stakeOrOptions: string | number | {
+      stakeId?: string | number;
+      staker?: string;
+      stakerIdentity?: string;
+      starId?: string | number;
+      principalUsdc?: string | number | bigint;
+      usdcPrincipalMicros?: string | number | bigint;
+      claimedEssence?: string | number | bigint;
+      claimedEssenceAtoms?: string | number | bigint;
+      element?: number;
+    },
+    stakerArg?: string,
+    starIdArg?: string | number,
+    principalUsdcArg?: string | number | bigint,
+    claimedEssenceArg: string | number | bigint = 0n,
+    elementArg = 0
   ): void {
-    this.handleStarStakeUpdate({
-      stakeId,
-      staker,
-      starId,
-      principalUsdc: String(principalUsdc),
-      claimedEssence: String(claimedEssence),
-      element,
-    });
+    if (typeof stakeOrOptions === 'object' && stakeOrOptions !== null) {
+      const opts = stakeOrOptions;
+      this.handleStarStakeUpdate({
+        stakeId: opts.stakeId ?? 0,
+        staker: opts.staker ?? opts.stakerIdentity ?? '',
+        starId: opts.starId ?? 0,
+        principalUsdc: String(opts.usdcPrincipalMicros ?? opts.principalUsdc ?? 0),
+        claimedEssence: String(opts.claimedEssenceAtoms ?? opts.claimedEssence ?? 0),
+        element: opts.element ?? 0,
+      });
+    } else {
+      this.handleStarStakeUpdate({
+        stakeId: stakeOrOptions,
+        staker: stakerArg ?? '',
+        starId: starIdArg ?? 0,
+        principalUsdc: String(principalUsdcArg ?? 0),
+        claimedEssence: String(claimedEssenceArg ?? 0),
+        element: elementArg,
+      });
+    }
   }
 
   /**
@@ -1060,5 +1122,11 @@ export default {
   },
   dispatchTrickResolution(...args: any[]) {
     return (spacetimeCourtBridge?.dispatchTrickResolution as any)?.(...args);
+  },
+  dispatchConversionSettlement(...args: any[]) {
+    return (spacetimeCourtBridge?.dispatchConversionSettlement as any)?.(...args);
+  },
+  dispatchStarStakeUpdate(...args: any[]) {
+    return (spacetimeCourtBridge?.dispatchStarStakeUpdate as any)?.(...args);
   },
 };
