@@ -53,3 +53,23 @@ describe("startFeed", () => {
     })).toThrow(/table "no_such_table" is not in src\/module_bindings/);
   });
 });
+
+
+describe("nextReconnectDelayMs", () => {
+  test("follows [3000, 6000, 12000, 30000, 60000] ladder and caps jitter at 60_000ms", async () => {
+    const { nextReconnectDelayMs, RECONNECT_DELAYS_MS } = await import("../feeder/stdb-feed");
+    expect([...RECONNECT_DELAYS_MS]).toEqual([3000, 6000, 12000, 30000, 60000]);
+
+    expect([0, 1, 2, 3, 4, 5, 99].map((attempt) => nextReconnectDelayMs(attempt, () => 0))).toEqual([
+      3000, 6000, 12000, 30000, 60000, 60000, 60000,
+    ]);
+    expect(nextReconnectDelayMs(-2, () => 0)).toBe(3000);
+
+    for (let attempt = 0; attempt <= 6; attempt++) {
+      const min = nextReconnectDelayMs(attempt, () => 0);
+      const max = nextReconnectDelayMs(attempt, () => 1);
+      expect(max).toBeGreaterThanOrEqual(min);
+      expect(max).toBeLessThanOrEqual(60_000);
+    }
+  });
+});

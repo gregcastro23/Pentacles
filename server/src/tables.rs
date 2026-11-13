@@ -1523,4 +1523,24 @@ pub struct PentacleConversionEscrow {
     pub atoms: Vec<String>,
 }
 
+/// Active non-owner client connections (excludes `cfg.owner` feeders and database identity).
+/// Used by `tick_sky` so background ticks idle cleanly when the court has no human viewers.
+#[spacetimedb::table(accessor = connected_session)]
+#[derive(Clone)]
+pub struct ConnectedSession {
+    #[primary_key]
+    pub identity: Identity,
+    pub connection_count: u32,
+    pub last_seen_at: Timestamp,
+}
+
+/// Persists the last full `tick_sky` timestamp so idle ticks can fast-exit between baseline sweeps.
+#[spacetimedb::table(accessor = sky_tick_state)]
+#[derive(Clone)]
+pub struct SkyTickState {
+    #[primary_key]
+    pub id: u8,
+    pub last_full_tick_at: Timestamp,
+}
+
 

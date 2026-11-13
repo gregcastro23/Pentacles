@@ -313,12 +313,90 @@ export function geyserSubscribeRequest(
  * Signatures already delivered are remembered so a tier change, or a
  * transaction listing several addresses, replays nothing.
  */
+export const BASE_RATE_LIMIT_BACKOFF_MS = 5_000;
+export const MAX_RATE_LIMIT_BACKOFF_MS = 120_000;
+
+export function parseRetryAfterMs(
+  headerValue: string | null | undefined,
+  nowMs = Date.now(),
+): number | null {
+  if (!headerValue) return null;
+  const trimmed = headerValue.trim();
+  if (!trimmed) return null;
+  if (/^\d+(\.\d+)?$/.test(trimmed)) {
+    const seconds = Number(trimmed);
+    return Number.isFinite(seconds) ? Math.max(0, Math.round(seconds * 1_000)) : null;
+  }
+  const targetMs = Date.parse(trimmed);
+  if (!Number.isFinite(targetMs)) return null;
+  return Math.max(0, targetMs - nowMs);
+}
+
+export function isRateLimitError(err: unknown): boolean {
+  if (!err) return false;
+  const status = (err as { status?: unknown; code?: unknown }).status ?? (err as { code?: unknown }).code;
+  if (status === 429) return true;
+  const message = err instanceof Error ? err.message : String(err);
+  return /\b429\b|too many requests/i.test(message);
+}
+
+export function computeRateLimitBackoffMs(
+  attempt: number,
+  retryAfterMs?: number | null,
+  maxBackoffMs = MAX_RATE_LIMIT_BACKOFF_MS,
+): number {
+  const expMs = Math.min(maxBackoffMs, BASE_RATE_LIMIT_BACKOFF_MS * 2 ** Math.max(0, Math.floor(attempt)));
+  const floorMs =
+    retryAfterMs !== null && retryAfterMs !== undefined && Number.isFinite(retryAfterMs)
+      ? Math.max(0, Math.round(retryAfterMs))
+      : 0;
+  return Math.min(maxBackoffMs, Math.max(expMs, floorMs));
+}
+
 export async function createResilientLogStream(options: StreamOptions): Promise<StreamHandle> {
   const { addresses, config, onLogs } = options;
   const commitment = options.commitment ?? "confirmed";
   const pollIntervalMs = options.pollIntervalMs ?? 15_000;
   const geyserEndpoint = (options.geyserEndpoint ?? process.env.SOLANA_GEYSER_ENDPOINT)?.trim();
-  const connect = options.connect ?? ((endpoint: string) => new Connection(endpoint, commitment));
+  let rateLimitAttempt = 0;
+  let rateLimitedUntilMs = 0;
+  let lastRetryAfterMs: number | null = null;
+
+  const recordRateLimit = (err: unknown): number => {
+    const headerRetryAfter =
+      (err as { retryAfterMs?: number | null; headers?: { get?: (k: string) => string | null } })
+        ?.retryAfterMs ??
+      parseRetryAfterMs(
+        (err as { headers?: { get?: (k: string) => string | null } })?.headers?.get?.("retry-after"),
+      );
+    const retryAfter = lastRetryAfterMs ?? headerRetryAfter ?? null;
+    lastRetryAfterMs = null;
+    const delayMs = computeRateLimitBackoffMs(rateLimitAttempt, retryAfter);
+    rateLimitAttempt += 1;
+    rateLimitedUntilMs = Math.max(rateLimitedUntilMs, Date.now() + delayMs);
+    return delayMs;
+  };
+
+  const clearRateLimit = (): void => {
+    rateLimitAttempt = 0;
+    rateLimitedUntilMs = 0;
+    lastRetryAfterMs = null;
+  };
+
+  const connect =
+    options.connect ??
+    ((endpoint: string) =>
+      new Connection(endpoint, {
+        commitment,
+        disableRetryOnRateLimit: true,
+        fetch: async (input, init) => {
+          const response = await fetch(input, init);
+          if (response.status === 429) {
+            lastRetryAfterMs = parseRetryAfterMs(response.headers.get("retry-after"));
+          }
+          return response;
+        },
+      }));
   if (addresses.length === 0) throw new Error("createResilientLogStream needs at least one address");
 
   const seen = new Set<string>();
@@ -404,10 +482,19 @@ export async function createResilientLogStream(options: StreamOptions): Promise<
   async function onNotification(connection: StreamConnection, logs: Logs): Promise<void> {
     // A failed transaction changed no balances. Polling skips these too.
     if (logs.err || seen.has(logs.signature)) return;
+    if (Date.now() < rateLimitedUntilMs) return;
     let entry: LogEntry | null;
     try {
       entry = await fetchEntry(connection, logs.signature);
+      clearRateLimit();
     } catch (err) {
+      if (isRateLimitError(err)) {
+        const delayMs = recordRateLimit(err);
+        console.warn(
+          `[stream] rate limited (429) on getTransaction ${logs.signature}; backing off ${delayMs}ms (attempt ${rateLimitAttempt})`,
+        );
+        return;
+      }
       console.warn(
         `[stream] getTransaction ${logs.signature} failed (${(err as Error)?.message ?? err}); polling will retry`,
       );
@@ -451,7 +538,7 @@ export async function createResilientLogStream(options: StreamOptions): Promise<
     let polling = false;
     poller = setInterval(async () => {
       // A pass over every address can outlast the interval. Never run two.
-      if (stopped || polling) return;
+      if (stopped || polling || Date.now() < rateLimitedUntilMs) return;
       polling = true;
       try {
         // Oldest first across all addresses, so events replay in chain order.
@@ -469,12 +556,20 @@ export async function createResilientLogStream(options: StreamOptions): Promise<
           const entry = await fetchEntry(connection, signature);
           if (entry) await deliver(entry);
         }
+        clearRateLimit();
         if (tier === "down") {
           tier = "polling";
           console.log("[stream] tier 3 (polling backfill) is the only active tier");
         }
       } catch (err) {
-        console.warn(`[stream] poll failed: ${(err as Error)?.message ?? err}`);
+        if (isRateLimitError(err)) {
+          const delayMs = recordRateLimit(err);
+          console.warn(
+            `[stream] poll rate limited (429); backing off ${delayMs}ms (attempt ${rateLimitAttempt})`,
+          );
+        } else {
+          console.warn(`[stream] poll failed: ${(err as Error)?.message ?? err}`);
+        }
       } finally {
         polling = false;
       }

@@ -316,15 +316,10 @@ const server = Bun.serve({
 
 console.log(`✨ Indoor Spatial Deep-Dive Service listening on http://localhost:${PORT}`);
 
-// Register heartbeat with SpacetimeDB
-async function reportHealth() {
-  try {
-    const timeSec = Math.floor(Date.now() / 1000);
-    await cliCall("service_status:update", [SERVICE_NAME, timeSec, "OK", `Port ${PORT}`]);
-  } catch (err) {
-    // Ignore heartbeat errors if offline
-  }
+// Periodic local health heartbeat (avoid invalid CLI calls to non-existent reducers)
+function reportHealth() {
+  console.log(`[${SERVICE_NAME}] health OK (port ${PORT})`);
 }
 
-setInterval(reportHealth, 30_000);
+setInterval(reportHealth, 300_000);
 reportHealth();

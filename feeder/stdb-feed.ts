@@ -42,6 +42,19 @@ export interface FeedOptions {
   resweepMs?: number;
 }
 
+export const RECONNECT_DELAYS_MS = [3000, 6000, 12000, 30000, 60000] as const;
+
+/**
+ * Exponential WebSocket reconnect delay with bounded +0..20% jitter, capped at 60_000ms.
+ */
+export function nextReconnectDelayMs(attempt: number, random: () => number = Math.random): number {
+  const index = Math.max(0, Math.min(Math.floor(attempt), RECONNECT_DELAYS_MS.length - 1));
+  const base = RECONNECT_DELAYS_MS[index];
+  const clampedRandom = Math.max(0, Math.min(1, random()));
+  const maxJitter = Math.min(Math.round(base * 0.2), 60_000 - base);
+  return Math.min(60_000, base + Math.round(maxJitter * clampedRandom));
+}
+
 // ── One-shot HTTP /sql (read-only) ──────────────────────────────────────────
 //
 // The pre-WebSocket poll transport, kept for point reads (constellation's
@@ -231,10 +244,14 @@ export function startFeed(opts: FeedOptions): void {
   const handle = (raw: unknown) => { dispatch(normalizeWsRow(raw)); };
 
   let reconnecting = false;
+  let reconnectAttempt = 0;
   const scheduleReconnect = () => {
     if (reconnecting) return;
     reconnecting = true;
-    setTimeout(() => { reconnecting = false; connect(); }, 3000);
+    const delayMs = nextReconnectDelayMs(reconnectAttempt);
+    reconnectAttempt += 1;
+    console.warn(`[${label}] Scheduling WebSocket reconnect in ${delayMs}ms (attempt ${reconnectAttempt}).`);
+    setTimeout(() => { reconnecting = false; connect(); }, delayMs);
   };
 
   const connect = () => {
@@ -250,6 +267,7 @@ export function startFeed(opts: FeedOptions): void {
           conn
             .subscriptionBuilder()
             .onApplied(() => {
+              reconnectAttempt = 0;
               const rows = [...tableObj.iter()] as unknown[];
               if (rows.length) console.log(`[${label}] backlog: ${rows.length} pending row(s).`);
               for (const r of rows) handle(r);

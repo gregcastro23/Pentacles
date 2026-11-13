@@ -449,3 +449,62 @@ describe('multi-address log stream', () => {
     }
   })
 })
+
+
+describe('Solana RPC 429 rate-limit backoff', () => {
+  test('parseRetryAfterMs handles seconds and HTTP dates cleanly', async () => {
+    const { parseRetryAfterMs } = await import('../feeder/solana-cluster')
+    const nowMs = 1_700_000_000_000
+    expect(parseRetryAfterMs('5', nowMs)).toBe(5_000)
+    expect(parseRetryAfterMs('1.5', nowMs)).toBe(1_500)
+    expect(parseRetryAfterMs(new Date(nowMs + 12_000).toUTCString(), nowMs)).toBe(12_000)
+    expect(parseRetryAfterMs(new Date(nowMs - 5_000).toUTCString(), nowMs)).toBe(0)
+    expect(parseRetryAfterMs('invalid', nowMs)).toBeNull()
+    expect(parseRetryAfterMs(null, nowMs)).toBeNull()
+  })
+
+  test('computeRateLimitBackoffMs scales exponentially, respects Retry-After, and caps at 120_000ms', async () => {
+    const {
+      computeRateLimitBackoffMs,
+      isRateLimitError,
+      MAX_RATE_LIMIT_BACKOFF_MS,
+    } = await import('../feeder/solana-cluster')
+
+    expect(MAX_RATE_LIMIT_BACKOFF_MS).toBe(120_000)
+    expect([0, 1, 2, 3, 4, 5, 6].map((attempt) => computeRateLimitBackoffMs(attempt))).toEqual([
+      5_000, 10_000, 20_000, 40_000, 80_000, 120_000, 120_000,
+    ])
+    expect(computeRateLimitBackoffMs(0, 45_000)).toBe(45_000)
+    expect(computeRateLimitBackoffMs(0, 300_000)).toBe(120_000)
+    expect(isRateLimitError(new Error('429 Too Many Requests'))).toBe(true)
+    expect(isRateLimitError({ status: 429 })).toBe(true)
+    expect(isRateLimitError(new Error('500 Internal Error'))).toBe(false)
+  })
+
+  test('createResilientLogStream skips polling during 429 cooldown window', async () => {
+    let pollCalls = 0
+    const handle = await createResilientLogStream({
+      addresses: [PENTACLES_PROGRAM_ID],
+      config: CONFIG,
+      pollIntervalMs: 15,
+      onLogs: async () => {},
+      connect: () =>
+        ({
+          onLogs: () => 1,
+          removeOnLogsListener: async () => {},
+          getSignaturesForAddress: async () => {
+            pollCalls += 1
+            const err = new Error('429 Too Many Requests') as Error & { status?: number }
+            err.status = 429
+            throw err
+          },
+          getTransaction: async () => null,
+        }) as any,
+    })
+
+    await new Promise((resolve) => setTimeout(resolve, 90))
+    await handle.stop()
+    // Without cooldown, 90ms / 15ms would fire ~5 times; 5_000ms+ cooldown caps it to 1 call.
+    expect(pollCalls).toBe(1)
+  })
+})

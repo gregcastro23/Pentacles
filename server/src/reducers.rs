@@ -82,6 +82,10 @@ const DUEL_TICKET_TTL_SECS: i64 = 24 * 3600;
 /// bounded. (Was 5 minutes, contradicting this comment; the per-table counts also
 /// survive in `melee_result.agent_turns` / `fallback_turns`.)
 const AGENT_MELEE_TURN_TTL_SECS: i64 = 24 * 3600;
+/// Idle `tick_sky` baseline cadence when no live War Tables or client sessions are active.
+const SKY_TICK_IDLE_INTERVAL_SECS: i64 = 60;
+/// Cadence of `prune_war_history` (widened from 5s to 30s to save TeV energy).
+const WAR_PRUNE_INTERVAL_SECS: u64 = 30;
 /// `agent_war` writes up to ten faction-agent raids per 10 s tick. Those keep an
 /// hour; a human's battle keeps the full `BATTLE_TTL_SECS` week.
 const AGENT_RAID_TTL_SECS: i64 = 3600;
@@ -1719,8 +1723,106 @@ fn has_loadout(ctx: &ReducerContext, owner: Identity, card_id: u64, loadout: Loa
 
 /// Fires on the schedule: decays held zones, wheels the living sky, sweeps
 /// stalled duels, advances the Great Wheel, and lets unmanned factions raid.
+fn is_service_identity(ctx: &ReducerContext) -> bool {
+    if ctx.sender() == ctx.database_identity() {
+        return true;
+    }
+    ctx.db
+        .game_config()
+        .id()
+        .find(&0)
+        .map(|cfg| cfg.owner == ctx.sender())
+        .unwrap_or(false)
+}
+
+fn should_run_full_sky_tick(
+    has_live_tables: bool,
+    has_connected_clients: bool,
+    unseeded: bool,
+    elapsed_since_full_secs: Option<i64>,
+) -> bool {
+    if has_live_tables || has_connected_clients || unseeded {
+        return true;
+    }
+    match elapsed_since_full_secs {
+        None => true,
+        Some(elapsed) => elapsed >= SKY_TICK_IDLE_INTERVAL_SECS,
+    }
+}
+
+/// Tracks active non-owner WebSocket clients so `tick_sky` runs at full 10s cadence while
+/// viewers/players are connected and throttles to 60s baseline ticks when idle.
+#[reducer(client_connected)]
+pub fn on_client_connected(ctx: &ReducerContext) {
+    if is_service_identity(ctx) {
+        return;
+    }
+    if let Some(mut session) = ctx.db.connected_session().identity().find(&ctx.sender()) {
+        session.connection_count = session.connection_count.saturating_add(1);
+        session.last_seen_at = ctx.timestamp;
+        ctx.db.connected_session().identity().update(session);
+    } else {
+        ctx.db.connected_session().insert(ConnectedSession {
+            identity: ctx.sender(),
+            connection_count: 1,
+            last_seen_at: ctx.timestamp,
+        });
+    }
+}
+
+#[reducer(client_disconnected)]
+pub fn on_client_disconnected(ctx: &ReducerContext) {
+    if is_service_identity(ctx) {
+        return;
+    }
+    if let Some(mut session) = ctx.db.connected_session().identity().find(&ctx.sender()) {
+        if session.connection_count <= 1 {
+            ctx.db.connected_session().identity().delete(&ctx.sender());
+        } else {
+            session.connection_count -= 1;
+            session.last_seen_at = ctx.timestamp;
+            ctx.db.connected_session().identity().update(session);
+        }
+    }
+}
+
 #[reducer]
 pub fn tick_sky(ctx: &ReducerContext, _timer: SkyTickTimer) {
+    let has_live_tables = !live_melee_tables(ctx).is_empty();
+    let has_connected_clients = ctx.db.connected_session().iter().next().is_some();
+    let unseeded = ctx
+        .db
+        .game_config()
+        .id()
+        .find(&0)
+        .map(|cfg| !cfg.seeded)
+        .unwrap_or(false);
+    let elapsed_since_full = ctx
+        .db
+        .sky_tick_state()
+        .id()
+        .find(&0)
+        .map(|state| elapsed_secs(ctx.timestamp, state.last_full_tick_at));
+
+    if !should_run_full_sky_tick(
+        has_live_tables,
+        has_connected_clients,
+        unseeded,
+        elapsed_since_full,
+    ) {
+        return;
+    }
+
+    if let Some(mut state) = ctx.db.sky_tick_state().id().find(&0) {
+        state.last_full_tick_at = ctx.timestamp;
+        ctx.db.sky_tick_state().id().update(state);
+    } else {
+        ctx.db.sky_tick_state().insert(SkyTickState {
+            id: 0,
+            last_full_tick_at: ctx.timestamp,
+        });
+    }
+
     // Roll the decan FIRST, so every table settled in this tick credits the decan
     // it is stamped with.
     war_decan_tick(ctx); // crown the decan champion when the Sun crosses 10°
@@ -4861,10 +4963,16 @@ fn record_war_season(ctx: &ReducerContext, standings: &[u32; 10], champion: Opti
 /// Seed the `prune_war_history` schedule if it is missing (a module update does
 /// not re-run `init`, so an upgraded database starts without it).
 fn ensure_war_prune_timer(ctx: &ReducerContext) {
-    if ctx.db.war_prune_timer().iter().next().is_none() {
+    let target = ScheduleAt::Interval(Duration::from_secs(WAR_PRUNE_INTERVAL_SECS).into());
+    if let Some(mut row) = ctx.db.war_prune_timer().iter().next() {
+        if row.scheduled_at != target {
+            row.scheduled_at = target;
+            ctx.db.war_prune_timer().scheduled_id().update(row);
+        }
+    } else {
         ctx.db.war_prune_timer().insert(WarPruneTimer {
             scheduled_id: 0,
-            scheduled_at: ScheduleAt::Interval(Duration::from_secs(5).into()),
+            scheduled_at: target,
         });
     }
 }
@@ -4913,6 +5021,7 @@ pub fn prune_war_history(ctx: &ReducerContext, _timer: WarPruneTimer) {
     if ctx.sender() != ctx.database_identity() {
         return;
     }
+    ensure_war_prune_timer(ctx);
     let mut ps = ensure_war_prune_state(ctx);
     let mut tables_left = MELEE_PRUNE_TABLES_PER_CALL;
     let mut rows_left = MELEE_PRUNE_ROWS_PER_CALL;
@@ -9964,5 +10073,17 @@ mod tests {
                 assert!(drain_pool(&mut short, mv).is_err(), "{mv:?} one esms[{e}] short");
             }
         }
+    }
+
+    #[test]
+    fn sky_tick_fast_exits_when_idle_within_60s() {
+        assert!(!super::should_run_full_sky_tick(false, false, false, Some(0)));
+        assert!(!super::should_run_full_sky_tick(false, false, false, Some(59)));
+        assert!(super::should_run_full_sky_tick(false, false, false, Some(60)));
+        assert!(super::should_run_full_sky_tick(false, false, false, None));
+        assert!(super::should_run_full_sky_tick(true, false, false, Some(5)));
+        assert!(super::should_run_full_sky_tick(false, true, false, Some(5)));
+        assert!(super::should_run_full_sky_tick(false, false, true, Some(5)));
+        assert_eq!(super::WAR_PRUNE_INTERVAL_SECS, 30);
     }
 }

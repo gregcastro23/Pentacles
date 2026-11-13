@@ -456,3 +456,98 @@ describe('only ASOL claims and redeems credit ESMS', () => {
     expect(esmsEventsForTransaction({ ...swap, instructions: [at(asol, 'claim_mint_esms')] }, 0)).toHaveLength(2)
   })
 })
+
+
+describe('Unbound Solana address 10-minute suppression cache', () => {
+  test('isUnboundWalletError identifies 530 unbound player errors', async () => {
+    const { isUnboundWalletError, UNBOUND_ADDRESS_TTL_MS } = await import('../feeder/solana-sync-service')
+    expect(UNBOUND_ADDRESS_TTL_MS).toBe(600_000)
+    expect(isUnboundWalletError(new Error('sync_solana_event status 530: no player bound to Solana event address'))).toBe(
+      true,
+    )
+    expect(isUnboundWalletError(new Error('record_star_stake status 530: no player bound to the staking wallet'))).toBe(
+      true,
+    )
+    expect(isUnboundWalletError(new Error('sync_solana_event status 500: upstream timeout'))).toBe(false)
+  })
+
+  test('caches unbound addresses for 10m across ESMS and StarStake reducers and retries after expiry', async () => {
+    const {
+      clearUnboundAddressCache,
+      syncEsmsEvent,
+      syncStarStake,
+      syncStarUnstake,
+      syncTransferHookToSpacetime,
+      UNBOUND_ADDRESS_TTL_MS,
+    } = await import('../feeder/solana-sync-service')
+
+    clearUnboundAddressCache()
+    let clockMs = 1_700_000_000_000
+    let callCount = 0
+    let failUnbound = true
+    const spyReducer = async () => {
+      callCount += 1
+      if (failUnbound) {
+        throw new Error('sync_solana_event status 530: no player bound to Solana event address')
+      }
+    }
+
+    const wallet = 'UnboundWallet11111111111111111111111111111111'
+    const other = 'BoundWallet2222222222222222222222222222222222'
+
+    // First failing call hits reducer and caches wallet.
+    expect(
+      await syncEsmsEvent(
+        { signature: 'sig1', eventType: 'mint', player: wallet, elementId: 0, amount: 100n, timestamp: 1 },
+        { callReducer: spyReducer, now: () => clockMs },
+      ),
+    ).toBe(false)
+    expect(callCount).toBe(1)
+
+    // Subsequent events for same wallet inside 10m window skip reducer calls across all reducers.
+    clockMs += 9 * 60_000
+    expect(
+      await syncStarStake(
+        { signature: 'sig2', staker: wallet, starId: 1, principalUsdc: 500n, shares: 500n, timestamp: 2 },
+        { callReducer: spyReducer, now: () => clockMs },
+      ),
+    ).toBe(false)
+    expect(
+      await syncStarUnstake(
+        { signature: 'sig3', staker: wallet, starId: 1, principalUsdc: 500n, positionPrincipal: 500n, timestamp: 3 },
+        { callReducer: spyReducer, now: () => clockMs },
+      ),
+    ).toBe(false)
+    expect(
+      await syncTransferHookToSpacetime(
+        { signature: 'sig4', fromWallet: wallet, toWallet: other, amount: 10n, timestamp: 4 },
+        { callReducer: spyReducer, now: () => clockMs },
+      ),
+    ).toBe(false)
+    expect(callCount).toBe(1)
+
+    // After 10m TTL expires, retries cleanly and succeeds once player binds.
+    clockMs = 1_700_000_000_000 + UNBOUND_ADDRESS_TTL_MS
+    failUnbound = false
+    expect(
+      await syncEsmsEvent(
+        { signature: 'sig5', eventType: 'mint', player: wallet, elementId: 0, amount: 100n, timestamp: 5 },
+        { callReducer: spyReducer, now: () => clockMs },
+      ),
+    ).toBe(true)
+    expect(callCount).toBe(2)
+
+    // Unrelated 500 errors must still propagate instead of being suppressed.
+    await expect(
+      syncEsmsEvent(
+        { signature: 'sig6', eventType: 'mint', player: other, elementId: 0, amount: 100n, timestamp: 6 },
+        {
+          callReducer: async () => {
+            throw new Error('sync_solana_event status 500: transient failure')
+          },
+          now: () => clockMs,
+        },
+      ),
+    ).rejects.toThrow('status 500')
+  })
+})

@@ -399,64 +399,169 @@ export function esmsEventsForTransaction(
   return esmsEventsFromBalances(entry.signature, entry.meta, timestamp);
 }
 
-// ── Dispatch ────────────────────────────────────────────────────────────────
+export const UNBOUND_ADDRESS_TTL_MS = 10 * 60_000;
+const MAX_UNBOUND_CACHE_ENTRIES = 10_000;
+const unboundAddressExpiries = new Map<string, number>();
 
-export async function syncEsmsEvent(event: EsmsEvent): Promise<void> {
-  await callReducer("sync_solana_event", [
-    BRIDGE_CHAIN,
-    event.signature,
-    event.player,
-    event.eventType,
-    event.elementId,
-    event.amount,
-  ]);
-  console.log(
-    `[SolanaSync] ${event.eventType} ${event.amount} atoms of element ${event.elementId} (${event.signature.slice(0, 12)}…)`,
-  );
+export interface SyncCallOptions {
+  callReducer?: (name: string, args: ReadonlyArray<unknown>) => Promise<void>;
+  now?: () => number;
 }
 
-export async function syncTransferHookToSpacetime(event: TransferHookEvent): Promise<void> {
+export function isUnboundWalletError(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : String(err ?? "");
+  return /no player bound/i.test(message);
+}
+
+export function clearUnboundAddressCache(): void {
+  unboundAddressExpiries.clear();
+}
+
+function isKeyCachedUnbound(key: string, nowMs: number): boolean {
+  const expiresAt = unboundAddressExpiries.get(key);
+  if (expiresAt === undefined) return false;
+  if (nowMs >= expiresAt) {
+    unboundAddressExpiries.delete(key);
+    return false;
+  }
+  return true;
+}
+
+function cacheUnboundKey(key: string, nowMs: number): void {
+  if (!key) return;
+  if (unboundAddressExpiries.size >= MAX_UNBOUND_CACHE_ENTRIES) {
+    unboundAddressExpiries.clear();
+  }
+  unboundAddressExpiries.set(key, nowMs + UNBOUND_ADDRESS_TTL_MS);
+}
+
+export function isAddressUnboundCached(address: string, nowMs = Date.now()): boolean {
+  return isKeyCachedUnbound(address, nowMs);
+}
+
+async function callReducerWithUnboundGuard(
+  wallets: ReadonlyArray<string>,
+  name: string,
+  args: ReadonlyArray<unknown>,
+  opts?: SyncCallOptions,
+): Promise<boolean> {
+  const nowMs = (opts?.now ?? Date.now)();
+  const pairKey = wallets.length > 1 ? `pair:${wallets.join("->")}` : null;
+  const checkKeys = pairKey ? [...wallets, pairKey] : wallets;
+  if (checkKeys.some((key) => isKeyCachedUnbound(key, nowMs))) {
+    return false;
+  }
+
+  const dispatch = opts?.callReducer ?? callReducer;
+  try {
+    await dispatch(name, args);
+    return true;
+  } catch (err) {
+    if (isUnboundWalletError(err)) {
+      const cacheKey = wallets.length === 1 ? wallets[0] : (pairKey ?? "");
+      cacheUnboundKey(cacheKey, nowMs);
+      console.log(
+        `[SolanaSync] Unbound Solana address (${wallets.join(", ").slice(0, 24)}); suppressing ${name} retries for 10m`,
+      );
+      return false;
+    }
+    throw err;
+  }
+}
+
+// ── Dispatch ────────────────────────────────────────────────────────────────
+
+export async function syncEsmsEvent(event: EsmsEvent, opts?: SyncCallOptions): Promise<boolean> {
+  const sent = await callReducerWithUnboundGuard(
+    [event.player],
+    "sync_solana_event",
+    [
+      BRIDGE_CHAIN,
+      event.signature,
+      event.player,
+      event.eventType,
+      event.elementId,
+      event.amount,
+    ],
+    opts,
+  );
+  if (sent) {
+    console.log(
+      `[SolanaSync] ${event.eventType} ${event.amount} atoms of element ${event.elementId} (${event.signature.slice(0, 12)}…)`,
+    );
+  }
+  return sent;
+}
+
+export async function syncTransferHookToSpacetime(
+  event: TransferHookEvent,
+  opts?: SyncCallOptions,
+): Promise<boolean> {
   // `token_amount` used to be coerced to a JS number on its way out. This file
   // already had a lossless encoder for the mint/burn path; the transfer-hook
   // path simply did not use it, so a u64 was pushed through a double on the way
   // to a reducer that expects exact units.
-  await callReducer("transfer_star_stake", [
-    event.signature,
-    event.fromWallet,
-    event.toWallet,
-    event.amount,
-  ]);
-  console.log(
-    `[SolanaSync] star stake transfer ${event.fromWallet.slice(0, 8)}… → ${event.toWallet.slice(0, 8)}…`,
+  const sent = await callReducerWithUnboundGuard(
+    [event.fromWallet, event.toWallet],
+    "transfer_star_stake",
+    [
+      event.signature,
+      event.fromWallet,
+      event.toWallet,
+      event.amount,
+    ],
+    opts,
   );
+  if (sent) {
+    console.log(
+      `[SolanaSync] star stake transfer ${event.fromWallet.slice(0, 8)}… → ${event.toWallet.slice(0, 8)}…`,
+    );
+  }
+  return sent;
 }
 
-export async function syncStarStake(event: StarStakeEvent): Promise<void> {
-  await callReducer("record_star_stake", [
-    BRIDGE_CHAIN,
-    event.signature,
-    event.staker,
-    event.starId,
-    event.principalUsdc,
-    event.shares,
-  ]);
-  console.log(
-    `[SolanaSync] star ${event.starId} staked ${event.principalUsdc} USDC units by ${event.staker.slice(0, 8)}…`,
+export async function syncStarStake(event: StarStakeEvent, opts?: SyncCallOptions): Promise<boolean> {
+  const sent = await callReducerWithUnboundGuard(
+    [event.staker],
+    "record_star_stake",
+    [
+      BRIDGE_CHAIN,
+      event.signature,
+      event.staker,
+      event.starId,
+      event.principalUsdc,
+      event.shares,
+    ],
+    opts,
   );
+  if (sent) {
+    console.log(
+      `[SolanaSync] star ${event.starId} staked ${event.principalUsdc} USDC units by ${event.staker.slice(0, 8)}…`,
+    );
+  }
+  return sent;
 }
 
-export async function syncStarUnstake(event: StarUnstakeEvent): Promise<void> {
-  await callReducer("record_star_unstake", [
-    BRIDGE_CHAIN,
-    event.signature,
-    event.staker,
-    event.starId,
-    event.principalUsdc,
-    event.positionPrincipal,
-  ]);
-  console.log(
-    `[SolanaSync] star ${event.starId} unstaked ${event.principalUsdc} USDC units by ${event.staker.slice(0, 8)}… (remaining: ${event.positionPrincipal})`,
+export async function syncStarUnstake(event: StarUnstakeEvent, opts?: SyncCallOptions): Promise<boolean> {
+  const sent = await callReducerWithUnboundGuard(
+    [event.staker],
+    "record_star_unstake",
+    [
+      BRIDGE_CHAIN,
+      event.signature,
+      event.staker,
+      event.starId,
+      event.principalUsdc,
+      event.positionPrincipal,
+    ],
+    opts,
   );
+  if (sent) {
+    console.log(
+      `[SolanaSync] star ${event.starId} unstaked ${event.principalUsdc} USDC units by ${event.staker.slice(0, 8)}… (remaining: ${event.positionPrincipal})`,
+    );
+  }
+  return sent;
 }
 
 /** Route one transaction's logs and balances into the ledger. */
