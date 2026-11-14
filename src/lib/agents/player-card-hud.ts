@@ -15,7 +15,8 @@
 import type { RatedAgentPayload, SealTier, EsmsBalances } from './rating-contract';
 import { SACRED_STAT_KEYS } from './rating-contract';
 import { FACTION_HEX_COLORS } from './avatar-foot-ring';
-import { createVesselPortraitSvg, resolveAgentAppearance, VESSEL_RELIC_LABELS } from './vessel-appearance-manifest';
+import { presentVessel, updateVesselPortrait, formatVesselBalance, nextVesselFreshnessUpdate } from './vessel-presentation';
+import { preserveVesselReading } from './vessel-detail-regions';
 
 // Safe stylesheet injection for browsers & tests
 if (typeof document !== 'undefined') {
@@ -62,6 +63,9 @@ export class VesselCardHUD {
   private roster: RatedAgentPayload[] = [];
   private currentIndex = 0;
   private visible = false;
+  private renderedKey: string | null = null;
+  private freshnessTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly handleVisibility = () => this.updateFreshness();
   private readonly handleKeyDown = (event: KeyboardEvent): void => {
     if (event.key === 'Escape' && this.visible) this.hide();
   };
@@ -80,6 +84,7 @@ export class VesselCardHUD {
         } as any);
     this.container.className = 'pk-vessel-card-hud-overlay';
     this.container.style.display = 'none';
+    this.container.setAttribute?.('tabindex', '-1');
     if (root?.appendChild) {
       root.appendChild(this.container);
     }
@@ -88,6 +93,7 @@ export class VesselCardHUD {
     if (typeof window !== 'undefined') {
       window.addEventListener('keydown', this.handleKeyDown);
     }
+    if (typeof document !== 'undefined') document.addEventListener('visibilitychange', this.handleVisibility);
   }
 
   public setRoster(agents: RatedAgentPayload[]): void {
@@ -108,6 +114,7 @@ export class VesselCardHUD {
   public hide(): void {
     this.visible = false;
     this.container.style.display = 'none';
+    this.clearFreshnessTimer();
   }
 
   public toggle(payload: RatedAgentPayload): void {
@@ -143,7 +150,7 @@ export class VesselCardHUD {
     this.roster = this.roster.map((agent) => agent.key === payload.key ? payload : agent);
     if (this.currentPayload?.key === payload.key) {
       this.currentPayload = payload;
-      this.render();
+      if (this.visible) this.render();
     }
   }
 
@@ -153,7 +160,7 @@ export class VesselCardHUD {
   public updateAgentEsms(agentKey: string, esms: EsmsBalances): void {
     if (this.currentPayload && this.currentPayload.key === agentKey) {
       this.currentPayload.esms = { ...esms };
-      this.render();
+      if (this.visible) this.render();
     }
     for (const a of this.roster) {
       if (a.key === agentKey) {
@@ -168,13 +175,15 @@ export class VesselCardHUD {
 
     const factionColor = FACTION_HEX_COLORS[p.faction] || '#38bdf8';
     const factionGlyph = PLANET_GLYPHS[p.faction] || '★';
-    const ovrTier = getOvrTierClass(p.ovr);
-    const appearance = p.appearance ?? resolveAgentAppearance(p.key, p.faction, p.archetype);
-    const portrait = appearance.portraitSvgDataUri ?? appearance.portraitUrl ?? createVesselPortraitSvg(appearance);
+    const view = presentVessel(p);
+    const ovrTier = view.available ? getOvrTierClass(p.ovr) : '';
+    const appearance = view.appearance;
+    const portrait = this.renderedKey === p.key
+      ? this.container.querySelector('img')?.getAttribute('src') ?? view.portrait : view.portrait;
     const eraLabel = appearance.era.charAt(0).toUpperCase() + appearance.era.slice(1);
-    const relicLabel = VESSEL_RELIC_LABELS[appearance.signatureRelic];
+    const relicLabel = view.relic;
 
-    const isSurgeActive = p.surge.active;
+    const isSurgeActive = view.surge?.active === true;
     const surgeTypeStr = p.surge.surgeType;
 
     // Stat bars HTML
@@ -218,21 +227,27 @@ export class VesselCardHUD {
     const sealsHtml = p.seals.map((s) => {
       const tierClass = getSealTierClass(s.tier);
       return `
-        <div class="pk-seal-card" title="${escapeAttribute(s.description)}">
-          <span class="pk-seal-tier-tag ${tierClass}">${s.tier}</span>
-          <span class="pk-seal-name">${escapeAttribute(s.name)}</span>
-        </div>
+        <details class="pk-seal-card" data-seal-id="${escapeAttribute(s.id)}">
+          <summary><span class="pk-seal-tier-tag ${tierClass}">${s.tier}</span>
+          <span class="pk-seal-name">${escapeAttribute(s.name)}</span></summary>
+          <p>${escapeAttribute(s.description)}</p>
+          <small>${escapeAttribute(s.category)}${s.statKey ? ` · ${escapeAttribute(s.statKey)}` : ''} · Tier ×${s.multiplier}</small>
+        </details>
       `;
     }).join('');
 
+    const continuing = this.renderedKey === p.key;
+    const restore = typeof document !== 'undefined' && this.renderedKey !== null
+      ? preserveVesselReading(this.container, continuing) : () => {};
+    this.renderedKey = p.key;
     this.container.innerHTML = `
-      <div class="pk-vessel-card-hud" style="--faction-color: ${factionColor};">
+      <div class="pk-vessel-card-hud" role="region" aria-label="Vessel details" style="--faction-color: ${factionColor};">
         <!-- Header -->
         <div class="pk-vessel-header">
           <div class="pk-vessel-identity">
             ${portrait ? `<img class="pk-vessel-portrait" src="${escapeAttribute(portrait)}" alt="Stylized portrait of ${escapeAttribute(p.handle)}" width="58" height="58" />` : ''}
             <div class="pk-vessel-ovr-badge ${ovrTier}">
-              <span class="pk-vessel-ovr-val">${p.ovr}</span>
+              <span class="pk-vessel-ovr-val">${view.ovr}</span>
               <span class="pk-vessel-ovr-lbl">OVR</span>
             </div>
           </div>
@@ -241,9 +256,10 @@ export class VesselCardHUD {
               <span class="pk-vessel-faction-glyph">${factionGlyph}</span>
               <span>${escapeAttribute(p.handle)}</span>
             </div>
-            <div class="pk-vessel-archetype">${escapeAttribute(p.archetype.title)}</div>
+            <div class="pk-vessel-archetype">${escapeAttribute(view.archetype)}</div>
             <div class="pk-vessel-appearance">${eraLabel} · ${relicLabel}</div>
             <div class="pk-vessel-provenance">${escapeAttribute(p.factionName)} Faction • ${escapeAttribute(p.provenance || 'vessel')}</div>
+            <div class="pk-vessel-provenance pk-vessel-freshness" data-rating-status="${view.status}">${view.sourceLabel} · ${view.snapshotLabel}</div>
           </div>
           <button class="pk-vessel-close-btn" id="pk_hud_close" aria-label="Close Vessel Card">✕</button>
         </div>
@@ -251,7 +267,7 @@ export class VesselCardHUD {
         <!-- Body -->
         <div class="pk-vessel-body">
           <!-- Live Resonance Surge Meter -->
-          <div class="pk-surge-banner ${isSurgeActive ? 'is-active' : ''}">
+          ${view.surge ? `<div class="pk-surge-banner ${isSurgeActive ? 'is-active' : ''}">
             <div class="pk-surge-header">
               <div class="pk-surge-title">
                 <span>${isSurgeActive ? '⚡' : '🔥'}</span>
@@ -265,35 +281,36 @@ export class VesselCardHUD {
             ${boostPillsHtml ? `<div class="pk-surge-boosts">${boostPillsHtml}</div>` : ''}
           </div>
 
+          ` : '<p class="pk-vessel-provenance">Sky reading unavailable</p>'}
           <!-- Sacred 7 Ratings -->
           <div class="pk-stats-section">
             <div class="pk-section-title">Sacred 7 Ratings (25–99)</div>
-            ${statsHtml}
+            ${view.available ? statsHtml : '<p class="pk-vessel-provenance">Ratings pending</p>'}
           </div>
 
           <!-- Earned Alchemical Seals -->
-          <div class="pk-section-title">Alchemical Seals (${p.seals.length})</div>
+          <div class="pk-section-title">Alchemical Seals (${view.seals?.length ?? '—'})</div>
           <div class="pk-seals-grid">
-            ${sealsHtml || '<div style="font-size:11px;color:#94a3b8;">No seals earned</div>'}
+            ${view.seals ? sealsHtml || '<div class="pk-vessel-provenance">No seals earned</div>' : '<p class="pk-vessel-provenance">ESMS and seals unavailable</p>'}
           </div>
 
           <!-- ESMS Holdings Tray -->
           <div class="pk-esms-tray">
             <div class="pk-esms-item spirit">
               <span class="pk-esms-k">Spirit</span>
-              <span class="pk-esms-v">${p.esms.spirit.toFixed(1)}</span>
+              <span class="pk-esms-v">${view.esms ? formatVesselBalance(view.esms.spirit) : '—'}</span>
             </div>
             <div class="pk-esms-item essence">
               <span class="pk-esms-k">Essence</span>
-              <span class="pk-esms-v">${p.esms.essence.toFixed(1)}</span>
+              <span class="pk-esms-v">${view.esms ? formatVesselBalance(view.esms.essence) : '—'}</span>
             </div>
             <div class="pk-esms-item matter">
               <span class="pk-esms-k">Matter</span>
-              <span class="pk-esms-v">${p.esms.matter.toFixed(1)}</span>
+              <span class="pk-esms-v">${view.esms ? formatVesselBalance(view.esms.matter) : '—'}</span>
             </div>
             <div class="pk-esms-item substance">
               <span class="pk-esms-k">Substance</span>
-              <span class="pk-esms-v">${p.esms.substance.toFixed(1)}</span>
+              <span class="pk-esms-v">${view.esms ? formatVesselBalance(view.esms.substance) : '—'}</span>
             </div>
           </div>
         </div>
@@ -313,6 +330,14 @@ export class VesselCardHUD {
       </div>
     `;
 
+    restore();
+    if (continuing) {
+      const card = this.container.querySelector<HTMLElement>('.pk-vessel-card-hud');
+      if (card) card.style.animation = 'none';
+    }
+    const image = this.container.querySelector<HTMLImageElement>('.pk-vessel-portrait');
+    if (image) updateVesselPortrait(image, view);
+
     // Bind event handlers
     const closeBtn = this.container.querySelector('#pk_hud_close');
     closeBtn?.addEventListener('click', () => this.hide());
@@ -322,10 +347,31 @@ export class VesselCardHUD {
 
     const nextBtn = this.container.querySelector('#pk_next_agent');
     nextBtn?.addEventListener('click', () => this.next());
+    this.updateFreshness();
+  }
+
+  private clearFreshnessTimer(): void {
+    if (this.freshnessTimer !== null) clearTimeout(this.freshnessTimer);
+    this.freshnessTimer = null;
+  }
+
+  private updateFreshness(): void {
+    this.clearFreshnessTimer();
+    if (!this.visible || !this.currentPayload || typeof document === 'undefined' || document.hidden) return;
+    const view = presentVessel(this.currentPayload);
+    const label = this.container.querySelector<HTMLElement>('.pk-vessel-freshness');
+    if (label) {
+      label.textContent = `${view.sourceLabel} · ${view.snapshotLabel}`;
+      label.setAttribute('data-rating-status', view.status);
+      label.setAttribute('title', view.snapshotTimestamp);
+    }
+    const delay = nextVesselFreshnessUpdate(this.currentPayload);
+    if (delay !== null) this.freshnessTimer = setTimeout(() => this.updateFreshness(), delay);
   }
 
   public destroy(): void {
     if (typeof window !== 'undefined') window.removeEventListener('keydown', this.handleKeyDown);
+    if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', this.handleVisibility);
     this.hide();
     if (this.container.parentElement) {
       this.container.parentElement.removeChild(this.container);

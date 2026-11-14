@@ -12,6 +12,9 @@ export type EsmsAudioElement = 'spirit' | 'essence' | 'matter' | 'substance';
 export class CourtAudioSynth {
   private ctx: AudioContext | null = null;
   private enabled: boolean = true;
+  private brushBuffer: AudioBuffer | null = null;
+  private activeBrushSource: AudioBufferSourceNode | null = null;
+  private lastBrushTime: number = -1;
 
   constructor() {
     // Lazily initialized on first user interaction or trigger
@@ -40,11 +43,19 @@ export class CourtAudioSynth {
   }
 
   public isEnabled(): boolean {
-    return this.enabled;
+    return this.enabled && !this.isGloballyMuted();
+  }
+
+  private isGloballyMuted(): boolean {
+    if (!this.enabled) return true;
+    if (typeof window !== 'undefined' && Boolean((window as any).synth?.muted)) {
+      return true;
+    }
+    return false;
   }
 
   public triggerClash(element: EsmsAudioElement): void {
-    if (!this.enabled) return;
+    if (this.isGloballyMuted()) return;
     const ctx = this.getContext();
     if (!ctx) return;
     const now = ctx.currentTime;
@@ -62,6 +73,165 @@ export class CourtAudioSynth {
       case 'substance':
         this.playSubstanceHighPassSlash(ctx, now);
         break;
+    }
+  }
+
+  /**
+   * Soft linen/parchment card brush (~45ms velvet bandpass noise transient)
+   * triggered when sweeping across Tarot cards in the Observatory.
+   * Uses a ~40ms real-time debounce and single-voice stealing so rapid cursor
+   * sweeps across 6–7 cards never stack or clip.
+   */
+  public triggerCardBrush(): void {
+    if (this.isGloballyMuted()) return;
+    const ctx = this.getContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    if (this.lastBrushTime >= 0 && now > this.lastBrushTime && now - this.lastBrushTime < 0.04) {
+      return;
+    }
+    this.lastBrushTime = now;
+
+    try {
+      if (this.activeBrushSource) {
+        try {
+          this.activeBrushSource.stop();
+          this.activeBrushSource.disconnect();
+        } catch {
+          // Ignored if already stopped
+        }
+        this.activeBrushSource = null;
+      }
+
+      const duration = 0.045;
+      const bufferSize = Math.max(1, Math.floor(ctx.sampleRate * duration));
+      if (!this.brushBuffer || this.brushBuffer.length !== bufferSize) {
+        const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          const env = Math.sin((i / bufferSize) * Math.PI);
+          data[i] = (Math.random() * 2 - 1) * env * 0.52;
+        }
+        this.brushBuffer = buffer;
+      }
+
+      const noise = ctx.createBufferSource();
+      noise.buffer = this.brushBuffer;
+      this.activeBrushSource = noise;
+
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(950, now);
+      filter.frequency.exponentialRampToValueAtTime(1350, now + duration);
+      filter.Q.setValueAtTime(1.6, now);
+
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.085, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+      noise.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+      noise.start(now);
+    } catch {
+      // Graceful fallback if Web Audio is restricted
+    }
+  }
+
+  /**
+   * Muted brass/wood astrolabe armillary detent click (~95ms damped harmonic impulse)
+   * triggered when locking a Siege card slot or focusing a natal planet glyph.
+   */
+  public triggerAstrolabeDetent(freqHz = 320): void {
+    if (this.isGloballyMuted()) return;
+    const ctx = this.getContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    try {
+      const base = Math.max(120, Math.min(960, Number(freqHz) || 320));
+      const duration = 0.095;
+
+      const bodyOsc = ctx.createOscillator();
+      const brassOvertone = ctx.createOscillator();
+      bodyOsc.type = 'triangle';
+      brassOvertone.type = 'sine';
+
+      bodyOsc.frequency.setValueAtTime(base, now);
+      bodyOsc.frequency.exponentialRampToValueAtTime(base * 0.45, now + duration);
+      brassOvertone.frequency.setValueAtTime(base * 1.5, now);
+      brassOvertone.frequency.exponentialRampToValueAtTime(base * 0.75, now + duration * 0.8);
+
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(1450, now);
+      filter.frequency.exponentialRampToValueAtTime(420, now + duration);
+      filter.Q.setValueAtTime(2.2, now);
+
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.16, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+      bodyOsc.connect(filter);
+      brassOvertone.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+
+      bodyOsc.start(now);
+      brassOvertone.start(now);
+      bodyOsc.stop(now + duration);
+      brassOvertone.stop(now + duration);
+    } catch {
+      // Graceful fallback
+    }
+  }
+
+  /**
+   * Warm Pythagorean fifth (3:2) singing-bowl swell (~520ms) tuned to a card's
+   * planetary frequency (styling.audioFrequencyHz) upon Duplicate Card Fusion.
+   */
+  public triggerCrucibleHarmonic(baseHz = 432): void {
+    if (this.isGloballyMuted()) return;
+    const ctx = this.getContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    try {
+      const rootHz = Math.max(144, Math.min(880, Number(baseHz) || 432));
+      const fifthHz = rootHz * 1.5; // Just Pythagorean 3:2 fifth
+      const duration = 0.52;
+
+      const rootOsc = ctx.createOscillator();
+      const fifthOsc = ctx.createOscillator();
+      rootOsc.type = 'sine';
+      fifthOsc.type = 'triangle';
+
+      rootOsc.frequency.setValueAtTime(rootHz, now);
+      fifthOsc.frequency.setValueAtTime(fifthHz, now);
+
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(1600, now);
+      filter.frequency.exponentialRampToValueAtTime(720, now + duration);
+      filter.Q.setValueAtTime(2.8, now);
+
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.002, now);
+      gain.gain.linearRampToValueAtTime(0.22, now + 0.065);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+      rootOsc.connect(filter);
+      fifthOsc.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+
+      rootOsc.start(now);
+      fifthOsc.start(now);
+      rootOsc.stop(now + duration);
+      fifthOsc.stop(now + duration);
+    } catch {
+      // Graceful fallback
     }
   }
 

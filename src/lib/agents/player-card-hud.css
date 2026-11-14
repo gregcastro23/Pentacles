@@ -22,6 +22,8 @@
 
 .pk-vessel-card-hud {
   pointer-events: auto;
+  display: flex;
+  flex-direction: column;
   width: 380px;
   max-width: 90vw;
   background: rgba(11, 15, 29, 0.88);
@@ -31,7 +33,7 @@
   border-radius: 18px;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6), 0 0 24px rgba(216, 180, 106, 0.15);
   max-height: calc(100dvh - 64px);
-  overflow-y: auto;
+  overflow: hidden;
   transition: transform 0.25s ease, opacity 0.25s ease;
   animation: pk-slide-in 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -49,6 +51,7 @@
 
 /* Header & Banner */
 .pk-vessel-header {
+  flex-shrink: 0;
   position: relative;
   padding: 20px 20px 14px 20px;
   background: linear-gradient(180deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0) 100%);
@@ -145,15 +148,14 @@
 .pk-vessel-meta {
   flex-grow: 1;
   min-width: 0;
+  padding-right: 24px;
 }
 
 .pk-vessel-handle {
   font-size: 18px;
   font-weight: 800;
   color: #ffffff;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -187,6 +189,11 @@
 }
 
 .pk-vessel-close-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  min-width: 44px;
+  min-height: 44px;
   background: none;
   border: none;
   color: #94a3b8;
@@ -203,8 +210,8 @@
 
 /* Body Content */
 .pk-vessel-body {
+  min-height: 0;
   padding: 16px 20px 20px 20px;
-  max-height: calc(85vh - 120px);
   overflow-y: auto;
 }
 
@@ -392,11 +399,17 @@
   background: rgba(15, 23, 42, 0.6);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 8px;
-  padding: 8px 10px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  min-width: 0;
 }
+
+.pk-seal-card summary { cursor: pointer; min-height: 44px; padding: 10px; box-sizing: border-box; line-height: 1.6; }
+.pk-seal-card summary .pk-seal-tier-tag { margin-right: 5px; white-space: nowrap; }
+.pk-seal-card[open] { border-color: #8f7850; }
+.pk-seal-card p { font-size: 11px; line-height: 1.5; color: #c0ccdd; margin: 0; padding: 0 10px 8px; }
+.pk-seal-card small { display: block; padding: 0 10px 10px; font-size: 10px; color: #d5c199; text-transform: capitalize; }
+.pk-vessel-card-hud :is(summary, button):focus-visible { outline: 2px solid #e4c58a; outline-offset: 2px; }
+.pk-vessel-freshness[data-rating-status="stale"] { color: #ffa991; }
+.pk-vessel-freshness[data-rating-status="partial"] { color: #eacb8f; }
 
 .pk-seal-tier-tag {
   font-size: 9px;
@@ -440,9 +453,7 @@
   font-size: 11px;
   font-weight: 700;
   color: #f1f5f9;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
 }
 
 /* ESMS Balances Tray */
@@ -482,6 +493,7 @@
 
 /* Switcher footer */
 .pk-vessel-footer {
+  flex-shrink: 0;
   padding: 10px 20px;
   background: rgba(15, 23, 42, 0.8);
   border-top: 1px solid rgba(255, 255, 255, 0.06);
@@ -491,6 +503,7 @@
 }
 
 .pk-nav-btn {
+  min-height: 44px;
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.15);
   color: #cbd5e1;
@@ -511,6 +524,10 @@
   .pk-vessel-card-hud-overlay { padding: 12px; }
   .pk-vessel-card-hud { max-width: 100%; max-height: calc(100dvh - 24px); }
   .pk-vessel-header { flex-wrap: wrap; }
-  .pk-vessel-meta { flex-basis: 100%; }
+  .pk-vessel-meta { flex-basis: 100%; padding-right: 0; }
   .pk-vessel-close-btn { position: absolute; top: 14px; right: 14px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pk-vessel-card-hud, .pk-vessel-card-hud * { animation: none !important; transition: none !important; }
 }

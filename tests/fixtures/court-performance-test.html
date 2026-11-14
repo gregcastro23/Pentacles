@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Court rendering budget — local benchmark</title>
+  <style>
+    :root { color-scheme: dark; font: 15px/1.5 system-ui, sans-serif; background: #080c16; color: #eee; }
+    body { max-width: 1440px; margin: auto; padding: 20px; }
+    h1 { margin: 0; font: 28px/1.3 Georgia, serif; color: #f0ddb1; }
+    p { color: #b4bece; margin: 8px 0 16px; }
+    button, select { min-height: 44px; padding: 8px 16px; background: #1b2638; color: #eee; border: 1px solid #46516a; border-radius: 8px; cursor: pointer; }
+    button:disabled { opacity: .5; cursor: default; }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    #stage { height: 540px; border: 1px solid #3c4660; border-radius: 12px; overflow: hidden; margin: 16px 0; }
+    #stage canvas { display: block; }
+    .results { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+    th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid #354059; white-space: nowrap; }
+    th { color: #ead6a5; }
+    @media (max-width: 600px) { body { padding: 12px; } #stage { height: 390px; } }
+  </style>
+</head>
+<body>
+  <h1>Court rendering budget</h1>
+  <p>Local synthetic 4/12/24-vessel comparison. No database, telemetry, or gameplay writes.
+    Each case warms up for 1.5 seconds and samples for 3 seconds. Keep this tab visible and its size unchanged.</p>
+  <div class="actions">
+    <label>Comparison <select id="comparison"><option value="shadows">Shadow cost (diagnostic)</option><option value="details">Rigid detail batching</option><option value="pixels">Pixel budget</option></select></label>
+    <label>Benchmark density <select id="density"><option value="2">2× high-density simulation</option><option value="0">This screen's density</option></select></label>
+    <button id="run" disabled>Loading benchmark…</button>
+    <button id="stop" disabled>Stop benchmark</button>
+    <button id="loader" disabled>Check model loader</button>
+  </div>
+  <p id="status" role="status">Preparing local renderer.</p>
+  <div id="stage" aria-label="Synthetic court benchmark"></div>
+  <div class="results">
+    <table aria-label="Benchmark results">
+      <thead><tr><th>Vessels</th><th>Policy</th><th>Buffer</th><th>Frame interval p50 / p95</th><th>CPU submit p50 / p95</th><th>Update p50 / p95</th><th>Render submit p50 / p95</th><th>Draws (shadow)</th><th>Triangles</th><th>Resources</th></tr></thead>
+      <tbody id="results"></tbody>
+    </table>
+  </div>
+  <p>Frame intervals include browser scheduling. CPU submission time covers update and render calls;
+    it is not GPU execution time. Update and render submission are also measured separately. Shadow cost disables shadows only in this fixture; production keeps them enabled. Detail comparisons use the same 2 MP limit and correct seal rendering in both cases.
+    Pixel comparisons use merged details in both cases, comparing the former DPR-only limit against 2 MP.</p>
+  <p id="loader-status" role="status">The loader check uses a tiny uncompressed GLTF generated in memory. It checks distinct scene ownership, failure, and retry; it does not benchmark Draco compression.</p>
+  <script type="module" src="./court-performance-test.ts"></script>
+</body>
+</html>

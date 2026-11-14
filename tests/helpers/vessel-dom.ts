@@ -83,6 +83,15 @@ export function createVesselDocument() {
       child.parentNode = this;
       return child;
     }
+    insertBefore(child: Element, reference: Element | null) {
+      if (child === reference) return child;
+      if (reference === null) return this.appendChild(child);
+      if (!this.children.includes(reference)) throw new Error('Reference is not a child');
+      child.parentNode?.removeChild(child);
+      this.children.splice(this.children.indexOf(reference), 0, child);
+      child.parentNode = this;
+      return child;
+    }
     removeChild(child: Element) {
       if (child.contains(document.activeElement)) document.activeElement = document.body;
       const idx = this.children.indexOf(child);
@@ -104,6 +113,7 @@ export function createVesselDocument() {
       return !!node && (node === this || this.children.some((c) => c.contains(node)));
     }
     focus() { if (this.isConnected) document.activeElement = this; }
+    scrollIntoView() { /* Layout and scrolling are verified in the browser. */ }
     getClientRects() { return this.isConnected ? [{}] : []; }
 
     matches(selector: string): boolean {

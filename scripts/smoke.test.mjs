@@ -81,6 +81,7 @@ globalThis.document = globalThis.document || {
     style: {},
   },
   createElement: (tag) => {
+    const listeners = new Map()
     const el = {
       tagName: tag.toUpperCase(),
       classList: makeClassList(),
@@ -89,8 +90,15 @@ globalThis.document = globalThis.document || {
       getAttribute: () => null,
       appendChild: (c) => c,
       append: (...c) => c.forEach((x) => el.appendChild(x)),
-      addEventListener: () => {},
-      removeEventListener: () => {},
+      addEventListener: (type, fn) => {
+        if (!listeners.has(type)) listeners.set(type, new Set())
+        listeners.get(type).add(fn)
+      },
+      removeEventListener: (type, fn) => { listeners.get(type)?.delete(fn) },
+      dispatchEvent: (ev) => {
+        for (const fn of listeners.get(ev?.type) || []) fn(ev)
+        return true
+      },
       querySelector: () => null,
       querySelectorAll: () => [],
       childNodes: [],
@@ -100,6 +108,7 @@ globalThis.document = globalThis.document || {
     }
     return el
   },
+  getElementsByTagName: () => [],
   getElementById: (id) => {
     const el = globalThis.document.createElement('div')
     el.id = id
@@ -109,6 +118,14 @@ globalThis.document = globalThis.document || {
   querySelectorAll: () => [],
   addEventListener: () => {},
   removeEventListener: () => {},
+  head: {
+    appendChild: (el) => {
+      if (el?.tagName === 'LINK' && typeof el.dispatchEvent === 'function') {
+        queueMicrotask(() => el.dispatchEvent({ type: 'load' }))
+      }
+      return el
+    },
+  },
   body: {
     classList: makeClassList(),
     style: {},

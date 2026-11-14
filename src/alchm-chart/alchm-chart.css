@@ -1880,25 +1880,110 @@ body.alchm-open #pentacles-net { display: none; }
 .alchm-war .aw-zone.is-drop-active { border-color: var(--ac-gold-bright) !important; border-style: solid; box-shadow: 0 0 14px rgba(241,219,161,0.4); transform: translateY(-2px); }
 
 /* ============================================================
-   My Pentacles (formerly My Codex) — the player's profile
+   My Pentacles — 3-Zone Hermetic Astral Observatory & Tarot Engine
    ============================================================ */
-#mc-overlay, #mp-overlay { position: fixed; inset: 0; z-index: 120; display: none; align-items: center; justify-content: center;
-  padding: 24px; background: rgba(4,5,10,0.78); backdrop-filter: blur(8px); }
-#mc-overlay.is-open, #mp-overlay.is-open { display: flex; }
-#mc-overlay .mc-window, #mp-overlay .mc-window { position: relative; width: min(1200px, 96vw); height: min(900px, 94vh); overflow: hidden auto;
-  background: rgba(13,16,28,0.92); border: 1px solid rgba(216,180,106,0.18); border-radius: 16px;
-  backdrop-filter: blur(16px); box-shadow: 0 24px 80px rgba(0,0,0,0.6); }
-#mc-overlay .mc-window-close, #mp-overlay .mc-window-close { position: absolute; top: 12px; right: 14px; width: 30px; height: 30px; border-radius: 50%;
-  border: 1px solid rgba(216,180,106,0.18); background: rgba(0,0,0,0.3); color: #f1dba1; font-size: 14px; cursor: pointer; z-index: 5; }
-#mc-overlay .mc-window-close:hover, #mp-overlay .mc-window-close:hover { border-color: #f1dba1; }
-#mc-overlay #mc-host, #mp-overlay #mp-host, #mc-overlay #mp-host, #mp-overlay #mc-host { min-height: 100%; }
-@media (max-width: 860px) {
-  #mc-overlay, #mp-overlay { padding: 0; }
-  #mc-overlay .mc-window, #mp-overlay .mc-window { width: 100vw; height: 100dvh; max-height: none; border: 0; border-radius: 0; }
+#sky-map-wrapper {
+  transition: transform 0.44s cubic-bezier(0.22, 1, 0.36, 1), filter 0.44s ease;
+}
+#sky-map-wrapper.mp-horizon-zoom {
+  transform: scale(1.045);
+  filter: brightness(0.76) saturate(1.06);
 }
 
-.alchm-pentacles, .alchm-codex { color: var(--ac-text); font-family: "Space Grotesk", system-ui, sans-serif; }
-.alchm-pentacles .mc-root, .alchm-codex .mc-root { padding: 26px clamp(16px, 3vw, 34px) 40px; display: flex; flex-direction: column; gap: 20px; }
+#mc-overlay, #mp-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(4, 5, 10, 0.8);
+  backdrop-filter: blur(10px);
+  opacity: 1;
+  transition: opacity 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+#mc-overlay.is-open, #mp-overlay.is-open {
+  display: flex;
+  @starting-style {
+    opacity: 0;
+  }
+}
+#mc-overlay[data-closing], #mp-overlay[data-closing] {
+  opacity: 0;
+  pointer-events: none;
+}
+
+#mc-overlay .mc-window, #mp-overlay .mc-window {
+  position: relative;
+  width: min(1440px, 96vw);
+  height: min(920px, 94dvh);
+  overflow: hidden;
+  background: radial-gradient(120% 90% at 50% 0%, rgba(22, 26, 44, 0.96) 0%, rgba(10, 12, 22, 0.96) 100%);
+  border: 1px solid rgba(216, 180, 106, 0.24);
+  border-radius: 16px;
+  backdrop-filter: blur(18px);
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.72), inset 0 1px 0 rgba(246, 231, 193, 0.12);
+  transform: scale(1);
+  transition: transform 0.34s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.28s ease;
+}
+#mc-overlay.is-open .mc-window, #mp-overlay.is-open .mc-window {
+  @starting-style {
+    transform: scale(0.965);
+    opacity: 0;
+  }
+}
+#mc-overlay[data-closing] .mc-window, #mp-overlay[data-closing] .mc-window {
+  transform: scale(0.975);
+  opacity: 0;
+}
+
+#mc-overlay .mc-window-close, #mp-overlay .mc-window-close {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid rgba(216, 180, 106, 0.26);
+  background: rgba(6, 8, 16, 0.65);
+  color: #f1dba1;
+  font-size: 14px;
+  cursor: pointer;
+  z-index: 25;
+  transition: border-color 0.16s ease, background 0.16s ease;
+}
+#mc-overlay .mc-window-close:hover, #mp-overlay .mc-window-close:hover {
+  border-color: #f1dba1;
+  background: rgba(216, 180, 106, 0.18);
+}
+#mc-overlay #mc-host, #mp-overlay #mp-host, #mc-overlay #mp-host, #mp-overlay #mc-host {
+  height: 100%;
+  min-height: 100%;
+}
+@media (max-width: 960px) {
+  #mc-overlay, #mp-overlay { padding: 0; }
+  #mc-overlay .mc-window, #mp-overlay .mc-window {
+    width: 100vw;
+    height: 100dvh;
+    max-height: none;
+    border: 0;
+    border-radius: 0;
+  }
+}
+
+.alchm-pentacles, .alchm-codex { color: var(--ac-text); font-family: "Space Grotesk", system-ui, sans-serif; height: 100%; }
+.alchm-pentacles .mc-root, .alchm-codex .mc-root { padding: 24px clamp(16px, 3vw, 32px) 36px; display: flex; flex-direction: column; gap: 18px; }
+.alchm-pentacles .mc-root.mc-observatory-root,
+.alchm-codex .mc-root.mc-observatory-root {
+  display: grid;
+  grid-template-columns: minmax(280px, 28%) minmax(340px, 42%) minmax(290px, 30%);
+  gap: 14px;
+  padding: 16px 18px;
+  height: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+}
 .alchm-pentacles .mc-dim, .alchm-codex .mc-dim { color: var(--ac-dim); }
 .alchm-pentacles .mc-section-label, .alchm-codex .mc-section-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--ac-dim);
   display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
@@ -2614,6 +2699,997 @@ body.alchm-open #pentacles-net { display: none; }
 .alchm-pentacles .mc-empty, .alchm-codex .mc-empty { text-align: center; padding: 80px 24px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .alchm-pentacles .mc-empty-mark, .alchm-codex .mc-empty-mark { font-size: 44px; color: var(--ac-gold-deep); }
 .alchm-pentacles .mc-empty-title, .alchm-codex .mc-empty-title { font-family: "Cormorant Garamond", Georgia, serif; font-size: 26px; color: var(--ac-text); }
+
+/* ── 3-Zone Hermetic Observatory Columns & Scrollbars ── */
+.alchm-pentacles .mc-zone {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  gap: 10px;
+}
+.alchm-pentacles .mc-zone-left-scroll,
+.alchm-pentacles .mc-deck-browser-host {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 4px;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+}
+.alchm-pentacles .mc-zone-left-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.alchm-pentacles .mc-zone-left-scroll::-webkit-scrollbar,
+.alchm-pentacles .mc-deck-browser-host::-webkit-scrollbar {
+  width: 5px;
+}
+.alchm-pentacles .mc-zone-left-scroll::-webkit-scrollbar-thumb,
+.alchm-pentacles .mc-deck-browser-host::-webkit-scrollbar-thumb {
+  background: rgba(216, 180, 106, 0.26);
+  border-radius: 3px;
+}
+
+/* ── Zone 1: Seeker Identity, Centralized OVR Crest & Horizon Dignity ── */
+.alchm-pentacles .mc-obs-identity {
+  background: linear-gradient(145deg, rgba(216, 180, 106, 0.09) 0%, rgba(15, 18, 30, 0.78) 100%);
+  border: 1px solid rgba(216, 180, 106, 0.24);
+  border-radius: 12px;
+  padding: 12px 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.alchm-pentacles .mc-obs-id-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.alchm-pentacles .mc-medallion--compact {
+  width: 42px;
+  height: 42px;
+  font-size: 21px;
+}
+.alchm-pentacles .mc-obs-id-main {
+  flex: 1;
+  min-width: 0;
+}
+.alchm-pentacles .mc-obs-identity .mc-handle {
+  font-size: 22px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.alchm-pentacles .mc-archetype-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ac-gold-bright);
+  margin-top: 2px;
+}
+.alchm-pentacles .mc-ovr-crest {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 5px 10px;
+  border-radius: 9px;
+  border: 1px solid rgba(234, 179, 8, 0.42);
+  background: radial-gradient(circle at 50% 0%, rgba(234, 179, 8, 0.16), rgba(8, 10, 18, 0.85));
+  min-width: 62px;
+}
+.alchm-pentacles .mc-ovr-label {
+  font-size: 8.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ac-dim);
+}
+.alchm-pentacles .mc-ovr-num-wrap {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+.alchm-pentacles .mc-ovr-value {
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1;
+  color: #f6e7c1;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Natal Big Three Strip */
+.alchm-pentacles .mc-big-three {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+.alchm-pentacles .mc-trinity-cell {
+  background: rgba(8, 10, 20, 0.62);
+  border: 1px solid rgba(216, 180, 106, 0.15);
+  border-radius: 7px;
+  padding: 5px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.alchm-pentacles .mc-trinity-k {
+  font-size: 8.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+.alchm-pentacles .mc-trinity-v {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--ac-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Live Horizon Dignity Banner */
+.alchm-pentacles .mc-horizon-banner {
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: rgba(10, 14, 26, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.alchm-pentacles .mc-horizon-banner.is-exalted {
+  background: linear-gradient(90deg, rgba(234, 179, 8, 0.15), rgba(14, 20, 34, 0.8));
+  border-color: rgba(234, 179, 8, 0.55);
+  box-shadow: inset 0 0 16px rgba(234, 179, 8, 0.1);
+}
+.alchm-pentacles .mc-horizon-headline {
+  font-size: 11px;
+  font-weight: 600;
+  color: #f6e7c1;
+}
+.alchm-pentacles .mc-horizon-detail {
+  font-size: 9.5px;
+}
+
+/* Alchemical Seals Strip */
+.alchm-pentacles .mc-seals-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.alchm-pentacles .mc-seal-pill {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid rgba(216, 180, 106, 0.35);
+  background: rgba(216, 180, 106, 0.1);
+  color: #f6cf83;
+}
+.alchm-pentacles .mc-seal-pill--copper { border-color: rgba(192, 132, 96, 0.5); color: #e2a887; }
+.alchm-pentacles .mc-seal-pill--silver { border-color: rgba(203, 213, 225, 0.5); color: #e2e8f0; }
+.alchm-pentacles .mc-seal-pill--astral { border-color: rgba(56, 189, 248, 0.55); color: #7dd3fc; }
+.alchm-pentacles .mc-seal-pill--celestial { border-color: rgba(250, 204, 21, 0.7); color: #fef08a; background: rgba(234, 179, 8, 0.18); }
+
+/* Inline Zone 1 Tabs */
+.alchm-pentacles .mc-zone-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  background: rgba(8, 10, 18, 0.65);
+  padding: 4px;
+  border-radius: 9px;
+  border: 1px solid var(--ac-line);
+}
+.alchm-pentacles .mc-zone-tab {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--ac-dim);
+  cursor: pointer;
+  transition: color 0.16s ease, background 0.16s ease, border-color 0.16s ease;
+}
+.alchm-pentacles .mc-zone-tab:hover {
+  color: var(--ac-text);
+}
+.alchm-pentacles .mc-zone-tab.is-active {
+  background: rgba(216, 180, 106, 0.16);
+  border-color: rgba(216, 180, 106, 0.45);
+  color: var(--ac-gold-bright);
+}
+
+/* Observatory Metric Cards */
+.alchm-pentacles .mc-obs-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.alchm-pentacles .mc-obs-card {
+  padding: 12px 13px;
+}
+.alchm-pentacles .mc-obs-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.alchm-pentacles .mc-obs-card-head .mc-section-label {
+  margin-bottom: 0;
+}
+.alchm-pentacles .mc-pillar-badge {
+  font-size: 9.5px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  border: 1px solid rgba(216, 180, 106, 0.32);
+  color: #f6e7c1;
+  background: rgba(216, 180, 106, 0.1);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 4-Point ESMS Alchemical Diamond */
+.alchm-pentacles .mc-diamond-wrap {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.alchm-pentacles .mc-esms-diamond-svg {
+  width: 100%;
+  max-width: 215px;
+  height: auto;
+}
+.alchm-pentacles .mc-diamond-grid-outer {
+  fill: rgba(8, 10, 20, 0.55);
+  stroke: rgba(216, 180, 106, 0.28);
+  stroke-width: 1;
+}
+.alchm-pentacles .mc-diamond-grid-inner {
+  fill: none;
+  stroke: rgba(216, 180, 106, 0.14);
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+}
+.alchm-pentacles .mc-diamond-axis {
+  stroke: rgba(148, 163, 184, 0.18);
+  stroke-width: 1;
+}
+.alchm-pentacles .mc-diamond-fill {
+  fill: rgba(234, 179, 8, 0.22);
+  stroke: #eab308;
+  stroke-width: 1.75;
+}
+.alchm-pentacles .mc-diamond-ghost {
+  fill: rgba(246, 231, 193, 0.08);
+  stroke: #f6e7c1;
+  stroke-width: 1.4;
+  stroke-dasharray: 4 3;
+  transition: opacity 0.16s ease;
+}
+.alchm-pentacles .mc-diamond-lbl {
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  fill: var(--ac-dim);
+}
+.alchm-pentacles .mc-diamond-lbl.spirit { fill: #fbbf24; }
+.alchm-pentacles .mc-diamond-lbl.substance { fill: #cbd5e1; }
+.alchm-pentacles .mc-diamond-lbl.matter { fill: #eab308; }
+.alchm-pentacles .mc-diamond-lbl.essence { fill: #38bdf8; }
+
+/* Honest Siege Triad Output Grid */
+.alchm-pentacles .mc-siege-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+.alchm-pentacles .mc-siege-cell {
+  background: rgba(8, 10, 20, 0.56);
+  border: 1px solid rgba(216, 180, 106, 0.15);
+  border-radius: 8px;
+  padding: 6px 9px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.alchm-pentacles .mc-siege-cell-k {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.alchm-pentacles .mc-siege-cell-v-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.alchm-pentacles .mc-siege-stat-val {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ac-text);
+  font-variant-numeric: tabular-nums;
+}
+.alchm-pentacles .mc-vel-note,
+.alchm-pentacles .mc-scale-note {
+  font-size: 9.5px;
+}
+
+/* Sacred 7 Vernier Bars & Brass Caliper Hairlines */
+.alchm-pentacles .mc-sacred-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.alchm-pentacles .mc-sacred-row {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.alchm-pentacles .mc-sacred-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 10.5px;
+}
+.alchm-pentacles .mc-sacred-lbl {
+  color: var(--ac-text);
+  font-weight: 500;
+}
+.alchm-pentacles .mc-sacred-nums {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  font-variant-numeric: tabular-nums;
+}
+.alchm-pentacles .mc-sacred-val {
+  font-weight: 600;
+  color: #f6e7c1;
+  min-width: 18px;
+  text-align: right;
+}
+.alchm-pentacles .mc-rel-pill {
+  font-size: 8.5px;
+  padding: 0 4px;
+  border-radius: 3px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  color: var(--ac-dim);
+}
+.alchm-pentacles .mc-rel-pill.is-pos {
+  border-color: rgba(234, 179, 8, 0.4);
+  color: #f6cf83;
+}
+.alchm-pentacles .mc-sacred-track {
+  position: relative;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(6, 8, 16, 0.82);
+  border: 1px solid rgba(216, 180, 106, 0.14);
+  overflow: hidden;
+}
+.alchm-pentacles .mc-sacred-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Brass Vernier Hairlines & Caliper Delta Readouts (Zero JRPG Bounce) */
+.alchm-pentacles .mc-vernier-hairline {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  pointer-events: none;
+  transition: opacity 0.14s ease, left 0.14s ease, width 0.14s ease;
+}
+.alchm-pentacles .mc-vernier-hairline.is-gain {
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(246, 231, 193, 0.78) 0px,
+    rgba(246, 231, 193, 0.78) 2px,
+    rgba(234, 179, 8, 0.3) 2px,
+    rgba(234, 179, 8, 0.3) 4px
+  );
+  border-right: 1.5px solid #f6e7c1;
+}
+.alchm-pentacles .mc-vernier-hairline.is-tradeoff {
+  background: rgba(154, 107, 86, 0.55);
+  border-left: 1.5px solid #c08b74;
+}
+.alchm-pentacles .mc-vernier-delta {
+  font-size: 10px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+.alchm-pentacles .mc-vernier-delta.is-gain {
+  color: #f6e7c1;
+  text-shadow: 0 0 8px rgba(234, 179, 8, 0.35);
+}
+.alchm-pentacles .mc-vernier-delta.is-tradeoff {
+  color: #b5836d;
+}
+
+/* Kalchm Resonance Surge Meter */
+.alchm-pentacles .mc-surge-strip {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(216, 180, 106, 0.14);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.alchm-pentacles .mc-surge-top {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--ac-dim);
+}
+.alchm-pentacles .mc-surge-strip.is-active .mc-surge-title,
+.alchm-pentacles .mc-surge-strip.is-active .mc-surge-pct {
+  color: #fef08a;
+  font-weight: 700;
+}
+.alchm-pentacles .mc-surge-track {
+  position: relative;
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(6, 8, 16, 0.85);
+  overflow: hidden;
+}
+.alchm-pentacles .mc-surge-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #9c7e42, #eab308, #fef08a);
+  transition: width 0.25s ease;
+}
+.alchm-pentacles .mc-surge-gate-tick {
+  position: absolute;
+  top: -1px;
+  bottom: -1px;
+  width: 1.5px;
+  background: #f6e7c1;
+}
+
+/* Highlighted Natal Placement Card when hovering Zone 2 Astrolabe Planet */
+.alchm-pentacles .mc-observatory-root .mc-placements {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.alchm-pentacles .mc-place.is-astrolabe-focus {
+  border-color: var(--ac-gold-bright);
+  box-shadow: 0 0 14px rgba(246, 207, 131, 0.28);
+  background: rgba(28, 24, 16, 0.82);
+}
+
+/* ── Zone 2: Coaxial 3D Seeker Vessel & Natal Astrolabe Stage ── */
+.alchm-pentacles .mc-zone--center {
+  position: relative;
+}
+.alchm-pentacles .mc-stage-host {
+  flex: 1 1 0;
+  min-height: 360px;
+  display: flex;
+}
+.alchm-pentacles .svs-root {
+  position: relative;
+  flex: 1 1 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 14px;
+  border: 1px solid rgba(216, 180, 106, 0.22);
+  background: radial-gradient(circle at 50% 50%, rgba(25, 31, 54, 0.78) 0%, rgba(7, 9, 18, 0.95) 76%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  touch-action: manipulation;
+}
+.alchm-pentacles .svs-parhelion-halo {
+  position: absolute;
+  width: min(86%, 410px);
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(234, 179, 8, 0.22) 0%, rgba(234, 179, 8, 0.06) 45%, transparent 72%);
+  opacity: 0;
+  transition: opacity 0.45s ease;
+  pointer-events: none;
+  z-index: 0;
+}
+.alchm-pentacles .svs-root[data-exalted="true"] .svs-parhelion-halo {
+  opacity: 1;
+}
+.alchm-pentacles .svs-astrolabe {
+  position: relative;
+  width: min(92%, 450px);
+  height: auto;
+  max-height: 88%;
+  aspect-ratio: 1 / 1;
+  z-index: 1;
+  overflow: visible;
+}
+@keyframes svs-armillary-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.alchm-pentacles .svs-zodiac-wheel {
+  transform-origin: 220px 220px;
+  animation: svs-armillary-spin 60s linear infinite;
+}
+.alchm-pentacles .svs-root[data-armillary-paused="true"] .svs-zodiac-wheel {
+  animation-play-state: paused;
+}
+.alchm-pentacles .svs-ring-outer {
+  fill: rgba(6, 9, 18, 0.35);
+  stroke: rgba(216, 180, 106, 0.42);
+  stroke-width: 1.25;
+}
+.alchm-pentacles .svs-ring-inner {
+  fill: none;
+  stroke: rgba(216, 180, 106, 0.28);
+  stroke-width: 1;
+}
+.alchm-pentacles .svs-ring-chord-track {
+  fill: none;
+  stroke: rgba(148, 163, 184, 0.16);
+  stroke-width: 0.8;
+  stroke-dasharray: 2 4;
+}
+.alchm-pentacles .svs-tick-sign {
+  stroke: rgba(216, 180, 106, 0.44);
+  stroke-width: 1.1;
+}
+.alchm-pentacles .svs-tick-decan {
+  stroke: rgba(216, 180, 106, 0.2);
+  stroke-width: 0.8;
+}
+.alchm-pentacles .svs-sign-glyph {
+  font-size: 13px;
+  fill: rgba(226, 232, 240, 0.72);
+  user-select: none;
+}
+.alchm-pentacles .svs-sign-glyph--fire { fill: rgba(251, 191, 36, 0.85); }
+.alchm-pentacles .svs-sign-glyph--water { fill: rgba(56, 189, 248, 0.82); }
+.alchm-pentacles .svs-sign-glyph--air { fill: rgba(226, 232, 240, 0.85); }
+.alchm-pentacles .svs-sign-glyph--earth { fill: rgba(216, 180, 106, 0.85); }
+.alchm-pentacles .svs-axis-asc {
+  stroke: #38bdf8;
+  stroke-width: 1.6;
+}
+
+/* Sacred Astrological Aspect Chords inside Astrolabe */
+.alchm-pentacles .svs-chord {
+  stroke-width: 1.55;
+  opacity: 0.82;
+}
+.alchm-pentacles .svs-chord.is-preview {
+  stroke-dasharray: 4 3;
+  stroke-width: 1.75;
+  opacity: 0.95;
+}
+.alchm-pentacles .svs-chord-aureole {
+  fill: rgba(246, 231, 193, 0.14);
+  stroke-width: 1.3;
+}
+.alchm-pentacles .svs-chord-aureole.is-preview {
+  stroke-dasharray: 2 2;
+}
+.alchm-pentacles .svs-chord-glyph {
+  font-size: 11px;
+  font-weight: 700;
+  paint-order: stroke;
+  stroke: rgba(7, 9, 18, 0.92);
+  stroke-width: 3px;
+}
+.alchm-pentacles .svs-slot-anchor-pip {
+  fill: #f6e7c1;
+  stroke: #9c7e42;
+  stroke-width: 1;
+}
+
+/* Interactive Natal Planet Nodes on Astrolabe */
+.alchm-pentacles .svs-planet-node {
+  cursor: pointer;
+  touch-action: manipulation;
+  pointer-events: auto;
+}
+.alchm-pentacles .svs-planet-disc {
+  fill: rgba(8, 11, 22, 0.92);
+  stroke: var(--planet-accent, #eab308);
+  stroke-width: 1.25;
+  transition: r 0.15s ease, stroke-width 0.15s ease;
+}
+.alchm-pentacles .svs-planet-node:hover .svs-planet-disc,
+.alchm-pentacles .svs-planet-node:focus .svs-planet-disc {
+  stroke-width: 2.2;
+  fill: rgba(28, 24, 14, 0.96);
+}
+.alchm-pentacles .svs-planet-glyph {
+  font-size: 11.5px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.alchm-pentacles .svs-canvas-wrap {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+.alchm-pentacles .svs-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.alchm-pentacles .svs-stage-controls {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  right: 12px;
+  z-index: 4;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  pointer-events: none;
+}
+.alchm-pentacles .svs-framing-pill {
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(8, 10, 20, 0.76);
+  border: 1px solid rgba(216, 180, 106, 0.3);
+  color: var(--ac-gold-bright);
+}
+.alchm-pentacles .svs-armillary-btn {
+  pointer-events: auto;
+  font-family: inherit;
+  font-size: 10px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(8, 10, 20, 0.78);
+  border: 1px solid rgba(216, 180, 106, 0.28);
+  color: var(--ac-dim);
+  cursor: pointer;
+}
+.alchm-pentacles .svs-armillary-btn:hover {
+  border-color: var(--ac-gold-bright);
+  color: var(--ac-text);
+}
+.alchm-pentacles .svs-readout-bar {
+  position: absolute;
+  bottom: 10px;
+  left: 12px;
+  right: 12px;
+  z-index: 4;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: rgba(7, 9, 18, 0.84);
+  border: 1px solid rgba(216, 180, 106, 0.25);
+  backdrop-filter: blur(8px);
+  font-size: 11px;
+  color: #f6e7c1;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.alchm-pentacles .mc-center-quickbar {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* ── Zone 3: 3-Card Siege Triad, Crucible Fusion & Container-Responsive Deck ── */
+.alchm-pentacles .mc-siege-header-panel {
+  padding: 12px 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.alchm-pentacles .mc-siege-slots-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.alchm-pentacles .mc-siege-slot {
+  position: relative;
+  min-height: 92px;
+  border-radius: 9px;
+  padding: 7px 7px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  text-align: center;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+}
+.alchm-pentacles .mc-siege-slot.is-empty {
+  background: rgba(8, 10, 20, 0.52);
+  border: 1px dashed rgba(216, 180, 106, 0.32);
+  color: var(--ac-dim);
+}
+.alchm-pentacles .mc-siege-slot.is-filled {
+  background: radial-gradient(circle at 50% 20%, rgba(24, 28, 48, 0.94), rgba(8, 10, 18, 0.96));
+  border: 1.5px solid rgba(216, 180, 106, 0.5);
+  color: var(--ac-text);
+}
+.alchm-pentacles .mc-siege-slot.is-targeted {
+  border-color: #fef08a !important;
+  box-shadow: 0 0 14px rgba(234, 179, 8, 0.35);
+}
+.alchm-pentacles .mc-siege-slot-top {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.alchm-pentacles .mc-slot-numeral {
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--ac-gold-bright);
+}
+.alchm-pentacles .mc-slot-remove {
+  background: none;
+  border: 0;
+  color: var(--ac-dim);
+  font-size: 10px;
+  cursor: pointer;
+  padding: 0 2px;
+}
+.alchm-pentacles .mc-slot-remove:hover {
+  color: #f6e7c1;
+}
+.alchm-pentacles .mc-siege-slot-glyph {
+  font-size: 18px;
+  line-height: 1;
+}
+.alchm-pentacles .mc-siege-slot-title {
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.05;
+  width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.alchm-pentacles .mc-siege-slot-meta {
+  font-size: 8.5px;
+  font-variant-numeric: tabular-nums;
+}
+.alchm-pentacles .mc-attune-chip {
+  font-size: 8px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: rgba(234, 179, 8, 0.2);
+  border: 1px solid rgba(234, 179, 8, 0.55);
+  color: #fef08a;
+}
+.alchm-pentacles .mc-slot-plus {
+  font-size: 18px;
+  color: var(--ac-gold);
+}
+.alchm-pentacles .mc-slot-hint {
+  font-size: 8.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Crucible Duplicate Card Fusion Bar */
+.alchm-pentacles .mc-crucible-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.alchm-pentacles .mc-crucible-toggle {
+  width: 100%;
+  padding: 7px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(216, 180, 106, 0.34);
+  background: rgba(16, 20, 34, 0.85);
+  color: var(--ac-gold-bright);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: background 0.16s ease, border-color 0.16s ease;
+}
+.alchm-pentacles .mc-crucible-toggle:hover,
+.alchm-pentacles .mc-crucible-toggle.is-active {
+  background: linear-gradient(135deg, rgba(234, 179, 8, 0.22), rgba(156, 126, 66, 0.24));
+  border-color: #eab308;
+  color: #fef08a;
+}
+.alchm-pentacles .mc-crucible-instruction {
+  font-size: 10px;
+  line-height: 1.35;
+  padding: 5px 8px;
+  border-radius: 6px;
+  background: rgba(8, 10, 18, 0.72);
+  border-left: 2px solid #eab308;
+}
+
+/* Container-Responsive Celestial Deck Browser */
+.alchm-pentacles .mc-observatory-root .mc-deck-panel {
+  flex: 1 1 0;
+  min-height: 0;
+  padding: 12px 13px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  container-type: inline-size;
+  container-name: seeker-deck;
+}
+.alchm-pentacles .mc-observatory-root .mc-filter-bar {
+  margin: 6px 0 10px;
+  gap: 8px;
+}
+.alchm-pentacles .mc-observatory-root .mc-deck-search {
+  min-width: 100%;
+  max-width: none;
+}
+.alchm-pentacles .mc-observatory-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: 9px;
+}
+@container seeker-deck (max-width: 310px) {
+  .alchm-pentacles .mc-observatory-card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .alchm-pentacles .mc-observatory-card-grid .mc-card-art {
+    height: 104px;
+  }
+}
+@container seeker-deck (min-width: 311px) {
+  .alchm-pentacles .mc-observatory-card-grid .mc-card-art {
+    height: 118px;
+  }
+}
+
+.alchm-pentacles .mc-card.is-siege-equipped {
+  box-shadow: inset 0 0 0 1px rgba(246, 231, 193, 0.45), 0 0 12px rgba(234, 179, 8, 0.18);
+}
+.alchm-pentacles .mc-card.is-fuse-anchor {
+  border-color: #fef08a !important;
+  box-shadow: 0 0 16px rgba(250, 204, 21, 0.45);
+}
+.alchm-pentacles .mc-card.is-fuse-target {
+  border-color: #eab308 !important;
+  box-shadow: 0 0 14px rgba(234, 179, 8, 0.35);
+}
+.alchm-pentacles .mc-card-attune-dot {
+  font-size: 9px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: rgba(234, 179, 8, 0.22);
+  border: 1px solid rgba(234, 179, 8, 0.55);
+  color: #fef08a;
+}
+.alchm-pentacles .mc-card-quick-btn {
+  margin-left: auto;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid rgba(216, 180, 106, 0.42);
+  background: rgba(216, 180, 106, 0.14);
+  color: #f6e7c1;
+  font-family: inherit;
+  font-size: 8.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+.alchm-pentacles .mc-card-quick-btn:hover {
+  background: rgba(234, 179, 8, 0.32);
+  border-color: #fef08a;
+}
+.alchm-pentacles .mc-card-quick-btn.is-equipped {
+  background: rgba(234, 179, 8, 0.26);
+  color: #fef08a;
+}
+
+/* Desktop hides mobile drawer toggles */
+.alchm-pentacles .mc-mobile-stats-toggle,
+.alchm-pentacles .mc-mobile-drawer-btn {
+  display: none;
+}
+
+/* ── Mobile & Tablet Single-Screen Observatory (<= 960px) ── */
+@media (max-width: 960px) {
+  .alchm-pentacles .mc-root.mc-observatory-root,
+  .alchm-codex .mc-root.mc-observatory-root {
+    display: flex;
+    flex-direction: column;
+    padding: 10px 12px 12px;
+    gap: 8px;
+    height: 100dvh;
+    overflow: hidden;
+  }
+  .alchm-pentacles .mc-mobile-stats-toggle,
+  .alchm-pentacles .mc-mobile-drawer-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 5px 10px;
+    border-radius: 6px;
+    border: 1px solid rgba(216, 180, 106, 0.32);
+    background: rgba(14, 18, 32, 0.85);
+    color: var(--ac-gold-bright);
+    cursor: pointer;
+  }
+  .alchm-pentacles .mc-zone--left {
+    flex: 0 0 auto;
+  }
+  .alchm-pentacles .mc-observatory-root:not(.is-stats-expanded) .mc-zone--left .mc-zone-tabs,
+  .alchm-pentacles .mc-observatory-root:not(.is-stats-expanded) .mc-zone--left .mc-zone-left-scroll,
+  .alchm-pentacles .mc-observatory-root:not(.is-stats-expanded) .mc-zone--left .mc-horizon-banner {
+    display: none;
+  }
+  .alchm-pentacles .mc-observatory-root.is-stats-expanded .mc-zone--left {
+    max-height: 46dvh;
+  }
+  .alchm-pentacles .mc-zone--center {
+    flex: 1 1 0;
+    min-height: 210px;
+  }
+  .alchm-pentacles .mc-stage-host {
+    min-height: 200px;
+  }
+  .alchm-pentacles .mc-center-quickbar {
+    display: none;
+  }
+  .alchm-pentacles .mc-zone--right {
+    flex: 0 0 auto;
+  }
+  .alchm-pentacles .mc-observatory-root:not(.is-drawer-open) .mc-zone--right .mc-deck-panel {
+    display: none;
+  }
+  .alchm-pentacles .mc-observatory-root.is-drawer-open .mc-zone--right {
+    position: fixed;
+    inset: auto 0 0 0;
+    height: 72dvh;
+    z-index: 30;
+    padding: 10px 12px 14px;
+    background: rgba(9, 11, 20, 0.97);
+    border-top: 1px solid rgba(216, 180, 106, 0.4);
+    box-shadow: 0 -16px 40px rgba(0, 0, 0, 0.8);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #sky-map-wrapper,
+  #mc-overlay,
+  #mp-overlay,
+  #mc-overlay .mc-window,
+  #mp-overlay .mc-window,
+  .alchm-pentacles .mc-sacred-fill,
+  .alchm-pentacles .mc-card {
+    transition: none;
+  }
+  .alchm-pentacles .svs-zodiac-wheel,
+  .alchm-pentacles .mc-card-major-sigil .sigil-ring-outer {
+    animation: none;
+  }
+}
 
 /* ============================================================
    Admin Telemetry — "The Observatory" (admin-only ops console)

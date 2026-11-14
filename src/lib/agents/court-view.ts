@@ -1,12 +1,15 @@
-import { ratingFeedStatus } from './agent-rating-feed';
 import * as THREE from 'three';
 import { PentacleArena3D, getZoneTitle } from './pentacle-arena-3d';
 import { ArenaNavigation } from './arena-navigation';
+import { CourtRenderBudget } from './court-render-budget';
+import type { AvatarRenderQuality } from './court-resolution';
 import { SpacetimeDBBridge, setGlobalSpacetimeCourtBridge, type CourtTimelineEvent } from './spacetimedb-bridge';
-import { SACRED_STAT_KEYS } from './rating-contract';
+import { ESMS_KEYS, SACRED_STAT_KEYS } from './rating-contract';
 import { PLANET_NAMES, accessRefusalReason } from '../../alchm-chart/zone-access.js';
 import { FACTION_HEX_COLORS } from './avatar-foot-ring';
-import { createVesselPortraitSvg, resolveAgentAppearance, VESSEL_RELIC_LABELS } from './vessel-appearance-manifest';
+import { presentVessel, vesselActivity, updateVesselPortrait, formatVesselBalance } from './vessel-presentation';
+import { layoutCourtNameplates, type NameplateAnchor } from './court-nameplates';
+import { VesselDetailRegions } from './vessel-detail-regions';
 import './court-view.css';
 
 const escape = (value: unknown): string => String(value ?? '').replace(/[&<>"']/g,
@@ -100,12 +103,14 @@ export function openPentacleCourt(options: CourtViewOptions = {}) {
       <section class="pk-court-map" aria-label="3D Pentacle court">
         <div class="pk-court-stage"></div>
         <div class="pk-court-labels"></div>
-        <div class="pk-court-map-heading"><span class="pk-court-status" role="status"></span><p class="pk-court-source-note"></p></div>
+        <div class="pk-court-nameplates" aria-label="Vessels in the scene"></div>
+        <div class="pk-court-map-heading"><span class="pk-court-status" role="status"></span><p class="pk-court-source-note"></p><button type="button" class="pk-court-inspect-selection" data-action="inspect" hidden>Inspect selection</button></div>
         <div class="pk-court-fallback" hidden><strong>3D rendering is unavailable</strong><p>You can still browse zones and agents in the inspector.</p></div>
         <div class="pk-court-navigation" role="group" aria-label="Camera controls">
           <button type="button" data-action="overview">Overview</button><button type="button" data-action="top">Top view</button>
           <button type="button" data-action="in" aria-label="Zoom in">＋</button><button type="button" data-action="out" aria-label="Zoom out">−</button>
           <button type="button" data-action="motion" aria-pressed="true">Motion on</button>
+          <button type="button" data-action="quality" aria-label="Sharper avatar rendering" aria-pressed="true">Sharp</button>
           <button type="button" data-action="spectate" aria-pressed="false" class="pk-court-spectate-btn">Follow action</button>
         </div>
         <p class="pk-court-help">Drag to orbit · Scroll or pinch to zoom · Select a vessel to inspect</p>
@@ -139,11 +144,19 @@ export function openPentacleCourt(options: CourtViewOptions = {}) {
   const timelineCount = get<HTMLSpanElement>('.pk-court-timeline-count');
   const timelineEmpty = get<HTMLParagraphElement>('.pk-court-timeline-empty');
   const focusButton = get<HTMLButtonElement>('[data-action="focus"]');
+  const inspectButton = get<HTMLButtonElement>('[data-action="inspect"]');
   const motionButton = get<HTMLButtonElement>('[data-action="motion"]');
   const labelsHost = get('.pk-court-labels');
+  const nameplatesHost = get('.pk-court-nameplates');
+  const nameplates = new Map<string, HTMLButtonElement>();
+  const projected = new THREE.Vector3();
   const rosterButtons = new Map<string, HTMLButtonElement>();
+  const timelineItems = new Map<string, { button: HTMLButtonElement; event: CourtTimelineEvent; markup: string }>();
   const labels = new Map<number, HTMLButtonElement>();
   const receivedZones = new Set<number>();
+  const renderBudget = new CourtRenderBudget();
+  const invalidateRender = () => renderBudget.invalidate();
+  let stageVisible = true;
   let mode: 'live' | 'examples' = 'live';
   let timelineCategory: 'all' | 'contest' | 'arrival' | 'rating' = 'all';
   let arena: PentacleArena3D;
@@ -153,6 +166,7 @@ export function openPentacleCourt(options: CourtViewOptions = {}) {
   let rebuilding = false;
   let motion = !(typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)')?.matches);
   let followAction = false;
+  let quality: AvatarRenderQuality = 'sharp';
   let detailSignature = '';
   let frame = 0;
   let lastTime = performance.now();
@@ -162,11 +176,16 @@ export function openPentacleCourt(options: CourtViewOptions = {}) {
     if (disposed || rebuilding) return;
     // Keep the roster's territory filter independent of selection: users can
     // inspect adjacent agents without losing their place in the full roster.
+    invalidateRender();
     refresh();
-    get('.pk-court-inspector').scrollTop = 0;
-    get('.pk-court-body').scrollTop = 0;
   };
+  const showDetails = () => {
+    detail.focus({ preventScroll: true });
+    detail.scrollIntoView({ block: 'start' });
+  };
+  const vesselDetails = new VesselDetailRegions(detail);
   const setDetail = (html: string) => {
+    vesselDetails.reset();
     if (html !== detailSignature) { detail.innerHTML = html; detailSignature = html; }
   };
 
@@ -183,26 +202,31 @@ export function openPentacleCourt(options: CourtViewOptions = {}) {
     const selected = arena.selection;
     const agent = selected?.agentId ? arena.avatarRegistry.get(selected.agentId) : undefined;
     const zone = selected ? arena.zones.get(selected.zoneId) : undefined;
+    inspectButton.hidden = !selected;
+    const inspectLabel = `Inspect ${agent?.payload.handle ?? zone?.name ?? 'selection'} →`;
+    if (inspectButton.textContent !== inspectLabel) inspectButton.textContent = inspectLabel;
     focusButton.disabled = !selected || !arena.webglAvailable;
     focusButton.textContent = agent ? 'Focus selected model ↗' : 'Focus selected territory ↗';
     if (agent && zone) {
       const p = agent.payload;
-      const feedStatus = ratingFeedStatus(p);
-      const pending = feedStatus === 'pending';
-      const sourceNote = p.ratingFeed
-        ? `${feedStatus === 'stale' ? 'Stale rating' : feedStatus === 'partial' ? 'Partial live rating' : 'Live rating'} · ASOL · ${new Date(p.ratingFeed.receivedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}${p.isPlaceholder ? ' · Provisional natal chart' : ''}`
-        : mode === 'examples' ? 'Example ratings' : 'Awaiting the historical rating feed';
-      const sealNote = p.ratingFeed && !p.ratingFeed.esmsAvailable ? 'ESMS and seals unavailable' : `${p.seals.length} alchemical seals`;
-      const surgeNote = p.ratingFeed && !p.ratingFeed.skyAvailable ? 'Sky reading unavailable' : `Surge ${Math.round(p.surge.meter)}%`;
-      const appearance = p.appearance ?? resolveAgentAppearance(p.key, p.faction, p.archetype);
-      const activity = agent.targetZoneId !== undefined ? `Travelling to ${getZoneTitle(agent.targetZoneId)}`
-        : agent.group.userData.animationState === 'victory' ? 'Celebrating a trick win'
-        : agent.group.userData.animationState === 'stagger' ? 'Recovering from a lost trick'
-        : ['contest-attack', 'contest-defend'].includes(agent.group.userData.animationState) ? 'Contesting territory'
-        : p.surge.active ? 'Resonance surge active' : 'Holding position';
-      setDetail(`<div class="pk-court-agent-identity"><img src="${escape(createVesselPortraitSvg(appearance))}" alt="" /><div><p class="pk-court-eyebrow">${escape(p.factionName)} · ${escape(agent.slot === 'spectator' ? 'Seated agent' : agent.slot)}</p><h3>${escape(p.handle)}</h3><p>${pending ? 'Ratings pending' : escape(p.archetype.title)}</p></div><strong class="pk-court-ovr">${pending ? '—' : p.ovr}<small>OVR</small></strong></div>
-        <p class="pk-court-notice" data-rating-status="${feedStatus}">${escape(sourceNote)}${feedStatus === 'stale' ? ' · Waiting for a newer snapshot' : ''}</p><p class="pk-court-activity">${escape(activity)}</p><p>${escape(zone.name)} · ${escape(VESSEL_RELIC_LABELS[appearance.signatureRelic])}</p>
-        ${pending ? '<p class="pk-court-notice">This agent’s ratings have not been supplied. Its appearance is a provisional vessel.</p>' : `<div class="pk-court-stats">${SACRED_STAT_KEYS.map(key => `<div><span>${escape(key)}</span><meter min="25" max="99" value="${p.ratings[key]}" aria-label="${key}"></meter><b>${p.ratings[key]}</b></div>`).join('')}</div><p class="pk-court-notice">${escape(sealNote)} · ${escape(surgeNote)}</p>`}`);
+      const view = presentVessel(p);
+      const activity = vesselActivity(p, agent.group.userData.animationState,
+        agent.targetZoneId === undefined ? undefined : getZoneTitle(agent.targetZoneId));
+      const sourceNote = `${view.sourceLabel} · ${view.snapshotLabel}${p.isPlaceholder ? ' · Provisional natal chart' : ''}`;
+      const likeness = agent.group.userData.externalModel ? 'Authored likeness' : agent.group.userData.modelError
+        ? 'Procedural likeness · custom model unavailable' : 'Procedural likeness';
+      detailSignature = '';
+      vesselDetails.update(p.key, [`<div class="pk-court-agent-identity"><img class="pk-court-portrait" width="76" height="76" alt="" /><div><p class="pk-court-eyebrow">${escape(p.factionName)} · ${escape(agent.slot === 'spectator' ? 'Seated agent' : agent.slot)}</p><h3>${escape(view.name)}</h3><p>${escape(view.archetype)}</p></div><strong class="pk-court-ovr">${view.ovr}<small>OVR</small></strong></div>`,
+        `<div class="pk-court-presence"><span class="pk-court-source-pill" data-rating-status="${view.status}">${escape(view.sourceLabel)}</span><time datetime="${escape(view.snapshotTimestamp)}" title="${escape(view.snapshotTimestamp)}">${escape(view.snapshotLabel)}</time></div>`,
+        `<p class="pk-court-activity">${escape(activity)}</p>`,
+        `<div class="pk-court-location"><span>${escape(zone.name)}</span><span>${escape(likeness)}</span></div>`,
+        `<p class="pk-court-notice" title="${escape(sourceNote)}">${view.status === 'stale' ? 'Waiting for a newer snapshot. Displayed metrics are the last received values.' : p.isPlaceholder ? 'Provisional natal chart' : 'Identity and readings from the current court snapshot.'}</p>`,
+        `<section class="pk-court-metric-section"><h4>Sacred seven <span>25–99</span></h4>${!view.available ? '<p class="pk-court-notice">Ratings have not been supplied.</p>' : `<div class="pk-court-stats">${SACRED_STAT_KEYS.map(key => `<div><span>${escape(key)}</span><meter min="25" max="99" value="${p.ratings[key]}" aria-label="${key}"></meter><b>${p.ratings[key]}</b></div>`).join('')}</div>`}</section>`,
+        `<section class="pk-court-metric-section"><h4>Elemental balances <span>ESMS</span></h4>${view.esms ? `<dl class="pk-court-esms">${ESMS_KEYS.map(key => `<div data-element="${key}"><dt>${key}</dt><dd>${formatVesselBalance(view.esms![key])}</dd></div>`).join('')}</dl>` : '<p class="pk-court-notice">ESMS and seals unavailable · No measured ledger reading.</p>'}</section>`,
+        `<section class="pk-court-metric-section"><h4>Resonance surge <span>${view.surge ? `${Math.round(view.surge.meter)}%` : '—'}</span></h4>${view.surge ? `<meter min="0" max="100" value="${view.surge.meter}" aria-label="Resonance surge"></meter><p class="pk-court-notice">${escape(view.surge.surgeType)} · ${view.surge.active ? 'Active' : 'Building resonance'}</p>` : '<p class="pk-court-notice">Sky reading unavailable</p>'}</section>`,
+        `<section class="pk-court-metric-section"><h4>Alchemical seals <span>${view.seals?.length ?? '—'}</span></h4>${view.seals ? `<ul class="pk-court-seals">${view.seals.map(seal => `<li><details data-seal-id="${escape(seal.id)}"><summary><span data-tier="${escape(seal.tier)}">${escape(seal.tier)}</span> <span>${escape(seal.name)}</span></summary><p>${escape(seal.description)}</p><small>${escape(seal.category)}${seal.statKey ? ` · ${escape(seal.statKey)}` : ''} · Tier ×${seal.multiplier}</small></details></li>`).join('') || '<li>No seals earned in this snapshot.</li>'}</ul>` : '<p class="pk-court-notice">Awaiting measured seals</p>'}</section>`,
+        `<div class="pk-court-relic"><span>Signature relic</span><strong>${escape(view.relic)}</strong></div>`]);
+      updateVesselPortrait(detail.querySelector<HTMLImageElement>('img')!, view);
     } else if (zone && mode === 'live' && !receivedZones.has(zone.zoneId)) {
       setDetail(`<p class="pk-court-eyebrow">${zone.kind.toUpperCase()} / TERRITORY ${zone.zoneId + 1}</p><h3>${escape(zone.name)}</h3><p>Awaiting territory data.</p><p class="pk-court-notice">Ownership, control and faction access will appear when this territory’s snapshot arrives.</p>`);
     } else if (zone) {
@@ -220,19 +244,23 @@ export function openPentacleCourt(options: CourtViewOptions = {}) {
     const agents = [...arena.avatarRegistry.values()].sort((a, b) => a.payload.handle.localeCompare(b.payload.handle));
     const keys = new Set(agents.map(a => a.payload.key));
     for (const [key, button] of rosterButtons) if (!keys.has(key)) { button.remove(); rosterButtons.delete(key); }
+    for (const [key, button] of nameplates) if (!keys.has(key)) { button.remove(); nameplates.delete(key); }
     let visible = 0;
     for (const registration of agents) {
       const p = registration.payload;
+      const view = presentVessel(p);
+      const activity = vesselActivity(p, registration.group.userData.animationState,
+        registration.targetZoneId === undefined ? undefined : getZoneTitle(registration.targetZoneId));
       let button = rosterButtons.get(p.key);
       if (!button) {
         button = document.createElement('button');
         button.type = 'button';
         button.className = 'pk-court-agent';
-        button.innerHTML = '<span class="pk-court-agent-dot" aria-hidden="true"></span><span><strong></strong><small></small></span><b></b>';
+        button.innerHTML = '<img class="pk-court-roster-portrait" width="38" height="38" alt="" /><span><strong></strong><small></small><em></em></span><b></b>';
         button.addEventListener('click', () => {
           arena.selectAgent(p.key);
           navigation?.focusSelection();
-          detail.focus({ preventScroll: true });
+          showDetails();
         });
         rosterButtons.set(p.key, button);
         roster.appendChild(button);
@@ -244,7 +272,30 @@ export function openPentacleCourt(options: CourtViewOptions = {}) {
       button.style.setProperty('--agent-color', FACTION_HEX_COLORS[p.faction] || '#d8b46a');
       button.querySelector('strong')!.textContent = p.handle;
       button.querySelector('small')!.textContent = `${p.factionName} · ${getZoneTitle(registration.zoneId)}`;
-      button.querySelector('b')!.textContent = ratingFeedStatus(p) === 'pending' ? '—' : String(p.ovr);
+      button.querySelector('b')!.textContent = view.ovr;
+      button.querySelector('em')!.textContent = view.sourceLabel;
+      button.querySelector('em')!.setAttribute('data-rating-status', view.status);
+      updateVesselPortrait(button.querySelector<HTMLImageElement>('img')!, view);
+      if (arena.webglAvailable) {
+        let plate = nameplates.get(p.key);
+        if (!plate) {
+          plate = document.createElement('button'); plate.type = 'button';
+          plate.className = 'pk-court-nameplate';
+          plate.hidden = true;
+          plate.innerHTML = '<img width="36" height="36" alt="" /><span><strong></strong><small></small></span><b></b>';
+          plate.addEventListener('click', () => { arena.selectAgent(p.key); navigation?.focusSelection(); showDetails(); });
+          nameplates.set(p.key, plate); nameplatesHost.appendChild(plate);
+        }
+        plate.setAttribute('aria-pressed', String(selected?.agentId === p.key));
+        plate.setAttribute('aria-label', `Inspect ${view.name} · ${view.ovr} OVR · ${view.sourceLabel} · ${activity}`);
+        plate.setAttribute('title', `${view.name} · ${view.sourceLabel} · ${activity}`);
+        plate.setAttribute('data-rating-status', view.status);
+        plate.style.setProperty('--agent-color', FACTION_HEX_COLORS[p.faction] || '#d8b46a');
+        plate.querySelector('strong')!.textContent = view.name;
+        plate.querySelector('small')!.textContent = `${view.sourceLabel} · ${activity}`;
+        plate.querySelector('b')!.textContent = view.ovr;
+        updateVesselPortrait(plate.querySelector<HTMLImageElement>('img')!, view);
+      }
     }
     get('.pk-court-count').textContent = `${visible} / ${agents.length}`;
     get('.pk-court-empty').textContent = visible ? '' : agents.length ? 'No agents match this territory or search.'
@@ -260,15 +311,35 @@ export function openPentacleCourt(options: CourtViewOptions = {}) {
     timelineCount.textContent = `${visibleEvents.length} / ${rawTimeline.length}`;
     timelineEmpty.textContent = visibleEvents.length ? '' : rawTimeline.length ? 'No events match this territory or search.'
       : mode === 'live' ? 'No recent arrivals or contests. Events will stream in live as agents clash.' : 'No events to display.';
-    timelineHost.replaceChildren();
-    for (const evt of visibleEvents) {
-      const item = document.createElement('button');
-      item.type = 'button';
-      item.className = 'pk-court-timeline-item';
-      const isSelected = selected?.agentId === evt.agentKey || selected?.zoneId === evt.zoneId;
+    const focusedEvent = timelineHost.contains(document.activeElement) ? document.activeElement as HTMLElement : null;
+    const visibleIds = new Set(visibleEvents.map(evt => evt.id));
+    for (const [id, entry] of timelineItems) {
+      if (!visibleIds.has(id)) { entry.button.remove(); timelineItems.delete(id); }
+    }
+    for (const [index, evt] of visibleEvents.entries()) {
+      let entry = timelineItems.get(evt.id);
+      if (!entry) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'pk-court-timeline-item';
+        button.setAttribute('data-event-id', evt.id);
+        entry = { button, event: evt, markup: '' };
+        timelineItems.set(evt.id, entry);
+        const current = entry;
+        button.addEventListener('click', () => {
+          const event = current.event;
+          if (arena.avatarRegistry.has(event.agentKey)) arena.selectAgent(event.agentKey);
+          else arena.selectZone(event.zoneId);
+          navigation?.focusSelection();
+          showDetails();
+        });
+      }
+      entry.event = evt;
+      const item = entry.button;
+      const isSelected = selected?.agentId ? selected.agentId === evt.agentKey : selected?.zoneId === evt.zoneId;
       item.setAttribute('aria-pressed', String(isSelected));
       item.style.setProperty('--agent-color', FACTION_HEX_COLORS[evt.faction] || '#d8b46a');
-      item.innerHTML = `
+      const markup = `
         <div class="pk-court-timeline-meta">
           <span class="pk-court-badge pk-badge-${escape(evt.type)}">${escape(evt.type.toUpperCase())}</span>
           <span class="pk-court-timeline-zone">${escape(getZoneTitle(evt.zoneId))}</span>
@@ -277,16 +348,16 @@ export function openPentacleCourt(options: CourtViewOptions = {}) {
         <p class="pk-court-timeline-summary"><span class="pk-court-agent-dot" aria-hidden="true"></span>${escape(evt.summary)}</p>
         ${evt.detail ? `<small class="pk-court-timeline-detail">${escape(evt.detail)}</small>` : ''}
       `;
-      item.addEventListener('click', () => {
-        if (arena.avatarRegistry.has(evt.agentKey)) {
-          arena.selectAgent(evt.agentKey);
-        } else {
-          arena.selectZone(evt.zoneId);
-        }
-        navigation?.focusSelection();
-        detail.focus({ preventScroll: true });
-      });
-      timelineHost.appendChild(item);
+      if (entry.markup !== markup) { item.innerHTML = markup; entry.markup = markup; }
+      const next = timelineHost.children[index] ?? null;
+      if (next !== item) timelineHost.insertBefore(item, next);
+    }
+    if (focusedEvent) {
+      if (focusedEvent.isConnected) {
+        if (document.activeElement !== focusedEvent) focusedEvent.focus({ preventScroll: true });
+      } else {
+        get<HTMLButtonElement>('[data-timeline-category][aria-pressed="true"]').focus({ preventScroll: true });
+      }
     }
 
     for (const [id, label] of labels) {
@@ -303,19 +374,25 @@ export function openPentacleCourt(options: CourtViewOptions = {}) {
     arena?.destroy();
     roster.replaceChildren();
     rosterButtons.clear();
+    timelineHost.replaceChildren();
+    timelineItems.clear();
     labelsHost.replaceChildren();
     labels.clear();
+    nameplatesHost.replaceChildren();
+    nameplates.clear();
     receivedZones.clear();
     territory.value = 'all';
-    arena = new PentacleArena3D({ container: stage, onSelectAgent: select, onSelectZone: select });
+    arena = new PentacleArena3D({ container: stage, showIdentityBadges: false, renderQuality: quality, onSelectAgent: select, onSelectZone: select });
     navigation = arena.webglAvailable ? new ArenaNavigation(arena) : undefined;
+    navigation?.controls.addEventListener('change', invalidateRender);
     bridge = new SpacetimeDBBridge();
     bridge.attachArena(arena);
     setGlobalSpacetimeCourtBridge(bridge);
     if (typeof window !== 'undefined') (window as any).__pentacleArena = arena;
-    bridge.onZoneUpdate(row => receivedZones.add(row.zoneId));
+    bridge.onZoneUpdate(row => { receivedZones.add(row.zoneId); invalidateRender(); });
     bridge.onTimelineEvent(evt => {
       if (!disposed && !rebuilding) {
+        invalidateRender();
         if (followAction && (evt.type === 'contest' || evt.type === 'arrival')) {
           if (arena.avatarRegistry.has(evt.agentKey)) {
             arena.selectAgent(evt.agentKey);
@@ -340,7 +417,7 @@ export function openPentacleCourt(options: CourtViewOptions = {}) {
         label.type = 'button';
         label.textContent = zone.kind === 'crown' ? 'Crown' : zone.name;
         label.setAttribute('aria-label', `Inspect ${zone.name}`);
-        label.addEventListener('click', () => { territory.value = String(id); arena.selectZone(id); });
+        label.addEventListener('click', () => { territory.value = String(id); arena.selectZone(id); showDetails(); });
         labels.set(id, label);
         labelsHost.appendChild(label);
       }
@@ -354,8 +431,10 @@ export function openPentacleCourt(options: CourtViewOptions = {}) {
   function resize() {
     arena?.resize(stage.clientWidth, stage.clientHeight);
     navigation?.resize();
+    invalidateRender();
   }
   function updateMotion() {
+    invalidateRender();
     motionButton.textContent = motion ? 'Motion on' : 'Motion off';
     motionButton.setAttribute('aria-pressed', String(motion));
   }
@@ -367,13 +446,30 @@ export function openPentacleCourt(options: CourtViewOptions = {}) {
       arena.motionEnabled = motion;
       arena.update(dt);
       navigation?.update();
-      arena.renderer.render(arena.scene, arena.camera);
-      const projected = new THREE.Vector3();
-      for (const [id, label] of labels) {
-        projected.copy(arena.zones.get(id)!.position).project(arena.camera);
-        label.hidden = projected.z < -1 || projected.z > 1 || Math.abs(projected.x) > 0.96 || Math.abs(projected.y) > 0.87;
-        label.style.left = `${(projected.x + 1) * 50}%`;
-        label.style.top = `${(1 - projected.y) * 50}%`;
+      if (renderBudget.shouldRender(now, motion, stageVisible)) {
+        arena.renderer.render(arena.scene, arena.camera);
+
+        const anchors: NameplateAnchor[] = [];
+        for (const [key, registration] of arena.avatarRegistry) {
+          projected.set(0, 3, 0).applyMatrix4(registration.group.matrixWorld).project(arena.camera);
+          anchors.push({ key, x: (projected.x + 1) * stage.clientWidth / 2,
+            y: (1 - projected.y) * stage.clientHeight / 2, depth: projected.z, selected: arena.selection?.agentId === key });
+        }
+        const placements = new Map(layoutCourtNameplates(anchors, stage.clientWidth, stage.clientHeight).map(placement => [placement.key, placement]));
+        for (const [key, plate] of nameplates) {
+          const placement = placements.get(key);
+          plate.hidden = !placement;
+          if (placement) {
+            plate.style.left = `${placement.x}px`; plate.style.top = `${placement.y}px`;
+            plate.style.width = `${placement.width}px`;
+          }
+        }
+        for (const [id, label] of labels) {
+          projected.copy(arena.zones.get(id)!.position).project(arena.camera);
+          label.hidden = projected.z < -1 || projected.z > 1 || Math.abs(projected.x) > 0.96 || Math.abs(projected.y) > 0.87;
+          label.style.left = `${(projected.x + 1) * 50}%`;
+          label.style.top = `${(1 - projected.y) * 50}%`;
+        }
       }
       if (now - lastRefresh > 300) { refresh(); lastRefresh = now; }
     }
@@ -384,6 +480,8 @@ export function openPentacleCourt(options: CourtViewOptions = {}) {
     disposed = true;
     cancelAnimationFrame(frame);
     observer.disconnect();
+    visibilityObserver?.disconnect();
+    for (const event of ['pointermove', 'pointerleave', 'pointerdown']) stage.removeEventListener(event, invalidateRender);
     bridge.disconnect();
     bridge.detachArena();
     setGlobalSpacetimeCourtBridge(null);
@@ -422,8 +520,21 @@ export function openPentacleCourt(options: CourtViewOptions = {}) {
       case 'top': navigation?.overview(true); break;
       case 'in': navigation?.zoom(0.8); break;
       case 'out': navigation?.zoom(1.25); break;
-      case 'focus': navigation?.focusSelection(); get('.pk-court-body').scrollTop = 0; break;
+      case 'inspect': showDetails(); break;
+      case 'focus':
+        navigation?.focusSelection();
+        get('.pk-court-body').scrollTop = 0;
+        inspectButton.focus({ preventScroll: true });
+        break;
       case 'motion': motion = !motion; updateMotion(); break;
+      case 'quality': {
+        quality = quality === 'sharp' ? 'balanced' : 'sharp';
+        const button = get<HTMLButtonElement>('[data-action="quality"]');
+        button.textContent = quality === 'sharp' ? 'Sharp' : 'Balanced';
+        button.setAttribute('aria-pressed', String(quality === 'sharp'));
+        arena.setRenderQuality(quality); invalidateRender();
+        break;
+      }
       case 'spectate': {
         followAction = !followAction;
         const spectateBtn = get<HTMLButtonElement>('[data-action="spectate"]');
@@ -446,18 +557,30 @@ export function openPentacleCourt(options: CourtViewOptions = {}) {
   territory.addEventListener('change', () => {
     if (territory.value === 'all') arena.clearSelection(); else arena.selectZone(Number(territory.value));
     refresh();
+    if (territory.value !== 'all') showDetails();
   });
   search.addEventListener('input', refresh);
   const observer = new ResizeObserver(resize);
+  const visibilityObserver = typeof IntersectionObserver === 'function'
+    ? new IntersectionObserver(entries => {
+      const entry = entries.find(item => item.target === stage);
+      if (!entry) return;
+      stageVisible = entry.isIntersecting && entry.intersectionRatio > 0;
+      if (stageVisible) invalidateRender();
+    }) : undefined;
+  for (const event of ['pointermove', 'pointerleave', 'pointerdown']) stage.addEventListener(event, invalidateRender);
   try {
     dialog.showModal();
     buildScene();
     observer.observe(stage);
+    visibilityObserver?.observe(stage);
     updateMotion();
     frame = requestAnimationFrame(animate);
   } catch (error) {
     disposed = true;
     observer.disconnect();
+    visibilityObserver?.disconnect();
+    for (const event of ['pointermove', 'pointerleave', 'pointerdown']) stage.removeEventListener(event, invalidateRender);
     bridge?.disconnect();
     bridge?.detachArena();
     navigation?.destroy();

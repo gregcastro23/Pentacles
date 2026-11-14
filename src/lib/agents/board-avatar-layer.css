@@ -1,0 +1,70 @@
+.pk-board-avatars { position:absolute; inset:0; pointer-events:none; overflow:hidden; z-index:4; }
+.pk-board-avatars[hidden], .pk-board-avatar-controls[hidden], .pk-board-agent[hidden] { display:none; }
+.pk-board-avatars canvas { position:absolute; pointer-events:none; }
+.pk-board-agent { position:absolute; transform:translate(-50%,-100%); display:block; min-height:44px; padding:0; border:0; border-radius:8px; color:#edf1fa; background:transparent; font:11px/1.3 system-ui,sans-serif; cursor:pointer; pointer-events:auto; }
+.pk-board-agent-name { position:absolute; top:calc(100% + 3px); left:50%; transform:translateX(-50%); display:block; width:max-content; max-width:var(--name-width,118px); padding:2px 4px; border-bottom:2px solid var(--faction); border-radius:4px; background:#0a1123c9; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:10px; }
+.pk-board-agent:hover, .pk-board-agent:focus-visible { outline:2px solid var(--faction); outline-offset:3px; z-index:3; background:color-mix(in srgb,var(--faction) 8%,transparent); }
+.pk-board-agent:hover .pk-board-agent-name, .pk-board-agent:focus-visible .pk-board-agent-name { max-width:180px; background:#0a1123; }
+.pk-board-agent-crowded .pk-board-agent-name { font-size:9px; }
+.pk-board-compact .pk-board-agent-name { display:none; }
+.pk-board-compact .pk-board-agent:hover .pk-board-agent-name, .pk-board-compact .pk-board-agent:focus-visible .pk-board-agent-name { display:block; font-size:11px; }
+.pk-board-agent-fallback { display:none; position:absolute; inset:0; width:100%; height:100%; object-fit:contain; border:2px solid var(--faction); border-radius:8px; background:#111a2b; box-sizing:border-box; }
+.pk-board-portraits-only .pk-board-agent-fallback { display:block; }
+.pk-board-deploying .pk-board-agent { pointer-events:none; opacity:.65; }
+.pk-board-avatar-controls { position:absolute; bottom:0; left:50%; transform:translateX(-50%); z-index:5; display:flex; align-items:center; gap:4px; padding:4px; border:1px solid #344056; border-radius:12px; background:#0b1324ed; color:#c0cbe0; font:11px/1.3 system-ui,sans-serif; width:max-content; max-width:100%; box-sizing:border-box; }
+.pk-board-avatar-controls span { padding:0 7px; }
+.pk-board-avatar-controls button { min-height:44px; border:1px solid #35415a; border-radius:8px; background:#17233a; color:#ecdfb6; font:inherit; padding:6px 10px; white-space:nowrap; cursor:pointer; }
+.pk-board-avatar-controls button:focus-visible { outline:2px solid #f1dc9b; outline-offset:2px; }
+.pk-board-avatar-controls button:disabled { opacity:.5; cursor:default; }
+#sky-map-wrapper.pk-board-small-host { margin-bottom:80px; }
+.pk-board-small-host .pk-board-avatar-controls { top:100%; bottom:auto; margin-top:8px; flex-wrap:wrap; justify-content:center; }
+.pk-board-small-host .pk-board-avatar-controls > span { flex-basis:100%; text-align:center; }
+.pk-board-team-key { display:flex; flex-wrap:wrap; gap:6px 12px; margin:16px 0; color:#c9d4e6; font-size:12px; }
+.pk-board-team-key span { display:inline-flex; align-items:center; gap:6px; }
+.pk-board-team-key span::before { content:""; width:10px; height:10px; background:var(--faction); border-radius:50%; }
+.pk-board-roster-list { display:grid; gap:8px; }
+.pk-board-roster-row { display:flex; gap:10px; align-items:center; width:100%; min-height:56px; text-align:left; padding:8px; border:1px solid #384a65; border-left:3px solid var(--faction); border-radius:10px; background:#142038; color:#e9efff; cursor:pointer; font:13px/1.5 system-ui,sans-serif; }
+.pk-board-roster-row img { flex-shrink:0; border-radius:8px; }
+.pk-board-roster-row:focus-visible { outline:2px solid var(--faction); outline-offset:2px; }
+.pk-board-agent-dialog { width:min(420px, calc(100vw - 40px)); max-height:calc(100dvh - 48px); overflow:auto; box-sizing:border-box; border:1px solid var(--faction, #697aa0); border-radius:20px; padding:24px; background:#0b1325; color:#eef3ff; box-shadow:0 20px 90px #000b; font:14px/1.5 system-ui,sans-serif; }
+.pk-board-agent-dialog::backdrop { background:#020611b8; backdrop-filter:blur(5px); }
+.pk-board-agent-dialog h2 { margin:12px 0 4px; font-size:26px; line-height:1.15; }
+.pk-board-inspector { width:min(820px, calc(100vw - 32px)); padding:0; }
+.pk-board-inspector-header { position:sticky; top:0; z-index:2; display:flex; align-items:flex-start; gap:16px; padding:18px 22px; background:#0b1325f5; border-bottom:1px solid #ffffff14; backdrop-filter:blur(12px); }
+.pk-board-inspector-header > div { flex:1; min-width:0; }
+.pk-board-profile-portrait { flex:0 0 64px; width:64px; height:64px; object-fit:cover; border-radius:12px; border:1px solid var(--faction); background:#162139; }
+.pk-board-inspector-header h2 { font-size:clamp(20px,4vw,26px); margin:4px 0; overflow-wrap:anywhere; }
+.pk-board-inspector-header .pk-board-agent-territory { margin:0 0 5px; font-size:11px; }
+.pk-board-inspector-header .pk-board-agent-faction { margin:5px 0 0; }
+.pk-board-inspector-header .pk-board-agent-close { flex-shrink:0; }
+.pk-board-inspector-body { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:22px; padding:22px; }
+.pk-board-model-panel { align-self:start; min-width:0; }
+@media(min-width:641px) and (min-height:650px) { .pk-board-model-panel { position:sticky; top:calc(var(--inspector-header-height,114px) + 22px); } }
+.pk-board-agent-readings { min-width:0; }
+.pk-board-agent-readings .pk-board-agent-role { margin-top:0; }
+.pk-board-agent-readings dd { overflow-wrap:anywhere; }
+.pk-board-agent-close { display:block; margin-left:auto; min-height:44px; padding:6px 12px; border:1px solid #42506a; border-radius:9px; background:#17233a; color:#eef3ff; cursor:pointer; }
+.pk-board-agent-portrait { border:1px solid var(--faction); border-radius:18px; background:#162139; }
+.pk-board-model-preview { height:clamp(280px,42vh,360px); border:1px solid #ffffff0e; border-radius:16px; background:radial-gradient(ellipse at 50% 65%,#20304b,#090f1d 75%); overflow:hidden; }
+.pk-board-model-preview canvas { display:block; width:100%; cursor:grab; }
+.pk-board-model-preview canvas:focus-visible { outline:2px solid var(--faction); outline-offset:-3px; }
+.pk-board-model-hint { text-align:center; font-size:11px; color:#bdcce2; }
+.pk-board-model-tools { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+.pk-board-model-tools[hidden] { display:none; }
+.pk-board-model-tools button { flex:1; min-height:44px; padding:6px 8px; border:1px solid #3b4b64; border-radius:9px; background:#142038; color:#dbe6f5; font:12px system-ui,sans-serif; cursor:pointer; }
+.pk-board-model-tools button[aria-pressed="true"] { color:#fff0c9; background:#293248; border-color:#cbb67a; }
+.pk-board-model-tools button:focus-visible { outline:2px solid #f1dc9b; outline-offset:2px; }
+.pk-board-model-status { color:#bdcce2; font-size:12px; }
+@media(max-width:640px) { .pk-board-inspector-body { grid-template-columns:minmax(0,1fr); gap:12px; padding:16px; } .pk-board-inspector-header { padding:14px 16px; gap:10px; } .pk-board-profile-portrait { flex-basis:44px; width:44px; height:44px; } }
+.pk-board-agent-territory { font-size:12px; color:#ccd5e7; }
+.pk-board-agent-faction { margin:6px 0; color:var(--faction); font-weight:700; }
+.pk-board-agent-role, .pk-board-agent-source { font-size:12px; color:#b4c0d6; }
+.pk-board-agent-baseline-note { margin:8px 0; padding:9px 11px; border-left:2px solid #8ba7cf; border-radius:0 6px 6px 0; background:#17243a; color:#c1cfe1; font-size:11px; line-height:1.5; }
+.pk-board-agent-metrics { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:16px 0 0; }
+.pk-board-agent-metrics div { padding:8px 10px; background:#142038; border-radius:8px; }
+.pk-board-agent-metrics dt { text-transform:capitalize; color:#acbcd7; font-size:11px; }
+.pk-board-agent-metrics dd { margin:2px 0 0; font-weight:600; }
+.pk-board-metric-source { float:right; margin-left:6px; color:#c4d9f7; font-size:9px; font-weight:500; letter-spacing:.03em; }
+.pk-board-seals-metric { grid-column:1 / -1; }
+.pk-board-seal-names { display:block; white-space:pre-line; margin-top:6px; color:#c5d2e5; font-size:11px; line-height:1.7; font-weight:400; }
+@media(max-width:480px) { .pk-board-agent { font-size:10px; padding:2px; } .pk-board-agent-name { font-size:9px; } .pk-board-avatar-controls { font-size:10px; flex-wrap:wrap; justify-content:center; } .pk-board-avatar-controls > span { flex-basis:100%; text-align:center; } }

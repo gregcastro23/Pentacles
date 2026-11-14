@@ -1,0 +1,363 @@
+{
+  "method": "MediaPipe Face Landmarker; estimated geometry from a single painted portrait",
+  "mediapipeVersion": "0.10.21",
+  "modelSha256": "64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff",
+  "topologySha256": "8bac80443397e113f41a8b565ea72c59390bc031d9defab289dba7bc0c54e618",
+  "faces": [
+    {
+      "key": "lewis-carroll",
+      "status": "estimated",
+      "sourceSha256": "a51ad4e625f461337f336f012de7214c507c73e0dd97344c207975a12bd2d8e9"
+    },
+    {
+      "key": "emily-dickinson",
+      "status": "estimated",
+      "sourceSha256": "e4f7d3a458aa9cf1d8ba1cd4aa44f87f8c203d248fdf4001a46cd049359b798b"
+    },
+    {
+      "key": "oscar-wilde",
+      "status": "estimated",
+      "sourceSha256": "d5045f0a88ae5c5830d9feaa88b91ce6f13094c5045f4e782d162eb497d16f14"
+    },
+    {
+      "key": "fyodor-dostoevsky",
+      "status": "estimated",
+      "sourceSha256": "ce965e1d0e840c0bdc210b1e3e414a87631a7ea627b61ba51d49dba0b7239fd8"
+    },
+    {
+      "key": "jane-austen",
+      "status": "estimated",
+      "sourceSha256": "6a00b481ca988c0860adcd603eaa558e8a39ea0c497c5493975fc1ba1635ffaf"
+    },
+    {
+      "key": "donatello",
+      "status": "estimated",
+      "sourceSha256": "4cf91fdf8d5db086a438eb9ecda5f60916d830870e61db88cd48535bd22ef0a4"
+    },
+    {
+      "key": "petrarch",
+      "status": "estimated",
+      "sourceSha256": "c160c7f9d01ba86fb9060f9e0e561318fe46255cff17a26526291e8d218d8b30"
+    },
+    {
+      "key": "machiavelli",
+      "status": "estimated",
+      "sourceSha256": "812c11d73d7e0f554f8fad4527409a43224f0d60421f7c1a65b06dc550b2053e"
+    },
+    {
+      "key": "raphael",
+      "status": "estimated",
+      "sourceSha256": "fd86ca3bdae7651ab7f61558c32b06f0b3c9dbd674f1a4bafa5ce90ff2b3a254"
+    },
+    {
+      "key": "michelangelo",
+      "status": "estimated",
+      "sourceSha256": "03949d218c5ad7bd72a1be85b625b2f125f30e51a2f982e18ab1bcf44fb0ed6c"
+    },
+    {
+      "key": "alexander-the-great",
+      "status": "estimated",
+      "sourceSha256": "32d9fa5c082f8d5a72af73cd27c38a762c843988034a5e57411cd65cb4e3ed60"
+    },
+    {
+      "key": "archimedes",
+      "status": "estimated",
+      "sourceSha256": "b1577da3f7b39075eda2a954e330d44b33f5d4d4302e4fa9b9f14d669de79f92"
+    },
+    {
+      "key": "herodotus",
+      "status": "estimated",
+      "sourceSha256": "85d6a2ec07c27de7501adcae9afcc1de30d4e8b58472530feb6e452f0d0ae610"
+    },
+    {
+      "key": "cicero",
+      "status": "estimated",
+      "sourceSha256": "4bca19132a9fd87cccdc1cad2a06e3899837f36f166606680ac3d9fe70c9a90f"
+    },
+    {
+      "key": "julius-caesar",
+      "status": "estimated",
+      "sourceSha256": "3acc2994331a7384eda293cb1e950c4bf2ea5b92ad635c05daf3ee19737f34af"
+    },
+    {
+      "key": "plato",
+      "status": "estimated",
+      "sourceSha256": "b55cc47def7dfb3ffce15c3809af73899aec89400db9ebf013230e1d8e5caa13"
+    },
+    {
+      "key": "aristotle",
+      "status": "estimated",
+      "sourceSha256": "e17d42014d5851f8e8e466a5ea03b1f845ec127a77bb91a709ba9557e423deeb"
+    },
+    {
+      "key": "homer",
+      "status": "estimated",
+      "sourceSha256": "6415c7dd7944128110fb8a302e504088fe053aa8b6cece6aed96d8c08362d93f"
+    },
+    {
+      "key": "socrates",
+      "status": "estimated",
+      "sourceSha256": "e16974e5c6b3c385e0a39d06cb9ea6e205a22737d98d713899b1dbc60607273a"
+    },
+    {
+      "key": "leonardo-da-vinci",
+      "status": "estimated",
+      "sourceSha256": "4453123d5f8de087342a2d7bcefbe53542c9bfe502aa484a2abef064e397a2a4"
+    },
+    {
+      "key": "dante-alighieri",
+      "status": "estimated",
+      "sourceSha256": "97928280ff2cd525576607336d8ac4960eb489a85dfadc8684e0b65c744c7233"
+    },
+    {
+      "key": "thomas-aquinas",
+      "status": "estimated",
+      "sourceSha256": "65f1bbc0b9544039e0879b95d1ec6619b77c62abb7c90c04d3daaa877c098616"
+    },
+    {
+      "key": "geoffrey-chaucer",
+      "status": "estimated",
+      "sourceSha256": "8133018ac2184cf24b8c77727772013de524fcf0bb98c39837986f6b24021304"
+    },
+    {
+      "key": "rumi",
+      "status": "estimated",
+      "sourceSha256": "457d216011cd036b5c7ae4fa6a6395870fb550ed3996bbf9cf24f86d62293ace"
+    },
+    {
+      "key": "marcus-aurelius",
+      "status": "estimated",
+      "sourceSha256": "66879f18b8c2de96e5bdd1aac37aafe72dd1ada8d6bf7d357950ed410ef1b778"
+    },
+    {
+      "key": "wolfgang-mozart",
+      "status": "estimated",
+      "sourceSha256": "52cce6a443beb845cbf9f9a30e29281ed48a6ef06cd17b81b6369c76a076f50e"
+    },
+    {
+      "key": "william-shakespeare",
+      "status": "estimated",
+      "sourceSha256": "2a015deaadc20834e4a8faa4da2fabe01c714cb8b9f9caa47692facd12018551"
+    },
+    {
+      "key": "galileo-galilei",
+      "status": "estimated",
+      "sourceSha256": "7b5393a0ea2dbdae888d563a1ed6822447bf4613dde417862a4574672675808c"
+    },
+    {
+      "key": "rene-descartes-1596",
+      "status": "estimated",
+      "sourceSha256": "9530d3a0a59876fb00b3a51123630c6baf2093c505fbba9be049b5e457f03825"
+    },
+    {
+      "key": "voltaire-1694",
+      "status": "estimated",
+      "sourceSha256": "da9c0356000fdc47b5900ffd0f7434a9f0335dbc8ac52d47d13f3e183f081bc3"
+    },
+    {
+      "key": "john-locke-1632",
+      "status": "estimated",
+      "sourceSha256": "54afd76a63876ed0f56a9c22ed5b077645927f3d0558a5b6f147c65b7a068623"
+    },
+    {
+      "key": "david-hume-1711",
+      "status": "estimated",
+      "sourceSha256": "600b3ccda6e5d1e82784050cd9c16038485f636c78f88302e223fa6b1513da09"
+    },
+    {
+      "key": "johannes-kepler-1571",
+      "status": "estimated",
+      "sourceSha256": "890cf45213ca7adfa085fb3afdfd482afb0bd4debd229106389eb26381197263"
+    },
+    {
+      "key": "immanuel-kant-1724",
+      "status": "estimated",
+      "sourceSha256": "e8d27b57fe8414905451633712c9df73231cef9de41239c5968274f757f2c103"
+    },
+    {
+      "key": "adam-smith-1723",
+      "status": "estimated",
+      "sourceSha256": "901cdf45cba0637754e360a822f581b9ac9aa2e5b1d61c113d764ec03608b380"
+    },
+    {
+      "key": "jean-jacques-rousseau-1712",
+      "status": "estimated",
+      "sourceSha256": "d0da6d1aa3f2abd413140be9b8e946a1c079478dddefb3bba0f5a6a9e2b45e06"
+    },
+    {
+      "key": "mary-wollstonecraft-1759",
+      "status": "estimated",
+      "sourceSha256": "3ad6e4f4e961630b04dba3f682097e714944d77a7d202588f87a25a45ca3f152"
+    },
+    {
+      "key": "charles-dickens-1812",
+      "status": "estimated",
+      "sourceSha256": "9b061d1da907fdf6f54497b1b3933f8edf6379d4f79ee793370b1d3ae2d78166"
+    },
+    {
+      "key": "claude-monet-1840",
+      "status": "estimated",
+      "sourceSha256": "46155e1ee6573c5cd003fd3de14837bcd5990d9fe5b3878f6f6063c557acc9f8"
+    },
+    {
+      "key": "nikola-tesla-1856",
+      "status": "estimated",
+      "sourceSha256": "bbe921511b04695563811e9aa4273890a038982a0f546e899802d281bc604b7a"
+    },
+    {
+      "key": "marie-curie-1867",
+      "status": "estimated",
+      "sourceSha256": "0713372dc4317dd66fd6fbde8557f319afa4a3c3de6ea665d980b0266ac5e2b3"
+    },
+    {
+      "key": "sigmund-freud-1856",
+      "status": "estimated",
+      "sourceSha256": "c7109c2ce622dd52fde56065bcab65a0e8c04a3e1bfebba1a1ebdeb9d3026b3f"
+    },
+    {
+      "key": "mark-twain-1835",
+      "status": "estimated",
+      "sourceSha256": "fbdfc5f7bc1d43d833b373585ef4e2d92b318b22b7099f952df06f5051ee358b"
+    },
+    {
+      "key": "vincent-van-gogh-1853",
+      "status": "estimated",
+      "sourceSha256": "13612e7f24ed85572b3f5f5e7ed3539bac394439cc7b5e726a0ba9163c8cfa33"
+    },
+    {
+      "key": "charles-darwin-1809",
+      "status": "estimated",
+      "sourceSha256": "8a91a326e6eae8e45615eda98a1cc0a570dcd1864cc3c90d6c04635c464fe401"
+    },
+    {
+      "key": "edgar-allan-poe-1809",
+      "status": "estimated",
+      "sourceSha256": "8d22ac8b8b0ee250e22c31fc3a838dbc5b2f3d9500434ade166792848a82519a"
+    },
+    {
+      "key": "maya-angelou",
+      "status": "estimated",
+      "sourceSha256": "4f4e7afa6a337867c4c1e6c986e3879cb8eca8bd414cad0740fddfd122fb9258"
+    },
+    {
+      "key": "isaac-newton",
+      "status": "estimated",
+      "sourceSha256": "dd29448dc85151eadd826afd1fe1b46aede1e8b2cb6a23bc606cf7cffe6e137f"
+    },
+    {
+      "key": "albert-einstein",
+      "status": "estimated",
+      "sourceSha256": "a345b533c997a30adf9645bc3595bec739a809f6436401cb3a1215a6dbc3236b"
+    },
+    {
+      "key": "isaac-asimov",
+      "status": "estimated",
+      "sourceSha256": "e9f253bfb7e4136588bcdd66718baa5fa02dc21a5f2789de5d23ffffd5c0d902"
+    },
+    {
+      "key": "carl-jung",
+      "status": "estimated",
+      "sourceSha256": "826270b655262a440be239b93301096511ba4a802d152736a5c9738ca2df5d32"
+    },
+    {
+      "key": "cleopatra",
+      "status": "estimated",
+      "sourceSha256": "883276da5728fe977d0e9e307043bbfe90bad9b347133294397a0593e176a522"
+    },
+    {
+      "key": "frida-kahlo",
+      "status": "estimated",
+      "sourceSha256": "faf8e6f0acb3c64086548260b139794d2107664d34947de7d2e3756a2e007b96"
+    },
+    {
+      "key": "benjamin-franklin",
+      "status": "estimated",
+      "sourceSha256": "d87c4e69cd035485beb65e7b7c16bf70537e3e5d163c749b3447af5ff8b8a72a"
+    },
+    {
+      "key": "eleanor-roosevelt",
+      "status": "estimated",
+      "sourceSha256": "bd6c558d0fb260e0a60bfa599357f71e8625787d835efa33f3e3a3100a657da4"
+    },
+    {
+      "key": "mahatma-gandhi",
+      "status": "estimated",
+      "sourceSha256": "f2f31eae1038cca69b7bddbc8f3995db26a88cff7464a80ea8589ef8211d9eab"
+    },
+    {
+      "key": "confucius",
+      "status": "estimated",
+      "sourceSha256": "1d0224dc91410828dbe03ae066e65736ec353ee4389983b7b87414c531dad2a9"
+    },
+    {
+      "key": "lao-tzu",
+      "status": "estimated",
+      "sourceSha256": "e89bfebe11f6d1be25230b7d65585b53ce9027673424b7cffe6c6bda36e02f3f"
+    },
+    {
+      "key": "siddhartha-gautama-buddha",
+      "status": "estimated",
+      "sourceSha256": "e3f6bafd78907cf162769484918f1c54c8e8cf1a9bfe79a6a30c382827930037"
+    },
+    {
+      "key": "murasaki-shikibu",
+      "status": "estimated",
+      "sourceSha256": "976a28776bc1661b9c838355604b1c3a7a88f15e0811136dd0741e7ed0e05203"
+    },
+    {
+      "key": "ibn-sina-avicenna",
+      "status": "estimated",
+      "sourceSha256": "579fac86807ca3ed32e6ad90456d64a1fe2a0beb9f6aa8bd8bfad7a86e25bf72"
+    },
+    {
+      "key": "tecumseh",
+      "status": "estimated",
+      "sourceSha256": "a3d7f4d7ab0022f34220a4ba200ab582e39abdd678a8420b3bddcc5b73beb1de"
+    },
+    {
+      "key": "wangari-maathai",
+      "status": "estimated",
+      "sourceSha256": "2ccbf951b4c5ad5379300dbef664422b557306c03bd3506b2d87a61b57cb578d"
+    },
+    {
+      "key": "sitting-bull",
+      "status": "estimated",
+      "sourceSha256": "34b0774622c9e80d90d51637bf15d961eb155682053bc940a83f62ce4fa5784b"
+    },
+    {
+      "key": "joan-of-arc",
+      "status": "estimated",
+      "sourceSha256": "6ec8e331c7e387eb42775338c0eb95384be82e88066479f2d8996f9a1d7a603c"
+    },
+    {
+      "key": "hildegard-of-bingen",
+      "status": "estimated",
+      "sourceSha256": "e368fd7efdeb69bfb9ccfd9e82ad6705dba9931c52bfdcf47f17cc591050fa5e"
+    },
+    {
+      "key": "sojourner-truth",
+      "status": "estimated",
+      "sourceSha256": "b0a5b902372d5e4886dccee5d1ef570140177824cba0775eca5000bf21271b77"
+    },
+    {
+      "key": "carl-sagan",
+      "status": "estimated",
+      "sourceSha256": "fa89e35355171ca941eb294eec25ab4544abea1bc294586aaea9da5c861212f1"
+    },
+    {
+      "key": "rachel-carson",
+      "status": "estimated",
+      "sourceSha256": "9ab1a521e0b8bb61f3db4fff9d6c57b4a4570c1929b31dd073e3513e091a1e2b"
+    },
+    {
+      "key": "paulo-freire",
+      "status": "estimated",
+      "sourceSha256": "7c87db15aa6702b3ee79216b5f6bc998d2c30fecc484902330a407d8a3c56438"
+    },
+    {
+      "key": "chiron",
+      "status": "estimated",
+      "sourceSha256": "0836d4f4cdaa2a187ce8a51617fdbfa0434233f1eeef2daedd81e406a25e6c48"
+    }
+  ]
+}

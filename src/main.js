@@ -374,7 +374,10 @@ Pentacles.closeFactionPage = () => (typeof window.closeFactionPage === 'function
 
 
 // ── ✦ My Pentacles: the player's natal profile, celestial deck, and loadout manager ──
-let myPentaclesInst = null, myPentaclesEsc = null
+let myPentaclesInst = null, myPentaclesEsc = null, myPentaclesCloseTimer = null
+function canTransitionDisplay() {
+  return typeof CSS !== 'undefined' && typeof CSS.supports === 'function' && CSS.supports('transition-behavior: allow-discrete')
+}
 function openMyPentacles() {
   let ov = document.getElementById('mp-overlay') || document.getElementById('mc-overlay')
   if (!ov) {
@@ -387,6 +390,12 @@ function openMyPentacles() {
     win.appendChild(close); win.appendChild(host); ov.appendChild(win)
     document.body.appendChild(ov)
   }
+  if (myPentaclesCloseTimer) {
+    clearTimeout(myPentaclesCloseTimer)
+    myPentaclesCloseTimer = null
+  }
+  ov.removeAttribute('data-closing')
+
   try {
     if (myPentaclesInst) myPentaclesInst.destroy()
     const hostEl = document.getElementById('mp-host') || document.getElementById('mc-host')
@@ -394,16 +403,16 @@ function openMyPentacles() {
       el: hostEl,
       hooks: {
         // "Tip the Scales" → carry the player into the live war board (deploy lives there).
-        onTip: () => { closeMyPentacles(); openFactionWar() },
+        onTip: () => { closeMyPentacles({ immediate: true }); openFactionWar() },
         // "Alchm Vessel" → the cross-app elemental treasury folio.
         onVessel: () => {
           const returnTo = document.getElementById('my-pentacles-btn')
-          closeMyPentacles()
+          closeMyPentacles({ immediate: true })
           openVesselDrawer({ returnTo })
         },
         // No chart yet → route to onboarding to forge one.
         onForge: () => {
-          closeMyPentacles()
+          closeMyPentacles({ immediate: true })
           const ob = document.getElementById('onboarding-overlay')
           if (ob) {
             ob.style.display = 'flex'
@@ -420,18 +429,56 @@ function openMyPentacles() {
     if (window.toast) window.toast('My Pentacles failed to open — see console.', { type: 'error' })
     return
   }
+
+  // Continuous spatial horizon zoom inward from Sky Map into Seeker Observatory
+  const skyWrap = document.getElementById('sky-map-wrapper')
+  if (skyWrap) skyWrap.classList.add('mp-horizon-zoom')
+
   ov.classList.add('is-open')
   document.body.classList.add('alchm-open')
   ov.onclick = (e) => { if (e.target === ov) closeMyPentacles() }
   myPentaclesEsc = (e) => { if (e.key === 'Escape') closeMyPentacles() }
   document.addEventListener('keydown', myPentaclesEsc)
 }
-function closeMyPentacles() {
+function closeMyPentacles(opts = {}) {
   const ov = document.getElementById('mp-overlay') || document.getElementById('mc-overlay')
-  if (ov) ov.classList.remove('is-open')
+  const skyWrap = document.getElementById('sky-map-wrapper')
+  if (skyWrap) skyWrap.classList.remove('mp-horizon-zoom')
   document.body.classList.remove('alchm-open')
-  if (myPentaclesInst) { try { myPentaclesInst.destroy() } catch {} myPentaclesInst = null }
+
   if (myPentaclesEsc) { document.removeEventListener('keydown', myPentaclesEsc); myPentaclesEsc = null }
+
+  // Keep main shell Active Hand & Collection synced with any Observatory mutations
+  try { window.renderActiveHand?.() } catch {}
+  try { window.renderCollection?.() } catch {}
+
+  const finalizeClose = () => {
+    if (myPentaclesCloseTimer) {
+      clearTimeout(myPentaclesCloseTimer)
+      myPentaclesCloseTimer = null
+    }
+    if (ov) {
+      ov.removeAttribute('data-closing')
+      ov.classList.remove('is-open')
+    }
+    if (myPentaclesInst) {
+      try { myPentaclesInst.destroy() } catch {}
+      myPentaclesInst = null
+    }
+    if (!opts.immediate) {
+      const triggerBtn = document.getElementById('my-pentacles-btn')
+      triggerBtn?.focus?.({ preventScroll: true })
+    }
+  }
+
+  if (!ov || opts.immediate || !canTransitionDisplay()) {
+    finalizeClose()
+    return
+  }
+
+  ov.setAttribute('data-closing', '')
+  ov.addEventListener('transitionend', finalizeClose, { once: true })
+  myPentaclesCloseTimer = setTimeout(finalizeClose, 320)
 }
 
 // Global bridges
@@ -588,6 +635,12 @@ function boot() {
   // local derivation otherwise.
   installDashboards()
 
+  const boardHost = document.getElementById('sky-map-wrapper')
+  if (boardHost) import('./lib/agents/board-avatar-layer.ts').then(({ BoardAvatarLayer }) => {
+    Pentacles.boardAvatars?.destroy()
+    Pentacles.boardAvatars = new BoardAvatarLayer(boardHost, spacetime)
+  }).catch(error => console.warn('[Pentacles] Board avatars unavailable', error))
+
   // Optional Dynamic React island — only when VITE_DYNAMIC_ENV_ID is configured.
   if (import.meta.env.VITE_DYNAMIC_ENV_ID) {
     import('./web3/dynamic.js')
@@ -604,3 +657,8 @@ function boot() {
 // (registered earlier), so dialog visibility + HologramCamera are settled.
 if (document.readyState === 'complete') boot()
 else document.addEventListener('DOMContentLoaded', boot)
+
+if (import.meta.hot) import.meta.hot.dispose(() => {
+  Pentacles.boardAvatars?.destroy()
+  delete Pentacles.boardAvatars
+})

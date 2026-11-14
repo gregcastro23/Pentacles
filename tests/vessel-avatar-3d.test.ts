@@ -48,6 +48,69 @@ afterEach(() => {
 });
 
 describe('3D Vessel Avatar Mesh & Procedural Animation System', () => {
+  describe('Reusable animation poses', () => {
+    it('keeps interleaved rigs independent and rest poses immutable without cloning math objects per frame', () => {
+      const a = createVesselAvatarMesh(structuredClone(FIXTURE_AGENTS[0]));
+      const b = createVesselAvatarMesh(structuredClone(FIXTURE_AGENTS[1]));
+      const control = createVesselAvatarMesh(structuredClone(FIXTURE_AGENTS[0]));
+      const snapshot = (avatar: THREE.Group) => Object.values(avatar.userData.restTransforms).map((r: any) =>
+        [...r.position.toArray(), ...r.rotation.toArray(), ...r.scale.toArray()]);
+      const rest = snapshot(a);
+      const gazeA = new THREE.Vector3(2, 3, -2), gazeB = new THREE.Vector3(-4, 1, 5);
+      const beforeGaze = gazeA.clone();
+      const prototypes = [THREE.Vector3.prototype, THREE.Euler.prototype, THREE.Quaternion.prototype];
+      const originals = prototypes.map(prototype => prototype.clone);
+      let clones = 0;
+      try {
+        prototypes.forEach((prototype, i) => {
+          prototype.clone = function(this: any) { clones++; return originals[i].call(this) as any; };
+        });
+        for (const state of ['idle', 'surge', 'travel', 'contest-attack', 'contest-defend', 'victory', 'stagger'] as const) {
+          for (let i = 0; i < 8; i++) {
+            updateVesselAvatarAnimation(a, .037, 0, { overrideState: state, lookAtWorldPos: gazeA });
+            updateVesselAvatarAnimation(b, .061, 0, { overrideState: 'contest-attack', lookAtWorldPos: gazeB });
+            updateVesselAvatarAnimation(control, .037, 0, { overrideState: state, lookAtWorldPos: gazeA });
+          }
+          for (const key of Object.keys(a.userData.restTransforms)) {
+            const actual = a.userData.restTransforms[key].object as THREE.Object3D;
+            const expected = control.userData.restTransforms[key].object as THREE.Object3D;
+            expect(actual.position.equals(expected.position) && actual.quaternion.equals(expected.quaternion)
+              && actual.scale.equals(expected.scale)).toBe(true);
+          }
+        }
+      } finally { prototypes.forEach((prototype, i) => { prototype.clone = originals[i] as any; }); }
+      expect(clones).toBe(0);
+      expect(snapshot(a)).toEqual(rest);
+      expect(gazeA.equals(beforeGaze)).toBe(true);
+    });
+
+    it('animates replacement relics and surge attachments without retaining removed pivots', () => {
+      const payload = structuredClone(FIXTURE_AGENTS[0]);
+      payload.surge.active = false;
+      const avatar = createVesselAvatarMesh(payload);
+      updateVesselAvatarAnimation(avatar, .1, 0, 'victory');
+      const previousRelic = avatar.userData.relic as THREE.Group;
+      const previousPose = previousRelic.quaternion.clone();
+      const next = structuredClone(payload);
+      next.appearance = resolveAgentAppearance('emily-dickinson');
+      next.surge.active = true;
+      refreshVesselFromPayload(avatar, next);
+      const relic = avatar.userData.relic as THREE.Group, corona = avatar.userData.surgeCorona as THREE.Group;
+      expect(relic).not.toBe(previousRelic);
+      const rest = relic.quaternion.clone();
+      updateVesselAvatarAnimation(avatar, .1, 0, 'surge');
+      expect(relic.quaternion.equals(rest)).toBe(false);
+      expect(corona.rotation.y).not.toBe(0);
+      expect(previousRelic.quaternion.equals(previousPose)).toBe(true);
+      next.surge.active = false;
+      refreshVesselFromPayload(avatar, next);
+      expect(avatar.userData.restTransforms.corona).toBeUndefined();
+      const retiredRotation = corona.rotation.y;
+      updateVesselAvatarAnimation(avatar, .1, 0, 'idle');
+      expect(corona.rotation.y).toBe(retiredRotation);
+    });
+  });
+
   describe('Procedural Avatar Hierarchy Generation', () => {
     it('attaches each pilot likeness and held relic to the animated pivots', () => {
       for (const payload of FIXTURE_AGENTS) {
@@ -566,12 +629,19 @@ describe('3D Vessel Avatar Mesh & Procedural Animation System', () => {
       });
     });
 
-    it('utilizes smoothed radial segment subdivisions (12-16) on limb and torso geometries', () => {
+    it('uses a shaped torso with broader shoulders and a tailored waist', () => {
       const newton = FIXTURE_AGENTS[0];
       const avatar = createVesselAvatarMesh(newton);
       const torsoMesh = avatar.getObjectByName('TorsoMesh') as THREE.Mesh;
-      const cylGeo = torsoMesh.geometry as THREE.CylinderGeometry;
-      expect(cylGeo.parameters.radialSegments).toBeGreaterThanOrEqual(14);
+      const positions = torsoMesh.geometry.getAttribute('position');
+      let shoulders = 0, waist = 0;
+      for (let i = 0; i < positions.count; i++) {
+        expect(Number.isFinite(positions.getX(i) + positions.getY(i) + positions.getZ(i))).toBe(true);
+        if (positions.getY(i) > .2) shoulders = Math.max(shoulders, Math.abs(positions.getX(i)));
+        if (positions.getY(i) < -.2) waist = Math.max(waist, Math.abs(positions.getX(i)));
+      }
+      expect(shoulders).toBeGreaterThan(waist * 1.4);
+      disposeVesselAvatar(avatar);
     });
   });
 
@@ -797,7 +867,7 @@ describe('3D Vessel Avatar Mesh & Procedural Animation System', () => {
       expect(initialNewtonMesh.visible).toBe(true);
 
       // All 5 tiers must have count = 0 and visible = false
-      for (const tier of ['copper', 'silver', 'gold', 'platinum', 'astral'] as const) {
+      for (const tier of ['Copper', 'Silver', 'Gold', 'Astral', 'Celestial'] as const) {
         const im = batcher.getInstancedMesh(tier);
         expect(im?.count).toBe(0);
         expect(im?.visible).toBe(false);

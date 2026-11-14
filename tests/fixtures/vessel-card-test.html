@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Vessel Card — Inspection Harness</title>
+  <style>
+    body { background: #080c16; color: #eee; font: 15px/1.6 system-ui; padding: 20px; }
+    main { max-width: 420px; } button { padding: 12px; margin: 4px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <main><h1>Vessel inspection</h1><p>Synthetic ratings only. No connection or game writes.</p>
+    <button id="open">Open sample vessel</button>
+    <button id="freshness">Open near-stale snapshot</button>
+    <button id="refresh">Refresh snapshot in 2 seconds</button>
+    <p id="status" role="status">Expand a seal with touch or keyboard to read its effect.</p>
+  </main>
+  <script type="module">
+    import { VesselCardHUD } from '/src/lib/agents/player-card-hud.ts';
+    import { FIXTURE_AGENTS } from '/src/lib/agents/rating-contract.ts';
+    const hud = new VesselCardHUD();
+    hud.setRoster(FIXTURE_AGENTS);
+    let payload = structuredClone(FIXTURE_AGENTS[0]);
+    let pending;
+    const status = document.querySelector('#status');
+    document.querySelector('#open').onclick = () => {
+      clearTimeout(pending); payload = structuredClone(FIXTURE_AGENTS[0]); hud.show(payload);
+    };
+    document.querySelector('#freshness').onclick = () => {
+      clearTimeout(pending); payload = structuredClone(FIXTURE_AGENTS[0]);
+      payload.ratingSource = 'live';
+      payload.ratingFeed = { sourceKey: payload.key, receivedAt: Date.now() - 298000, esmsAvailable: true, skyAvailable: true };
+      hud.show(payload); status.textContent = 'The synthetic snapshot becomes stale in about 2 seconds.';
+    };
+    document.querySelector('#refresh').onclick = () => {
+      clearTimeout(pending); status.textContent = 'A synthetic balance update is queued. Keep a seal expanded.';
+      pending = setTimeout(() => {
+        payload = { ...payload, esms: { ...payload.esms, spirit: payload.esms.spirit + 10 } };
+        hud.refreshAgentPayload(payload); status.textContent = 'Snapshot refreshed. Expanded seals and scroll position should remain.';
+      }, 2000);
+    };
+    addEventListener('pagehide', () => { clearTimeout(pending); hud.destroy(); });
+  </script>
+</body>
+</html>

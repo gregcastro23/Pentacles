@@ -222,15 +222,23 @@
     // 30fps halves CPU/GPU with an imperceptible difference on a slow rotation.
     let _lastSkyFrame = 0;
     const SKY_FRAME_MS = 32;
+    function renderBoardAvatars(ts) {
+      window.Pentacles?.boardAvatars?.renderFrame({
+        time: ts || performance.now(), enabled: HologramCamera.enabled,
+        scale: HologramCamera.scale, project: skyProject,
+        deploying: !!state.player && state.selectedCards.size > 0
+      });
+    }
     function animateFrame(ts) {
       requestAnimationFrame(animateFrame);
-      if (!HologramCamera.enabled) return;
       if (ts && ts - _lastSkyFrame < SKY_FRAME_MS) return;
       _lastSkyFrame = ts || 0;
+      if (!HologramCamera.enabled) { renderBoardAvatars(ts); return; }
       HologramCamera.update();
       projectSky3D();
       update3DOverlays();
       renderStarsNodes();
+      renderBoardAvatars(ts);
     }
 
     function initHologramControls() {
