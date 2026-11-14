@@ -1,0 +1,432 @@
+{
+  "repository": "https://github.com/gregcastro23/alchm-agents-solana",
+  "encoding": "WebP quality 82, original dimensions, no crop",
+  "portraits": [
+    {
+      "key": "lewis-carroll",
+      "source": "public/avatars/lewis-carroll.png",
+      "sha256": "8cb1b973fb9f65b1b43f81bee2c79a12485683fdd41bb05127842a52fc8dea6d",
+      "bytes": 47014
+    },
+    {
+      "key": "emily-dickinson",
+      "source": "public/avatars/emily-dickinson.png",
+      "sha256": "7cf064aa72f534d57c2048959772a67a8ba9eadffaeec97cf055d065ad171078",
+      "bytes": 50660
+    },
+    {
+      "key": "oscar-wilde",
+      "source": "public/avatars/oscar-wilde.png",
+      "sha256": "c94288a9c655cdab3ca8059a62fed875b77f8e434daa127d8c346dd21225a406",
+      "bytes": 43234
+    },
+    {
+      "key": "fyodor-dostoevsky",
+      "source": "public/avatars/fyodor-dostoevsky.png",
+      "sha256": "0e4f83e064c3bc7df2942524ba7109feaa5a33c178042652da0f65084bee4841",
+      "bytes": 34426
+    },
+    {
+      "key": "jane-austen",
+      "source": "public/avatars/jane-austen.png",
+      "sha256": "4b1c0c9348e138e5d1ecfd99b24eb907693d1dab1fa6a4af2d1d27c1b610ae31",
+      "bytes": 60622
+    },
+    {
+      "key": "donatello",
+      "source": "public/avatars/donatello.png",
+      "sha256": "9947d1b0ce0bf8e1fe930667f2ca748b188d30e5c1be855f84ec7ecbef007778",
+      "bytes": 59496
+    },
+    {
+      "key": "petrarch",
+      "source": "public/avatars/petrarch.png",
+      "sha256": "5264f312029c7ac833e030b07a2e305997a9e82a0d7d8b09766563c41f9f6cf4",
+      "bytes": 55718
+    },
+    {
+      "key": "machiavelli",
+      "source": "public/avatars/machiavelli.png",
+      "sha256": "d2163564f13ccafe1bfa31cc47a11151ba345dd0ef797c003e7c8a9066cde54f",
+      "bytes": 29030
+    },
+    {
+      "key": "raphael",
+      "source": "public/avatars/raphael.png",
+      "sha256": "a387c0531008b5a6001b506b6eef6a5b095f1b85e7255ae838556e814fbd28b6",
+      "bytes": 44268
+    },
+    {
+      "key": "michelangelo",
+      "source": "public/avatars/michelangelo.png",
+      "sha256": "8d42af53b6501e7b634ff073684f1519a291ba06e9d7e46aeb5c3d7052c50aec",
+      "bytes": 58610
+    },
+    {
+      "key": "alexander-the-great",
+      "source": "public/avatars/alexander-the-great.png",
+      "sha256": "2621d8498976bfe699eef5f717943433b58472c52197e9f00517e0beb1898d63",
+      "bytes": 55518
+    },
+    {
+      "key": "archimedes",
+      "source": "public/avatars/archimedes.png",
+      "sha256": "3d7ab4bc79b10d9eddc988af105423be819a2efbe78dd4ad440986289223e64b",
+      "bytes": 70770
+    },
+    {
+      "key": "herodotus",
+      "source": "public/avatars/herodotus.png",
+      "sha256": "de20967923e5634dab11ab596df6b9bc66315d2dcfadf7c2e924d79ebec9511c",
+      "bytes": 65362
+    },
+    {
+      "key": "cicero",
+      "source": "public/avatars/cicero.png",
+      "sha256": "922704d8f6d6268a40c365fcce12854dcbb0653c2c15580cd2fcc7b3e542c4b4",
+      "bytes": 42468
+    },
+    {
+      "key": "julius-caesar",
+      "source": "public/avatars/julius-caesar.png",
+      "sha256": "27ba4b9e9b73a5a6661cf2767463b90c58f06f74216812ae6f108b9d2bfbc2e4",
+      "bytes": 52070
+    },
+    {
+      "key": "plato",
+      "source": "public/avatars/plato.png",
+      "sha256": "1982f82f04978b498062049d1c761a96c0335bab7df9b7e301b05c92aff64380",
+      "bytes": 48538
+    },
+    {
+      "key": "aristotle",
+      "source": "public/avatars/aristotle.png",
+      "sha256": "b71b756033d016ee16425647a5b6803278ec001242feeba9bb00c5052fffa895",
+      "bytes": 61960
+    },
+    {
+      "key": "homer",
+      "source": "public/avatars/homer.png",
+      "sha256": "395ad5cab8e04a380885e88d4d6d38791026f67da1d9c2672a1997207d1097ae",
+      "bytes": 60092
+    },
+    {
+      "key": "socrates",
+      "source": "public/avatars/socrates.png",
+      "sha256": "2de6e77c361afd219cdaadbb5a54ec3a460a73b8ee4c7b2ce61e01da0983591b",
+      "bytes": 47730
+    },
+    {
+      "key": "leonardo-da-vinci",
+      "source": "public/avatars/leonardo-da-vinci.png",
+      "sha256": "56ff2c3508fd493fc5579bc59e0d6b3281d11e1fb0d6afe74e9a3f848aa1e0b4",
+      "bytes": 52828
+    },
+    {
+      "key": "dante-alighieri",
+      "source": "public/avatars/dante-alighieri.png",
+      "sha256": "38880a90aabcd2adbe9f156df8c59e214120ab48fb01ce335cd7cd7f2bd7b753",
+      "bytes": 36578
+    },
+    {
+      "key": "thomas-aquinas",
+      "source": "public/avatars/thomas-aquinas.png",
+      "sha256": "d367c3cdc43662894f48b8c27c4a8b499d217694a6fc057fa82390ed255ccda1",
+      "bytes": 48928
+    },
+    {
+      "key": "geoffrey-chaucer",
+      "source": "public/avatars/geoffrey-chaucer.png",
+      "sha256": "5d3ab211732309283869f83e6914cb968b696a8ed2a7f37d8edce536b4c03748",
+      "bytes": 50102
+    },
+    {
+      "key": "rumi",
+      "source": "public/avatars/rumi.png",
+      "sha256": "eef0e9ff7f872e0117eef388a8ecfc7d5235b8bb16fa5994f7a090ccd7466bdd",
+      "bytes": 50016
+    },
+    {
+      "key": "marcus-aurelius",
+      "source": "public/avatars/marcus-aurelius.png",
+      "sha256": "0e18ce7b854f55c03eb971b9e61f89489b7888326e36a77fb972384a7f222329",
+      "bytes": 46548
+    },
+    {
+      "key": "wolfgang-mozart",
+      "source": "public/avatars/mozart.png",
+      "sha256": "c53b3dac4a7ea426faeefba9353f3a1d12ae10cad14fa17f8842a31b651dbc2c",
+      "bytes": 46952
+    },
+    {
+      "key": "william-shakespeare",
+      "source": "public/avatars/shakespeare.png",
+      "sha256": "c7d5207619865874a99ef2396a03d383397694e698f4824033afaa046efe973b",
+      "bytes": 40598
+    },
+    {
+      "key": "galileo-galilei",
+      "source": "public/avatars/galileo.png",
+      "sha256": "2f49c05833004e7ac5044b9bfc12113af19a3eae305a4be0c68bc314441f3dc5",
+      "bytes": 46420
+    },
+    {
+      "key": "rene-descartes-1596",
+      "source": "public/avatars/descartes.png",
+      "sha256": "ad40e184bbed7cd0a976084faf9a423e2011624382a5959c7276aa04186d7bee",
+      "bytes": 35414
+    },
+    {
+      "key": "voltaire-1694",
+      "source": "public/avatars/voltaire.png",
+      "sha256": "5abe07e498b2f2d0d736dc6f1542a79ab3f9aa4362166771e5adaecc5d499f89",
+      "bytes": 52798
+    },
+    {
+      "key": "john-locke-1632",
+      "source": "public/avatars/locke.png",
+      "sha256": "fc3bd1835d062f06ea1c5ce4c4b9255a6711d531d458ee5bd290cfeec7500ece",
+      "bytes": 53680
+    },
+    {
+      "key": "david-hume-1711",
+      "source": "public/avatars/hume.png",
+      "sha256": "4e1ac8d2ef9b099d5cdc8890e148e574161e0a7ce4c723ccee807197a588b06a",
+      "bytes": 38446
+    },
+    {
+      "key": "johannes-kepler-1571",
+      "source": "public/avatars/kepler.png",
+      "sha256": "8b8bbc28d8cfe73b754cf601c056d1c5f8334ee4d9d0111f25a73395d7b8bc27",
+      "bytes": 46562
+    },
+    {
+      "key": "immanuel-kant-1724",
+      "source": "public/avatars/kant.png",
+      "sha256": "08e15d69ce41219c04b2a8417dc1d7743e3f3495f3173a52bf2c05c2410db20c",
+      "bytes": 40144
+    },
+    {
+      "key": "adam-smith-1723",
+      "source": "public/avatars/smith.png",
+      "sha256": "162d9b70c3515720308034ab4ad56f8e83f5d2d9053d7775401afa29ce2666b1",
+      "bytes": 42734
+    },
+    {
+      "key": "jean-jacques-rousseau-1712",
+      "source": "public/avatars/rousseau.png",
+      "sha256": "6b5091f2a7237c6ee234a3f5431dd33c12510a2c018f932b952f3fd5975f55de",
+      "bytes": 59004
+    },
+    {
+      "key": "mary-wollstonecraft-1759",
+      "source": "public/avatars/wollstonecraft.png",
+      "sha256": "00f99a5ad2ede64e674066c79dc58fee77e1f409af4569a7fbb54a0fc4f82530",
+      "bytes": 52004
+    },
+    {
+      "key": "charles-dickens-1812",
+      "source": "public/avatars/dickens.png",
+      "sha256": "19048cbbf3b7604884ed87284f0bf87586b69c89b334719effbc67c47115ec0a",
+      "bytes": 37772
+    },
+    {
+      "key": "claude-monet-1840",
+      "source": "public/avatars/monet.png",
+      "sha256": "8b7dd48c071bbee59ac672c5037492a3a01a52f2e570fd9b09ae606f35750a8e",
+      "bytes": 72782
+    },
+    {
+      "key": "nikola-tesla-1856",
+      "source": "public/avatars/tesla.png",
+      "sha256": "122ee0976723e5c3f09478d621e9fed1b5bf1c6255b7ad15133f6b1da31bdae2",
+      "bytes": 43226
+    },
+    {
+      "key": "marie-curie-1867",
+      "source": "public/avatars/curie.png",
+      "sha256": "0117046dfee2f77e31b64322970ec6d80e42f89d818c106c458614c50509909a",
+      "bytes": 40018
+    },
+    {
+      "key": "sigmund-freud-1856",
+      "source": "public/avatars/freud.png",
+      "sha256": "65dab6132b50397f1b4660567f108ab53f23dd3e5c45b3d5f6cdc9a45ed55d26",
+      "bytes": 26086
+    },
+    {
+      "key": "mark-twain-1835",
+      "source": "public/avatars/twain.png",
+      "sha256": "c1505f020f39581bac8d949f6a10d909a5b55684ce041ea9785606d781e23877",
+      "bytes": 64096
+    },
+    {
+      "key": "vincent-van-gogh-1853",
+      "source": "public/avatars/van-gogh.png",
+      "sha256": "33d9c5cf6ed010e2b36be2f6b617158d9d8266a8dad45b4a058c5a601b0cb9d8",
+      "bytes": 68938
+    },
+    {
+      "key": "charles-darwin-1809",
+      "source": "public/avatars/darwin.png",
+      "sha256": "3b7e53c1603af3c6bb53451918832844319d39cb5343d903f10da4e24cc4201c",
+      "bytes": 55644
+    },
+    {
+      "key": "edgar-allan-poe-1809",
+      "source": "public/avatars/poe.png",
+      "sha256": "2bffe86ada91474484f1c9a0db8a2ddbd96b808e7601245aa530680dece384eb",
+      "bytes": 35116
+    },
+    {
+      "key": "maya-angelou",
+      "source": "public/avatars/maya-angelou.png",
+      "sha256": "3777c64a7c39db2f0c4622488e10f58121bf564889ed8a31d5884b1ba5f8a3a8",
+      "bytes": 41350
+    },
+    {
+      "key": "isaac-newton",
+      "source": "public/avatars/newton.png",
+      "sha256": "f0ae282452773e1f0b3ee92623da8349b18e60f33e260c79d1b558c1e8526489",
+      "bytes": 49422
+    },
+    {
+      "key": "albert-einstein",
+      "source": "public/avatars/albert-einstein.png",
+      "sha256": "71205b89e6093f4a2b8fd3721dc12bd1035e7520ce9586a380c45f3b96149e8f",
+      "bytes": 46074
+    },
+    {
+      "key": "isaac-asimov",
+      "source": "public/avatars/asimov.png",
+      "sha256": "4813937c338cf2819314de2b73ee849bca7ad2c9e57be06ee628c65503430133",
+      "bytes": 45532
+    },
+    {
+      "key": "carl-jung",
+      "source": "public/avatars/jung.png",
+      "sha256": "b53dea69b31b2ebc869f01cf358504edca092ccfc9faeea8cea013254e24ca5f",
+      "bytes": 39632
+    },
+    {
+      "key": "cleopatra",
+      "source": "public/avatars/cleopatra.png",
+      "sha256": "109d9a94520d05727430371c633c74de8399070f5b4df6e6d92f4f6f0ce09f6e",
+      "bytes": 65436
+    },
+    {
+      "key": "frida-kahlo",
+      "source": "public/avatars/frida.png",
+      "sha256": "29323a60bda5ee7dac746df074f8ea9ae7ef0a7bf959d9201eb85e9114a2b0f3",
+      "bytes": 50178
+    },
+    {
+      "key": "benjamin-franklin",
+      "source": "public/avatars/benjamin-franklin.png",
+      "sha256": "b3fa1aff96f010e6f64fd355a36697920faa96b5ad40eddf016eb86ff1247c90",
+      "bytes": 38362
+    },
+    {
+      "key": "eleanor-roosevelt",
+      "source": "public/avatars/eleanor-roosevelt.png",
+      "sha256": "83b2164844ebc42ca6ccdc05d19f4be1409b74417e13908537bb9fd6900bda66",
+      "bytes": 32832
+    },
+    {
+      "key": "mahatma-gandhi",
+      "source": "public/avatars/mahatma-gandhi.png",
+      "sha256": "a7d9718d929f956a06d4e2f6b04931bf594a5d3f743ee307b0076b825b13dc2a",
+      "bytes": 42466
+    },
+    {
+      "key": "confucius",
+      "source": "public/avatars/confucius.png",
+      "sha256": "4bda5d9300c4b4200905a9c953dda38485f626866c8b922f7619afa6e99c2fbc",
+      "bytes": 52578
+    },
+    {
+      "key": "lao-tzu",
+      "source": "public/avatars/lao-tzu.png",
+      "sha256": "23ded4cb62c02ae326bea22905aa7f3e0f80b5f4aae44e936445673834e59328",
+      "bytes": 50468
+    },
+    {
+      "key": "siddhartha-gautama-buddha",
+      "source": "public/avatars/siddhartha-gautama-buddha.png",
+      "sha256": "13401821fffe01ac19c2e4d8ef299a30d7ed7adb4ff3a756299410b671cf1a6a",
+      "bytes": 61736
+    },
+    {
+      "key": "murasaki-shikibu",
+      "source": "public/avatars/murasaki-shikibu.png",
+      "sha256": "430dc77fa491ecf7c216c36e282404e26a3953755abef1c0e9d2bb0237ddb7a5",
+      "bytes": 48964
+    },
+    {
+      "key": "ibn-sina-avicenna",
+      "source": "public/avatars/ibn-sina-avicenna.png",
+      "sha256": "620af28b4ae0a7d309477a14cb5d0150f96ae69b04624a7ce1497028cee185f2",
+      "bytes": 69278
+    },
+    {
+      "key": "tecumseh",
+      "source": "public/avatars/tecumseh.png",
+      "sha256": "2151b8d74de5f4ae927314a6698f3c9e338eca420ad2acdc171b1373723b8ee2",
+      "bytes": 48016
+    },
+    {
+      "key": "wangari-maathai",
+      "source": "public/avatars/wangari-maathai.png",
+      "sha256": "e119320a5f2b0f8b36473ef046268d3ec6a8e03e360746130963a3c84e41d9be",
+      "bytes": 71962
+    },
+    {
+      "key": "sitting-bull",
+      "source": "public/avatars/sitting-bull.png",
+      "sha256": "b5de546c2fca939c65383adab37f6026399e6c52c6ab8a7812c0dcbbb3b69806",
+      "bytes": 41772
+    },
+    {
+      "key": "joan-of-arc",
+      "source": "public/avatars/joan-of-arc.png",
+      "sha256": "c3b5df9838d602056fa794e16f5410f154bd2ea0b8b715495114eb01b3d70423",
+      "bytes": 44682
+    },
+    {
+      "key": "hildegard-of-bingen",
+      "source": "public/avatars/hildegard-of-bingen.png",
+      "sha256": "d97ea9f7942803b78c5b8539b07979df9bfc7eb7ac0422549952a33132bc361b",
+      "bytes": 56080
+    },
+    {
+      "key": "sojourner-truth",
+      "source": "public/avatars/sojourner-truth.png",
+      "sha256": "3435140805acb898a871661ecb496bbbcdce021a6401c5c8c5e7461b5f018710",
+      "bytes": 43642
+    },
+    {
+      "key": "carl-sagan",
+      "source": "public/avatars/carl-sagan.png",
+      "sha256": "b13e09cf0dfe36b5ce9a80b5ff28a8daaf138fa7bbedf21424e91f37d91ffaeb",
+      "bytes": 26280
+    },
+    {
+      "key": "rachel-carson",
+      "source": "public/avatars/rachel-carson.png",
+      "sha256": "d9a497495e82ffd4b1ffea452ca8510f3b3e47e351897d679604d47dd588a724",
+      "bytes": 63718
+    },
+    {
+      "key": "paulo-freire",
+      "source": "public/avatars/paulo-freire.png",
+      "sha256": "11aa769f7c9fa4dffa84b3575da389ae94ef120d2be00fcd6d1c661f80f35b32",
+      "bytes": 59336
+    },
+    {
+      "key": "chiron",
+      "source": "public/avatars/chiron.png",
+      "sha256": "eafca5752c378fb8eb1ee0ab9e643e8f3d29227068835f30c387c3d94342b72b",
+      "bytes": 57842
+    }
+  ]
+}

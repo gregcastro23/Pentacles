@@ -94,7 +94,7 @@ describe('Vessel historical appearance', () => {
     expect(resolveAgentAppearance('custom-scholar', 2, 'Scholar').headSilhouette.faceProportion.jawWidth).toBeLessThan(1.2);
   });
 
-  it('renders cameo SVG portraits and era/relic subtitles in VesselCardHUD header', () => {
+  it('renders historical portraits and era/relic subtitles, retaining a cameo for custom vessels', () => {
     const { VesselCardHUD } = require('../src/lib/agents/player-card-hud');
     const { FIXTURE_AGENTS } = require('../src/lib/agents/rating-contract');
     const hud = new VesselCardHUD();
@@ -109,7 +109,7 @@ describe('Vessel historical appearance', () => {
       hud.show(payload);
       const html = (hud as any).container.innerHTML;
       expect(html).toContain('pk-vessel-portrait');
-      expect(html).toContain('data:image/svg+xml,');
+      expect(html).toContain(pilot.key === 'user-avatar-neo' ? 'data:image/svg+xml,' : `/avatars/historical/${pilot.key}.webp`);
       expect(html).toContain(`${pilot.era} · ${pilot.relic}`);
     }
     hud.destroy();

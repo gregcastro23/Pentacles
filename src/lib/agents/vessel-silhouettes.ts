@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import { tailoredGarment, tailoredSurface } from './vessel-tailoring';
+import { mergeStaticVesselDetails } from './vessel-static-geometry';
 import {
   type VesselAppearanceProfile,
   mixModularTraits,
@@ -15,6 +17,7 @@ export interface VesselSilhouette {
 export function createVesselSilhouette(
   profile: VesselAppearanceProfile,
   seedOrAgentId?: string | number,
+  options: { mergeStaticDetails?: boolean } = {},
 ): VesselSilhouette {
   const palette = profile.paletteOverrides;
   const cloth = new THREE.MeshStandardMaterial({ color: palette.primaryGarmentHex, roughness: 0.8, metalness: 0.1, side: THREE.DoubleSide });
@@ -59,6 +62,25 @@ export function createVesselSilhouette(
     return result;
   }
 
+  function beard(name: string, width: number, height: number, y: number, z: number) {
+    const geometry = tailoredSurface([
+      [-height / 2, 0, 0], [-height * .4, width * .25, width * .22],
+      [-height * .15, width * .65, width * .4], [height * .2, width * .9, width * .5],
+      [height / 2, width, width * .55],
+    ], .09);
+    const position = geometry.getAttribute('position');
+    for (let i = 0; i < position.count; i++) {
+      // Let long strands fall in front of the collar instead of into the torso.
+      const fall = height / 2 - position.getY(i);
+      position.setZ(i, position.getZ(i) + Math.min(.26, height * .4) * (1 - Math.exp(-fall * 12)));
+      position.setY(i, position.getY(i) + Math.pow(position.getX(i) / width, 2) * .06);
+    }
+    geometry.computeVertexNormals(); geometry.computeBoundingBox(); geometry.computeBoundingSphere();
+    const result = mesh(head, name, geometry, hair, 0, y, z);
+    result.userData.portraitFitAnchor = [0, y + height / 2, z + width * .55];
+    return result;
+  }
+
   switch (profile.headSilhouette.crownStyle) {
     case 'newton-curls': {
       const back = mesh(head, 'WigBack', new THREE.SphereGeometry(0.29, 8, 6), hair, 0, -0.06, -0.12);
@@ -76,9 +98,7 @@ export function createVesselSilhouette(
       cap.scale.set(1.08, 0.32, 0.95);
       cap.rotation.z = -0.12;
       band(head, 'BeretBand', 0.3, 0.035, 0.19, trim);
-      const beard = mesh(head, 'PolymathBeard', new THREE.ConeGeometry(0.255, 0.68, 7), hair, 0, -0.35, 0.105);
-      beard.rotation.z = Math.PI;
-      beard.scale.z = 0.67;
+      beard('PolymathBeard', .255, .68, -.35, .105);
       for (const side of [-1, 1]) mesh(head, 'LongSideHair', new THREE.SphereGeometry(0.14, 6, 5), hair, side * 0.245, -0.12, -0.03).scale.y = 1.8;
       break;
     }
@@ -148,7 +168,8 @@ export function createVesselSilhouette(
       ]) {
         mesh(head, 'EinsteinHairPuff', new THREE.SphereGeometry(r, 6, 5), hair, x, y, z);
       }
-      mesh(head, 'EinsteinBrow', new THREE.BoxGeometry(0.34, 0.04, 0.08), hair, 0, -0.08, 0.28);
+      const mustache = mesh(head, 'EinsteinMustache', new THREE.SphereGeometry(1, 16, 10), hair, 0, -0.16, 0.28);
+      mustache.scale.set(.14, .035, .04);
       break;
     }
     case 'curie-edwardian-updo': {
@@ -176,14 +197,12 @@ export function createVesselSilhouette(
       pate.scale.set(1.0, 0.8, 1.1);
       mesh(head, 'SideCurlL', new THREE.SphereGeometry(0.12, 6, 5), hair, -0.26, 0.02, -0.02).scale.y = 1.6;
       mesh(head, 'SideCurlR', new THREE.SphereGeometry(0.12, 6, 5), hair, 0.26, 0.02, -0.02).scale.y = 1.6;
-      mesh(head, 'VanDykeGoatee', new THREE.ConeGeometry(0.08, 0.24, 5), hair, 0, -0.34, 0.22).rotation.z = Math.PI;
+      beard('VanDykeGoatee', .08, .24, -.34, .22);
       break;
     }
     case 'darwin-naturalist-beard': {
       mesh(head, 'NaturalistBrow', new THREE.BoxGeometry(0.36, 0.06, 0.1), hair, 0, -0.06, 0.28);
-      const beard = mesh(head, 'DarwinBeard', new THREE.ConeGeometry(0.3, 0.82, 8), hair, 0, -0.4, 0.14);
-      beard.rotation.z = Math.PI;
-      beard.scale.z = 0.75;
+      beard('DarwinBeard', .3, .82, -.4, .14);
       for (const side of [-1, 1]) mesh(head, 'Sideburn', new THREE.BoxGeometry(0.08, 0.36, 0.1), hair, side * 0.26, -0.14, 0.06);
       break;
     }
@@ -200,10 +219,13 @@ export function createVesselSilhouette(
       break;
     }
     case 'joan-battle-bob': {
-      const coif = mesh(head, 'ChainmailCoif', new THREE.SphereGeometry(0.32, 8, 6), steel, 0, 0.06, -0.02);
-      coif.scale.set(1.05, 1.15, 1.05);
-      band(head, 'CoifBrow', 0.3, 0.025, 0.08, gold);
-      for (const side of [-1, 1]) mesh(head, 'BobHair', new THREE.BoxGeometry(0.09, 0.4, 0.18), hair, side * 0.25, -0.16, 0.02);
+      const crown = mesh(head, 'BobCrown', new THREE.SphereGeometry(.32, 20, 14), hair, 0, .06, -.02);
+      crown.scale.set(1.05, 1.1, 1.05);
+      for (const side of [-1, 1]) for (let strand = 0; strand < 4; strand++) {
+        const lock = mesh(head, 'BobHair', new THREE.SphereGeometry(.11, 12, 10), hair,
+          side * (.26 + Math.sin(strand * 1.4) * .025), .04 - strand * .085, -.025 + (strand % 2) * .035);
+        lock.scale.set(.8, 1.25, .9); lock.rotation.z = side * (.2 + strand * .08);
+      }
       break;
     }
     case 'buddha-ushnisha-topknot': {
@@ -216,7 +238,7 @@ export function createVesselSilhouette(
 
   switch (profile.garmentSilhouette.mantleStyle) {
     case 'enlightenment-coat': {
-      mesh(garment, 'CoatBody', new THREE.CylinderGeometry(0.37, 0.32, 0.84, 8, 1, true, Math.PI / 3, (Math.PI * 4) / 3), cloth);
+      mesh(garment, 'CoatBody', tailoredGarment('enlightenment-coat'), cloth);
       for (const side of [-1, 1]) {
         const tail = mesh(garment, 'CoatTail', new THREE.BoxGeometry(0.29, 0.62, 0.15), cloth, side * 0.2, -0.52, -0.13);
         tail.rotation.z = side * 0.14;
@@ -226,21 +248,21 @@ export function createVesselSilhouette(
       break;
     }
     case 'renaissance-drape': {
-      const drape = mesh(garment, 'TuscanDrape', new THREE.CylinderGeometry(0.48, 0.63, 1.12, 8, 1, true, 0.45, Math.PI * 1.7), cloth, 0, -0.16, -0.1);
+      const drape = mesh(garment, 'TuscanDrape', tailoredGarment('renaissance-drape'), cloth, 0, -0.16, -0.1);
       drape.rotation.z = 0.12;
       const sash = mesh(garment, 'DiagonalSash', new THREE.BoxGeometry(0.13, 0.94, 0.075), trim, 0, 0.05, 0.33);
       sash.rotation.z = -0.68;
       break;
     }
     case 'victorian-shawl': {
-      mesh(garment, 'PearlShawl', new THREE.CylinderGeometry(0.24, 0.68, 0.5, 10, 1, true), cloth, 0, 0.13);
-      mesh(garment, 'VictorianSkirt', new THREE.CylinderGeometry(0.32, 0.48, 0.82, 9), cloth, 0, -0.47, -0.04);
+      mesh(garment, 'PearlShawl', tailoredGarment('victorian-shawl'), cloth, 0, 0.13);
+      mesh(garment, 'VictorianSkirt', tailoredSurface([[-.41,.4,.27],[-.2,.35,.23],[0,.29,.2],[.41,.27,.18]], .09), cloth, 0, -0.47, -0.04);
       band(garment, 'ShawlEdge', 0.67, 0.023, -0.12, trim);
       mesh(garment, 'ShawlClasp', new THREE.OctahedronGeometry(0.07), trim, 0, 0.17, 0.37);
       break;
     }
     case 'alchemical-vestments': {
-      mesh(garment, 'AstralTabard', new THREE.CylinderGeometry(0.39, 0.49, 1.05, 6, 1, true), cloth, 0, -0.15);
+      mesh(garment, 'AstralTabard', tailoredGarment('alchemical-vestments'), cloth, 0, -0.15);
       for (const side of [-1, 1]) {
         const shoulder = mesh(garment, 'CrestShoulder', new THREE.OctahedronGeometry(0.22), trim, side * 0.43, 0.25);
         shoulder.scale.set(1.15, 0.6, 1);
@@ -249,12 +271,12 @@ export function createVesselSilhouette(
       break;
     }
     case 'scholar-robe': {
-      mesh(garment, 'ScholarRobe', new THREE.CylinderGeometry(0.38, 0.57, 1.22, 8, 1, true), cloth, 0, -0.2);
+      mesh(garment, 'ScholarRobe', tailoredGarment('scholar-robe'), cloth, 0, -0.2);
       for (const side of [-1, 1]) mesh(garment, 'RobeStole', new THREE.BoxGeometry(0.11, 1.08, 0.045), trim, side * 0.19, -0.12, 0.35);
       break;
     }
     case 'victorian-frock-coat': {
-      mesh(garment, 'FrockCoat', new THREE.CylinderGeometry(0.36, 0.44, 1.1, 8, 1, true), cloth, 0, -0.18);
+      mesh(garment, 'FrockCoat', tailoredGarment('victorian-frock-coat'), cloth, 0, -0.18);
       for (const side of [-1, 1]) {
         const lapel = mesh(garment, 'FrockLapel', new THREE.BoxGeometry(0.08, 0.6, 0.05), trim, side * 0.14, 0.12, 0.34);
         lapel.rotation.z = side * -0.22;
@@ -262,26 +284,26 @@ export function createVesselSilhouette(
       break;
     }
     case 'knit-professor-sweater': {
-      const sweater = mesh(garment, 'KnitSweater', new THREE.CylinderGeometry(0.4, 0.38, 0.95, 8), cloth, 0, -0.1);
+      const sweater = mesh(garment, 'KnitSweater', tailoredGarment('knit-professor-sweater'), cloth, 0, -0.1);
       sweater.scale.set(1.05, 1, 0.95);
       band(garment, 'SweaterWaist', 0.38, 0.03, -0.55, trim);
       break;
     }
     case 'edwardian-high-dress': {
-      mesh(garment, 'HighDressBodice', new THREE.CylinderGeometry(0.34, 0.3, 0.75, 8), cloth, 0, 0.02);
-      mesh(garment, 'HighDressSkirt', new THREE.CylinderGeometry(0.32, 0.52, 0.95, 8), cloth, 0, -0.55);
+      mesh(garment, 'HighDressBodice', tailoredGarment('edwardian-high-dress'), cloth, 0, 0.02);
+      mesh(garment, 'HighDressSkirt', tailoredSurface([[-.48,.46,.3],[-.2,.38,.25],[0,.32,.21],[.48,.27,.18]], .1), cloth, 0, -0.55);
       mesh(garment, 'PleatedBib', new THREE.BoxGeometry(0.18, 0.55, 0.03), linen, 0, 0.08, 0.31);
       break;
     }
     case 'tehuana-huipil-shawl': {
-      const huipil = mesh(garment, 'HuipilBox', new THREE.BoxGeometry(0.72, 0.85, 0.42), cloth, 0, -0.08);
+      const huipil = mesh(garment, 'HuipilBox', tailoredGarment('tehuana-huipil-shawl'), cloth, 0, -0.08);
       mesh(garment, 'HuipilEmbroidery', new THREE.BoxGeometry(0.32, 0.4, 0.04), gold, 0, 0.08, 0.23);
       const rebozo = mesh(garment, 'RebozoSash', new THREE.BoxGeometry(0.18, 1.15, 0.08), trim, -0.12, -0.15, 0.26);
       rebozo.rotation.z = -0.35;
       break;
     }
     case 'elizabethan-doublet': {
-      mesh(garment, 'DoubletTorso', new THREE.CylinderGeometry(0.38, 0.3, 0.85, 8), cloth, 0, -0.05);
+      mesh(garment, 'DoubletTorso', tailoredGarment('elizabethan-doublet'), cloth, 0, -0.05);
       for (const side of [-1, 1]) {
         const wing = mesh(garment, 'ShoulderRoll', new THREE.TorusGeometry(0.18, 0.045, 5, 12), trim, side * 0.38, 0.26, 0);
         wing.rotation.y = Math.PI / 2;
@@ -289,7 +311,7 @@ export function createVesselSilhouette(
       break;
     }
     case 'plate-armor-cuirass': {
-      const breastplate = mesh(garment, 'SteelCuirass', new THREE.CylinderGeometry(0.4, 0.32, 0.88, 7), steel, 0, -0.04);
+      const breastplate = mesh(garment, 'SteelCuirass', tailoredGarment('plate-armor-cuirass'), steel, 0, -0.04);
       breastplate.scale.set(1.08, 1, 0.9);
       for (const side of [-1, 1]) {
         mesh(garment, 'Pauldron', new THREE.SphereGeometry(0.19, 6, 5), steel, side * 0.42, 0.28, 0).scale.set(1.2, 0.6, 1);
@@ -298,11 +320,24 @@ export function createVesselSilhouette(
       break;
     }
     case 'saffron-monk-robe': {
-      const kasaya = mesh(garment, 'KasayaRobe', new THREE.CylinderGeometry(0.38, 0.54, 1.18, 8, 1, true, 0, (Math.PI * 5) / 3), cloth, 0, -0.2);
+      const kasaya = mesh(garment, 'KasayaRobe', tailoredGarment('saffron-monk-robe'), cloth, 0, -0.2);
       kasaya.rotation.y = 0.4;
       mesh(garment, 'BareShoulderWrap', new THREE.BoxGeometry(0.14, 0.95, 0.08), gold, 0.14, 0.05, 0.32).rotation.z = 0.55;
       break;
     }
+  }
+
+  // Sewn front details follow the fitted body instead of floating on a cylindrical shell.
+  const tailoredCoat = ['enlightenment-coat', 'victorian-frock-coat', 'elizabethan-doublet', 'edwardian-high-dress'].includes(profile.garmentSilhouette.mantleStyle);
+  if (tailoredCoat) {
+    for (const side of [-1, 1]) {
+      const seam = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(side * .17, -.39, .19), new THREE.Vector3(side * .16, -.12, .19),
+        new THREE.Vector3(side * .23, .12, .23), new THREE.Vector3(side * .26, .27, .20),
+      ]);
+      mesh(garment, 'TailoredSeam', new THREE.TubeGeometry(seam, 12, .007, 4, false), trim);
+    }
+    for (let i = 0; i < 5; i++) mesh(garment, 'GarmentButton', new THREE.SphereGeometry(.021, 8, 6), trim, .055, .18 - i * .11, .25);
   }
 
   const collar = new THREE.Group();
@@ -529,6 +564,7 @@ export function createVesselSilhouette(
     }
 
     // 3. Face Accent (glasses, monocle, beard, veil, goatee)
+    const authoredHeadDetails = new Set(head.children);
     switch (traits.faceAccent) {
       case 'wire-spectacles': {
         const specsGroup = new THREE.Group();
@@ -559,9 +595,7 @@ export function createVesselSilhouette(
         break;
       }
       case 'philosopher-beard': {
-        const pBeard = mesh(head, 'PhilosopherBeard', new THREE.ConeGeometry(0.14, 0.38, 6), hair, 0, -0.28, 0.16);
-        pBeard.rotation.z = Math.PI;
-        pBeard.scale.z = 0.7;
+        beard('PhilosopherBeard', .14, .38, -.28, .16);
         break;
       }
       case 'mystic-veil': {
@@ -571,10 +605,15 @@ export function createVesselSilhouette(
         break;
       }
       case 'goatee-accent': {
-        const goatee = mesh(head, 'GoateeAccent', new THREE.ConeGeometry(0.06, 0.18, 5), hair, 0, -0.24, 0.22);
-        goatee.rotation.z = Math.PI;
+        beard('GoateeAccent', .06, .18, -.24, .22);
         break;
       }
+    }
+    const generatedFaceDetails = head.children.filter(child => !authoredHeadDetails.has(child));
+    if (generatedFaceDetails.length) {
+      const accent = new THREE.Group(); accent.name = 'ProceduralFaceAccent';
+      accent.userData.portraitFallbackOnly = true;
+      accent.add(...generatedFaceDetails); head.add(accent);
     }
 
     // 4. Off-Hand Accessory
@@ -616,9 +655,32 @@ export function createVesselSilhouette(
     }
   }
 
+  // Keep facial accessories in their own transform scope so a measured face can
+  // fit them without moving the hair/hat or losing them in static geometry merging.
+  const faceDetails: Record<string, string> = {
+    PolymathBeard: 'beard', DarwinBeard: 'beard', PhilosopherBeard: 'beard',
+    VanDykeGoatee: 'beard', GoateeAccent: 'beard', TeslaMustache: 'mustache',
+    EinsteinMustache: 'mustache', NaturalistBrow: 'brow', FridaUnibrow: 'brow',
+    WireSpectacles: 'eyewear', ScholarMonocle: 'eyewear',
+  };
+  for (const detail of [...head.children]) {
+    const kind = faceDetails[detail.name];
+    if (!kind) continue;
+    const fit = new THREE.Group(); fit.name = `${detail.name}Fit`;
+    const bounds = new THREE.Box3().setFromObject(detail, true);
+    const anchor = detail.userData.portraitFitAnchor ?? (kind === 'beard'
+      ? [0, bounds.max.y, bounds.max.z]
+      : kind === 'eyewear' ? [0, .02, .29] : detail.position.toArray());
+    fit.userData.portraitFaceFit = { kind, anchor };
+    head.add(fit); fit.add(detail);
+  }
+
   const result: VesselSilhouette = { head, garment, relic };
   if (offHand.children.length > 0) {
     result.offHand = offHand;
+  }
+  if (options.mergeStaticDetails !== false) {
+    for (const part of Object.values(result)) mergeStaticVesselDetails(part);
   }
   return result;
 }

@@ -1,0 +1,4803 @@
+{
+  "version": 1,
+  "source": "ASOL historical roster",
+  "sourceSha256": "9dfe8b932e91035b31b0a4bc2199d637a166fc8c9537ff09fba6bb9aa6718134",
+  "method": "Static natal ratings and catalog alchemical elements; baseline seals; no live sky or ledger",
+  "agents": {
+    "lewis-carroll": {
+      "sourceKey": "lewis-carroll",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 87,
+        "resonance": 81,
+        "wisdom": 78,
+        "charisma": 81,
+        "intuition": 81,
+        "adaptability": 75,
+        "vitality": 78
+      },
+      "ovr": 83,
+      "archetype": {
+        "title": "Dominant Commander",
+        "primary": "power",
+        "secondary": "charisma"
+      },
+      "esms": {
+        "spirit": 0.85,
+        "essence": 0.78,
+        "matter": 0.6,
+        "substance": 0.9
+      },
+      "seals": [
+        {
+          "id": "seal-power",
+          "name": "Crucible Finisher",
+          "category": "substance",
+          "tier": "Copper",
+          "description": "Channels raw material pressure into irresistible decisive force.",
+          "statKey": "power",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-resonance",
+          "name": "Tidal Chorus",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Attunes with the ambient frequencies of celestial transits.",
+          "statKey": "resonance",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-wisdom",
+          "name": "Philosopher's Stone",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Transforms accumulated experience into strategic mastery.",
+          "statKey": "wisdom",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-charisma",
+          "name": "Harmonic Sovereign",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Commands celestial resonance to align allied forces.",
+          "statKey": "charisma",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-intuition",
+          "name": "Astral Vision",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Pierces through veil illusions with sovereign foresight.",
+          "statKey": "intuition",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-adaptability",
+          "name": "Quicksilver Pivot",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Transmutes tactical posture across shifting court elements.",
+          "statKey": "adaptability",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-vitality",
+          "name": "Immovable Foundation",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Anchors vessel integrity against territorial disruption.",
+          "statKey": "vitality",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "emily-dickinson": {
+      "sourceKey": "emily-dickinson",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 81,
+        "resonance": 78,
+        "wisdom": 78,
+        "charisma": 79,
+        "intuition": 78,
+        "adaptability": 75,
+        "vitality": 69
+      },
+      "ovr": 79,
+      "archetype": {
+        "title": "Dominant Commander",
+        "primary": "power",
+        "secondary": "charisma"
+      },
+      "esms": {
+        "spirit": 0.92,
+        "essence": 0.85,
+        "matter": 0.4,
+        "substance": 0.78
+      },
+      "seals": [
+        {
+          "id": "seal-resonance",
+          "name": "Tidal Chorus",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Attunes with the ambient frequencies of celestial transits.",
+          "statKey": "resonance",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-charisma",
+          "name": "Harmonic Sovereign",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Commands celestial resonance to align allied forces.",
+          "statKey": "charisma",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-intuition",
+          "name": "Astral Vision",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Pierces through veil illusions with sovereign foresight.",
+          "statKey": "intuition",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-adaptability",
+          "name": "Quicksilver Pivot",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Transmutes tactical posture across shifting court elements.",
+          "statKey": "adaptability",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "oscar-wilde": {
+      "sourceKey": "oscar-wilde",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 83,
+        "resonance": 74,
+        "wisdom": 75,
+        "charisma": 75,
+        "intuition": 74,
+        "adaptability": 73,
+        "vitality": 75
+      },
+      "ovr": 78,
+      "archetype": {
+        "title": "Dominant Commander",
+        "primary": "power",
+        "secondary": "charisma"
+      },
+      "esms": {
+        "spirit": 0.8,
+        "essence": 0.95,
+        "matter": 0.65,
+        "substance": 0.7
+      },
+      "seals": [
+        {
+          "id": "seal-power",
+          "name": "Crucible Finisher",
+          "category": "substance",
+          "tier": "Copper",
+          "description": "Channels raw material pressure into irresistible decisive force.",
+          "statKey": "power",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-resonance",
+          "name": "Tidal Chorus",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Attunes with the ambient frequencies of celestial transits.",
+          "statKey": "resonance",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-wisdom",
+          "name": "Philosopher's Stone",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Transforms accumulated experience into strategic mastery.",
+          "statKey": "wisdom",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-charisma",
+          "name": "Harmonic Sovereign",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Commands celestial resonance to align allied forces.",
+          "statKey": "charisma",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-intuition",
+          "name": "Astral Vision",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Pierces through veil illusions with sovereign foresight.",
+          "statKey": "intuition",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-vitality",
+          "name": "Immovable Foundation",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Anchors vessel integrity against territorial disruption.",
+          "statKey": "vitality",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "fyodor-dostoevsky": {
+      "sourceKey": "fyodor-dostoevsky",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 83,
+        "resonance": 73,
+        "wisdom": 75,
+        "charisma": 80,
+        "intuition": 71,
+        "adaptability": 74,
+        "vitality": 73
+      },
+      "ovr": 79,
+      "archetype": {
+        "title": "Dominant Commander",
+        "primary": "power",
+        "secondary": "charisma"
+      },
+      "esms": {
+        "spirit": 0.95,
+        "essence": 0.88,
+        "matter": 0.55,
+        "substance": 0.82
+      },
+      "seals": [
+        {
+          "id": "seal-power",
+          "name": "Crucible Finisher",
+          "category": "substance",
+          "tier": "Copper",
+          "description": "Channels raw material pressure into irresistible decisive force.",
+          "statKey": "power",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-resonance",
+          "name": "Tidal Chorus",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Attunes with the ambient frequencies of celestial transits.",
+          "statKey": "resonance",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-wisdom",
+          "name": "Philosopher's Stone",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Transforms accumulated experience into strategic mastery.",
+          "statKey": "wisdom",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-charisma",
+          "name": "Harmonic Sovereign",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Commands celestial resonance to align allied forces.",
+          "statKey": "charisma",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-adaptability",
+          "name": "Quicksilver Pivot",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Transmutes tactical posture across shifting court elements.",
+          "statKey": "adaptability",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-vitality",
+          "name": "Immovable Foundation",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Anchors vessel integrity against territorial disruption.",
+          "statKey": "vitality",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "jane-austen": {
+      "sourceKey": "jane-austen",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 86,
+        "resonance": 77,
+        "wisdom": 76,
+        "charisma": 78,
+        "intuition": 77,
+        "adaptability": 74,
+        "vitality": 78
+      },
+      "ovr": 81,
+      "archetype": {
+        "title": "Dominant Commander",
+        "primary": "power",
+        "secondary": "charisma"
+      },
+      "esms": {
+        "spirit": 0.75,
+        "essence": 0.9,
+        "matter": 0.6,
+        "substance": 0.85
+      },
+      "seals": [
+        {
+          "id": "seal-power",
+          "name": "Crucible Finisher",
+          "category": "substance",
+          "tier": "Copper",
+          "description": "Channels raw material pressure into irresistible decisive force.",
+          "statKey": "power",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-resonance",
+          "name": "Tidal Chorus",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Attunes with the ambient frequencies of celestial transits.",
+          "statKey": "resonance",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-wisdom",
+          "name": "Philosopher's Stone",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Transforms accumulated experience into strategic mastery.",
+          "statKey": "wisdom",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-charisma",
+          "name": "Harmonic Sovereign",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Commands celestial resonance to align allied forces.",
+          "statKey": "charisma",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-intuition",
+          "name": "Astral Vision",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Pierces through veil illusions with sovereign foresight.",
+          "statKey": "intuition",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-adaptability",
+          "name": "Quicksilver Pivot",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Transmutes tactical posture across shifting court elements.",
+          "statKey": "adaptability",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-vitality",
+          "name": "Immovable Foundation",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Anchors vessel integrity against territorial disruption.",
+          "statKey": "vitality",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "donatello": {
+      "sourceKey": "donatello",
+      "chartPlaceholder": true,
+      "ratings": {
+        "power": 83,
+        "resonance": 75,
+        "wisdom": 73,
+        "charisma": 76,
+        "intuition": 75,
+        "adaptability": 71,
+        "vitality": 76
+      },
+      "ovr": 78,
+      "archetype": {
+        "title": "Dominant Commander",
+        "primary": "power",
+        "secondary": "charisma"
+      },
+      "esms": {
+        "spirit": 0.7,
+        "essence": 0.85,
+        "matter": 0.9,
+        "substance": 0.75
+      },
+      "seals": [
+        {
+          "id": "seal-power",
+          "name": "Crucible Finisher",
+          "category": "substance",
+          "tier": "Copper",
+          "description": "Channels raw material pressure into irresistible decisive force.",
+          "statKey": "power",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-resonance",
+          "name": "Tidal Chorus",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Attunes with the ambient frequencies of celestial transits.",
+          "statKey": "resonance",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-charisma",
+          "name": "Harmonic Sovereign",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Commands celestial resonance to align allied forces.",
+          "statKey": "charisma",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-intuition",
+          "name": "Astral Vision",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Pierces through veil illusions with sovereign foresight.",
+          "statKey": "intuition",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-vitality",
+          "name": "Immovable Foundation",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Anchors vessel integrity against territorial disruption.",
+          "statKey": "vitality",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "petrarch": {
+      "sourceKey": "petrarch",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 75,
+        "resonance": 78,
+        "wisdom": 75,
+        "charisma": 69,
+        "intuition": 82,
+        "adaptability": 69,
+        "vitality": 69
+      },
+      "ovr": 78,
+      "archetype": {
+        "title": "Reclusive Visionary",
+        "primary": "intuition",
+        "secondary": "resonance"
+      },
+      "esms": {
+        "spirit": 0.75,
+        "essence": 0.8,
+        "matter": 0.5,
+        "substance": 0.7
+      },
+      "seals": [
+        {
+          "id": "seal-resonance",
+          "name": "Tidal Chorus",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Attunes with the ambient frequencies of celestial transits.",
+          "statKey": "resonance",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-wisdom",
+          "name": "Philosopher's Stone",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Transforms accumulated experience into strategic mastery.",
+          "statKey": "wisdom",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-intuition",
+          "name": "Astral Vision",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Pierces through veil illusions with sovereign foresight.",
+          "statKey": "intuition",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "machiavelli": {
+      "sourceKey": "machiavelli",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 78,
+        "resonance": 75,
+        "wisdom": 73,
+        "charisma": 66,
+        "intuition": 79,
+        "adaptability": 67,
+        "vitality": 75
+      },
+      "ovr": 77,
+      "archetype": {
+        "title": "Prescient Ingressor",
+        "primary": "intuition",
+        "secondary": "power"
+      },
+      "esms": {
+        "spirit": 0.4,
+        "essence": 0.85,
+        "matter": 0.95,
+        "substance": 0.9
+      },
+      "seals": [
+        {
+          "id": "seal-resonance",
+          "name": "Tidal Chorus",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Attunes with the ambient frequencies of celestial transits.",
+          "statKey": "resonance",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-vitality",
+          "name": "Immovable Foundation",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Anchors vessel integrity against territorial disruption.",
+          "statKey": "vitality",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "raphael": {
+      "sourceKey": "raphael",
+      "chartPlaceholder": true,
+      "ratings": {
+        "power": 82,
+        "resonance": 67,
+        "wisdom": 68,
+        "charisma": 72,
+        "intuition": 67,
+        "adaptability": 66,
+        "vitality": 71
+      },
+      "ovr": 75,
+      "archetype": {
+        "title": "Dominant Commander",
+        "primary": "power",
+        "secondary": "charisma"
+      },
+      "esms": {
+        "spirit": 0.85,
+        "essence": 0.9,
+        "matter": 0.75,
+        "substance": 0.85
+      },
+      "seals": [
+        {
+          "id": "seal-charisma",
+          "name": "Harmonic Sovereign",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Commands celestial resonance to align allied forces.",
+          "statKey": "charisma",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "michelangelo": {
+      "sourceKey": "michelangelo",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 93,
+        "resonance": 77,
+        "wisdom": 83,
+        "charisma": 72,
+        "intuition": 86,
+        "adaptability": 78,
+        "vitality": 82
+      },
+      "ovr": 87,
+      "archetype": {
+        "title": "Instinctive Striker",
+        "primary": "power",
+        "secondary": "intuition"
+      },
+      "esms": {
+        "spirit": 0.9,
+        "essence": 0.95,
+        "matter": 0.85,
+        "substance": 0.8
+      },
+      "seals": [
+        {
+          "id": "seal-power",
+          "name": "Crucible Finisher",
+          "category": "substance",
+          "tier": "Copper",
+          "description": "Channels raw material pressure into irresistible decisive force.",
+          "statKey": "power",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-resonance",
+          "name": "Tidal Chorus",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Attunes with the ambient frequencies of celestial transits.",
+          "statKey": "resonance",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-wisdom",
+          "name": "Philosopher's Stone",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Transforms accumulated experience into strategic mastery.",
+          "statKey": "wisdom",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-charisma",
+          "name": "Harmonic Sovereign",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Commands celestial resonance to align allied forces.",
+          "statKey": "charisma",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-intuition",
+          "name": "Astral Vision",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Pierces through veil illusions with sovereign foresight.",
+          "statKey": "intuition",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-adaptability",
+          "name": "Quicksilver Pivot",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Transmutes tactical posture across shifting court elements.",
+          "statKey": "adaptability",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-vitality",
+          "name": "Immovable Foundation",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Anchors vessel integrity against territorial disruption.",
+          "statKey": "vitality",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "alexander-the-great": {
+      "sourceKey": "alexander-the-great",
+      "chartPlaceholder": true,
+      "ratings": {
+        "power": 89,
+        "resonance": 81,
+        "wisdom": 81,
+        "charisma": 77,
+        "intuition": 84,
+        "adaptability": 76,
+        "vitality": 80
+      },
+      "ovr": 85,
+      "archetype": {
+        "title": "Instinctive Striker",
+        "primary": "power",
+        "secondary": "intuition"
+      },
+      "esms": {
+        "spirit": 0.95,
+        "essence": 0.8,
+        "matter": 0.7,
+        "substance": 0.75
+      },
+      "seals": [
+        {
+          "id": "seal-power",
+          "name": "Crucible Finisher",
+          "category": "substance",
+          "tier": "Copper",
+          "description": "Channels raw material pressure into irresistible decisive force.",
+          "statKey": "power",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-resonance",
+          "name": "Tidal Chorus",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Attunes with the ambient frequencies of celestial transits.",
+          "statKey": "resonance",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-wisdom",
+          "name": "Philosopher's Stone",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Transforms accumulated experience into strategic mastery.",
+          "statKey": "wisdom",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-charisma",
+          "name": "Harmonic Sovereign",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Commands celestial resonance to align allied forces.",
+          "statKey": "charisma",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-intuition",
+          "name": "Astral Vision",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Pierces through veil illusions with sovereign foresight.",
+          "statKey": "intuition",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-adaptability",
+          "name": "Quicksilver Pivot",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Transmutes tactical posture across shifting court elements.",
+          "statKey": "adaptability",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-vitality",
+          "name": "Immovable Foundation",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Anchors vessel integrity against territorial disruption.",
+          "statKey": "vitality",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "archimedes": {
+      "sourceKey": "archimedes",
+      "chartPlaceholder": true,
+      "ratings": {
+        "power": 88,
+        "resonance": 81,
+        "wisdom": 81,
+        "charisma": 77,
+        "intuition": 84,
+        "adaptability": 76,
+        "vitality": 80
+      },
+      "ovr": 84,
+      "archetype": {
+        "title": "Instinctive Striker",
+        "primary": "power",
+        "secondary": "intuition"
+      },
+      "esms": {
+        "spirit": 0.8,
+        "essence": 0.75,
+        "matter": 0.9,
+        "substance": 0.95
+      },
+      "seals": [
+        {
+          "id": "seal-power",
+          "name": "Crucible Finisher",
+          "category": "substance",
+          "tier": "Copper",
+          "description": "Channels raw material pressure into irresistible decisive force.",
+          "statKey": "power",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-resonance",
+          "name": "Tidal Chorus",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Attunes with the ambient frequencies of celestial transits.",
+          "statKey": "resonance",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-wisdom",
+          "name": "Philosopher's Stone",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Transforms accumulated experience into strategic mastery.",
+          "statKey": "wisdom",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-charisma",
+          "name": "Harmonic Sovereign",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Commands celestial resonance to align allied forces.",
+          "statKey": "charisma",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-intuition",
+          "name": "Astral Vision",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Pierces through veil illusions with sovereign foresight.",
+          "statKey": "intuition",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-adaptability",
+          "name": "Quicksilver Pivot",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Transmutes tactical posture across shifting court elements.",
+          "statKey": "adaptability",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-vitality",
+          "name": "Immovable Foundation",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Anchors vessel integrity against territorial disruption.",
+          "statKey": "vitality",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "herodotus": {
+      "sourceKey": "herodotus",
+      "chartPlaceholder": true,
+      "ratings": {
+        "power": 85,
+        "resonance": 81,
+        "wisdom": 80,
+        "charisma": 76,
+        "intuition": 84,
+        "adaptability": 76,
+        "vitality": 80
+      },
+      "ovr": 83,
+      "archetype": {
+        "title": "Instinctive Striker",
+        "primary": "power",
+        "secondary": "intuition"
+      },
+      "esms": {
+        "spirit": 0.65,
+        "essence": 0.75,
+        "matter": 0.8,
+        "substance": 0.85
+      },
+      "seals": [
+        {
+          "id": "seal-power",
+          "name": "Crucible Finisher",
+          "category": "substance",
+          "tier": "Copper",
+          "description": "Channels raw material pressure into irresistible decisive force.",
+          "statKey": "power",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-resonance",
+          "name": "Tidal Chorus",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Attunes with the ambient frequencies of celestial transits.",
+          "statKey": "resonance",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-wisdom",
+          "name": "Philosopher's Stone",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Transforms accumulated experience into strategic mastery.",
+          "statKey": "wisdom",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-charisma",
+          "name": "Harmonic Sovereign",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Commands celestial resonance to align allied forces.",
+          "statKey": "charisma",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-intuition",
+          "name": "Astral Vision",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Pierces through veil illusions with sovereign foresight.",
+          "statKey": "intuition",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-adaptability",
+          "name": "Quicksilver Pivot",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Transmutes tactical posture across shifting court elements.",
+          "statKey": "adaptability",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-vitality",
+          "name": "Immovable Foundation",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Anchors vessel integrity against territorial disruption.",
+          "statKey": "vitality",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "cicero": {
+      "sourceKey": "cicero",
+      "chartPlaceholder": true,
+      "ratings": {
+        "power": 87,
+        "resonance": 81,
+        "wisdom": 81,
+        "charisma": 77,
+        "intuition": 84,
+        "adaptability": 76,
+        "vitality": 80
+      },
+      "ovr": 84,
+      "archetype": {
+        "title": "Instinctive Striker",
+        "primary": "power",
+        "secondary": "intuition"
+      },
+      "esms": {
+        "spirit": 0.7,
+        "essence": 0.85,
+        "matter": 0.75,
+        "substance": 0.9
+      },
+      "seals": [
+        {
+          "id": "seal-power",
+          "name": "Crucible Finisher",
+          "category": "substance",
+          "tier": "Copper",
+          "description": "Channels raw material pressure into irresistible decisive force.",
+          "statKey": "power",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-resonance",
+          "name": "Tidal Chorus",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Attunes with the ambient frequencies of celestial transits.",
+          "statKey": "resonance",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-wisdom",
+          "name": "Philosopher's Stone",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Transforms accumulated experience into strategic mastery.",
+          "statKey": "wisdom",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-charisma",
+          "name": "Harmonic Sovereign",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Commands celestial resonance to align allied forces.",
+          "statKey": "charisma",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-intuition",
+          "name": "Astral Vision",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Pierces through veil illusions with sovereign foresight.",
+          "statKey": "intuition",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-adaptability",
+          "name": "Quicksilver Pivot",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Transmutes tactical posture across shifting court elements.",
+          "statKey": "adaptability",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-vitality",
+          "name": "Immovable Foundation",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Anchors vessel integrity against territorial disruption.",
+          "statKey": "vitality",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "julius-caesar": {
+      "sourceKey": "julius-caesar",
+      "chartPlaceholder": true,
+      "ratings": {
+        "power": 88,
+        "resonance": 81,
+        "wisdom": 81,
+        "charisma": 77,
+        "intuition": 84,
+        "adaptability": 76,
+        "vitality": 80
+      },
+      "ovr": 84,
+      "archetype": {
+        "title": "Instinctive Striker",
+        "primary": "power",
+        "secondary": "intuition"
+      },
+      "esms": {
+        "spirit": 0.6,
+        "essence": 0.9,
+        "matter": 0.95,
+        "substance": 0.85
+      },
+      "seals": [
+        {
+          "id": "seal-power",
+          "name": "Crucible Finisher",
+          "category": "substance",
+          "tier": "Copper",
+          "description": "Channels raw material pressure into irresistible decisive force.",
+          "statKey": "power",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-resonance",
+          "name": "Tidal Chorus",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Attunes with the ambient frequencies of celestial transits.",
+          "statKey": "resonance",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-wisdom",
+          "name": "Philosopher's Stone",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Transforms accumulated experience into strategic mastery.",
+          "statKey": "wisdom",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-charisma",
+          "name": "Harmonic Sovereign",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Commands celestial resonance to align allied forces.",
+          "statKey": "charisma",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-intuition",
+          "name": "Astral Vision",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Pierces through veil illusions with sovereign foresight.",
+          "statKey": "intuition",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-adaptability",
+          "name": "Quicksilver Pivot",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Transmutes tactical posture across shifting court elements.",
+          "statKey": "adaptability",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-vitality",
+          "name": "Immovable Foundation",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Anchors vessel integrity against territorial disruption.",
+          "statKey": "vitality",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "plato": {
+      "sourceKey": "plato",
+      "chartPlaceholder": true,
+      "ratings": {
+        "power": 89,
+        "resonance": 81,
+        "wisdom": 81,
+        "charisma": 77,
+        "intuition": 84,
+        "adaptability": 76,
+        "vitality": 80
+      },
+      "ovr": 85,
+      "archetype": {
+        "title": "Instinctive Striker",
+        "primary": "power",
+        "secondary": "intuition"
+      },
+      "esms": {
+        "spirit": 0.95,
+        "essence": 0.85,
+        "matter": 0.4,
+        "substance": 0.8
+      },
+      "seals": [
+        {
+          "id": "seal-power",
+          "name": "Crucible Finisher",
+          "category": "substance",
+          "tier": "Copper",
+          "description": "Channels raw material pressure into irresistible decisive force.",
+          "statKey": "power",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-resonance",
+          "name": "Tidal Chorus",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Attunes with the ambient frequencies of celestial transits.",
+          "statKey": "resonance",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-charisma",
+          "name": "Harmonic Sovereign",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Commands celestial resonance to align allied forces.",
+          "statKey": "charisma",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-intuition",
+          "name": "Astral Vision",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Pierces through veil illusions with sovereign foresight.",
+          "statKey": "intuition",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-adaptability",
+          "name": "Quicksilver Pivot",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Transmutes tactical posture across shifting court elements.",
+          "statKey": "adaptability",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "aristotle": {
+      "sourceKey": "aristotle",
+      "chartPlaceholder": true,
+      "ratings": {
+        "power": 89,
+        "resonance": 81,
+        "wisdom": 81,
+        "charisma": 77,
+        "intuition": 84,
+        "adaptability": 76,
+        "vitality": 80
+      },
+      "ovr": 85,
+      "archetype": {
+        "title": "Instinctive Striker",
+        "primary": "power",
+        "secondary": "intuition"
+      },
+      "esms": {
+        "spirit": 0.85,
+        "essence": 0.92,
+        "matter": 0.78,
+        "substance": 0.95
+      },
+      "seals": [
+        {
+          "id": "seal-power",
+          "name": "Crucible Finisher",
+          "category": "substance",
+          "tier": "Copper",
+          "description": "Channels raw material pressure into irresistible decisive force.",
+          "statKey": "power",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-resonance",
+          "name": "Tidal Chorus",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Attunes with the ambient frequencies of celestial transits.",
+          "statKey": "resonance",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-wisdom",
+          "name": "Philosopher's Stone",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Transforms accumulated experience into strategic mastery.",
+          "statKey": "wisdom",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-charisma",
+          "name": "Harmonic Sovereign",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Commands celestial resonance to align allied forces.",
+          "statKey": "charisma",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-intuition",
+          "name": "Astral Vision",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Pierces through veil illusions with sovereign foresight.",
+          "statKey": "intuition",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-adaptability",
+          "name": "Quicksilver Pivot",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Transmutes tactical posture across shifting court elements.",
+          "statKey": "adaptability",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-vitality",
+          "name": "Immovable Foundation",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Anchors vessel integrity against territorial disruption.",
+          "statKey": "vitality",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "homer": {
+      "sourceKey": "homer",
+      "chartPlaceholder": true,
+      "ratings": {
+        "power": 86,
+        "resonance": 81,
+        "wisdom": 81,
+        "charisma": 76,
+        "intuition": 84,
+        "adaptability": 76,
+        "vitality": 80
+      },
+      "ovr": 83,
+      "archetype": {
+        "title": "Instinctive Striker",
+        "primary": "power",
+        "secondary": "intuition"
+      },
+      "esms": {
+        "spirit": 0.82,
+        "essence": 0.88,
+        "matter": 0.5,
+        "substance": 0.85
+      },
+      "seals": [
+        {
+          "id": "seal-power",
+          "name": "Crucible Finisher",
+          "category": "substance",
+          "tier": "Copper",
+          "description": "Channels raw material pressure into irresistible decisive force.",
+          "statKey": "power",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-resonance",
+          "name": "Tidal Chorus",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Attunes with the ambient frequencies of celestial transits.",
+          "statKey": "resonance",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-wisdom",
+          "name": "Philosopher's Stone",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Transforms accumulated experience into strategic mastery.",
+          "statKey": "wisdom",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-charisma",
+          "name": "Harmonic Sovereign",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Commands celestial resonance to align allied forces.",
+          "statKey": "charisma",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-intuition",
+          "name": "Astral Vision",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Pierces through veil illusions with sovereign foresight.",
+          "statKey": "intuition",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-adaptability",
+          "name": "Quicksilver Pivot",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Transmutes tactical posture across shifting court elements.",
+          "statKey": "adaptability",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-vitality",
+          "name": "Immovable Foundation",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Anchors vessel integrity against territorial disruption.",
+          "statKey": "vitality",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "socrates": {
+      "sourceKey": "socrates",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 75,
+        "resonance": 75,
+        "wisdom": 72,
+        "charisma": 69,
+        "intuition": 75,
+        "adaptability": 69,
+        "vitality": 68
+      },
+      "ovr": 74,
+      "archetype": {
+        "title": "Harmonic Seer",
+        "primary": "resonance",
+        "secondary": "intuition"
+      },
+      "esms": {
+        "spirit": 0.9,
+        "essence": 0.75,
+        "matter": 0.3,
+        "substance": 0.7
+      },
+      "seals": [
+        {
+          "id": "seal-resonance",
+          "name": "Tidal Chorus",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Attunes with the ambient frequencies of celestial transits.",
+          "statKey": "resonance",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-intuition",
+          "name": "Astral Vision",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Pierces through veil illusions with sovereign foresight.",
+          "statKey": "intuition",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "leonardo-da-vinci": {
+      "sourceKey": "leonardo-da-vinci",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 77,
+        "resonance": 83,
+        "wisdom": 72,
+        "charisma": 78,
+        "intuition": 75,
+        "adaptability": 69,
+        "vitality": 74
+      },
+      "ovr": 79,
+      "archetype": {
+        "title": "Symphonic Virtuoso",
+        "primary": "resonance",
+        "secondary": "charisma"
+      },
+      "esms": {
+        "spirit": 0.9,
+        "essence": 0.88,
+        "matter": 0.85,
+        "substance": 0.82
+      },
+      "seals": [
+        {
+          "id": "seal-resonance",
+          "name": "Tidal Chorus",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Attunes with the ambient frequencies of celestial transits.",
+          "statKey": "resonance",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-charisma",
+          "name": "Harmonic Sovereign",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Commands celestial resonance to align allied forces.",
+          "statKey": "charisma",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-intuition",
+          "name": "Astral Vision",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Pierces through veil illusions with sovereign foresight.",
+          "statKey": "intuition",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-vitality",
+          "name": "Immovable Foundation",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Anchors vessel integrity against territorial disruption.",
+          "statKey": "vitality",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "dante-alighieri": {
+      "sourceKey": "dante-alighieri",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 76,
+        "resonance": 75,
+        "wisdom": 72,
+        "charisma": 69,
+        "intuition": 75,
+        "adaptability": 69,
+        "vitality": 73
+      },
+      "ovr": 75,
+      "archetype": {
+        "title": "Kinetic Resonator",
+        "primary": "power",
+        "secondary": "resonance"
+      },
+      "esms": {
+        "spirit": 0.92,
+        "essence": 0.88,
+        "matter": 0.45,
+        "substance": 0.82
+      },
+      "seals": [
+        {
+          "id": "seal-resonance",
+          "name": "Tidal Chorus",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Attunes with the ambient frequencies of celestial transits.",
+          "statKey": "resonance",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-intuition",
+          "name": "Astral Vision",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Pierces through veil illusions with sovereign foresight.",
+          "statKey": "intuition",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "thomas-aquinas": {
+      "sourceKey": "thomas-aquinas",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 89,
+        "resonance": 85,
+        "wisdom": 81,
+        "charisma": 85,
+        "intuition": 83,
+        "adaptability": 75,
+        "vitality": 78
+      },
+      "ovr": 85,
+      "archetype": {
+        "title": "Dominant Commander",
+        "primary": "power",
+        "secondary": "charisma"
+      },
+      "esms": {
+        "spirit": 0.88,
+        "essence": 0.7,
+        "matter": 0.6,
+        "substance": 0.95
+      },
+      "seals": [
+        {
+          "id": "seal-power",
+          "name": "Crucible Finisher",
+          "category": "substance",
+          "tier": "Copper",
+          "description": "Channels raw material pressure into irresistible decisive force.",
+          "statKey": "power",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-resonance",
+          "name": "Tidal Chorus",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Attunes with the ambient frequencies of celestial transits.",
+          "statKey": "resonance",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-wisdom",
+          "name": "Philosopher's Stone",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Transforms accumulated experience into strategic mastery.",
+          "statKey": "wisdom",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-charisma",
+          "name": "Harmonic Sovereign",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Commands celestial resonance to align allied forces.",
+          "statKey": "charisma",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-intuition",
+          "name": "Astral Vision",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Pierces through veil illusions with sovereign foresight.",
+          "statKey": "intuition",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-adaptability",
+          "name": "Quicksilver Pivot",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Transmutes tactical posture across shifting court elements.",
+          "statKey": "adaptability",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-vitality",
+          "name": "Immovable Foundation",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Anchors vessel integrity against territorial disruption.",
+          "statKey": "vitality",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "geoffrey-chaucer": {
+      "sourceKey": "geoffrey-chaucer",
+      "chartPlaceholder": true,
+      "ratings": {
+        "power": 89,
+        "resonance": 78,
+        "wisdom": 76,
+        "charisma": 83,
+        "intuition": 75,
+        "adaptability": 79,
+        "vitality": 86
+      },
+      "ovr": 85,
+      "archetype": {
+        "title": "Juggernaut Anchor",
+        "primary": "power",
+        "secondary": "vitality"
+      },
+      "esms": {
+        "spirit": 0.65,
+        "essence": 0.85,
+        "matter": 0.75,
+        "substance": 0.8
+      },
+      "seals": [
+        {
+          "id": "seal-power",
+          "name": "Crucible Finisher",
+          "category": "substance",
+          "tier": "Copper",
+          "description": "Channels raw material pressure into irresistible decisive force.",
+          "statKey": "power",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-resonance",
+          "name": "Tidal Chorus",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Attunes with the ambient frequencies of celestial transits.",
+          "statKey": "resonance",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-wisdom",
+          "name": "Philosopher's Stone",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Transforms accumulated experience into strategic mastery.",
+          "statKey": "wisdom",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-charisma",
+          "name": "Harmonic Sovereign",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Commands celestial resonance to align allied forces.",
+          "statKey": "charisma",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-intuition",
+          "name": "Astral Vision",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Pierces through veil illusions with sovereign foresight.",
+          "statKey": "intuition",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-adaptability",
+          "name": "Quicksilver Pivot",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Transmutes tactical posture across shifting court elements.",
+          "statKey": "adaptability",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-vitality",
+          "name": "Immovable Foundation",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Anchors vessel integrity against territorial disruption.",
+          "statKey": "vitality",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "rumi": {
+      "sourceKey": "rumi",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 83,
+        "resonance": 83,
+        "wisdom": 80,
+        "charisma": 77,
+        "intuition": 85,
+        "adaptability": 76,
+        "vitality": 76
+      },
+      "ovr": 83,
+      "archetype": {
+        "title": "Reclusive Visionary",
+        "primary": "intuition",
+        "secondary": "resonance"
+      },
+      "esms": {
+        "spirit": 0.98,
+        "essence": 0.95,
+        "matter": 0.25,
+        "substance": 0.78
+      },
+      "seals": [
+        {
+          "id": "seal-power",
+          "name": "Crucible Finisher",
+          "category": "substance",
+          "tier": "Copper",
+          "description": "Channels raw material pressure into irresistible decisive force.",
+          "statKey": "power",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-resonance",
+          "name": "Tidal Chorus",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Attunes with the ambient frequencies of celestial transits.",
+          "statKey": "resonance",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-charisma",
+          "name": "Harmonic Sovereign",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Commands celestial resonance to align allied forces.",
+          "statKey": "charisma",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-intuition",
+          "name": "Astral Vision",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Pierces through veil illusions with sovereign foresight.",
+          "statKey": "intuition",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-adaptability",
+          "name": "Quicksilver Pivot",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Transmutes tactical posture across shifting court elements.",
+          "statKey": "adaptability",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "marcus-aurelius": {
+      "sourceKey": "marcus-aurelius",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 76,
+        "resonance": 76,
+        "wisdom": 73,
+        "charisma": 68,
+        "intuition": 78,
+        "adaptability": 66,
+        "vitality": 70
+      },
+      "ovr": 75,
+      "archetype": {
+        "title": "Reclusive Visionary",
+        "primary": "intuition",
+        "secondary": "resonance"
+      },
+      "esms": {
+        "spirit": 0.75,
+        "essence": 0.8,
+        "matter": 0.7,
+        "substance": 0.88
+      },
+      "seals": [
+        {
+          "id": "seal-resonance",
+          "name": "Tidal Chorus",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Attunes with the ambient frequencies of celestial transits.",
+          "statKey": "resonance",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-intuition",
+          "name": "Astral Vision",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Pierces through veil illusions with sovereign foresight.",
+          "statKey": "intuition",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "wolfgang-mozart": {
+      "sourceKey": "wolfgang-mozart",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 88,
+        "resonance": 82,
+        "wisdom": 81,
+        "charisma": 82,
+        "intuition": 83,
+        "adaptability": 78,
+        "vitality": 78
+      },
+      "ovr": 84,
+      "archetype": {
+        "title": "Dominant Commander",
+        "primary": "power",
+        "secondary": "charisma"
+      },
+      "esms": {
+        "spirit": 0.94,
+        "essence": 0.92,
+        "matter": 0.75,
+        "substance": 0.89
+      },
+      "seals": [
+        {
+          "id": "seal-power",
+          "name": "Crucible Finisher",
+          "category": "substance",
+          "tier": "Copper",
+          "description": "Channels raw material pressure into irresistible decisive force.",
+          "statKey": "power",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-resonance",
+          "name": "Tidal Chorus",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Attunes with the ambient frequencies of celestial transits.",
+          "statKey": "resonance",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-wisdom",
+          "name": "Philosopher's Stone",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Transforms accumulated experience into strategic mastery.",
+          "statKey": "wisdom",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-charisma",
+          "name": "Harmonic Sovereign",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Commands celestial resonance to align allied forces.",
+          "statKey": "charisma",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-intuition",
+          "name": "Astral Vision",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Pierces through veil illusions with sovereign foresight.",
+          "statKey": "intuition",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-adaptability",
+          "name": "Quicksilver Pivot",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Transmutes tactical posture across shifting court elements.",
+          "statKey": "adaptability",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-vitality",
+          "name": "Immovable Foundation",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Anchors vessel integrity against territorial disruption.",
+          "statKey": "vitality",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "william-shakespeare": {
+      "sourceKey": "william-shakespeare",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 76,
+        "resonance": 72,
+        "wisdom": 72,
+        "charisma": 67,
+        "intuition": 73,
+        "adaptability": 69,
+        "vitality": 72
+      },
+      "ovr": 74,
+      "archetype": {
+        "title": "Instinctive Striker",
+        "primary": "power",
+        "secondary": "intuition"
+      },
+      "esms": {
+        "spirit": 0.92,
+        "essence": 0.95,
+        "matter": 0.7,
+        "substance": 0.88
+      },
+      "seals": [
+        {
+          "id": "seal-intuition",
+          "name": "Astral Vision",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Pierces through veil illusions with sovereign foresight.",
+          "statKey": "intuition",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-vitality",
+          "name": "Immovable Foundation",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Anchors vessel integrity against territorial disruption.",
+          "statKey": "vitality",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "galileo-galilei": {
+      "sourceKey": "galileo-galilei",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 86,
+        "resonance": 76,
+        "wisdom": 78,
+        "charisma": 85,
+        "intuition": 72,
+        "adaptability": 78,
+        "vitality": 72
+      },
+      "ovr": 83,
+      "archetype": {
+        "title": "Apex Sovereign",
+        "primary": "charisma",
+        "secondary": "power"
+      },
+      "esms": {
+        "spirit": 0.93,
+        "essence": 0.85,
+        "matter": 0.88,
+        "substance": 0.9
+      },
+      "seals": [
+        {
+          "id": "seal-power",
+          "name": "Crucible Finisher",
+          "category": "substance",
+          "tier": "Copper",
+          "description": "Channels raw material pressure into irresistible decisive force.",
+          "statKey": "power",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-resonance",
+          "name": "Tidal Chorus",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Attunes with the ambient frequencies of celestial transits.",
+          "statKey": "resonance",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-wisdom",
+          "name": "Philosopher's Stone",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Transforms accumulated experience into strategic mastery.",
+          "statKey": "wisdom",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-charisma",
+          "name": "Harmonic Sovereign",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Commands celestial resonance to align allied forces.",
+          "statKey": "charisma",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-intuition",
+          "name": "Astral Vision",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Pierces through veil illusions with sovereign foresight.",
+          "statKey": "intuition",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-adaptability",
+          "name": "Quicksilver Pivot",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Transmutes tactical posture across shifting court elements.",
+          "statKey": "adaptability",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-vitality",
+          "name": "Immovable Foundation",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Anchors vessel integrity against territorial disruption.",
+          "statKey": "vitality",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "rene-descartes-1596": {
+      "sourceKey": "rene-descartes-1596",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 73,
+        "resonance": 70,
+        "wisdom": 80,
+        "charisma": 66,
+        "intuition": 78,
+        "adaptability": 83,
+        "vitality": 72
+      },
+      "ovr": 79,
+      "archetype": {
+        "title": "Polymath Craftsman",
+        "primary": "adaptability",
+        "secondary": "wisdom"
+      },
+      "esms": {
+        "spirit": 0.9,
+        "essence": 0.8,
+        "matter": 0.5,
+        "substance": 0.85
+      },
+      "seals": [
+        {
+          "id": "seal-wisdom",
+          "name": "Philosopher's Stone",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Transforms accumulated experience into strategic mastery.",
+          "statKey": "wisdom",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-intuition",
+          "name": "Astral Vision",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Pierces through veil illusions with sovereign foresight.",
+          "statKey": "intuition",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-adaptability",
+          "name": "Quicksilver Pivot",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Transmutes tactical posture across shifting court elements.",
+          "statKey": "adaptability",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-vitality",
+          "name": "Immovable Foundation",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Anchors vessel integrity against territorial disruption.",
+          "statKey": "vitality",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "voltaire-1694": {
+      "sourceKey": "voltaire-1694",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 85,
+        "resonance": 74,
+        "wisdom": 74,
+        "charisma": 81,
+        "intuition": 71,
+        "adaptability": 75,
+        "vitality": 77
+      },
+      "ovr": 81,
+      "archetype": {
+        "title": "Dominant Commander",
+        "primary": "power",
+        "secondary": "charisma"
+      },
+      "esms": {
+        "spirit": 0.85,
+        "essence": 0.88,
+        "matter": 0.6,
+        "substance": 0.75
+      },
+      "seals": [
+        {
+          "id": "seal-power",
+          "name": "Crucible Finisher",
+          "category": "substance",
+          "tier": "Copper",
+          "description": "Channels raw material pressure into irresistible decisive force.",
+          "statKey": "power",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-resonance",
+          "name": "Tidal Chorus",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Attunes with the ambient frequencies of celestial transits.",
+          "statKey": "resonance",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-charisma",
+          "name": "Harmonic Sovereign",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Commands celestial resonance to align allied forces.",
+          "statKey": "charisma",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-adaptability",
+          "name": "Quicksilver Pivot",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Transmutes tactical posture across shifting court elements.",
+          "statKey": "adaptability",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-vitality",
+          "name": "Immovable Foundation",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Anchors vessel integrity against territorial disruption.",
+          "statKey": "vitality",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "john-locke-1632": {
+      "sourceKey": "john-locke-1632",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 79,
+        "resonance": 70,
+        "wisdom": 71,
+        "charisma": 75,
+        "intuition": 67,
+        "adaptability": 69,
+        "vitality": 69
+      },
+      "ovr": 75,
+      "archetype": {
+        "title": "Dominant Commander",
+        "primary": "power",
+        "secondary": "charisma"
+      },
+      "esms": {
+        "spirit": 0.82,
+        "essence": 0.78,
+        "matter": 0.7,
+        "substance": 0.8
+      },
+      "seals": [
+        {
+          "id": "seal-charisma",
+          "name": "Harmonic Sovereign",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Commands celestial resonance to align allied forces.",
+          "statKey": "charisma",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "david-hume-1711": {
+      "sourceKey": "david-hume-1711",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 72,
+        "resonance": 78,
+        "wisdom": 70,
+        "charisma": 66,
+        "intuition": 80,
+        "adaptability": 69,
+        "vitality": 78
+      },
+      "ovr": 77,
+      "archetype": {
+        "title": "Reclusive Visionary",
+        "primary": "intuition",
+        "secondary": "resonance"
+      },
+      "esms": {
+        "spirit": 0.75,
+        "essence": 0.72,
+        "matter": 0.55,
+        "substance": 0.68
+      },
+      "seals": [
+        {
+          "id": "seal-resonance",
+          "name": "Tidal Chorus",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Attunes with the ambient frequencies of celestial transits.",
+          "statKey": "resonance",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-intuition",
+          "name": "Astral Vision",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Pierces through veil illusions with sovereign foresight.",
+          "statKey": "intuition",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-vitality",
+          "name": "Immovable Foundation",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Anchors vessel integrity against territorial disruption.",
+          "statKey": "vitality",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "johannes-kepler-1571": {
+      "sourceKey": "johannes-kepler-1571",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 78,
+        "resonance": 76,
+        "wisdom": 73,
+        "charisma": 81,
+        "intuition": 73,
+        "adaptability": 80,
+        "vitality": 78
+      },
+      "ovr": 79,
+      "archetype": {
+        "title": "Charismatic Catalyst",
+        "primary": "charisma",
+        "secondary": "adaptability"
+      },
+      "esms": {
+        "spirit": 0.88,
+        "essence": 0.76,
+        "matter": 0.65,
+        "substance": 0.9
+      },
+      "seals": [
+        {
+          "id": "seal-resonance",
+          "name": "Tidal Chorus",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Attunes with the ambient frequencies of celestial transits.",
+          "statKey": "resonance",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-charisma",
+          "name": "Harmonic Sovereign",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Commands celestial resonance to align allied forces.",
+          "statKey": "charisma",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-intuition",
+          "name": "Astral Vision",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Pierces through veil illusions with sovereign foresight.",
+          "statKey": "intuition",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-adaptability",
+          "name": "Quicksilver Pivot",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Transmutes tactical posture across shifting court elements.",
+          "statKey": "adaptability",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-vitality",
+          "name": "Immovable Foundation",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Anchors vessel integrity against territorial disruption.",
+          "statKey": "vitality",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "immanuel-kant-1724": {
+      "sourceKey": "immanuel-kant-1724",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 69,
+        "resonance": 73,
+        "wisdom": 69,
+        "charisma": 66,
+        "intuition": 74,
+        "adaptability": 63,
+        "vitality": 68
+      },
+      "ovr": 72,
+      "archetype": {
+        "title": "Reclusive Visionary",
+        "primary": "intuition",
+        "secondary": "resonance"
+      },
+      "esms": {
+        "spirit": 0.92,
+        "essence": 0.83,
+        "matter": 0.58,
+        "substance": 0.88
+      },
+      "seals": [
+        {
+          "id": "seal-resonance",
+          "name": "Tidal Chorus",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Attunes with the ambient frequencies of celestial transits.",
+          "statKey": "resonance",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-intuition",
+          "name": "Astral Vision",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Pierces through veil illusions with sovereign foresight.",
+          "statKey": "intuition",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "adam-smith-1723": {
+      "sourceKey": "adam-smith-1723",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 68,
+        "resonance": 78,
+        "wisdom": 72,
+        "charisma": 69,
+        "intuition": 78,
+        "adaptability": 67,
+        "vitality": 66
+      },
+      "ovr": 76,
+      "archetype": {
+        "title": "Harmonic Seer",
+        "primary": "resonance",
+        "secondary": "intuition"
+      },
+      "esms": {
+        "spirit": 0.78,
+        "essence": 0.74,
+        "matter": 0.72,
+        "substance": 0.76
+      },
+      "seals": [
+        {
+          "id": "seal-resonance",
+          "name": "Tidal Chorus",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Attunes with the ambient frequencies of celestial transits.",
+          "statKey": "resonance",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-intuition",
+          "name": "Astral Vision",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Pierces through veil illusions with sovereign foresight.",
+          "statKey": "intuition",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "jean-jacques-rousseau-1712": {
+      "sourceKey": "jean-jacques-rousseau-1712",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 72,
+        "resonance": 77,
+        "wisdom": 71,
+        "charisma": 69,
+        "intuition": 77,
+        "adaptability": 72,
+        "vitality": 75
+      },
+      "ovr": 76,
+      "archetype": {
+        "title": "Harmonic Seer",
+        "primary": "resonance",
+        "secondary": "intuition"
+      },
+      "esms": {
+        "spirit": 0.8,
+        "essence": 0.85,
+        "matter": 0.62,
+        "substance": 0.7
+      },
+      "seals": [
+        {
+          "id": "seal-resonance",
+          "name": "Tidal Chorus",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Attunes with the ambient frequencies of celestial transits.",
+          "statKey": "resonance",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-intuition",
+          "name": "Astral Vision",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Pierces through veil illusions with sovereign foresight.",
+          "statKey": "intuition",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-vitality",
+          "name": "Immovable Foundation",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Anchors vessel integrity against territorial disruption.",
+          "statKey": "vitality",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "mary-wollstonecraft-1759": {
+      "sourceKey": "mary-wollstonecraft-1759",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 69,
+        "resonance": 77,
+        "wisdom": 70,
+        "charisma": 66,
+        "intuition": 79,
+        "adaptability": 69,
+        "vitality": 74
+      },
+      "ovr": 76,
+      "archetype": {
+        "title": "Reclusive Visionary",
+        "primary": "intuition",
+        "secondary": "resonance"
+      },
+      "esms": {
+        "spirit": 0.86,
+        "essence": 0.9,
+        "matter": 0.68,
+        "substance": 0.82
+      },
+      "seals": [
+        {
+          "id": "seal-resonance",
+          "name": "Tidal Chorus",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Attunes with the ambient frequencies of celestial transits.",
+          "statKey": "resonance",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-intuition",
+          "name": "Astral Vision",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Pierces through veil illusions with sovereign foresight.",
+          "statKey": "intuition",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-vitality",
+          "name": "Immovable Foundation",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Anchors vessel integrity against territorial disruption.",
+          "statKey": "vitality",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "charles-dickens-1812": {
+      "sourceKey": "charles-dickens-1812",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 83,
+        "resonance": 83,
+        "wisdom": 78,
+        "charisma": 83,
+        "intuition": 81,
+        "adaptability": 76,
+        "vitality": 79
+      },
+      "ovr": 82,
+      "archetype": {
+        "title": "Resonant Herald",
+        "primary": "charisma",
+        "secondary": "resonance"
+      },
+      "esms": {
+        "spirit": 0.7,
+        "essence": 0.85,
+        "matter": 0.6,
+        "substance": 0.75
+      },
+      "seals": [
+        {
+          "id": "seal-power",
+          "name": "Crucible Finisher",
+          "category": "substance",
+          "tier": "Copper",
+          "description": "Channels raw material pressure into irresistible decisive force.",
+          "statKey": "power",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-resonance",
+          "name": "Tidal Chorus",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Attunes with the ambient frequencies of celestial transits.",
+          "statKey": "resonance",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-wisdom",
+          "name": "Philosopher's Stone",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Transforms accumulated experience into strategic mastery.",
+          "statKey": "wisdom",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-charisma",
+          "name": "Harmonic Sovereign",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Commands celestial resonance to align allied forces.",
+          "statKey": "charisma",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-intuition",
+          "name": "Astral Vision",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Pierces through veil illusions with sovereign foresight.",
+          "statKey": "intuition",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-adaptability",
+          "name": "Quicksilver Pivot",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Transmutes tactical posture across shifting court elements.",
+          "statKey": "adaptability",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-vitality",
+          "name": "Immovable Foundation",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Anchors vessel integrity against territorial disruption.",
+          "statKey": "vitality",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "claude-monet-1840": {
+      "sourceKey": "claude-monet-1840",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 78,
+        "resonance": 75,
+        "wisdom": 74,
+        "charisma": 78,
+        "intuition": 73,
+        "adaptability": 78,
+        "vitality": 78
+      },
+      "ovr": 77,
+      "archetype": {
+        "title": "Indomitable Leader",
+        "primary": "charisma",
+        "secondary": "vitality"
+      },
+      "esms": {
+        "spirit": 0.8,
+        "essence": 0.9,
+        "matter": 0.65,
+        "substance": 0.7
+      },
+      "seals": [
+        {
+          "id": "seal-resonance",
+          "name": "Tidal Chorus",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Attunes with the ambient frequencies of celestial transits.",
+          "statKey": "resonance",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-charisma",
+          "name": "Harmonic Sovereign",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Commands celestial resonance to align allied forces.",
+          "statKey": "charisma",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-intuition",
+          "name": "Astral Vision",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Pierces through veil illusions with sovereign foresight.",
+          "statKey": "intuition",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-adaptability",
+          "name": "Quicksilver Pivot",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Transmutes tactical posture across shifting court elements.",
+          "statKey": "adaptability",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-vitality",
+          "name": "Immovable Foundation",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Anchors vessel integrity against territorial disruption.",
+          "statKey": "vitality",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "nikola-tesla-1856": {
+      "sourceKey": "nikola-tesla-1856",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 72,
+        "resonance": 72,
+        "wisdom": 70,
+        "charisma": 68,
+        "intuition": 74,
+        "adaptability": 72,
+        "vitality": 75
+      },
+      "ovr": 74,
+      "archetype": {
+        "title": "Steadfast Bastion",
+        "primary": "vitality",
+        "secondary": "intuition"
+      },
+      "esms": {
+        "spirit": 0.92,
+        "essence": 0.75,
+        "matter": 0.55,
+        "substance": 0.88
+      },
+      "seals": [
+        {
+          "id": "seal-intuition",
+          "name": "Astral Vision",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Pierces through veil illusions with sovereign foresight.",
+          "statKey": "intuition",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-vitality",
+          "name": "Immovable Foundation",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Anchors vessel integrity against territorial disruption.",
+          "statKey": "vitality",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "marie-curie-1867": {
+      "sourceKey": "marie-curie-1867",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 79,
+        "resonance": 82,
+        "wisdom": 76,
+        "charisma": 78,
+        "intuition": 82,
+        "adaptability": 79,
+        "vitality": 83
+      },
+      "ovr": 82,
+      "archetype": {
+        "title": "Stalwart Conduit",
+        "primary": "vitality",
+        "secondary": "resonance"
+      },
+      "esms": {
+        "spirit": 0.65,
+        "essence": 0.8,
+        "matter": 0.85,
+        "substance": 0.9
+      },
+      "seals": [
+        {
+          "id": "seal-resonance",
+          "name": "Tidal Chorus",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Attunes with the ambient frequencies of celestial transits.",
+          "statKey": "resonance",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-wisdom",
+          "name": "Philosopher's Stone",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Transforms accumulated experience into strategic mastery.",
+          "statKey": "wisdom",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-charisma",
+          "name": "Harmonic Sovereign",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Commands celestial resonance to align allied forces.",
+          "statKey": "charisma",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-intuition",
+          "name": "Astral Vision",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Pierces through veil illusions with sovereign foresight.",
+          "statKey": "intuition",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-adaptability",
+          "name": "Quicksilver Pivot",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Transmutes tactical posture across shifting court elements.",
+          "statKey": "adaptability",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-vitality",
+          "name": "Immovable Foundation",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Anchors vessel integrity against territorial disruption.",
+          "statKey": "vitality",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "sigmund-freud-1856": {
+      "sourceKey": "sigmund-freud-1856",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 70,
+        "resonance": 66,
+        "wisdom": 65,
+        "charisma": 63,
+        "intuition": 67,
+        "adaptability": 69,
+        "vitality": 75
+      },
+      "ovr": 71,
+      "archetype": {
+        "title": "Ironbound Guardian",
+        "primary": "vitality",
+        "secondary": "power"
+      },
+      "esms": {
+        "spirit": 0.75,
+        "essence": 0.7,
+        "matter": 0.8,
+        "substance": 0.85
+      },
+      "seals": [
+        {
+          "id": "seal-vitality",
+          "name": "Immovable Foundation",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Anchors vessel integrity against territorial disruption.",
+          "statKey": "vitality",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "mark-twain-1835": {
+      "sourceKey": "mark-twain-1835",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 77,
+        "resonance": 72,
+        "wisdom": 72,
+        "charisma": 79,
+        "intuition": 69,
+        "adaptability": 78,
+        "vitality": 75
+      },
+      "ovr": 77,
+      "archetype": {
+        "title": "Charismatic Catalyst",
+        "primary": "charisma",
+        "secondary": "adaptability"
+      },
+      "esms": {
+        "spirit": 0.85,
+        "essence": 0.9,
+        "matter": 0.7,
+        "substance": 0.8
+      },
+      "seals": [
+        {
+          "id": "seal-charisma",
+          "name": "Harmonic Sovereign",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Commands celestial resonance to align allied forces.",
+          "statKey": "charisma",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-adaptability",
+          "name": "Quicksilver Pivot",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Transmutes tactical posture across shifting court elements.",
+          "statKey": "adaptability",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-vitality",
+          "name": "Immovable Foundation",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Anchors vessel integrity against territorial disruption.",
+          "statKey": "vitality",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "vincent-van-gogh-1853": {
+      "sourceKey": "vincent-van-gogh-1853",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 69,
+        "resonance": 74,
+        "wisdom": 70,
+        "charisma": 64,
+        "intuition": 75,
+        "adaptability": 69,
+        "vitality": 72
+      },
+      "ovr": 73,
+      "archetype": {
+        "title": "Reclusive Visionary",
+        "primary": "intuition",
+        "secondary": "resonance"
+      },
+      "esms": {
+        "spirit": 0.95,
+        "essence": 0.98,
+        "matter": 0.6,
+        "substance": 0.75
+      },
+      "seals": [
+        {
+          "id": "seal-resonance",
+          "name": "Tidal Chorus",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Attunes with the ambient frequencies of celestial transits.",
+          "statKey": "resonance",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-intuition",
+          "name": "Astral Vision",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Pierces through veil illusions with sovereign foresight.",
+          "statKey": "intuition",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-vitality",
+          "name": "Immovable Foundation",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Anchors vessel integrity against territorial disruption.",
+          "statKey": "vitality",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "charles-darwin-1809": {
+      "sourceKey": "charles-darwin-1809",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 81,
+        "resonance": 75,
+        "wisdom": 75,
+        "charisma": 81,
+        "intuition": 74,
+        "adaptability": 78,
+        "vitality": 76
+      },
+      "ovr": 80,
+      "archetype": {
+        "title": "Apex Sovereign",
+        "primary": "charisma",
+        "secondary": "power"
+      },
+      "esms": {
+        "spirit": 0.7,
+        "essence": 0.75,
+        "matter": 0.9,
+        "substance": 0.95
+      },
+      "seals": [
+        {
+          "id": "seal-resonance",
+          "name": "Tidal Chorus",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Attunes with the ambient frequencies of celestial transits.",
+          "statKey": "resonance",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-wisdom",
+          "name": "Philosopher's Stone",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Transforms accumulated experience into strategic mastery.",
+          "statKey": "wisdom",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-charisma",
+          "name": "Harmonic Sovereign",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Commands celestial resonance to align allied forces.",
+          "statKey": "charisma",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-intuition",
+          "name": "Astral Vision",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Pierces through veil illusions with sovereign foresight.",
+          "statKey": "intuition",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-adaptability",
+          "name": "Quicksilver Pivot",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Transmutes tactical posture across shifting court elements.",
+          "statKey": "adaptability",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-vitality",
+          "name": "Immovable Foundation",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Anchors vessel integrity against territorial disruption.",
+          "statKey": "vitality",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "edgar-allan-poe-1809": {
+      "sourceKey": "edgar-allan-poe-1809",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 84,
+        "resonance": 79,
+        "wisdom": 77,
+        "charisma": 80,
+        "intuition": 79,
+        "adaptability": 75,
+        "vitality": 79
+      },
+      "ovr": 81,
+      "archetype": {
+        "title": "Dominant Commander",
+        "primary": "power",
+        "secondary": "charisma"
+      },
+      "esms": {
+        "spirit": 0.88,
+        "essence": 0.92,
+        "matter": 0.55,
+        "substance": 0.85
+      },
+      "seals": [
+        {
+          "id": "seal-power",
+          "name": "Crucible Finisher",
+          "category": "substance",
+          "tier": "Copper",
+          "description": "Channels raw material pressure into irresistible decisive force.",
+          "statKey": "power",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-resonance",
+          "name": "Tidal Chorus",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Attunes with the ambient frequencies of celestial transits.",
+          "statKey": "resonance",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-wisdom",
+          "name": "Philosopher's Stone",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Transforms accumulated experience into strategic mastery.",
+          "statKey": "wisdom",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-charisma",
+          "name": "Harmonic Sovereign",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Commands celestial resonance to align allied forces.",
+          "statKey": "charisma",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-intuition",
+          "name": "Astral Vision",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Pierces through veil illusions with sovereign foresight.",
+          "statKey": "intuition",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-adaptability",
+          "name": "Quicksilver Pivot",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Transmutes tactical posture across shifting court elements.",
+          "statKey": "adaptability",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-vitality",
+          "name": "Immovable Foundation",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Anchors vessel integrity against territorial disruption.",
+          "statKey": "vitality",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "maya-angelou": {
+      "sourceKey": "maya-angelou",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 72,
+        "resonance": 72,
+        "wisdom": 81,
+        "charisma": 66,
+        "intuition": 80,
+        "adaptability": 81,
+        "vitality": 68
+      },
+      "ovr": 79,
+      "archetype": {
+        "title": "Intuitive Shifter",
+        "primary": "intuition",
+        "secondary": "adaptability"
+      },
+      "esms": {
+        "spirit": 0.88,
+        "essence": 0.93,
+        "matter": 0.82,
+        "substance": 0.86
+      },
+      "seals": [
+        {
+          "id": "seal-wisdom",
+          "name": "Philosopher's Stone",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Transforms accumulated experience into strategic mastery.",
+          "statKey": "wisdom",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-intuition",
+          "name": "Astral Vision",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Pierces through veil illusions with sovereign foresight.",
+          "statKey": "intuition",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-adaptability",
+          "name": "Quicksilver Pivot",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Transmutes tactical posture across shifting court elements.",
+          "statKey": "adaptability",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "isaac-newton": {
+      "sourceKey": "isaac-newton",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 88,
+        "resonance": 83,
+        "wisdom": 81,
+        "charisma": 83,
+        "intuition": 81,
+        "adaptability": 78,
+        "vitality": 78
+      },
+      "ovr": 84,
+      "archetype": {
+        "title": "Dominant Commander",
+        "primary": "power",
+        "secondary": "charisma"
+      },
+      "esms": {
+        "spirit": 0.91,
+        "essence": 0.78,
+        "matter": 0.92,
+        "substance": 0.95
+      },
+      "seals": [
+        {
+          "id": "seal-power",
+          "name": "Crucible Finisher",
+          "category": "substance",
+          "tier": "Copper",
+          "description": "Channels raw material pressure into irresistible decisive force.",
+          "statKey": "power",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-resonance",
+          "name": "Tidal Chorus",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Attunes with the ambient frequencies of celestial transits.",
+          "statKey": "resonance",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-wisdom",
+          "name": "Philosopher's Stone",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Transforms accumulated experience into strategic mastery.",
+          "statKey": "wisdom",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-charisma",
+          "name": "Harmonic Sovereign",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Commands celestial resonance to align allied forces.",
+          "statKey": "charisma",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-intuition",
+          "name": "Astral Vision",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Pierces through veil illusions with sovereign foresight.",
+          "statKey": "intuition",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-adaptability",
+          "name": "Quicksilver Pivot",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Transmutes tactical posture across shifting court elements.",
+          "statKey": "adaptability",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-vitality",
+          "name": "Immovable Foundation",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Anchors vessel integrity against territorial disruption.",
+          "statKey": "vitality",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "albert-einstein": {
+      "sourceKey": "albert-einstein",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 94,
+        "resonance": 83,
+        "wisdom": 83,
+        "charisma": 84,
+        "intuition": 84,
+        "adaptability": 78,
+        "vitality": 81
+      },
+      "ovr": 88,
+      "archetype": {
+        "title": "Dominant Commander",
+        "primary": "power",
+        "secondary": "charisma"
+      },
+      "esms": {
+        "spirit": 0.95,
+        "essence": 0.85,
+        "matter": 0.4,
+        "substance": 0.75
+      },
+      "seals": [
+        {
+          "id": "seal-power",
+          "name": "Crucible Finisher",
+          "category": "substance",
+          "tier": "Copper",
+          "description": "Channels raw material pressure into irresistible decisive force.",
+          "statKey": "power",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-resonance",
+          "name": "Tidal Chorus",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Attunes with the ambient frequencies of celestial transits.",
+          "statKey": "resonance",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-charisma",
+          "name": "Harmonic Sovereign",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Commands celestial resonance to align allied forces.",
+          "statKey": "charisma",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-intuition",
+          "name": "Astral Vision",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Pierces through veil illusions with sovereign foresight.",
+          "statKey": "intuition",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-adaptability",
+          "name": "Quicksilver Pivot",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Transmutes tactical posture across shifting court elements.",
+          "statKey": "adaptability",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "isaac-asimov": {
+      "sourceKey": "isaac-asimov",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 86,
+        "resonance": 72,
+        "wisdom": 75,
+        "charisma": 79,
+        "intuition": 70,
+        "adaptability": 78,
+        "vitality": 80
+      },
+      "ovr": 81,
+      "archetype": {
+        "title": "Dominant Commander",
+        "primary": "power",
+        "secondary": "charisma"
+      },
+      "esms": {
+        "spirit": 0.8,
+        "essence": 0.75,
+        "matter": 0.9,
+        "substance": 0.95
+      },
+      "seals": [
+        {
+          "id": "seal-power",
+          "name": "Crucible Finisher",
+          "category": "substance",
+          "tier": "Copper",
+          "description": "Channels raw material pressure into irresistible decisive force.",
+          "statKey": "power",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-wisdom",
+          "name": "Philosopher's Stone",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Transforms accumulated experience into strategic mastery.",
+          "statKey": "wisdom",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-charisma",
+          "name": "Harmonic Sovereign",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Commands celestial resonance to align allied forces.",
+          "statKey": "charisma",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-adaptability",
+          "name": "Quicksilver Pivot",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Transmutes tactical posture across shifting court elements.",
+          "statKey": "adaptability",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-vitality",
+          "name": "Immovable Foundation",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Anchors vessel integrity against territorial disruption.",
+          "statKey": "vitality",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "carl-jung": {
+      "sourceKey": "carl-jung",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 81,
+        "resonance": 67,
+        "wisdom": 69,
+        "charisma": 71,
+        "intuition": 66,
+        "adaptability": 72,
+        "vitality": 79
+      },
+      "ovr": 77,
+      "archetype": {
+        "title": "Juggernaut Anchor",
+        "primary": "power",
+        "secondary": "vitality"
+      },
+      "esms": {
+        "spirit": 0.88,
+        "essence": 0.92,
+        "matter": 0.55,
+        "substance": 0.78
+      },
+      "seals": [
+        {
+          "id": "seal-charisma",
+          "name": "Harmonic Sovereign",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Commands celestial resonance to align allied forces.",
+          "statKey": "charisma",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-vitality",
+          "name": "Immovable Foundation",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Anchors vessel integrity against territorial disruption.",
+          "statKey": "vitality",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "cleopatra": {
+      "sourceKey": "cleopatra",
+      "chartPlaceholder": true,
+      "ratings": {
+        "power": 86,
+        "resonance": 78,
+        "wisdom": 78,
+        "charisma": 78,
+        "intuition": 79,
+        "adaptability": 78,
+        "vitality": 78
+      },
+      "ovr": 82,
+      "archetype": {
+        "title": "Dominant Commander",
+        "primary": "power",
+        "secondary": "charisma"
+      },
+      "esms": {
+        "spirit": 0.82,
+        "essence": 0.94,
+        "matter": 0.88,
+        "substance": 0.85
+      },
+      "seals": [
+        {
+          "id": "seal-power",
+          "name": "Crucible Finisher",
+          "category": "substance",
+          "tier": "Copper",
+          "description": "Channels raw material pressure into irresistible decisive force.",
+          "statKey": "power",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-resonance",
+          "name": "Tidal Chorus",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Attunes with the ambient frequencies of celestial transits.",
+          "statKey": "resonance",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-wisdom",
+          "name": "Philosopher's Stone",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Transforms accumulated experience into strategic mastery.",
+          "statKey": "wisdom",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-charisma",
+          "name": "Harmonic Sovereign",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Commands celestial resonance to align allied forces.",
+          "statKey": "charisma",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-intuition",
+          "name": "Astral Vision",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Pierces through veil illusions with sovereign foresight.",
+          "statKey": "intuition",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-adaptability",
+          "name": "Quicksilver Pivot",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Transmutes tactical posture across shifting court elements.",
+          "statKey": "adaptability",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-vitality",
+          "name": "Immovable Foundation",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Anchors vessel integrity against territorial disruption.",
+          "statKey": "vitality",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "frida-kahlo": {
+      "sourceKey": "frida-kahlo",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 81,
+        "resonance": 67,
+        "wisdom": 71,
+        "charisma": 69,
+        "intuition": 68,
+        "adaptability": 70,
+        "vitality": 76
+      },
+      "ovr": 76,
+      "archetype": {
+        "title": "Juggernaut Anchor",
+        "primary": "power",
+        "secondary": "vitality"
+      },
+      "esms": {
+        "spirit": 0.85,
+        "essence": 0.95,
+        "matter": 0.68,
+        "substance": 0.76
+      },
+      "seals": [
+        {
+          "id": "seal-vitality",
+          "name": "Immovable Foundation",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Anchors vessel integrity against territorial disruption.",
+          "statKey": "vitality",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "benjamin-franklin": {
+      "sourceKey": "benjamin-franklin",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 90,
+        "resonance": 81,
+        "wisdom": 81,
+        "charisma": 83,
+        "intuition": 80,
+        "adaptability": 75,
+        "vitality": 76
+      },
+      "ovr": 85,
+      "archetype": {
+        "title": "Dominant Commander",
+        "primary": "power",
+        "secondary": "charisma"
+      },
+      "esms": {
+        "spirit": 0.78,
+        "essence": 0.62,
+        "matter": 0.81,
+        "substance": 0.59
+      },
+      "seals": [
+        {
+          "id": "seal-power",
+          "name": "Crucible Finisher",
+          "category": "substance",
+          "tier": "Copper",
+          "description": "Channels raw material pressure into irresistible decisive force.",
+          "statKey": "power",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-resonance",
+          "name": "Tidal Chorus",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Attunes with the ambient frequencies of celestial transits.",
+          "statKey": "resonance",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-wisdom",
+          "name": "Philosopher's Stone",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Transforms accumulated experience into strategic mastery.",
+          "statKey": "wisdom",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-charisma",
+          "name": "Harmonic Sovereign",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Commands celestial resonance to align allied forces.",
+          "statKey": "charisma",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-intuition",
+          "name": "Astral Vision",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Pierces through veil illusions with sovereign foresight.",
+          "statKey": "intuition",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-adaptability",
+          "name": "Quicksilver Pivot",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Transmutes tactical posture across shifting court elements.",
+          "statKey": "adaptability",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-vitality",
+          "name": "Immovable Foundation",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Anchors vessel integrity against territorial disruption.",
+          "statKey": "vitality",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "eleanor-roosevelt": {
+      "sourceKey": "eleanor-roosevelt",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 83,
+        "resonance": 72,
+        "wisdom": 75,
+        "charisma": 75,
+        "intuition": 72,
+        "adaptability": 71,
+        "vitality": 71
+      },
+      "ovr": 78,
+      "archetype": {
+        "title": "Dominant Commander",
+        "primary": "power",
+        "secondary": "charisma"
+      },
+      "esms": {
+        "spirit": 0.82,
+        "essence": 0.71,
+        "matter": 0.58,
+        "substance": 0.64
+      },
+      "seals": [
+        {
+          "id": "seal-power",
+          "name": "Crucible Finisher",
+          "category": "substance",
+          "tier": "Copper",
+          "description": "Channels raw material pressure into irresistible decisive force.",
+          "statKey": "power",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-wisdom",
+          "name": "Philosopher's Stone",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Transforms accumulated experience into strategic mastery.",
+          "statKey": "wisdom",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-charisma",
+          "name": "Harmonic Sovereign",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Commands celestial resonance to align allied forces.",
+          "statKey": "charisma",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-intuition",
+          "name": "Astral Vision",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Pierces through veil illusions with sovereign foresight.",
+          "statKey": "intuition",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "mahatma-gandhi": {
+      "sourceKey": "mahatma-gandhi",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 86,
+        "resonance": 75,
+        "wisdom": 76,
+        "charisma": 78,
+        "intuition": 74,
+        "adaptability": 72,
+        "vitality": 73
+      },
+      "ovr": 80,
+      "archetype": {
+        "title": "Dominant Commander",
+        "primary": "power",
+        "secondary": "charisma"
+      },
+      "esms": {
+        "spirit": 0.91,
+        "essence": 0.84,
+        "matter": 0.62,
+        "substance": 0.78
+      },
+      "seals": [
+        {
+          "id": "seal-power",
+          "name": "Crucible Finisher",
+          "category": "substance",
+          "tier": "Copper",
+          "description": "Channels raw material pressure into irresistible decisive force.",
+          "statKey": "power",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-resonance",
+          "name": "Tidal Chorus",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Attunes with the ambient frequencies of celestial transits.",
+          "statKey": "resonance",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-wisdom",
+          "name": "Philosopher's Stone",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Transforms accumulated experience into strategic mastery.",
+          "statKey": "wisdom",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-charisma",
+          "name": "Harmonic Sovereign",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Commands celestial resonance to align allied forces.",
+          "statKey": "charisma",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-intuition",
+          "name": "Astral Vision",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Pierces through veil illusions with sovereign foresight.",
+          "statKey": "intuition",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-vitality",
+          "name": "Immovable Foundation",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Anchors vessel integrity against territorial disruption.",
+          "statKey": "vitality",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "confucius": {
+      "sourceKey": "confucius",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 83,
+        "resonance": 71,
+        "wisdom": 72,
+        "charisma": 77,
+        "intuition": 68,
+        "adaptability": 69,
+        "vitality": 72
+      },
+      "ovr": 78,
+      "archetype": {
+        "title": "Dominant Commander",
+        "primary": "power",
+        "secondary": "charisma"
+      },
+      "esms": {
+        "spirit": 0.72,
+        "essence": 0.81,
+        "matter": 0.68,
+        "substance": 0.74
+      },
+      "seals": [
+        {
+          "id": "seal-power",
+          "name": "Crucible Finisher",
+          "category": "substance",
+          "tier": "Copper",
+          "description": "Channels raw material pressure into irresistible decisive force.",
+          "statKey": "power",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-charisma",
+          "name": "Harmonic Sovereign",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Commands celestial resonance to align allied forces.",
+          "statKey": "charisma",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-vitality",
+          "name": "Immovable Foundation",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Anchors vessel integrity against territorial disruption.",
+          "statKey": "vitality",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "lao-tzu": {
+      "sourceKey": "lao-tzu",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 76,
+        "resonance": 78,
+        "wisdom": 84,
+        "charisma": 66,
+        "intuition": 87,
+        "adaptability": 76,
+        "vitality": 65
+      },
+      "ovr": 82,
+      "archetype": {
+        "title": "Mystic Oracle",
+        "primary": "intuition",
+        "secondary": "wisdom"
+      },
+      "esms": {
+        "spirit": 0.92,
+        "essence": 0.78,
+        "matter": 0.51,
+        "substance": 0.89
+      },
+      "seals": [
+        {
+          "id": "seal-resonance",
+          "name": "Tidal Chorus",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Attunes with the ambient frequencies of celestial transits.",
+          "statKey": "resonance",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-wisdom",
+          "name": "Philosopher's Stone",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Transforms accumulated experience into strategic mastery.",
+          "statKey": "wisdom",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-intuition",
+          "name": "Astral Vision",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Pierces through veil illusions with sovereign foresight.",
+          "statKey": "intuition",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-adaptability",
+          "name": "Quicksilver Pivot",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Transmutes tactical posture across shifting court elements.",
+          "statKey": "adaptability",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "siddhartha-gautama-buddha": {
+      "sourceKey": "siddhartha-gautama-buddha",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 80,
+        "resonance": 69,
+        "wisdom": 70,
+        "charisma": 69,
+        "intuition": 68,
+        "adaptability": 64,
+        "vitality": 67
+      },
+      "ovr": 73,
+      "archetype": {
+        "title": "Dominant Commander",
+        "primary": "power",
+        "secondary": "charisma"
+      },
+      "esms": {
+        "spirit": 0.98,
+        "essence": 0.86,
+        "matter": 0.42,
+        "substance": 0.93
+      },
+      "seals": []
+    },
+    "murasaki-shikibu": {
+      "sourceKey": "murasaki-shikibu",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 84,
+        "resonance": 70,
+        "wisdom": 74,
+        "charisma": 75,
+        "intuition": 70,
+        "adaptability": 72,
+        "vitality": 75
+      },
+      "ovr": 78,
+      "archetype": {
+        "title": "Dominant Commander",
+        "primary": "power",
+        "secondary": "charisma"
+      },
+      "esms": {
+        "spirit": 0.68,
+        "essence": 0.74,
+        "matter": 0.62,
+        "substance": 0.59
+      },
+      "seals": [
+        {
+          "id": "seal-power",
+          "name": "Crucible Finisher",
+          "category": "substance",
+          "tier": "Copper",
+          "description": "Channels raw material pressure into irresistible decisive force.",
+          "statKey": "power",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-charisma",
+          "name": "Harmonic Sovereign",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Commands celestial resonance to align allied forces.",
+          "statKey": "charisma",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-vitality",
+          "name": "Immovable Foundation",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Anchors vessel integrity against territorial disruption.",
+          "statKey": "vitality",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "ibn-sina-avicenna": {
+      "sourceKey": "ibn-sina-avicenna",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 82,
+        "resonance": 81,
+        "wisdom": 77,
+        "charisma": 76,
+        "intuition": 81,
+        "adaptability": 68,
+        "vitality": 69
+      },
+      "ovr": 80,
+      "archetype": {
+        "title": "Kinetic Resonator",
+        "primary": "power",
+        "secondary": "resonance"
+      },
+      "esms": {
+        "spirit": 0.84,
+        "essence": 0.71,
+        "matter": 0.78,
+        "substance": 0.63
+      },
+      "seals": [
+        {
+          "id": "seal-resonance",
+          "name": "Tidal Chorus",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Attunes with the ambient frequencies of celestial transits.",
+          "statKey": "resonance",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-wisdom",
+          "name": "Philosopher's Stone",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Transforms accumulated experience into strategic mastery.",
+          "statKey": "wisdom",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-charisma",
+          "name": "Harmonic Sovereign",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Commands celestial resonance to align allied forces.",
+          "statKey": "charisma",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-intuition",
+          "name": "Astral Vision",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Pierces through veil illusions with sovereign foresight.",
+          "statKey": "intuition",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "tecumseh": {
+      "sourceKey": "tecumseh",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 87,
+        "resonance": 72,
+        "wisdom": 81,
+        "charisma": 72,
+        "intuition": 81,
+        "adaptability": 76,
+        "vitality": 71
+      },
+      "ovr": 82,
+      "archetype": {
+        "title": "Instinctive Striker",
+        "primary": "power",
+        "secondary": "intuition"
+      },
+      "esms": {
+        "spirit": 0.81,
+        "essence": 0.73,
+        "matter": 0.69,
+        "substance": 0.77
+      },
+      "seals": [
+        {
+          "id": "seal-power",
+          "name": "Crucible Finisher",
+          "category": "substance",
+          "tier": "Copper",
+          "description": "Channels raw material pressure into irresistible decisive force.",
+          "statKey": "power",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-wisdom",
+          "name": "Philosopher's Stone",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Transforms accumulated experience into strategic mastery.",
+          "statKey": "wisdom",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-charisma",
+          "name": "Harmonic Sovereign",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Commands celestial resonance to align allied forces.",
+          "statKey": "charisma",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-intuition",
+          "name": "Astral Vision",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Pierces through veil illusions with sovereign foresight.",
+          "statKey": "intuition",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-adaptability",
+          "name": "Quicksilver Pivot",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Transmutes tactical posture across shifting court elements.",
+          "statKey": "adaptability",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "wangari-maathai": {
+      "sourceKey": "wangari-maathai",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 74,
+        "resonance": 70,
+        "wisdom": 70,
+        "charisma": 66,
+        "intuition": 72,
+        "adaptability": 63,
+        "vitality": 65
+      },
+      "ovr": 71,
+      "archetype": {
+        "title": "Instinctive Striker",
+        "primary": "power",
+        "secondary": "intuition"
+      },
+      "esms": {
+        "spirit": 0.79,
+        "essence": 0.82,
+        "matter": 0.75,
+        "substance": 0.68
+      },
+      "seals": [
+        {
+          "id": "seal-intuition",
+          "name": "Astral Vision",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Pierces through veil illusions with sovereign foresight.",
+          "statKey": "intuition",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "sitting-bull": {
+      "sourceKey": "sitting-bull",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 92,
+        "resonance": 67,
+        "wisdom": 78,
+        "charisma": 72,
+        "intuition": 74,
+        "adaptability": 75,
+        "vitality": 78
+      },
+      "ovr": 83,
+      "archetype": {
+        "title": "Juggernaut Anchor",
+        "primary": "power",
+        "secondary": "vitality"
+      },
+      "esms": {
+        "spirit": 0.87,
+        "essence": 0.71,
+        "matter": 0.64,
+        "substance": 0.78
+      },
+      "seals": [
+        {
+          "id": "seal-power",
+          "name": "Crucible Finisher",
+          "category": "substance",
+          "tier": "Copper",
+          "description": "Channels raw material pressure into irresistible decisive force.",
+          "statKey": "power",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-wisdom",
+          "name": "Philosopher's Stone",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Transforms accumulated experience into strategic mastery.",
+          "statKey": "wisdom",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-charisma",
+          "name": "Harmonic Sovereign",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Commands celestial resonance to align allied forces.",
+          "statKey": "charisma",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-intuition",
+          "name": "Astral Vision",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Pierces through veil illusions with sovereign foresight.",
+          "statKey": "intuition",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-adaptability",
+          "name": "Quicksilver Pivot",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Transmutes tactical posture across shifting court elements.",
+          "statKey": "adaptability",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-vitality",
+          "name": "Immovable Foundation",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Anchors vessel integrity against territorial disruption.",
+          "statKey": "vitality",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "joan-of-arc": {
+      "sourceKey": "joan-of-arc",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 84,
+        "resonance": 78,
+        "wisdom": 78,
+        "charisma": 83,
+        "intuition": 75,
+        "adaptability": 73,
+        "vitality": 69
+      },
+      "ovr": 81,
+      "archetype": {
+        "title": "Apex Sovereign",
+        "primary": "charisma",
+        "secondary": "power"
+      },
+      "esms": {
+        "spirit": 0.91,
+        "essence": 0.78,
+        "matter": 0.63,
+        "substance": 0.84
+      },
+      "seals": [
+        {
+          "id": "seal-power",
+          "name": "Crucible Finisher",
+          "category": "substance",
+          "tier": "Copper",
+          "description": "Channels raw material pressure into irresistible decisive force.",
+          "statKey": "power",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-resonance",
+          "name": "Tidal Chorus",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Attunes with the ambient frequencies of celestial transits.",
+          "statKey": "resonance",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-wisdom",
+          "name": "Philosopher's Stone",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Transforms accumulated experience into strategic mastery.",
+          "statKey": "wisdom",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-charisma",
+          "name": "Harmonic Sovereign",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Commands celestial resonance to align allied forces.",
+          "statKey": "charisma",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-intuition",
+          "name": "Astral Vision",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Pierces through veil illusions with sovereign foresight.",
+          "statKey": "intuition",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "hildegard-of-bingen": {
+      "sourceKey": "hildegard-of-bingen",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 86,
+        "resonance": 80,
+        "wisdom": 79,
+        "charisma": 74,
+        "intuition": 82,
+        "adaptability": 70,
+        "vitality": 73
+      },
+      "ovr": 82,
+      "archetype": {
+        "title": "Instinctive Striker",
+        "primary": "power",
+        "secondary": "intuition"
+      },
+      "esms": {
+        "spirit": 0.94,
+        "essence": 0.81,
+        "matter": 0.67,
+        "substance": 0.88
+      },
+      "seals": [
+        {
+          "id": "seal-power",
+          "name": "Crucible Finisher",
+          "category": "substance",
+          "tier": "Copper",
+          "description": "Channels raw material pressure into irresistible decisive force.",
+          "statKey": "power",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-resonance",
+          "name": "Tidal Chorus",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Attunes with the ambient frequencies of celestial transits.",
+          "statKey": "resonance",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-wisdom",
+          "name": "Philosopher's Stone",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Transforms accumulated experience into strategic mastery.",
+          "statKey": "wisdom",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-charisma",
+          "name": "Harmonic Sovereign",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Commands celestial resonance to align allied forces.",
+          "statKey": "charisma",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-intuition",
+          "name": "Astral Vision",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Pierces through veil illusions with sovereign foresight.",
+          "statKey": "intuition",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-vitality",
+          "name": "Immovable Foundation",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Anchors vessel integrity against territorial disruption.",
+          "statKey": "vitality",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "sojourner-truth": {
+      "sourceKey": "sojourner-truth",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 92,
+        "resonance": 81,
+        "wisdom": 79,
+        "charisma": 83,
+        "intuition": 79,
+        "adaptability": 72,
+        "vitality": 79
+      },
+      "ovr": 85,
+      "archetype": {
+        "title": "Dominant Commander",
+        "primary": "power",
+        "secondary": "charisma"
+      },
+      "esms": {
+        "spirit": 0.89,
+        "essence": 0.83,
+        "matter": 0.68,
+        "substance": 0.81
+      },
+      "seals": [
+        {
+          "id": "seal-power",
+          "name": "Crucible Finisher",
+          "category": "substance",
+          "tier": "Copper",
+          "description": "Channels raw material pressure into irresistible decisive force.",
+          "statKey": "power",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-resonance",
+          "name": "Tidal Chorus",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Attunes with the ambient frequencies of celestial transits.",
+          "statKey": "resonance",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-wisdom",
+          "name": "Philosopher's Stone",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Transforms accumulated experience into strategic mastery.",
+          "statKey": "wisdom",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-charisma",
+          "name": "Harmonic Sovereign",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Commands celestial resonance to align allied forces.",
+          "statKey": "charisma",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-intuition",
+          "name": "Astral Vision",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Pierces through veil illusions with sovereign foresight.",
+          "statKey": "intuition",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-vitality",
+          "name": "Immovable Foundation",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Anchors vessel integrity against territorial disruption.",
+          "statKey": "vitality",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "carl-sagan": {
+      "sourceKey": "carl-sagan",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 85,
+        "resonance": 81,
+        "wisdom": 81,
+        "charisma": 77,
+        "intuition": 83,
+        "adaptability": 72,
+        "vitality": 72
+      },
+      "ovr": 82,
+      "archetype": {
+        "title": "Instinctive Striker",
+        "primary": "power",
+        "secondary": "intuition"
+      },
+      "esms": {
+        "spirit": 0.83,
+        "essence": 0.76,
+        "matter": 0.69,
+        "substance": 0.72
+      },
+      "seals": [
+        {
+          "id": "seal-power",
+          "name": "Crucible Finisher",
+          "category": "substance",
+          "tier": "Copper",
+          "description": "Channels raw material pressure into irresistible decisive force.",
+          "statKey": "power",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-resonance",
+          "name": "Tidal Chorus",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Attunes with the ambient frequencies of celestial transits.",
+          "statKey": "resonance",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-wisdom",
+          "name": "Philosopher's Stone",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Transforms accumulated experience into strategic mastery.",
+          "statKey": "wisdom",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-charisma",
+          "name": "Harmonic Sovereign",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Commands celestial resonance to align allied forces.",
+          "statKey": "charisma",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-intuition",
+          "name": "Astral Vision",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Pierces through veil illusions with sovereign foresight.",
+          "statKey": "intuition",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-vitality",
+          "name": "Immovable Foundation",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Anchors vessel integrity against territorial disruption.",
+          "statKey": "vitality",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "rachel-carson": {
+      "sourceKey": "rachel-carson",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 75,
+        "resonance": 69,
+        "wisdom": 70,
+        "charisma": 69,
+        "intuition": 69,
+        "adaptability": 64,
+        "vitality": 64
+      },
+      "ovr": 71,
+      "archetype": {
+        "title": "Dominant Commander",
+        "primary": "power",
+        "secondary": "charisma"
+      },
+      "esms": {
+        "spirit": 0.78,
+        "essence": 0.84,
+        "matter": 0.72,
+        "substance": 0.66
+      },
+      "seals": []
+    },
+    "paulo-freire": {
+      "sourceKey": "paulo-freire",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 81,
+        "resonance": 77,
+        "wisdom": 77,
+        "charisma": 73,
+        "intuition": 79,
+        "adaptability": 70,
+        "vitality": 69
+      },
+      "ovr": 78,
+      "archetype": {
+        "title": "Instinctive Striker",
+        "primary": "power",
+        "secondary": "intuition"
+      },
+      "esms": {
+        "spirit": 0.79,
+        "essence": 0.81,
+        "matter": 0.67,
+        "substance": 0.73
+      },
+      "seals": [
+        {
+          "id": "seal-resonance",
+          "name": "Tidal Chorus",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Attunes with the ambient frequencies of celestial transits.",
+          "statKey": "resonance",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-wisdom",
+          "name": "Philosopher's Stone",
+          "category": "matter",
+          "tier": "Copper",
+          "description": "Transforms accumulated experience into strategic mastery.",
+          "statKey": "wisdom",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-charisma",
+          "name": "Harmonic Sovereign",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Commands celestial resonance to align allied forces.",
+          "statKey": "charisma",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-intuition",
+          "name": "Astral Vision",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Pierces through veil illusions with sovereign foresight.",
+          "statKey": "intuition",
+          "multiplier": 1.05
+        }
+      ]
+    },
+    "chiron": {
+      "sourceKey": "chiron",
+      "chartPlaceholder": false,
+      "ratings": {
+        "power": 88,
+        "resonance": 73,
+        "wisdom": 76,
+        "charisma": 78,
+        "intuition": 72,
+        "adaptability": 76,
+        "vitality": 76
+      },
+      "ovr": 81,
+      "archetype": {
+        "title": "Dominant Commander",
+        "primary": "power",
+        "secondary": "charisma"
+      },
+      "esms": {
+        "spirit": 0.95,
+        "essence": 0.9,
+        "matter": 0.4,
+        "substance": 0.85
+      },
+      "seals": [
+        {
+          "id": "seal-power",
+          "name": "Crucible Finisher",
+          "category": "substance",
+          "tier": "Copper",
+          "description": "Channels raw material pressure into irresistible decisive force.",
+          "statKey": "power",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-resonance",
+          "name": "Tidal Chorus",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Attunes with the ambient frequencies of celestial transits.",
+          "statKey": "resonance",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-charisma",
+          "name": "Harmonic Sovereign",
+          "category": "essence",
+          "tier": "Copper",
+          "description": "Commands celestial resonance to align allied forces.",
+          "statKey": "charisma",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-intuition",
+          "name": "Astral Vision",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Pierces through veil illusions with sovereign foresight.",
+          "statKey": "intuition",
+          "multiplier": 1.05
+        },
+        {
+          "id": "seal-adaptability",
+          "name": "Quicksilver Pivot",
+          "category": "spirit",
+          "tier": "Copper",
+          "description": "Transmutes tactical posture across shifting court elements.",
+          "statKey": "adaptability",
+          "multiplier": 1.05
+        }
+      ]
+    }
+  }
+}

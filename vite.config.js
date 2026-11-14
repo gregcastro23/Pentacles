@@ -38,6 +38,9 @@ export default defineConfig(({ mode }) => {
       global: 'globalThis',
     },
     plugins: [redirectsPlugin()],
+    // Keep .nosync installs inside node_modules for Vite's CJS pre-bundling.
+    // Otherwise Buffer is served as raw CommonJS and the entire ESM app fails.
+    resolve: { preserveSymlinks: true, dedupe: ['three'] },
     server: { port: Number(process.env.PORT) || 5173, open: false, host: true },
     preview: { port: 4173 },
     build: {
@@ -52,7 +55,9 @@ export default defineConfig(({ mode }) => {
         },
         output: {
           manualChunks(id) {
-            if (id.includes('node_modules/three')) {
+            // Local installs may resolve through node_modules.nosync. Only
+            // extract the core so GLTF/Draco loaders stay in async chunks.
+            if (/[/\\]node_modules(?:\.nosync)?[/\\]three[/\\]build[/\\]/.test(id)) {
               return 'three'
             }
           },

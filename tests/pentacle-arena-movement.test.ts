@@ -100,12 +100,18 @@ describe('Pentacle arena movement and lifecycle', () => {
     expect(arena.avatarRegistry.size).toBe(3);
     expect(first.parent === arena.scene).toBe(true);
     let disposed = false;
-    (first.getObjectByName('TorsoMesh') as THREE.Mesh).geometry.addEventListener('dispose', () => { disposed = true; });
+    let sharedDisposed = false;
+    const torso = first.getObjectByName('TorsoMesh') as THREE.Mesh;
+    // Materials are avatar-owned; the torso shape is shared by the remaining vessels.
+    (torso.material as THREE.Material).addEventListener('dispose', () => { disposed = true; });
+    torso.geometry.addEventListener('dispose', () => { sharedDisposed = true; });
     arena.removeAvatar(FIXTURE_AGENTS[0].key);
     expect(disposed).toBe(true);
+    expect(sharedDisposed).toBe(false);
     expect(first.parent).toBeNull();
     expect(arena.avatarRegistry.size).toBe(2);
     arena.destroy();
+    expect(sharedDisposed).toBe(true);
     expect(arena.avatarRegistry.size).toBe(0);
     expect(arena.scene.children).toHaveLength(0);
   });

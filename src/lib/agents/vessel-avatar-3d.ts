@@ -32,6 +32,12 @@ import {
 import { liveWalletSync } from './live-wallet-sync';
 import { resolveAgentAppearance } from './vessel-appearance-manifest';
 import { createVesselSilhouette } from './vessel-silhouettes';
+import { tailoredTorso, pleatedSkirt } from './vessel-tailoring';
+import { attachPortraitHead } from './vessel-portrait-head';
+import { HISTORICAL_PORTRAITS } from './historical-portraits';
+import { defaultGLTFModelLoader, type GLTFModelLoader } from './vessel-model-loader';
+import { isSharedVesselGeometry, leaseVesselGeometry, releaseVesselGeometries } from './vessel-shared-geometry';
+export type { GLTFModelLoader, VesselModelAsset } from './vessel-model-loader';
 
 export type VesselAnimationState = 'idle' | 'surge' | 'travel' | 'contest-attack' | 'contest-defend' | 'victory' | 'stagger';
 
@@ -40,6 +46,8 @@ export interface VesselAvatarOptions {
   slot?: 'owner' | 'challenger';
   footRingRadius?: number;
   loadModelAsync?: boolean;
+  loadPortraitFace?: boolean;
+  mergeStaticDetails?: boolean;
 }
 
 export interface VesselAnimationOptions {
@@ -98,13 +106,15 @@ export function attachFresnelRim(
   power = 2.8,
   intensity = 0.65
 ): THREE.MeshStandardMaterial {
-  const color = rimColor instanceof THREE.Color ? rimColor : new THREE.Color(rimColor);
-  material.userData.fresnelRim = { color, power, intensity };
+  const color = rimColor instanceof THREE.Color ? rimColor.clone() : new THREE.Color(rimColor);
+  const rimState = { color, power, intensity };
+  material.userData.fresnelRim = rimState;
   material.customProgramCacheKey = () => 'vessel-fresnel-rim';
   material.onBeforeCompile = (shader) => {
-    shader.uniforms.uFresnelRimColor = { value: color };
-    shader.uniforms.uFresnelPower = { value: power };
-    shader.uniforms.uFresnelIntensity = { value: intensity };
+    shader.uniforms.uFresnelRimColor = { value: rimState.color };
+    shader.uniforms.uFresnelPower = { value: rimState.power };
+    shader.uniforms.uFresnelIntensity = { value: rimState.intensity };
+    material.userData.fresnelShaderUniforms = shader.uniforms;
 
     shader.fragmentShader = `uniform vec3 uFresnelRimColor;\nuniform float uFresnelPower;\nuniform float uFresnelIntensity;\n` + shader.fragmentShader;
     shader.fragmentShader = shader.fragmentShader.replace(
@@ -115,6 +125,92 @@ export function attachFresnelRim(
     );
   };
   return material;
+}
+
+/**
+ * Updates the live Fresnel rim-light uniforms across all rim-lit meshes on a Vessel Avatar
+ * in-place without recompiling shaders or reallocating materials.
+ */
+export function setVesselRimUniforms(
+  avatar: THREE.Group,
+  opts: { color?: THREE.Color | string; power?: number; intensity?: number }
+): void {
+  if (!avatar || avatar.userData?.disposed) return;
+  const nextColor =
+    opts.color !== undefined
+      ? opts.color instanceof THREE.Color
+        ? opts.color
+        : new THREE.Color(opts.color)
+      : null;
+
+  avatar.traverse((node) => {
+    const mesh = node as THREE.Mesh;
+    if (!mesh.isMesh || !mesh.material) return;
+    const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    for (const mat of mats) {
+      const rim = mat?.userData?.fresnelRim;
+      if (!rim) continue;
+      if (nextColor) {
+        rim.color.copy(nextColor);
+      }
+      if (typeof opts.power === 'number' && Number.isFinite(opts.power)) {
+        rim.power = opts.power;
+      }
+      if (typeof opts.intensity === 'number' && Number.isFinite(opts.intensity)) {
+        rim.intensity = opts.intensity;
+      }
+      const uniforms = mat.userData?.fresnelShaderUniforms;
+      if (uniforms) {
+        if (nextColor && uniforms.uFresnelRimColor?.value) {
+          uniforms.uFresnelRimColor.value.copy(nextColor);
+        }
+        if (typeof opts.power === 'number' && uniforms.uFresnelPower) {
+          uniforms.uFresnelPower.value = rim.power;
+        }
+        if (typeof opts.intensity === 'number' && uniforms.uFresnelIntensity) {
+          uniforms.uFresnelIntensity.value = rim.intensity;
+        }
+      }
+    }
+  });
+}
+
+/**
+ * Gently modulates emissive intensity on the Vessel's CircletMesh, CoreGemMesh, and
+ * signatureRelic in sympathy with active astrological aspects on the Natal Astrolabe.
+ */
+export function pulseVesselRelics(
+  avatar: THREE.Group,
+  opts: { crownBoost?: number; coreBoost?: number; relicBoost?: number } = {}
+): void {
+  const u = avatar?.userData;
+  if (!u || u.disposed) return;
+
+  const crownBoost = Math.max(0, Number(opts.crownBoost ?? 0));
+  const coreBoost = Math.max(0, Number(opts.coreBoost ?? 0));
+  const relicBoost = Math.max(0, Number(opts.relicBoost ?? 0));
+
+  if (u.circlet?.material instanceof THREE.MeshStandardMaterial) {
+    u.circlet.material.emissiveIntensity = 0.85 + crownBoost;
+  }
+  if (u.coreGem?.material instanceof THREE.MeshStandardMaterial) {
+    u.coreGem.material.emissiveIntensity = 0.9 + coreBoost;
+  }
+  if (u.relic) {
+    u.relic.traverse((child: THREE.Object3D) => {
+      const mesh = child as THREE.Mesh;
+      if (!mesh.isMesh || !mesh.material) return;
+      const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+      for (const mat of mats) {
+        if (mat instanceof THREE.MeshStandardMaterial) {
+          if (mat.userData.baseEmissiveIntensity === undefined) {
+            mat.userData.baseEmissiveIntensity = mat.emissiveIntensity || 0.35;
+          }
+          mat.emissiveIntensity = mat.userData.baseEmissiveIntensity + relicBoost;
+        }
+      }
+    });
+  }
 }
 
 export const NON_SHADOW_NODE_NAMES: ReadonlySet<string> = new Set([
@@ -201,38 +297,19 @@ export const SACRED_STAT_HEX_COLORS: Record<SacredStat, string> = {
 /**
  * Asynchronous loader hook for external rigged .glb models
  */
-export interface VesselModelAsset {
-  scene: THREE.Group;
-  animations?: THREE.AnimationClip[];
-}
-/** Each load must return a scene owned by that avatar (clone shared skeletons in the adapter). */
-export type GLTFModelLoader = (url: string) => Promise<VesselModelAsset>;
 let customModelLoader: GLTFModelLoader | null = null;
 
 export function registerCustomModelLoader(loader: GLTFModelLoader | null): void {
   customModelLoader = loader;
 }
 
-/** Built-in fallback loader for rigged .glb / .gltf assets using Three.js dynamic import */
-async function defaultGLTFModelLoader(url: string): Promise<VesselModelAsset> {
-  const { GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js');
-  const loader = new GLTFLoader();
-  try {
-    const { DRACOLoader } = await import('three/addons/loaders/DRACOLoader.js');
-    const dracoLoader = new DRACOLoader();
-    dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
-    loader.setDRACOLoader(dracoLoader);
-  } catch {
-    // DRACOLoader optional fallback
-  }
-  return new Promise((resolve, reject) => {
-    loader.load(
-      url,
-      (gltf) => resolve({ scene: gltf.scene, animations: gltf.animations }),
-      undefined,
-      (err) => reject(err)
-    );
-  });
+/** Shared-geometry leases per avatar root; released once on disposal. */
+const geometryLeases = new WeakMap<THREE.Group, Set<string>>();
+
+function sharedShapes(avatar: THREE.Group) {
+  let leases = geometryLeases.get(avatar);
+  if (!leases) geometryLeases.set(avatar, leases = new Set());
+  return <T extends THREE.BufferGeometry>(key: string, create: () => T): T => leaseVesselGeometry(leases!, key, create);
 }
 
 /**
@@ -246,6 +323,7 @@ export function createVesselAvatarMesh(
   const agent = JSON.parse(JSON.stringify(payload)) as RatedAgentPayload;
   const root = new THREE.Group();
   root.name = `VesselAvatarRoot_${agent.key}`;
+  const shape = sharedShapes(root);
   const appearance = agent.appearance ?? resolveAgentAppearance(agent.key, agent.faction, agent.archetype);
 
   // 1. Under-Foot Resonance Ring (anchored at y = 0.02)
@@ -273,13 +351,13 @@ export function createVesselAvatarMesh(
   torsoGroup.name = 'TorsoCore';
   torsoGroup.position.set(0, 1.35, 0);
 
-  const torsoGeo = new THREE.CylinderGeometry(0.32, 0.18, 0.85, 14);
+  const torsoGeo = shape('tailored-torso', tailoredTorso);
   const torsoMat = new THREE.MeshStandardMaterial({
-    color: factionColor,
-    roughness: 0.25,
-    metalness: 0.8,
+    color: appearance.paletteOverrides.primaryGarmentHex,
+    roughness: 0.75,
+    metalness: 0.12,
     emissive: factionColor,
-    emissiveIntensity: agent.surge.active ? 0.75 : 0.25,
+    emissiveIntensity: agent.surge.active ? 0.18 : 0.025,
   });
   attachFresnelRim(torsoMat, factionColor, 2.5, 0.75);
   const torsoMesh = new THREE.Mesh(torsoGeo, torsoMat);
@@ -287,7 +365,7 @@ export function createVesselAvatarMesh(
   torsoGroup.add(torsoMesh);
 
   // Internal Alchemical Core Gem
-  const gemGeo = new THREE.OctahedronGeometry(0.22, 0);
+  const gemGeo = shape('core-gem', () => new THREE.OctahedronGeometry(0.22, 0));
   const gemMat = new THREE.MeshStandardMaterial({
     color: statColor,
     roughness: 0.1,
@@ -305,21 +383,23 @@ export function createVesselAvatarMesh(
   headGroup.name = 'HeadCrown';
   headGroup.position.set(0, 2.15, 0);
 
-  const headGeo = new THREE.DodecahedronGeometry(0.26, 0);
+  const headGeo = shape('rounded-head', () => new THREE.SphereGeometry(0.28, 24, 18));
   const headMat = new THREE.MeshStandardMaterial({
     color: appearance.paletteOverrides.skinOrMaterialToneHex,
-    roughness: 0.2,
-    metalness: 0.7,
+    roughness: 0.65,
+    metalness: 0.05,
     emissive: factionColor,
-    emissiveIntensity: 0.3,
+    emissiveIntensity: 0.025,
   });
   const headMesh = new THREE.Mesh(headGeo, headMat);
   headMesh.name = 'HeadMesh';
   headMesh.scale.set(appearance.headSilhouette.faceProportion.jawWidth, appearance.headSilhouette.faceProportion.cranialHeight, appearance.headSilhouette.faceProportion.browDepth);
   headGroup.add(headMesh);
+  const neck = new THREE.Mesh(shape('rounded-neck', () => new THREE.CylinderGeometry(.11, .13, .18, 16)), headMat);
+  neck.name = 'NeckMesh'; neck.position.y = -.31; headGroup.add(neck);
 
   // Crown circlet
-  const circletGeo = new THREE.TorusGeometry(0.32, 0.03, 10, 24);
+  const circletGeo = shape('circlet', () => new THREE.TorusGeometry(0.32, 0.03, 10, 24));
   const circletMat = new THREE.MeshStandardMaterial({
     color: statColor,
     metalness: 0.95,
@@ -337,7 +417,7 @@ export function createVesselAvatarMesh(
   const facialFeatures = new THREE.Group();
   facialFeatures.name = 'FacialFeatures';
 
-  const browGeo = new THREE.BoxGeometry(0.24, 0.035, 0.06);
+  const browGeo = shape('brow', () => new THREE.BoxGeometry(0.24, 0.035, 0.06));
   const browMat = new THREE.MeshStandardMaterial({
     color: appearance.paletteOverrides.hairOrCrownHex,
     roughness: 0.85,
@@ -352,7 +432,7 @@ export function createVesselAvatarMesh(
   eyesGroup.name = 'EyesGroup';
   eyesGroup.position.set(0, 0.01, 0.23);
 
-  const eyeGeo = new THREE.BoxGeometry(0.045, 0.025, 0.03);
+  const eyeGeo = shape('eye', () => new THREE.BoxGeometry(0.045, 0.025, 0.03));
   const eyeMat = new THREE.MeshStandardMaterial({
     color: statColor,
     roughness: 0.1,
@@ -375,20 +455,21 @@ export function createVesselAvatarMesh(
   headGroup.add(facialFeatures);
 
   // --- Two-Bone Articulated Arms ---
-  const upperArmGeo = new THREE.CylinderGeometry(0.08, 0.065, 0.36, 14);
-  const elbowJointGeo = new THREE.SphereGeometry(0.065, 12, 10);
-  const forearmGeo = new THREE.CylinderGeometry(0.065, 0.055, 0.34, 14);
-  const handSocketGeo = new THREE.SphereGeometry(0.055, 12, 10);
+  const upperArmGeo = shape('tailored-upper-arm', () => new THREE.CapsuleGeometry(0.115, 0.18, 6, 16));
+  const elbowJointGeo = shape('elbow', () => new THREE.SphereGeometry(0.065, 12, 10));
+  const forearmGeo = shape('tailored-forearm', () => new THREE.CapsuleGeometry(0.09, 0.17, 6, 16));
+  const handSocketGeo = shape('rounded-hand', () => new THREE.SphereGeometry(0.085, 12, 10));
   const armMat = new THREE.MeshStandardMaterial({
-    color: factionColor,
-    roughness: 0.3,
-    metalness: 0.8,
+    color: appearance.paletteOverrides.primaryGarmentHex,
+    roughness: 0.8,
+    metalness: 0.1,
   });
+  const handMat = new THREE.MeshStandardMaterial({ color: appearance.paletteOverrides.skinOrMaterialToneHex, roughness: .7 });
 
   // Left Arm (Shoulder Pivot -> UpperArm -> ElbowPivot -> Forearm -> HandSocket)
   const leftArm = new THREE.Group();
   leftArm.name = 'LeftArm';
-  leftArm.position.set(-0.6, 1.45, 0);
+  leftArm.position.set(-0.48, 1.66, 0);
 
   const leftUpperArm = new THREE.Group();
   leftUpperArm.name = 'LeftUpperArm';
@@ -412,7 +493,8 @@ export function createVesselAvatarMesh(
   const leftHandSocket = new THREE.Group();
   leftHandSocket.name = 'LeftHandSocket';
   leftHandSocket.position.set(0, -0.34, 0);
-  const leftHandMesh = new THREE.Mesh(handSocketGeo, armMat);
+  const leftHandMesh = new THREE.Mesh(handSocketGeo, handMat);
+  leftHandMesh.scale.set(.8, 1.1, .65);
   leftHandSocket.add(leftHandMesh);
   leftForearm.add(leftHandSocket);
   leftElbow.add(leftForearm);
@@ -421,7 +503,7 @@ export function createVesselAvatarMesh(
   // Right Arm (Shoulder Pivot -> UpperArm -> ElbowPivot -> Forearm -> HandSocket)
   const rightArm = new THREE.Group();
   rightArm.name = 'RightArm';
-  rightArm.position.set(0.6, 1.45, 0);
+  rightArm.position.set(0.48, 1.66, 0);
 
   const rightUpperArm = new THREE.Group();
   rightUpperArm.name = 'RightUpperArm';
@@ -445,13 +527,24 @@ export function createVesselAvatarMesh(
   const rightHandSocket = new THREE.Group();
   rightHandSocket.name = 'RightHandSocket';
   rightHandSocket.position.set(0, -0.34, 0);
-  const rightHandMesh = new THREE.Mesh(handSocketGeo, armMat);
+  const rightHandMesh = new THREE.Mesh(handSocketGeo, handMat);
+  rightHandMesh.scale.set(.8, 1.1, .65);
   rightHandSocket.add(rightHandMesh);
   rightForearm.add(rightHandSocket);
   rightElbow.add(rightForearm);
   rightArm.add(rightElbow);
 
-  const silhouette = createVesselSilhouette(appearance, agent.key);
+  // Tailored cuffs and small thumbs complete the articulated hands without extra rigs.
+  const cuffGeometry = shape('tailored-cuff', () => new THREE.CylinderGeometry(.093, .093, .09, 16));
+  const cuffMaterial = new THREE.MeshStandardMaterial({ color: appearance.paletteOverrides.secondaryTrimHex, roughness: .7, metalness: .12 });
+  const thumbGeometry = shape('rounded-thumb', () => new THREE.CapsuleGeometry(.026, .045, 4, 8));
+  for (const [forearm, hand, side] of [[leftForearm, leftHandSocket, -1], [rightForearm, rightHandSocket, 1]] as const) {
+    const cuff = new THREE.Mesh(cuffGeometry, cuffMaterial); cuff.position.y = -.28; forearm.add(cuff);
+    const thumb = new THREE.Mesh(thumbGeometry, handMat);
+    thumb.position.set(-side * .06, -.005, .025); thumb.rotation.z = side * .5; hand.add(thumb);
+  }
+
+  const silhouette = createVesselSilhouette(appearance, agent.key, { mergeStaticDetails: options.mergeStaticDetails });
   headGroup.add(silhouette.head);
   silhouette.garment.traverse((child) => {
     if ((child as THREE.Mesh).isMesh && (child as THREE.Mesh).material instanceof THREE.MeshStandardMaterial) {
@@ -486,10 +579,10 @@ export function createVesselAvatarMesh(
   const calfMat = lowerBodyStyle === 'armored-cuisses' ? steelMat : lowerBodyStyle === 'tunic-greaves' ? goldMat : clothMat;
   const bootMat = lowerBodyStyle === 'armored-cuisses' ? steelMat : leatherMat;
 
-  const thighGeo = new THREE.CylinderGeometry(0.09, 0.075, 0.44, 14);
-  const kneeGeo = new THREE.SphereGeometry(0.075, 12, 10);
-  const calfGeo = new THREE.CylinderGeometry(0.075, 0.06, 0.42, 14);
-  const bootGeo = new THREE.BoxGeometry(0.12, 0.08, 0.22);
+  const thighGeo = shape('tailored-thigh', () => new THREE.CapsuleGeometry(.115, .23, 6, 16));
+  const kneeGeo = shape('tailored-knee', () => new THREE.SphereGeometry(.1, 12, 10));
+  const calfGeo = shape('tailored-calf', () => new THREE.CapsuleGeometry(.085, .25, 6, 16));
+  const bootGeo = shape('tailored-boot', () => new THREE.BoxGeometry(.18, .12, .28));
 
   // Left Leg: hipPivot -> thigh -> kneePivot -> calf -> boot
   const leftLeg = new THREE.Group();
@@ -560,10 +653,10 @@ export function createVesselAvatarMesh(
   lowerBody.add(rightLeg);
 
   if (lowerBodyStyle === 'full-robe') {
-    const robeSkirtGeo = new THREE.CylinderGeometry(0.36, 0.52, 0.9, 16, 1, true);
+    const robeSkirtGeo = shape('pleated-robe-skirt', pleatedSkirt);
     const robeSkirtMesh = new THREE.Mesh(robeSkirtGeo, clothMat);
     robeSkirtMesh.name = 'RobeSkirtDrape';
-    robeSkirtMesh.position.set(0, -0.45, 0);
+    robeSkirtMesh.position.set(0, 0, 0);
     lowerBody.add(robeSkirtMesh);
   }
 
@@ -573,7 +666,7 @@ export function createVesselAvatarMesh(
   haloGroup.position.set(0, 2.1, -0.15);
   haloGroup.rotation.x = Math.PI / 4;
 
-  const haloGeo = new THREE.TorusGeometry(0.75, 0.03, 8, 32);
+  const haloGeo = shape('astral-halo', () => new THREE.TorusGeometry(0.75, 0.03, 8, 32));
   const haloMat = new THREE.MeshBasicMaterial({
     color: agent.surge.active ? 0xffea00 : factionColor,
     transparent: true,
@@ -598,7 +691,7 @@ export function createVesselAvatarMesh(
     const tierColor = new THREE.Color(tierHex);
 
     for (let i = 0; i < shardCount; i++) {
-      const shardGeo = new THREE.OctahedronGeometry(0.09, 0);
+      const shardGeo = shape('seal-shard', () => new THREE.OctahedronGeometry(0.09, 0));
       const shardMat = new THREE.MeshStandardMaterial({
         color: tierColor,
         roughness: 0.15,
@@ -634,7 +727,7 @@ export function createVesselAvatarMesh(
 
   // --- Ward Shield (for contest-defend stance) ---
   const wardShield = new THREE.Mesh(
-    new THREE.OctahedronGeometry(1.4, 1),
+    shape('ward-shield', () => new THREE.OctahedronGeometry(1.4, 1)),
     new THREE.MeshBasicMaterial({
       color: 0x38bdf8,
       wireframe: true,
@@ -645,6 +738,8 @@ export function createVesselAvatarMesh(
   wardShield.name = 'WardShield';
   wardShield.position.set(0, 1.4, 0);
   wardShield.scale.set(0.001, 0.001, 0.001);
+  // A fully transparent ward still costs a draw; reveal it only while it fades in.
+  wardShield.visible = false;
 
   // --- Surge Corona (Active Resonance Surge Pillar) ---
   let surgeCorona: THREE.Group | null = null;
@@ -660,7 +755,7 @@ export function createVesselAvatarMesh(
       coronaColor = 0x00f0ff; // equilibrium harmonic
     }
 
-    const pillarGeo = new THREE.CylinderGeometry(0.75, 1.05, 3.4, 16, 1, true);
+    const pillarGeo = shape('surge-pillar', () => new THREE.CylinderGeometry(0.75, 1.05, 3.4, 16, 1, true));
     const pillarMat = new THREE.MeshBasicMaterial({
       color: coronaColor,
       wireframe: true,
@@ -674,7 +769,7 @@ export function createVesselAvatarMesh(
 
     // Equilibrium dual-harmonic inner cylinder
     if (agent.surge.surgeType === 'equilibrium') {
-      const innerGeo = new THREE.CylinderGeometry(0.55, 0.75, 3.2, 12, 1, true);
+      const innerGeo = shape('surge-pillar-inner', () => new THREE.CylinderGeometry(0.55, 0.75, 3.2, 12, 1, true));
       const innerMat = new THREE.MeshBasicMaterial({
         color: 0xf59e0b, // Solar gold dual harmonic
         wireframe: true,
@@ -762,6 +857,7 @@ export function createVesselAvatarMesh(
     activeAnimationState: agent.surge.active ? 'surge' : 'idle',
     modelLoadVersion: 0,
     loadModelAsync: options.loadModelAsync ?? Boolean(agent.avatarModelUrl ?? appearance.avatarModelUrl),
+    mergeStaticDetails: options.mergeStaticDetails !== false,
     disposed: false,
   };
   captureRestTransforms(root);
@@ -769,6 +865,8 @@ export function createVesselAvatarMesh(
   if (agent.ratingSource !== 'live') liveWalletSync.registerVesselAvatar(agent.key, root, refreshVesselFromPayload, agent);
   const currentPayload = root.userData.agentPayload as RatedAgentPayload;
   loadExternalModel(root, currentPayload.avatarModelUrl ?? root.userData.appearance.avatarModelUrl);
+  if ((options.loadPortraitFace ?? (typeof window !== 'undefined' && !!window.document?.defaultView))
+    && Object.hasOwn(HISTORICAL_PORTRAITS, agent.key)) root.userData.portraitHead = attachPortraitHead(root, agent.key);
 
   return root;
 }
@@ -783,6 +881,23 @@ interface RestTransform {
   rotation: THREE.Euler;
   scale: THREE.Vector3;
 }
+
+interface AnimationWorkspace {
+  targets: Record<string, Pick<RestTransform, 'position' | 'rotation' | 'scale'>>;
+  entries: { rest: RestTransform; target: AnimationWorkspace['targets'][string] }[];
+  ringPosition: THREE.Vector3;
+  ringScale: THREE.Vector3;
+  targetQuaternion: THREE.Quaternion;
+  headWorldPosition: THREE.Vector3;
+  gazeDirection: THREE.Vector3;
+  inverseAvatarQuaternion: THREE.Quaternion;
+  gazeEuler: THREE.Euler;
+  gazeQuaternion: THREE.Quaternion;
+}
+
+// Scratch poses are avatar-owned, never aliases of the rest pose or another rig.
+// A refreshed hierarchy replaces this workspace; discarded avatars can be collected.
+const animationWorkspaces = new WeakMap<THREE.Group, AnimationWorkspace>();
 
 function captureRestTransforms(avatar: THREE.Group): void {
   const u = avatar.userData;
@@ -812,6 +927,18 @@ function captureRestTransforms(avatar: THREE.Group): void {
     return [key, rest?.object === object ? rest : { object, position: object.position.clone(),
       rotation: object.rotation.clone(), scale: object.scale.clone() }];
   }));
+  const targets: AnimationWorkspace['targets'] = {};
+  const entries = Object.entries(u.restTransforms as Record<string, RestTransform>).map(([key, rest]) => {
+    const target = { position: rest.position.clone(), rotation: rest.rotation.clone(), scale: rest.scale.clone() };
+    targets[key] = target;
+    return { rest, target };
+  });
+  animationWorkspaces.set(avatar, {
+    targets, entries,
+    ringPosition: new THREE.Vector3(), ringScale: new THREE.Vector3(), targetQuaternion: new THREE.Quaternion(),
+    headWorldPosition: new THREE.Vector3(), gazeDirection: new THREE.Vector3(), inverseAvatarQuaternion: new THREE.Quaternion(),
+    gazeEuler: new THREE.Euler(0, 0, 0, 'YXZ'), gazeQuaternion: new THREE.Quaternion(),
+  });
 }
 
 export function setVesselAnimationState(avatar: THREE.Group, state: VesselAnimationState): void {
@@ -842,9 +969,10 @@ export function updateVesselAvatarAnimation(
   const t = u.stateElapsed;
   const state = u.animationState as VesselAnimationState;
   const alpha = 1 - Math.exp(-16 * dt);
+  const workspace = animationWorkspaces.get(avatarGroup)!;
   const ringRest = u.footRingRest as { position: THREE.Vector3; scale: THREE.Vector3 };
-  const ringPosition = ringRest.position.clone();
-  const ringScale = ringRest.scale.clone();
+  const ringPosition = workspace.ringPosition.copy(ringRest.position);
+  const ringScale = workspace.ringScale.copy(ringRest.scale);
   if (state === 'travel') {
     // Stretch/pulse behind the heading without changing live ESMS or Surge uniforms.
     const pulse = Math.sin(t * 10) * 0.045;
@@ -885,9 +1013,12 @@ export function updateVesselAvatarAnimation(
   }
 
   const rest = u.restTransforms as Record<string, RestTransform>;
-  const targets = Object.fromEntries(Object.entries(rest).map(([key, r]) => [key, {
-    position: r.position.clone(), rotation: r.rotation.clone(), scale: r.scale.clone(),
-  }]));
+  const targets = workspace.targets;
+  for (const { rest, target } of workspace.entries) {
+    target.position.copy(rest.position);
+    target.rotation.copy(rest.rotation);
+    target.scale.copy(rest.scale);
+  }
   const {
     torso, coreGem, head, circlet,
     leftArm, leftElbow, rightArm, rightElbow,
@@ -1150,9 +1281,8 @@ export function updateVesselAvatarAnimation(
     corona.scale.x *= pulse;
     corona.scale.z *= pulse;
   }
-  const targetQuaternion = new THREE.Quaternion();
-  for (const [key, pose] of Object.entries(targets)) {
-    const object = rest[key].object;
+  const targetQuaternion = workspace.targetQuaternion;
+  for (const { rest: { object }, target: pose } of workspace.entries) {
     object.position.lerp(pose.position, alpha);
     object.scale.lerp(pose.scale, alpha);
     object.quaternion.slerp(targetQuaternion.setFromEuler(pose.rotation), alpha);
@@ -1176,15 +1306,12 @@ export function updateVesselAvatarAnimation(
     }
 
     if (gazeWeight > 0.01) {
-      const headWorldPos = new THREE.Vector3();
+      const headWorldPos = workspace.headWorldPosition;
       u.headGroup.getWorldPosition(headWorldPos);
-      const toTargetWorld = lookAtWorldPos.clone().sub(headWorldPos);
 
       // Convert world direction into avatar's local coordinate frame
-      const avatarWorldQuat = new THREE.Quaternion();
-      avatarGroup.getWorldQuaternion(avatarWorldQuat);
-      const invAvatarQuat = avatarWorldQuat.clone().invert();
-      const localToTarget = toTargetWorld.clone().applyQuaternion(invAvatarQuat);
+      const invAvatarQuat = avatarGroup.getWorldQuaternion(workspace.inverseAvatarQuaternion).invert();
+      const localToTarget = workspace.gazeDirection.copy(lookAtWorldPos).sub(headWorldPos).applyQuaternion(invAvatarQuat);
 
       // In avatar space, Z+ is forward, X+ is right, Y+ is up
       const rawYaw = Math.atan2(localToTarget.x, localToTarget.z);
@@ -1195,8 +1322,8 @@ export function updateVesselAvatarAnimation(
       const clampedYaw = THREE.MathUtils.clamp(rawYaw, -0.73, 0.73) * gazeWeight;
       const clampedPitch = THREE.MathUtils.clamp(rawPitch, -0.35, 0.35) * gazeWeight;
 
-      const additiveEuler = new THREE.Euler(clampedPitch, clampedYaw, 0, 'YXZ');
-      const additiveQuat = new THREE.Quaternion().setFromEuler(additiveEuler);
+      const additiveEuler = workspace.gazeEuler.set(clampedPitch, clampedYaw, 0, 'YXZ');
+      const additiveQuat = workspace.gazeQuaternion.setFromEuler(additiveEuler);
 
       u.headGroup.quaternion.multiply(additiveQuat);
     }
@@ -1204,6 +1331,9 @@ export function updateVesselAvatarAnimation(
 
   const material = u.wardShield.material as THREE.MeshBasicMaterial;
   material.opacity = THREE.MathUtils.lerp(material.opacity, wardOpacity, alpha);
+  // Below ~1/500 the wireframe is imperceptible; skip its transparent draw.
+  if (wardOpacity === 0 && material.opacity < 0.002) material.opacity = 0;
+  u.wardShield.visible = material.opacity > 0 || wardOpacity > 0;
   const orbiters = u.sealOrbiters as THREE.Group;
   const dominantElement: EsmsKey = (u.attackElementOverride as EsmsKey) ?? (u.dominantElement as EsmsKey) ?? 'spirit';
   const orbitSpeed = state === 'victory' ? 4.2 : state === 'surge' ? 3.5 : state === 'contest-attack' ? (dominantElement === 'substance' ? 5.2 : 2.4) : 0.9;
@@ -1221,7 +1351,7 @@ function disposeObjectResources(object: THREE.Object3D): void {
   const textures = new Set<THREE.Texture>();
   object.traverse((node) => {
     const drawable = node as THREE.Mesh;
-    if (drawable.geometry) geometries.add(drawable.geometry);
+    if (drawable.geometry && !isSharedVesselGeometry(drawable.geometry)) geometries.add(drawable.geometry);
     const nodeMaterials = Array.isArray(drawable.material) ? drawable.material : [drawable.material];
     for (const material of nodeMaterials) {
       if (!material) continue;
@@ -1350,7 +1480,8 @@ function rebuildSealOrbiters(avatar: THREE.Group, agent: RatedAgentPayload): voi
   for (const seal of agent.seals) {
     for (let shardIndex = 0; shardIndex < getSealShardCount(seal.tier); shardIndex++) {
       const color = SEAL_TIER_HEX_COLORS[seal.tier];
-      const shard = new THREE.Mesh(new THREE.OctahedronGeometry(0.09), new THREE.MeshStandardMaterial({
+      const geometry = sharedShapes(avatar)('seal-shard', () => new THREE.OctahedronGeometry(0.09, 0));
+      const shard = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({
         color, emissive: color, emissiveIntensity: 0.85, metalness: 0.85, roughness: 0.15,
       }));
       const angle = Math.PI * 2 * index / Math.max(1, total);
@@ -1373,12 +1504,13 @@ function rebuildCorona(avatar: THREE.Group, agent: RatedAgentPayload): void {
   corona.name = 'SurgeCorona';
   corona.position.y = 1.4;
   const color = agent.surge.surgeType === 'tempest' ? 0x38bdf8 : agent.surge.surgeType === 'equilibrium' ? 0x00f0ff : 0xffaa00;
-  const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.75, 1.05, 3.4, 16, 1, true),
+  const shape = sharedShapes(avatar);
+  const pillar = new THREE.Mesh(shape('surge-pillar', () => new THREE.CylinderGeometry(0.75, 1.05, 3.4, 16, 1, true)),
     new THREE.MeshBasicMaterial({ color, wireframe: true, transparent: true, opacity: 0.55, side: THREE.DoubleSide }));
   pillar.name = 'SurgePillar';
   corona.add(pillar);
   if (agent.surge.surgeType === 'equilibrium') {
-    const inner = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.75, 3.2, 12, 1, true),
+    const inner = new THREE.Mesh(shape('surge-pillar-inner', () => new THREE.CylinderGeometry(0.55, 0.75, 3.2, 12, 1, true)),
       new THREE.MeshBasicMaterial({ color: 0xf59e0b, wireframe: true, transparent: true, opacity: 0.45, side: THREE.DoubleSide }));
     inner.name = 'SurgePillarInner';
     corona.add(inner);
@@ -1407,10 +1539,11 @@ export function refreshVesselFromPayload(avatar: THREE.Group, payload: RatedAgen
   }
   const factionColor = new THREE.Color(FACTION_HEX_COLORS[agent.faction] ?? '#00daf3');
   const statColor = new THREE.Color(SACRED_STAT_HEX_COLORS[agent.archetype.primary]);
+  const appearance = agent.appearance ?? resolveAgentAppearance(agent.key, agent.faction, agent.archetype);
   const torsoMaterial = (u.torsoGroup.getObjectByName('TorsoMesh') as THREE.Mesh).material as THREE.MeshStandardMaterial;
-  torsoMaterial.color.copy(factionColor);
+  torsoMaterial.color.set(appearance.paletteOverrides.primaryGarmentHex);
   torsoMaterial.emissive.copy(factionColor);
-  torsoMaterial.emissiveIntensity = agent.surge.active ? 0.75 : 0.25;
+  torsoMaterial.emissiveIntensity = agent.surge.active ? 0.18 : 0.025;
   if (torsoMaterial.userData.fresnelRim) {
     torsoMaterial.userData.fresnelRim.color.copy(factionColor);
   }
@@ -1419,13 +1552,12 @@ export function refreshVesselFromPayload(avatar: THREE.Group, payload: RatedAgen
     mesh.material.emissive.copy(statColor);
   }
   u.astralHalo.children[0].material.color.copy(agent.surge.active ? new THREE.Color(0xffea00) : factionColor);
-  const appearance = agent.appearance ?? resolveAgentAppearance(agent.key, agent.faction, agent.archetype);
   const appearanceSignature = JSON.stringify(appearance);
   if (appearanceSignature !== u.appearanceSignature) {
     const previousSilhouette = new THREE.Group();
     previousSilhouette.add(...Object.values(u.silhouette) as THREE.Group[]);
     disposeObjectResources(previousSilhouette);
-    const silhouette = createVesselSilhouette(appearance, agent.key);
+    const silhouette = createVesselSilhouette(appearance, agent.key, { mergeStaticDetails: u.mergeStaticDetails });
     u.headGroup.add(silhouette.head);
     silhouette.garment.traverse((child) => {
       if ((child as THREE.Mesh).isMesh && (child as THREE.Mesh).material instanceof THREE.MeshStandardMaterial) {
@@ -1467,12 +1599,15 @@ export function refreshVesselFromPayload(avatar: THREE.Group, payload: RatedAgen
     setVesselAnimationState(avatar, agent.surge.active ? 'surge' : 'idle');
   }
   loadExternalModel(avatar, agent.avatarModelUrl ?? appearance.avatarModelUrl);
+  u.portraitHead?.sync();
 }
 
 export function disposeVesselAvatar(avatar: THREE.Group): void {
   const u = avatar.userData;
   if (u.disposed) return;
   u.disposed = true;
+  u.portraitHead?.dispose();
+  animationWorkspaces.delete(avatar);
   u.modelLoadVersion++;
   if (u.mixer) {
     u.mixer.stopAllAction();
@@ -1481,6 +1616,9 @@ export function disposeVesselAvatar(avatar: THREE.Group): void {
   liveWalletSync.unregisterFootRingMesh(u.agentId, u.footRing);
   liveWalletSync.unregisterVesselAvatar(u.agentId, avatar);
   disposeObjectResources(avatar);
+  const leases = geometryLeases.get(avatar);
+  if (leases) releaseVesselGeometries(leases);
+  geometryLeases.delete(avatar);
 }
 
 /**

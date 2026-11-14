@@ -1,4 +1,5 @@
 import { HISTORICAL_AGENTS, PLANET_COLORS } from '../../alchm-chart/historical-agents.js';
+import { HISTORICAL_PORTRAITS } from './historical-portraits';
 
 export type VesselEra = 'ancient' | 'renaissance' | 'enlightenment' | 'romantic' | 'modern' | 'astral';
 export type VesselCrownStyle =
@@ -489,8 +490,9 @@ export function createVesselPortraitSvg(profile: VesselAppearanceProfile): strin
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 
-function withPortrait(profile: VesselAppearanceProfile): VesselAppearanceProfile {
-  return { ...profile, portraitSvgDataUri: createVesselPortraitSvg(profile) };
+function withPortrait(profile: VesselAppearanceProfile, agentId: string): VesselAppearanceProfile {
+  return { ...profile, portraitUrl: Object.hasOwn(HISTORICAL_PORTRAITS, agentId) ? HISTORICAL_PORTRAITS[agentId] : profile.portraitUrl,
+    portraitSvgDataUri: createVesselPortraitSvg(profile) };
 }
 
 const registry = new Map(HISTORICAL_AGENTS.map((agent) => [agent.key, agent]));
@@ -689,7 +691,7 @@ function deriveAppearance(agentId: string, faction?: number, archetype?: string 
       hairOrCrownHex: era === 'enlightenment' ? '#cec4b6' : ['#b9c5ca', '#c6b58a', '#848c9d'][seed % 3],
       skinOrMaterialToneHex: ['#b4c8ce', '#c6c3ad', '#acb5ca'][seed % 3],
     },
-  });
+  }, agentId);
 }
 
 /** All 71 registry entries plus the custom pilot; generated entries are period-inspired vessels. */
@@ -700,7 +702,7 @@ export const VESSEL_APPEARANCE_MANIFEST: Record<string, VesselAppearanceProfile>
       ...profile,
       modularTraits: profile.modularTraits ?? mixModularTraits(key, profile.era),
     };
-    return [key, withPortrait(withTraits)];
+    return [key, withPortrait(withTraits, key)];
   }),
 ]);
 

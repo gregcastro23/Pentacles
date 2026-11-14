@@ -22,6 +22,7 @@ import {
   type RatedAgentPayload,
   type SealTier,
   FIXTURE_AGENTS,
+  SEAL_TIERS,
 } from './rating-contract';
 import {
   updateFootRing,
@@ -42,6 +43,7 @@ import {
 } from '../../alchm-chart/zone-access.js';
 import { HISTORICAL_AGENTS } from '../../alchm-chart/historical-agents.js';
 import { CourtAudioSynth, type EsmsAudioElement } from './court-audio-synth';
+import { COURT_PIXEL_BUDGET, courtPixelRatio, avatarPixelRatio, type AvatarRenderQuality } from './court-resolution';
 
 export interface ZoneNode3D {
   zoneId: number;
@@ -141,9 +143,16 @@ export interface ArenaOptions {
   onSelectAgent?: (agent: RatedAgentPayload) => void;
   onSelectZone?: (zoneId: number) => void;
   autoStartLoop?: boolean;
+  /** Drawing-buffer pixels, independent of CSS layout. Defaults to two million. */
+  maxRenderPixels?: number;
+  renderQuality?: AvatarRenderQuality;
+  /** Unmerged reference path for local visual/performance comparisons. */
+  mergeStaticDetails?: boolean;
+  /** DOM nameplates can replace canvas badges in embedded views. */
+  showIdentityBadges?: boolean;
 }
 
-/** Compute canonical 3D coordinates for all 11 zones */
+/** Compute canonical 3D coordinates for all 11 zones, matching the 2D sky pentacle partition. */
 export function getZonePosition3D(zoneId: number): THREE.Vector3 {
   if (zoneId === 10) {
     // The Crown Zenith Apex
@@ -151,24 +160,196 @@ export function getZonePosition3D(zoneId: number): THREE.Vector3 {
   }
 
   if (zoneId >= 0 && zoneId <= 4) {
-    // Houses: Pentagon at radius 14, Y = 0.6
+    // Houses: Pentagon at radius 14, Y = 0.6, nestled between adjacent Spires (k and k+1)
     const R = 14.0;
     const Y = 0.6;
-    const angle = (2 * Math.PI * zoneId) / 5 - Math.PI / 2;
+    const angle = (2 * Math.PI * zoneId) / 5 - Math.PI / 2 + Math.PI / 5;
     return new THREE.Vector3(R * Math.cos(angle), Y, R * Math.sin(angle));
   }
 
   if (zoneId >= 5 && zoneId <= 9) {
-    // Spires: Interstitial star points at radius 20, Y = 3.2
+    // Spires: Five outer star tips at radius 20, Y = 3.2, with Spire I pointing North (-Z)
     const R = 20.0;
     const Y = 3.2;
     const spireIdx = zoneId - 5;
-    // Offset by 36 deg (PI/5) between house vertices
-    const angle = (2 * Math.PI * spireIdx) / 5 - Math.PI / 2 + Math.PI / 5;
+    const angle = (2 * Math.PI * spireIdx) / 5 - Math.PI / 2;
     return new THREE.Vector3(R * Math.cos(angle), Y, R * Math.sin(angle));
   }
 
   return new THREE.Vector3(0, 0, 0);
+}
+
+type XZPoint = readonly [number, number];
+const PENTACLE_STAR_RADIUS = 26.54;
+const PENTACLE_INNER_RATIO = (3 - Math.sqrt(5)) / 2;
+const PENTACLE_INRADIUS_RATIO = Math.cos((2 * Math.PI) / 5);
+const NOOP_RAYCAST = () => {};
+
+function buildFloorRibbonGeometry(
+  segments: ReadonlyArray<readonly [XZPoint, XZPoint]>,
+  width: number,
+  y: number
+): THREE.BufferGeometry {
+  const positions: number[] = [];
+  const normals: number[] = [];
+  const indices: number[] = [];
+  const halfWidth = width / 2;
+  let vertexBase = 0;
+
+  for (const [[x1, z1], [x2, z2]] of segments) {
+    const dx = x2 - x1;
+    const dz = z2 - z1;
+    const length = Math.hypot(dx, dz);
+    if (length < 1e-6) continue;
+    const nx = (-dz / length) * halfWidth;
+    const nz = (dx / length) * halfWidth;
+
+    positions.push(
+      x1 - nx, y, z1 - nz,
+      x1 + nx, y, z1 + nz,
+      x2 + nx, y, z2 + nz,
+      x2 - nx, y, z2 - nz
+    );
+    for (let i = 0; i < 4; i++) normals.push(0, 1, 0);
+    indices.push(vertexBase, vertexBase + 1, vertexBase + 2, vertexBase, vertexBase + 2, vertexBase + 3);
+    vertexBase += 4;
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+  geometry.setIndex(indices);
+  return geometry;
+}
+
+function buildFloorPolygonGeometry(
+  polygons: ReadonlyArray<ReadonlyArray<XZPoint>>,
+  y: number
+): THREE.BufferGeometry {
+  const positions: number[] = [];
+  const normals: number[] = [];
+  const indices: number[] = [];
+  let vertexBase = 0;
+
+  for (const polygon of polygons) {
+    if (polygon.length < 3) continue;
+    for (const [x, z] of polygon) {
+      positions.push(x, y, z);
+      normals.push(0, 1, 0);
+    }
+    for (let i = 1; i < polygon.length - 1; i++) {
+      indices.push(vertexBase, vertexBase + i, vertexBase + i + 1);
+    }
+    vertexBase += polygon.length;
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+  geometry.setIndex(indices);
+  return geometry;
+}
+
+function buildFloorRingsGeometry(
+  centers: ReadonlyArray<XZPoint>,
+  innerRadius: number,
+  outerRadius: number,
+  segments: number,
+  y: number
+): THREE.BufferGeometry {
+  const positions: number[] = [];
+  const normals: number[] = [];
+  const indices: number[] = [];
+  let vertexBase = 0;
+
+  for (const [cx, cz] of centers) {
+    for (let s = 0; s <= segments; s++) {
+      const angle = (s / segments) * Math.PI * 2;
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
+      positions.push(cx + innerRadius * cos, y, cz + innerRadius * sin);
+      positions.push(cx + outerRadius * cos, y, cz + outerRadius * sin);
+      normals.push(0, 1, 0, 0, 1, 0);
+    }
+    for (let s = 0; s < segments; s++) {
+      const i0 = vertexBase + s * 2;
+      indices.push(i0, i0 + 1, i0 + 3, i0, i0 + 3, i0 + 2);
+    }
+    vertexBase += (segments + 1) * 2;
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+  geometry.setIndex(indices);
+  return geometry;
+}
+
+function createFloorOverlayMesh(
+  name: string,
+  geometry: THREE.BufferGeometry,
+  color: number,
+  opacity: number
+): THREE.Mesh {
+  const material = new THREE.MeshBasicMaterial({
+    color,
+    side: THREE.DoubleSide,
+    transparent: true,
+    opacity,
+    depthWrite: false,
+  });
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.name = name;
+  mesh.castShadow = false;
+  mesh.receiveShadow = false;
+  mesh.raycast = NOOP_RAYCAST;
+  return mesh;
+}
+
+function createConduitInstancedMesh(
+  name: string,
+  edges: ReadonlyArray<readonly [THREE.Vector3, THREE.Vector3]>,
+  radius: number,
+  color: number,
+  opacity: number
+): THREE.InstancedMesh {
+  const geometry = new THREE.CylinderGeometry(1, 1, 1, 6, 1, true);
+  const material = new THREE.MeshBasicMaterial({
+    color,
+    transparent: true,
+    opacity,
+    depthWrite: false,
+  });
+  const instanced = new THREE.InstancedMesh(geometry, material, edges.length);
+  instanced.name = name;
+  instanced.castShadow = false;
+  instanced.receiveShadow = false;
+  instanced.raycast = NOOP_RAYCAST;
+
+  const up = new THREE.Vector3(0, 1, 0);
+  const dir = new THREE.Vector3();
+  const mid = new THREE.Vector3();
+  const quat = new THREE.Quaternion();
+  const scale = new THREE.Vector3();
+  const matrix = new THREE.Matrix4();
+
+  for (let i = 0; i < edges.length; i++) {
+    const [start, end] = edges[i];
+    dir.subVectors(end, start);
+    const length = dir.length();
+    if (length < 1e-6) {
+      matrix.makeScale(0, 0, 0);
+    } else {
+      mid.addVectors(start, end).multiplyScalar(0.5);
+      quat.setFromUnitVectors(up, dir.divideScalar(length));
+      scale.set(radius, length, radius);
+      matrix.compose(mid, quat, scale);
+    }
+    instanced.setMatrixAt(i, matrix);
+  }
+  instanced.instanceMatrix.needsUpdate = true;
+  instanced.computeBoundingSphere();
+  return instanced;
 }
 
 const ROMAN_NUMERALS = ['I', 'II', 'III', 'IV', 'V'];
@@ -179,21 +360,20 @@ export function getZoneTitle(zoneId: number): string {
   return 'The Crown Zenith';
 }
 
-const BATCHED_SEAL_TIERS: readonly SealTier[] = ['copper', 'silver', 'gold', 'platinum', 'astral'];
+const BATCHED_SEAL_TIERS: readonly SealTier[] = SEAL_TIERS;
+/** Hovered foot rings render 8% larger than their animated scale. */
+const HOVER_RING_BOOST = 1.08;
 
 /**
  * Batches seal orbiters across all court vessels using 5 THREE.InstancedMesh instances
- * (one per seal tier: copper, silver, gold, platinum, astral), cutting draw calls from
- * up to 110 down to 5 across full 22-avatar courts.
+ * (one per canonical seal tier), with room to grow as seats and ratings change.
  */
 export class CourtSealOrbiterBatcher {
   public readonly container: THREE.Group;
   private readonly instancedMeshes: Map<SealTier, THREE.InstancedMesh> = new Map();
-  private readonly dummy = new THREE.Object3D();
-  private readonly worldPos = new THREE.Vector3();
-  private readonly worldQuat = new THREE.Quaternion();
-  private readonly worldScale = new THREE.Vector3();
-  private isBatching = false;
+  private readonly localMatrix = new THREE.Matrix4();
+  private readonly inverseContainer = new THREE.Matrix4();
+  private readonly hiddenSources = new Set<THREE.Mesh>();
 
   constructor() {
     this.container = new THREE.Group();
@@ -209,6 +389,7 @@ export class CourtSealOrbiterBatcher {
         emissiveIntensity: 0.85,
       });
       const im = new THREE.InstancedMesh(geo, mat, 120);
+      im.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
       im.name = `InstancedSealOrbiters_${tier}`;
       im.castShadow = false;
       im.receiveShadow = false;
@@ -228,66 +409,66 @@ export class CourtSealOrbiterBatcher {
   }
 
   public update(registrations: Iterable<ArenaAvatarRegistration>): void {
-    const tierCounts = new Map<SealTier, number>();
-    for (const tier of BATCHED_SEAL_TIERS) tierCounts.set(tier, 0);
-
+    for (const mesh of this.hiddenSources) mesh.visible = true;
+    this.hiddenSources.clear();
+    const sources = new Map<SealTier, THREE.Mesh[]>();
+    for (const tier of BATCHED_SEAL_TIERS) sources.set(tier, []);
     for (const reg of registrations) {
       const avatar = reg.group;
       const orbitersGroup = avatar.userData.sealOrbiters as THREE.Group | undefined;
       if (!orbitersGroup) continue;
-
+      let visible = true;
+      for (let node: THREE.Object3D | null = orbitersGroup; node; node = node.parent) {
+        if (!node.visible) { visible = false; break; }
+      }
+      if (!visible) continue;
+      // Only this branch supplies instance matrices; siblings update at render time.
+      orbitersGroup.updateWorldMatrix(true, true);
       for (const child of orbitersGroup.children) {
-        if ((child as THREE.Mesh).isMesh) {
-          const mesh = child as THREE.Mesh;
-          mesh.visible = false;
-          const tier = mesh.userData.sealTier as SealTier | undefined;
-          if (!tier || !this.instancedMeshes.has(tier)) continue;
-
-          const im = this.instancedMeshes.get(tier)!;
-          const count = tierCounts.get(tier)!;
-          if (count < im.instanceMatrix.count) {
-            mesh.getWorldPosition(this.worldPos);
-            mesh.getWorldQuaternion(this.worldQuat);
-            mesh.getWorldScale(this.worldScale);
-            this.dummy.position.copy(this.worldPos);
-            this.dummy.quaternion.copy(this.worldQuat);
-            this.dummy.scale.copy(this.worldScale);
-            this.dummy.updateMatrix();
-            im.setMatrixAt(count, this.dummy.matrix);
-            tierCounts.set(tier, count + 1);
-          }
-        }
+        const mesh = child as THREE.Mesh;
+        if (mesh.isMesh && mesh.visible) sources.get(mesh.userData.sealTier)?.push(mesh);
       }
     }
-
-    for (const [tier, count] of tierCounts) {
-      const im = this.instancedMeshes.get(tier)!;
-      im.count = count;
-      im.visible = count > 0;
+    this.container.updateWorldMatrix(true, false);
+    this.inverseContainer.copy(this.container.matrixWorld).invert();
+    for (const [tier, meshes] of sources) {
+      let im = this.instancedMeshes.get(tier)!;
+      if (meshes.length > im.instanceMatrix.count) {
+        const replacement = new THREE.InstancedMesh(im.geometry, im.material, 2 ** Math.ceil(Math.log2(meshes.length)));
+        replacement.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        replacement.name = im.name;
+        im.removeFromParent();
+        im.dispose(); // Instance buffers only; geometry/material stay owned by this tier.
+        this.container.add(replacement);
+        this.instancedMeshes.set(tier, replacement);
+        im = replacement;
+      }
+      for (const [index, mesh] of meshes.entries()) {
+        im.setMatrixAt(index, this.localMatrix.multiplyMatrices(this.inverseContainer, mesh.matrixWorld));
+        mesh.visible = false;
+        this.hiddenSources.add(mesh);
+      }
+      im.count = meshes.length;
+      im.visible = meshes.length > 0;
       im.instanceMatrix.needsUpdate = true;
+      if (im.count) im.computeBoundingSphere();
     }
-    this.isBatching = true;
   }
 
-  public restore(registrations: Iterable<ArenaAvatarRegistration>): void {
-    for (const reg of registrations) {
-      const orbitersGroup = reg.group.userData.sealOrbiters as THREE.Group | undefined;
-      if (orbitersGroup) {
-        for (const child of orbitersGroup.children) {
-          if ((child as THREE.Mesh).isMesh) child.visible = true;
-        }
-      }
-    }
+  public restore(_registrations: Iterable<ArenaAvatarRegistration>): void {
+    for (const mesh of this.hiddenSources) mesh.visible = true;
+    this.hiddenSources.clear();
     for (const im of this.instancedMeshes.values()) {
       im.count = 0;
       im.visible = false;
       im.instanceMatrix.needsUpdate = true;
     }
-    this.isBatching = false;
   }
 
   public dispose(): void {
+    this.restore([]);
     for (const im of this.instancedMeshes.values()) {
+      im.dispose();
       im.geometry.dispose();
       if (Array.isArray(im.material)) im.material.forEach((m) => m.dispose());
       else im.material.dispose();
@@ -318,6 +499,14 @@ export class PentacleArena3D {
   private defaultCameraPosition: THREE.Vector3 = new THREE.Vector3(0, 26, 38);
   private defaultCameraLookAt: THREE.Vector3 = new THREE.Vector3(0, 2, 0);
   private pmremEnvTexture: THREE.Texture | null = null;
+  private maxRenderPixels: number;
+  private renderQuality?: AvatarRenderQuality;
+  private maxRenderDimension = 8192;
+  private renderSize?: { width: number; height: number; ratio: number };
+  private mergeStaticDetails: boolean;
+  private showIdentityBadges: boolean;
+  private readonly rivalHeadPosition = new THREE.Vector3();
+  private readonly neutralScale = new THREE.Vector3(1, 1, 1);
 
   /** Current animated look-at point, for camera controls sharing this camera. */
   public get cameraLookAt(): THREE.Vector3 { return this.currentCameraLookAt.clone(); }
@@ -337,6 +526,10 @@ export class PentacleArena3D {
   private onSelectZone?: (zoneId: number) => void;
 
   constructor(options: ArenaOptions = {}) {
+    this.maxRenderPixels = options.maxRenderPixels ?? COURT_PIXEL_BUDGET;
+    this.renderQuality = options.renderQuality;
+    this.mergeStaticDetails = options.mergeStaticDetails !== false;
+    this.showIdentityBadges = options.showIdentityBadges !== false;
     this.container = options.container || (typeof document !== 'undefined' ? document.createElement('div') : ({} as any));
     this.onSelectAgent = options.onSelectAgent;
     this.onSelectZone = options.onSelectZone;
@@ -358,10 +551,8 @@ export class PentacleArena3D {
     try {
       if (typeof document !== 'undefined' && typeof document.createElement === 'function') {
         rendererInstance = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-        rendererInstance.setSize(w, h);
-        rendererInstance.setPixelRatio(Math.min(typeof window !== 'undefined' ? window.devicePixelRatio : 1, 2));
         rendererInstance.shadowMap.enabled = true;
-        rendererInstance.shadowMap.type = THREE.PCFSoftShadowMap;
+        rendererInstance.shadowMap.type = THREE.PCFShadowMap;
         if (this.container && typeof this.container.appendChild === 'function') {
           this.container.appendChild(rendererInstance.domElement);
         }
@@ -374,6 +565,7 @@ export class PentacleArena3D {
     this.renderer = rendererInstance || ({
       setSize: () => {},
       setPixelRatio: () => {},
+      setDrawingBufferSize: () => {},
       render: () => {},
       dispose: () => {},
       domElement: {
@@ -383,6 +575,14 @@ export class PentacleArena3D {
       },
       shadowMap: {},
     } as any);
+
+    if (this.webglAvailable) {
+      const gl = this.renderer.getContext();
+      const viewport = gl.getParameter(gl.MAX_VIEWPORT_DIMS) as Int32Array;
+      this.maxRenderDimension = Math.min(8192, this.renderer.capabilities.maxTextureSize,
+        gl.getParameter(gl.MAX_RENDERBUFFER_SIZE), viewport[0], viewport[1]);
+    }
+    this.resize(w, h);
 
     this.setupLighting();
     this.buildSacredFloor();
@@ -478,22 +678,67 @@ export class PentacleArena3D {
       metalness: 0.2,
     });
     const floor = new THREE.Mesh(floorGeo, floorMat);
+    floor.name = 'SacredFloorPlate';
     floor.position.y = -0.3;
     floor.receiveShadow = true;
     this.scene.add(floor);
 
-    // Inlay outer sacred gold perimeter ring
-    const ringGeo = new THREE.RingGeometry(27.6, 27.9, 64);
-    const ringMat = new THREE.MeshBasicMaterial({
-      color: 0xd8b46a,
-      side: THREE.DoubleSide,
-      transparent: true,
-      opacity: 0.45,
-    });
-    const ringMesh = new THREE.Mesh(ringGeo, ringMat);
-    ringMesh.rotation.x = -Math.PI / 2;
-    ringMesh.position.y = 0.02;
-    this.scene.add(ringMesh);
+    const sacredGroup = new THREE.Group();
+    sacredGroup.name = 'SacredPentacleFloor';
+
+    // Canonical Pentacle vertices on the floor (R_star inscribed inside the horizon rim)
+    const innerRadius = PENTACLE_STAR_RADIUS * PENTACLE_INNER_RATIO;
+    const inradius = PENTACLE_STAR_RADIUS * PENTACLE_INRADIUS_RATIO;
+    const starTips: XZPoint[] = [];
+    const innerPentagon: XZPoint[] = [];
+    const houseCenters: XZPoint[] = [];
+    const spireCenters: XZPoint[] = [];
+
+    for (let k = 0; k < 5; k++) {
+      const spireAngle = (2 * Math.PI * k) / 5 - Math.PI / 2;
+      const houseAngle = spireAngle + Math.PI / 5;
+      starTips.push([PENTACLE_STAR_RADIUS * Math.cos(spireAngle), PENTACLE_STAR_RADIUS * Math.sin(spireAngle)]);
+      innerPentagon.push([innerRadius * Math.cos(houseAngle), innerRadius * Math.sin(houseAngle)]);
+      spireCenters.push([20.0 * Math.cos(spireAngle), 20.0 * Math.sin(spireAngle)]);
+      houseCenters.push([14.0 * Math.cos(houseAngle), 14.0 * Math.sin(houseAngle)]);
+    }
+
+    // 11-zone translucent floor partition inlays: 5 outer Arc-Houses, 5 Spire points, 1 Crown pentagon
+    const houseBays: XZPoint[][] = [];
+    const spirePoints: XZPoint[][] = [];
+    const arcSteps = 10;
+    for (let k = 0; k < 5; k++) {
+      const startAngle = (2 * Math.PI * k) / 5 - Math.PI / 2;
+      const endAngle = startAngle + (2 * Math.PI) / 5;
+      const bay: XZPoint[] = [innerPentagon[k], starTips[k]];
+      for (let s = 1; s < arcSteps; s++) {
+        const angle = startAngle + ((endAngle - startAngle) * s) / arcSteps;
+        bay.push([PENTACLE_STAR_RADIUS * Math.cos(angle), PENTACLE_STAR_RADIUS * Math.sin(angle)]);
+      }
+      bay.push(starTips[(k + 1) % 5]);
+      houseBays.push(bay);
+      spirePoints.push([starTips[k], innerPentagon[(k + 4) % 5], innerPentagon[k]]);
+    }
+
+    const starSegments: Array<readonly [XZPoint, XZPoint]> = Array.from(
+      { length: 5 },
+      (_, i) => [starTips[i], starTips[(i + 2) % 5]] as const
+    );
+
+    sacredGroup.add(
+      createFloorOverlayMesh('SacredPentacleHouseFills', buildFloorPolygonGeometry(houseBays, 0.010), 0x132645, 0.28),
+      createFloorOverlayMesh('SacredPentacleSpireFills', buildFloorPolygonGeometry(spirePoints, 0.014), 0xd8b46a, 0.11),
+      createFloorOverlayMesh('SacredPentacleCrownFill', buildFloorPolygonGeometry([innerPentagon], 0.018), 0xf1dba1, 0.15),
+      createFloorOverlayMesh('SacredPentacleRimGlow', buildFloorRingsGeometry([[0, 0]], 25.95, 27.15, 96, 0.022), 0xd8b46a, 0.18),
+      createFloorOverlayMesh('SacredPentacleStarGlow', buildFloorRibbonGeometry(starSegments, 0.96, 0.024), 0xd8b46a, 0.24),
+      createFloorOverlayMesh('SacredPentacleCrownCircle', buildFloorRingsGeometry([[0, 0]], inradius - 0.12, inradius + 0.12, 64, 0.028), 0xe4c58a, 0.58),
+      createFloorOverlayMesh('SacredPentacleHouseAnchors', buildFloorRingsGeometry(houseCenters, 2.38, 2.56, 32, 0.028), 0x38bdf8, 0.38),
+      createFloorOverlayMesh('SacredPentacleSpireAnchors', buildFloorRingsGeometry(spireCenters, 2.66, 2.86, 32, 0.028), 0xe4c58a, 0.52),
+      createFloorOverlayMesh('SacredPentacleOutline', buildFloorRibbonGeometry(starSegments, 0.44, 0.034), 0xf1dba1, 0.96),
+      createFloorOverlayMesh('SacredPentacleRim', buildFloorRingsGeometry([[0, 0]], 26.30, 26.80, 96, 0.038), 0xf1dba1, 0.94),
+      createFloorOverlayMesh('SacredPentacleOuterBezel', buildFloorRingsGeometry([[0, 0]], 27.42, 27.88, 96, 0.038), 0xd8b46a, 0.82)
+    );
+    this.scene.add(sacredGroup);
   }
 
   private buildZoneNodes(): void {
@@ -578,23 +823,42 @@ export class PentacleArena3D {
 
   private buildLeyLineConduits(): void {
     this.leyLineMaterial = new THREE.LineBasicMaterial({
-      color: 0x38bdf8,
+      color: 0x67e8f9,
       transparent: true,
-      opacity: 0.35,
+      opacity: 0.85,
     });
 
     const conduitGeo = new THREE.BufferGeometry();
     const positions: number[] = [];
+    const starEdges: Array<readonly [THREE.Vector3, THREE.Vector3]> = [];
+    const crownEdges: Array<readonly [THREE.Vector3, THREE.Vector3]> = [];
+    const zoneRadius = (id: number) => (id === 10 ? 3.4 : id >= 5 ? 2.5 : 2.2);
 
     for (const [source, target] of LEY_LINE_CONNECTIONS) {
       const a = this.zones.get(source)!.position;
       const b = this.zones.get(target)!.position;
       positions.push(a.x, a.y, a.z, b.x, b.y, b.z);
+
+      // Anchor 3D beams to the upper pedestal rims so they never slice across avatars' feet
+      const dir = new THREE.Vector3().subVectors(b, a);
+      const length = dir.length();
+      if (length > 1e-4) {
+        dir.divideScalar(length);
+        const start = a.clone().addScaledVector(dir, zoneRadius(source) * 0.92);
+        const end = b.clone().addScaledVector(dir, -zoneRadius(target) * 0.92);
+        start.y -= 0.12;
+        end.y -= 0.12;
+        if (source === 10 || target === 10) crownEdges.push([start, end]);
+        else starEdges.push([start, end]);
+      }
     }
 
     conduitGeo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
     this.leyLinesMesh = new THREE.LineSegments(conduitGeo, this.leyLineMaterial);
+    this.leyLinesMesh.raycast = NOOP_RAYCAST;
     this.scene.add(this.leyLinesMesh);
+    this.scene.add(createConduitInstancedMesh('LeyLineStarBeams', starEdges, 0.08, 0x38bdf8, 0.78));
+    this.scene.add(createConduitInstancedMesh('LeyLineCrownBeams', crownEdges, 0.10, 0xf1dba1, 0.88));
   }
 
   /**
@@ -687,11 +951,14 @@ export class PentacleArena3D {
         zoneId,
         slot,
         footRingRadius: zone.kind === 'crown' ? 2.6 : 1.9,
+        mergeStaticDetails: this.mergeStaticDetails,
       });
-      const sprite = this.createAvatarSprite(payload);
-      sprite.name = 'VesselIdentityBadge';
-      sprite.position.y = 2.8;
-      group.add(sprite);
+      if (this.showIdentityBadges) {
+        const sprite = this.createAvatarSprite(payload);
+        sprite.name = 'VesselIdentityBadge';
+        sprite.position.y = 2.8;
+        group.add(sprite);
+      }
       registration = { group, footRing: group.userData.footRing, payload, zoneId, slot };
       this.avatarRegistry.set(payload.key, registration);
       this.scene.add(group);
@@ -1167,6 +1434,7 @@ export class PentacleArena3D {
       }
       if (registration.footRing) {
         registration.footRing.scale.set(1.25, 1.25, 1.25);
+        registration.group.userData.hoverRingFactor = 1; // The pulse replaces any hover-scaled value.
       }
     } else if (deltaOvr < 0) {
       if (!inAction) {
@@ -1174,6 +1442,7 @@ export class PentacleArena3D {
       }
       if (registration.footRing) {
         registration.footRing.scale.set(0.85, 0.85, 0.85);
+        registration.group.userData.hoverRingFactor = 1; // The pulse replaces any hover-scaled value.
       }
     }
     return true;
@@ -1401,10 +1670,17 @@ export class PentacleArena3D {
         if (rivalGroup && rivalGroup !== registration.group) {
           const rivalHead = rivalGroup.userData.headGroup as THREE.Group | undefined;
           if (rivalHead) {
-            rivalHeadPos = rivalHead.getWorldPosition(new THREE.Vector3());
+            rivalHeadPos = rivalHead.getWorldPosition(this.rivalHeadPosition);
           }
         }
       }
+
+      // The hover boost is a display multiplier, never part of the animated base scale.
+      // Remove last frame's boost first so it cannot compound across updates.
+      const ring = registration.footRing;
+      const userData = registration.group.userData;
+      const previousHover = (userData.hoverRingFactor as number | undefined) ?? 1;
+      if (ring && previousHover !== 1) ring.scale.divideScalar(previousHover);
 
       if (this.motionEnabled) {
         updateVesselAvatarAnimation(registration.group, delta, this.elapsedTime, { lookAtWorldPos: rivalHeadPos });
@@ -1412,17 +1688,19 @@ export class PentacleArena3D {
 
       // Hover feedback: Emissive boost on torso and foot ring scale boost
       const isHovered = registration.payload.key === this.hoveredAgentId;
-      const torsoMesh = registration.group.userData.torsoGroup?.getObjectByName('TorsoMesh') as THREE.Mesh | undefined;
+      const torsoMesh = userData.torsoGroup?.getObjectByName('TorsoMesh') as THREE.Mesh | undefined;
       if (torsoMesh && torsoMesh.material instanceof THREE.MeshStandardMaterial) {
         const baseIntensity = registration.payload.surge.active ? 0.75 : 0.25;
         torsoMesh.material.emissiveIntensity = isHovered ? baseIntensity + 0.35 : baseIntensity;
       }
-      if (registration.footRing) {
-        if (isHovered) {
-          registration.footRing.scale.multiplyScalar(1.08);
-        } else {
-          registration.footRing.scale.lerp(new THREE.Vector3(1, 1, 1), Math.min(1, delta * 5));
-        }
+      if (ring) {
+        if (!isHovered) ring.scale.lerp(this.neutralScale, Math.min(1, delta * 5));
+        // Time-based easing gives the same 8% boost at any frame rate; reduced motion snaps.
+        const target = isHovered ? HOVER_RING_BOOST : 1;
+        let hover = this.motionEnabled ? previousHover + (target - previousHover) * (1 - Math.exp(-12 * delta)) : target;
+        if (Math.abs(hover - target) < 1e-4) hover = target;
+        if (hover !== 1) ring.scale.multiplyScalar(hover);
+        userData.hoverRingFactor = hover;
       }
     }
 
@@ -1468,7 +1746,22 @@ export class PentacleArena3D {
     if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return;
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
-    this.renderer.setSize(width, height);
+    const density = typeof window !== 'undefined' ? window.devicePixelRatio : 1;
+    const ratio = this.renderQuality
+      ? avatarPixelRatio(width, height, density, this.renderQuality, this.maxRenderDimension)
+      : courtPixelRatio(width, height, density, this.maxRenderPixels, this.maxRenderDimension);
+    const canvas = this.renderer.domElement;
+    // Keep CSS dimensions and camera framing independent of the GPU budget.
+    if (canvas.style) { canvas.style.width = `${width}px`; canvas.style.height = `${height}px`; }
+    if (!this.renderSize || this.renderSize.width !== width || this.renderSize.height !== height || this.renderSize.ratio !== ratio) {
+      this.renderer.setDrawingBufferSize(width, height, ratio);
+      this.renderSize = { width, height, ratio };
+    }
+  }
+
+  public setRenderQuality(quality: AvatarRenderQuality): void {
+    this.renderQuality = quality;
+    if (this.renderSize) this.resize(this.renderSize.width, this.renderSize.height);
   }
 
   public destroy(): void {
@@ -1499,6 +1792,9 @@ export class PentacleArena3D {
       if (renderable.geometry) geometries.add(renderable.geometry);
       if (renderable.material) {
         for (const material of Array.isArray(renderable.material) ? renderable.material : [renderable.material]) materials.add(material);
+      }
+      if ((object as THREE.InstancedMesh).isInstancedMesh) {
+        (object as THREE.InstancedMesh).dispose();
       }
       const light = object as THREE.Light & { shadow?: THREE.LightShadow };
       light.shadow?.dispose();

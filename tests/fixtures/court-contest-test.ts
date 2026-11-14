@@ -17,7 +17,7 @@ launcher.onclick = () => {
         ...agent, ovr: computeOvr(agent.ratings), esmsSource: 'fallback', degraded: { esms: true },
       }, agent.key)) })),
     // Initial plays are historical; only newly emitted rows trigger animations.
-    melee_play: [1, 2].map(seat_id => ({ play_id: seat_id, seat_id, table_id: 1, trick_number: 0 })),
+    melee_play: [1, 2].map(seat_id => ({ play_id: seat_id, seat_id, table_id: 1, trick_number: 1 })),
     melee_trick: [],
   };
   const client = { isLive: true, conn: {}, isApplied: () => true,
@@ -26,7 +26,10 @@ launcher.onclick = () => {
       return () => listeners.delete(table);
     },
   };
-  openPentacleCourt({ client, faction: 6, zoneId: 0 });
+  let metricsTimer: ReturnType<typeof setInterval> | undefined;
+  const court = openPentacleCourt({ client, faction: 6, zoneId: 0,
+    onClose: () => { if (metricsTimer !== undefined) clearInterval(metricsTimer); },
+  });
   const controls = document.createElement('div');
   controls.className = 'contest-preview-controls';
   controls.innerHTML = `<p class="pk-court-notice">LOCAL PREVIEW · Synthetic subscriptions. Territory control stays at 72%.</p>
@@ -36,30 +39,52 @@ launcher.onclick = () => {
     <button type="button" data-preview="inspect">Inspect selected winner</button>
     <button type="button" data-preview="result">Show confirmed trick result</button>
     <button type="button" data-preview="next">Play next trick</button>
-    <p role="status" class="preview-status">Select a vessel, then show the result to inspect its reaction.</p>`;
+    <p role="status" class="preview-status">Select a vessel, then show the result to inspect its reaction.</p>
+    <details><summary>Local render diagnostics</summary><output class="preview-render-metrics">Sampling render activity…</output></details>`;
   document.querySelector('.pk-court-inspector-heading')!.append(controls);
   const result = controls.querySelector<HTMLButtonElement>('[data-preview="result"]')!;
   const next = controls.querySelector<HTMLButtonElement>('[data-preview="next"]')!;
   const winner = controls.querySelector<HTMLSelectElement>('select')!;
   const status = controls.querySelector<HTMLElement>('.preview-status')!;
+  const metrics = controls.querySelector<HTMLOutputElement>('.preview-render-metrics')!;
+  let sampledRenderer = court.getArena().renderer;
+  let sampledFrame = sampledRenderer.info?.render.frame ?? 0;
+  let sampledAt = performance.now();
+  metricsTimer = setInterval(() => {
+    const now = performance.now();
+    const renderer = court.getArena().renderer;
+    const info = renderer.info;
+    if (!info) {
+      metrics.textContent = '3D rendering unavailable; inspector remains usable.';
+    } else if (renderer !== sampledRenderer) {
+      metrics.textContent = 'Sampling render activity…';
+    } else {
+      const rate = (info.render.frame - sampledFrame) * 1000 / Math.max(1, now - sampledAt);
+      metrics.textContent = `${rate.toFixed(1)} rendered frames/s · ${info.render.calls} draw calls/frame · ${info.render.triangles.toLocaleString()} triangles · ${info.memory.geometries} geometries · ${info.memory.textures} textures`;
+    }
+    sampledRenderer = renderer;
+    sampledFrame = info?.render.frame ?? 0;
+    sampledAt = now;
+  }, 1000);
   controls.querySelector<HTMLButtonElement>('[data-preview="inspect"]')!.onclick = () => {
     const handle = agents[Number(winner.value) - 1].handle;
     [...document.querySelectorAll<HTMLButtonElement>('.pk-court-agent')]
       .find(button => button.querySelector('strong')?.textContent === handle)?.click();
   };
-  let trickNumber = 0;
+  // The reducer numbers tricks from 1 (melee_open_trick).
+  let trickNumber = 1;
   next.disabled = true;
   result.onclick = () => {
     const winnerSeat = Number(winner.value);
-    tables.melee_trick.push({ trick_id: trickNumber + 1, table_id: 1, winner_seat: winnerSeat, trick_number: trickNumber });
+    tables.melee_trick.push({ trick_id: trickNumber, table_id: 1, winner_seat: winnerSeat, trick_number: trickNumber });
     listeners.get('melee_trick')?.(tables.melee_trick);
-    status.textContent = `${agents[winnerSeat - 1].handle} wins trick ${trickNumber + 1}. Reactions follow any queued card strikes.`;
+    status.textContent = `${agents[winnerSeat - 1].handle} wins trick ${trickNumber}. Reactions follow any queued card strikes.`;
     result.disabled = true;
     next.disabled = false;
   };
   next.onclick = () => {
     trickNumber++;
-    tables.melee_play.push(...[1, 2].map(seat_id => ({ play_id: trickNumber * 2 + seat_id,
+    tables.melee_play.push(...[1, 2].map(seat_id => ({ play_id: (trickNumber - 1) * 2 + seat_id,
       table_id: 1, seat_id, trick_number: trickNumber })));
     listeners.get('melee_play')?.(tables.melee_play);
     result.disabled = false;

@@ -1,0 +1,51 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Pentacles — Participating agents</title>
+<style>
+*{box-sizing:border-box} body{margin:0;background:#070d1c;color:#e9efff;font:14px/1.5 system-ui}main{max-width:1100px;margin:auto;padding:24px}h1{font-size:28px;margin:0}p{color:#a9bad4}header{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}.fixture-tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.fixture-tools button{min-height:44px;color:#eee;background:#1b2b44;border:1px solid #46587b;border-radius:8px;padding:8px}#sky-map-wrapper{position:relative;width:min(100%,680px);aspect-ratio:1;margin:16px auto;background:radial-gradient(ellipse,#172b4766,transparent 68%)}.pentacle-svg{width:100%;height:100%}.zone-shape{fill:#10213a77;stroke:#d5b57455;stroke-width:1}#horizon-rim-path,#pentagram-star-path{stroke:#c6ae71;stroke-width:1.2}label{display:inline-flex;gap:8px;align-items:center}input[type=range]{width:90px}#readout{font:12px monospace;color:#acc4ea}.note{font-size:12px} @media(max-width:500px){main{padding:16px}h1{font-size:23px}}
+</style></head><body><main><header><div><h1>Agents on the Pentacle</h1><p>Every participating historical agent · live seat layout</p></div><p class="note">Synthetic game seats. No network or game writes.</p></header>
+<div class="fixture-tools"><label>Orbit <input id="yaw" type="range" min="0" max="360" value="0"></label><label>Lean <input id="pitch" type="range" min="0" max="70" value="0"></label><label>Zoom <input id="zoom" type="range" min="0.8" max="2.2" step="0.1" value="1"></label><button id="move">Move House 0 table to House 4</button><button id="resolve">Resolve Crown table</button><button id="leave">Remove one seat</button><button id="disconnect">Disconnect feed</button><button id="reset">Reset scene</button><label><input id="deploy" type="checkbox">Card selected</label></div>
+<div id="sky-map-wrapper"><svg viewBox="0 0 600 600" class="pentacle-svg">
+          <defs>
+            <radialGradient id="sky-halo" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="rgba(22, 32, 58, 0.4)" />
+              <stop offset="100%" stop-color="rgba(5, 6, 12, 0.0)" />
+            </radialGradient>
+          </defs>
+          
+          <circle cx="300" cy="300" r="250" fill="url(#sky-halo)" />
+
+          <!-- The Eleven Zones clickable boundaries -->
+          <!-- 5 ARC-HOUSES -->
+          <path id="zone-shape-0" class="zone-shape" d="M300,50 L356.1,222.8 L537.8,222.8 A250,250 0 0,0 300,50 Z" />
+          <path id="zone-shape-1" class="zone-shape" d="M537.8,222.8 L390.8,329.5 L447,502.3 A250,250 0 0,0 537.8,222.8 Z" />
+          <path id="zone-shape-2" class="zone-shape" d="M447,502.3 L300,395.5 L153,502.3 A250,250 0 0,0 447,502.3 Z" />
+          <path id="zone-shape-3" class="zone-shape" d="M153,502.3 L209.2,329.5 L62.2,222.8 A250,250 0 0,0 153,502.3 Z" />
+          <path id="zone-shape-4" class="zone-shape" d="M62.2,222.8 L243.9,222.8 L300,50 A250,250 0 0,0 62.2,222.8 Z" />
+
+          <!-- 5 SPIRES -->
+          <path id="zone-shape-5" class="zone-shape" d="M300,50 L243.9,222.8 L356.1,222.8 Z" fill="rgba(241,219,161,0.05)" />
+          <path id="zone-shape-6" class="zone-shape" d="M537.8,222.8 L356.1,222.8 L390.8,329.5 Z" fill="rgba(241,219,161,0.05)" />
+          <path id="zone-shape-7" class="zone-shape" d="M447,502.3 L390.8,329.5 L300,395.5 Z" fill="rgba(241,219,161,0.05)" />
+          <path id="zone-shape-8" class="zone-shape" d="M153,502.3 L300,395.5 L209.2,329.5 Z" fill="rgba(241,219,161,0.05)" />
+          <path id="zone-shape-9" class="zone-shape" d="M62.2,222.8 L209.2,329.5 L243.9,222.8 Z" fill="rgba(241,219,161,0.05)" />
+
+          <!-- CENTRAL CROWN -->
+          <path id="zone-shape-10" class="zone-shape" d="M356.1,222.8 L390.8,329.5 L300,395.5 L209.2,329.5 L243.9,222.8 Z" fill="rgba(216,180,106,0.1)" />
+
+          <!-- The static pentagram star and circle overlays -->
+          <g id="zodiac-signs-g" pointer-events="none"></g>
+          <path id="horizon-rim-path" fill="none" stroke="var(--gold)" stroke-width="2.2" pointer-events="none" />
+          <path id="pentagram-star-path" fill="none" stroke="var(--gold)" stroke-width="2.2" stroke-linejoin="round" pointer-events="none" />
+
+          <text id="crown-label-text" x="300" y="304" text-anchor="middle" fill="var(--gold)" font-family="Space Grotesk" font-size="10" letter-spacing="1">CROWN</text>
+
+          <!-- Constellation figures (the sky DEX) — drawn under the stars so the
+               star dots sit on top of the stick-figure lines. -->
+          <g id="constellations-g" pointer-events="none"></g>
+          <!-- Dynamic overlay layer for Star Nodes -->
+          <g id="stars-nodes-g"></g>
+          <!-- The wanderers' plane: the ecliptic arc + the ten bodies, rendered
+               above the star field so the planets are never lost in the stars -->
+          <g id="planets-g"></g>
+          <!-- Compass rose + the live Ascendant marker on the horizon rim -->
+          <g id="sky-chrome-g" pointer-events="none"></g>
+        </svg></div><p id="readout"></p></main><script src="/sky.js"></script><script type="module" src="./board-avatar-test.ts"></script></body></html>

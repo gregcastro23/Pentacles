@@ -158,7 +158,7 @@ describe('Court Event Timeline (Arrivals & Contests)', () => {
         { seat_id: 1n, table_id: 20n, occupant: 'newton-id', faction: 6, is_human: false },
         { seat_id: 2n, table_id: 20n, occupant: 'emily-id', faction: 3, is_human: false },
       ],
-      melee_play: [{ play_id: 100n, table_id: 20n, seat_id: 1n, trick_number: 0 }],
+      melee_play: [{ play_id: 100n, table_id: 20n, seat_id: 1n, trick_number: 1 }],
       melee_trick: [],
     };
 
@@ -176,7 +176,7 @@ describe('Court Event Timeline (Arrivals & Contests)', () => {
     bridge.connect(client);
 
     // Dispatching a melee play produces a contest event
-    snapshots.melee_play.push({ play_id: 101n, table_id: 20n, seat_id: 2n, trick_number: 0 });
+    snapshots.melee_play.push({ play_id: 101n, table_id: 20n, seat_id: 2n, trick_number: 1 });
     listeners.get('melee_play')!(snapshots.melee_play);
 
     const timelineAfterPlay = bridge.getTimeline();
@@ -188,7 +188,7 @@ describe('Court Event Timeline (Arrivals & Contests)', () => {
     expect(playContest?.summary).toContain('Emily Dickinson engaged Isaac Newton');
 
     // Resolving a trick produces a trick contest event
-    snapshots.melee_trick.push({ trick_id: 50n, table_id: 20n, winner_seat: 1n, trick_number: 0 });
+    snapshots.melee_trick.push({ trick_id: 50n, table_id: 20n, winner_seat: 1n, trick_number: 1 });
     listeners.get('melee_trick')!(snapshots.melee_trick);
 
     const timelineAfterTrick = bridge.getTimeline();
@@ -196,7 +196,7 @@ describe('Court Event Timeline (Arrivals & Contests)', () => {
     expect(trickContest.type).toBe('contest');
     expect(trickContest.agentKey).toBe('isaac-newton');
     expect(trickContest.rivalKey).toBe('emily-dickinson');
-    expect(trickContest.summary).toContain('Isaac Newton triumphed over Emily Dickinson in trick 0');
+    expect(trickContest.summary).toContain('Isaac Newton triumphed over Emily Dickinson in trick 1');
 
     bridge.disconnect();
     arena.destroy();
@@ -267,6 +267,96 @@ describe('Court Event Timeline (Arrivals & Contests)', () => {
     } finally {
       cleanup();
     }
+  });
+
+  it('preserves timeline buttons and keyboard focus across refreshes and new arrivals', () => {
+    const { cleanup } = setupVesselDomGlobals();
+    const court = openPentacleCourt();
+    try {
+      const dialog = court.getDialog();
+      const arena = court.getArena()!;
+      const bridge = court.getBridge()!;
+      arena.placeAvatarOnZone(0, FIXTURE_AGENTS[0]);
+      arena.placeAvatarOnZone(0, FIXTURE_AGENTS[1], 'challenger');
+      const first = bridge.recordTimelineEvent({ type: 'arrival', zoneId: 0,
+        agentKey: 'isaac-newton', agentHandle: 'Isaac Newton', faction: 6, summary: 'Newton arrives' });
+      const button = dialog.querySelector<HTMLButtonElement>(`[data-event-id="${first.id}"]`)!;
+      button.focus();
+      first.timestamp = Date.now() - 65_000;
+      dialog.querySelector('input')!.dispatchEvent(new Event('input'));
+      expect(dialog.querySelector(`[data-event-id="${first.id}"]`)).toBe(button);
+      expect(document.activeElement).toBe(button);
+      expect(button.textContent).toContain('1m ago');
+
+      const second = bridge.recordTimelineEvent({ type: 'arrival', zoneId: 0,
+        agentKey: 'emily-dickinson', agentHandle: 'Emily Dickinson', faction: 3, summary: 'Emily arrives' });
+      expect(document.activeElement).toBe(button);
+      expect(dialog.querySelector('.pk-court-timeline')!.firstChild!.textContent).toContain('Emily arrives');
+      button.click();
+      expect(arena.selection?.agentId).toBe('isaac-newton');
+      expect(button.getAttribute('aria-pressed')).toBe('true');
+      expect(dialog.querySelector(`[data-event-id="${second.id}"]`)!.getAttribute('aria-pressed')).toBe('false');
+      expect(document.activeElement).toBe(dialog.querySelector('.pk-court-detail'));
+    } finally { court.destroy(); cleanup(); }
+  });
+
+  it('returns focus to the active filter when a focused event expires and clears old nodes on mode changes', () => {
+    const { cleanup } = setupVesselDomGlobals();
+    const court = openPentacleCourt();
+    try {
+      const dialog = court.getDialog();
+      const bridge = court.getBridge()!;
+      const record = (summary: string) => bridge.recordTimelineEvent({ type: 'contest', zoneId: 0,
+        agentKey: 'isaac-newton', agentHandle: 'Isaac Newton', faction: 6, summary });
+      record('Old contest');
+      const filter = dialog.querySelector<HTMLButtonElement>('[data-timeline-category="contest"]')!;
+      filter.focus(); filter.click();
+      const oldButton = dialog.querySelector<HTMLButtonElement>('.pk-court-timeline-item')!;
+      oldButton.focus();
+      for (let i = 0; i < 50; i++) record(`New contest ${i}`);
+      expect(oldButton.isConnected).toBe(false);
+      expect(document.activeElement).toBe(filter);
+      expect(dialog.querySelectorAll('.pk-court-timeline-item')).toHaveLength(50);
+      dialog.querySelector<HTMLButtonElement>('[data-mode="examples"]')!.click();
+      expect(dialog.querySelector('.pk-court-timeline')!.textContent).not.toContain('New contest');
+      expect(dialog.querySelectorAll('.pk-court-timeline-item')).toHaveLength(3);
+    } finally { court.destroy(); cleanup(); }
+  });
+
+  it('reveals details on explicit inspection without moving the page on selection updates', () => {
+    const { cleanup } = setupVesselDomGlobals();
+    const court = openPentacleCourt();
+    try {
+      const dialog = court.getDialog();
+      const arena = court.getArena()!;
+      const detail = dialog.querySelector<HTMLElement>('.pk-court-detail')!;
+      const body = dialog.querySelector<HTMLElement>('.pk-court-body')!;
+      const inspect = dialog.querySelector<HTMLButtonElement>('[data-action="inspect"]')!;
+      const reveal = mock(() => {});
+      detail.scrollIntoView = reveal;
+      expect(inspect.hidden).toBe(true);
+      arena.placeAvatarOnZone(0, FIXTURE_AGENTS[0]);
+      body.scrollTop = 450;
+      arena.selectAgent(FIXTURE_AGENTS[0].key);
+      expect(body.scrollTop).toBe(450);
+      expect(reveal).not.toHaveBeenCalled();
+      expect(inspect.hidden).toBe(false);
+      expect(inspect.textContent).toContain(FIXTURE_AGENTS[0].handle);
+
+      inspect.click();
+      expect(document.activeElement).toBe(detail);
+      expect(reveal).toHaveBeenCalledWith({ block: 'start' });
+
+      const territory = dialog.querySelector<HTMLSelectElement>('select')!;
+      territory.value = '1';
+      territory.dispatchEvent(new Event('change'));
+      expect(arena.selection?.zoneId).toBe(1);
+      expect(inspect.textContent).toContain('House II');
+      expect(reveal).toHaveBeenCalledTimes(2);
+      territory.value = 'all';
+      territory.dispatchEvent(new Event('change'));
+      expect(inspect.hidden).toBe(true);
+    } finally { court.destroy(); cleanup(); }
   });
 
   it('records rating shifts in timeline when agent ratings update live', () => {
@@ -373,10 +463,20 @@ describe('Court Event Timeline (Arrivals & Contests)', () => {
       arena.placeAvatarOnZone(2, FIXTURE_AGENTS[1], 'owner');
       arena.placeAvatarOnZone(2, FIXTURE_AGENTS[2], 'challenger');
 
+      const body = dialog.querySelector<HTMLElement>('.pk-court-body')!;
+      const inspector = dialog.querySelector<HTMLElement>('.pk-court-inspector')!;
+      const search = dialog.querySelector<HTMLInputElement>('input')!;
+      body.scrollTop = 450;
+      inspector.scrollTop = 200;
+      search.focus();
+
       void bridge.dispatchTrickResolution(2, FIXTURE_AGENTS[1].key, FIXTURE_AGENTS[2].key, 'cups', 1);
 
       // Because followAction is true, the active pedestal was auto-selected
       expect(arena.selection?.agentId).toBe(FIXTURE_AGENTS[1].key);
+      expect(body.scrollTop).toBe(450);
+      expect(inspector.scrollTop).toBe(200);
+      expect(document.activeElement).toBe(search);
 
       court.destroy();
     } finally {
